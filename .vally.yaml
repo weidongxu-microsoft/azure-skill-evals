@@ -11,3 +11,10 @@ suites:
       - scenarios/cosmos-db-dotnet-crud/eval.yaml
       - scenarios/cosmos-db-java-crud/eval.yaml
       - scenarios/cosmos-db-typescript-crud/eval.yaml
+  app-configuration-config-values:
+    description: App Configuration values evaluation across four languages
+    evals:
+      - scenarios/app-configuration-python-config-values/eval.yaml
+      - scenarios/app-configuration-dotnet-config-values/eval.yaml
+      - scenarios/app-configuration-java-config-values/eval.yaml
+      - scenarios/app-configuration-typescript-config-values/eval.yaml

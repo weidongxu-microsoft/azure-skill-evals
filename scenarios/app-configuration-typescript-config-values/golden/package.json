@@ -1,0 +1,17 @@
+{
+  "name": "app-configuration-reference",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/app-configuration.js"
+  },
+  "dependencies": {
+    "@azure/app-configuration": "1.12.1"
+  },
+  "devDependencies": {
+    "typescript": "5.9.2"
+  },
+  "packageManager": "pnpm@10.26.0"
+}

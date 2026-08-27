@@ -113,13 +113,13 @@ stimuli:
             - .vally/languages/java/check.mjs
             - language/current-imports
       - type: run-command
-        name: language/client-lifecycle
+        name: language/client-builder
         weight: 1
         config:
           command: node
           args:
             - .vally/languages/java/check.mjs
-            - language/client-lifecycle
+            - language/client-builder
     environment:
       files:
         - src: tools/check-cosmos-java.mjs

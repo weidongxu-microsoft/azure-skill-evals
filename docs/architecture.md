@@ -18,8 +18,9 @@ Vally owns execution, trajectories, grading, and experiment isolation. Each
 scenario directory owns its eval, golden application, grader, and grader tests.
 Shared language checks live under `languages/`. Each language owns one shared
 experiment under `experiments/`, whose eval list grows as scenarios migrate.
-Each `eval.yaml` defines its stimulus and 11 equally weighted correctness
-graders. The experiment changes only `/environment/skills` and
+Each `eval.yaml` defines its stimulus and equally weighted correctness graders.
+The number of checks can vary by scenario and language. The experiment changes
+only `/environment/skills` and
 `/environment/mcpServers`, so prompts, models, limits, and graders cannot drift
 between arms.
 
@@ -123,8 +124,8 @@ least three trials per arm before drawing comparative quality conclusions.
 
 ## Scope
 
-Version 1 includes Cosmos DB CRUD stimuli for Python, .NET, Java, and
-TypeScript. Every language has 11 correctness criteria, three experiment arms,
+Version 1 includes migrated Azure SDK stimuli for Python, .NET, Java, and
+TypeScript. Every evaluation has correctness criteria, three experiment arms,
 a buildable golden application, configuration linting, grader unit tests, and
 one trial per arm.
 
@@ -135,6 +136,6 @@ workspace, MCP, and skill evidence.
 ## Success criteria
 
 - Vally plans and runs exactly three variants with no configuration drift.
-- Each variant produces Python code and 11 independently visible checks.
+- Each variant produces application code and independently visible checks.
 - Results distinguish prompt and language checks.
 - Trajectories preserve MCP and skill diagnostics without changing scores.

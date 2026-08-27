@@ -1,0 +1,142 @@
+name: app-configuration-java-config-values
+description: Compare Azure tooling for an App Configuration Java CRUD task
+version: "1.0"
+type: capability
+scoring:
+  weights: {}
+  threshold: 1
+defaults:
+  runs: 1
+  timeout: 30m
+  model: gpt-5.6-sol
+  judge_model: gpt-5.6-sol
+stimuli:
+  - name: app-configuration-dp-java-crud
+    prompt: |-
+      Write a Java program that manages configuration settings in Azure App Configuration.
+
+      Write the code to files. Do not reply with code blocks.
+
+      1. Create a ConfigurationClient using ConfigurationClientBuilder with a connection string.
+      2. Set a configuration setting with key "app:Settings:FontSize" and value "24".
+      3. Set a setting with label "Production".
+      4. Get the setting by key and print its value.
+      5. List settings with key filter "app:Settings:*" using listConfigurationSettings.
+      6. Create an enabled feature flag configuration setting for "BetaFeature".
+      7. Delete the setting by key.
+
+      Show the com.azure:azure-data-appconfiguration Maven dependency and handle HttpResponseException with status inspection.
+    tags:
+      service: app-configuration
+      plane: data-plane
+      language: java
+      category: crud
+    graders:
+      - type: run-command
+        name: prompt/app-configuration-package
+        weight: 1
+        config:
+          command: node
+          args:
+            - .vally/scenarios/app-configuration-java-config-values/tools/check-app-configuration-java.mjs
+            - prompt/app-configuration-package
+      - type: run-command
+        name: prompt/configuration-client
+        weight: 1
+        config:
+          command: node
+          args:
+            - .vally/scenarios/app-configuration-java-config-values/tools/check-app-configuration-java.mjs
+            - prompt/configuration-client
+      - type: run-command
+        name: prompt/set-settings
+        weight: 1
+        config:
+          command: node
+          args:
+            - .vally/scenarios/app-configuration-java-config-values/tools/check-app-configuration-java.mjs
+            - prompt/set-settings
+      - type: run-command
+        name: prompt/production-label
+        weight: 1
+        config:
+          command: node
+          args:
+            - .vally/scenarios/app-configuration-java-config-values/tools/check-app-configuration-java.mjs
+            - prompt/production-label
+      - type: run-command
+        name: prompt/get-list-settings
+        weight: 1
+        config:
+          command: node
+          args:
+            - .vally/scenarios/app-configuration-java-config-values/tools/check-app-configuration-java.mjs
+            - prompt/get-list-settings
+      - type: run-command
+        name: prompt/enabled-feature-flag
+        weight: 1
+        config:
+          command: node
+          args:
+            - .vally/scenarios/app-configuration-java-config-values/tools/check-app-configuration-java.mjs
+            - prompt/enabled-feature-flag
+      - type: run-command
+        name: prompt/delete-error
+        weight: 1
+        config:
+          command: node
+          args:
+            - .vally/scenarios/app-configuration-java-config-values/tools/check-app-configuration-java.mjs
+            - prompt/delete-error
+      - type: run-command
+        name: language/build-manifest
+        weight: 1
+        config:
+          command: node
+          args:
+            - .vally/languages/java/check.mjs
+            - language/build-manifest
+      - type: run-command
+        name: language/current-azure-dependencies
+        weight: 1
+        config:
+          command: node
+          args:
+            - .vally/languages/java/check.mjs
+            - language/current-azure-dependencies
+      - type: run-command
+        name: language/current-imports
+        weight: 1
+        config:
+          command: node
+          args:
+            - .vally/languages/java/check.mjs
+            - language/current-imports
+      - type: run-command
+        name: language/client-builder
+        weight: 1
+        config:
+          command: node
+          args:
+            - .vally/languages/java/check.mjs
+            - language/client-builder
+    environment:
+      files:
+        - src: tools/check-app-configuration-java.mjs
+          dest: .vally/scenarios/app-configuration-java-config-values/tools/check-app-configuration-java.mjs
+        - src: tools/app-configuration-java-rules.mjs
+          dest: .vally/scenarios/app-configuration-java-config-values/tools/app-configuration-java-rules.mjs
+        - src: ../../languages/java/check.mjs
+          dest: .vally/languages/java/check.mjs
+        - src: ../../languages/java/checks.mjs
+          dest: .vally/languages/java/checks.mjs
+artifacts:
+  include:
+    - "**/*.java"
+    - "**/pom.xml"
+    - "**/build.gradle"
+    - "**/build.gradle.kts"
+    - "**/README.md"
+  exclude:
+    - "**/.vally/**"
+    - "**/target/**"

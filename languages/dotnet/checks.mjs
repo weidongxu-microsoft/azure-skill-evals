@@ -54,6 +54,7 @@ const checks = {
     ),
   "language/async-await": ({ source }) => /\bawait\b/.test(source),
   "language/client-lifecycle": ({ source }) =>
+    !/\bCosmosClient\b/.test(source) ||
     /\b(?:await\s+)?using\s+(?:var|\w+(?:<[^>]+>)?)\s+\w+\s*=/.test(source) ||
     /\.(?:Dispose|DisposeAsync)\s*\(/.test(source),
 };

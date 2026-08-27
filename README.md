@@ -9,7 +9,7 @@ graders across three environments:
 3. Azure MCP plus general Azure skills and the complete language-specific SDK
    skill suite.
 
-## Run the Cosmos DB evaluations
+## Run the evaluations
 
 ```powershell
 pnpm install
@@ -23,10 +23,10 @@ pnpm experiment:cosmos:java
 pnpm experiment:cosmos:typescript
 ```
 
-Each experiment runs one trial per arm. Vally writes timestamped output under
-`reports/`. The repository currently covers Python, .NET, Java, and TypeScript
-Cosmos DB CRUD applications. Each language has 11 correctness checks split
-between scenario-specific and reusable language requirements.
+Each language experiment runs every migrated scenario once per arm. Vally
+writes timestamped output under `reports/`. The repository covers Python,
+.NET, Java, and TypeScript. Each evaluation has scenario-specific and reusable
+language correctness checks; the number of checks can vary by scenario.
 
 ## Scenario layout
 

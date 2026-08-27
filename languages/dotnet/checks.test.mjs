@@ -12,17 +12,17 @@ const completeWorkspace = {
   project: `
 <Project Sdk="Microsoft.NET.Sdk">
   <ItemGroup>
-    <PackageReference Include="Azure.Storage.Blobs" Version="12.0.0" />
+    <PackageReference Include="Microsoft.Azure.Cosmos" Version="3.0.0" />
   </ItemGroup>
 </Project>
 `,
   source: `
-using Azure.Storage.Blobs;
+using Microsoft.Azure.Cosmos;
 
 static async Task Main()
 {
-    using BlobServiceClient client = new(new Uri("https://example"));
-    await client.GetPropertiesAsync();
+    using CosmosClient client = new("connection-string");
+    await client.ReadAccountAsync();
 }
 `,
 };
@@ -42,10 +42,10 @@ test("legacy packages and undisposed clients fail", () => {
   const workspace = {
     ...completeWorkspace,
     project: completeWorkspace.project.replace(
-      "Azure.Storage.Blobs",
-      "WindowsAzure.Storage",
+      "Microsoft.Azure.Cosmos",
+      "Microsoft.Azure.DocumentDB",
     ),
-    source: completeWorkspace.source.replace("using BlobServiceClient", "var"),
+    source: completeWorkspace.source.replace("using CosmosClient", "CosmosClient"),
   };
 
   assert.equal(

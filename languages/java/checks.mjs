@@ -48,9 +48,9 @@ const checks = {
     !/\bimport\s+(?:com\.microsoft\.azure|com\.azure\.[^;]*\.implementation\.)/.test(
       source,
     ),
-  "language/client-lifecycle": ({ source }) =>
-    /\btry\s*\([^)]*\b\w*Client\b[^)]*=/.test(source) ||
-    /\b\w+\.close\s*\(\s*\)/.test(source),
+  "language/client-builder": ({ source }) =>
+    /\b\w+ClientBuilder\s*\(\s*\)/.test(source) &&
+    /\.build(?:Async)?Client\s*\(\s*\)/.test(source),
 };
 
 export function evaluateJavaCheck(name, workspace) {

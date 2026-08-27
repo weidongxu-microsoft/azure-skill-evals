@@ -17,9 +17,9 @@ environment paths.
 The third arm must expose every skill from the applicable `microsoft/skills`
 language plugin. Do not grade or require invocation of a particular skill.
 
-The Cosmos DB CRUD suite currently covers Python, .NET, Java, and TypeScript.
-Each language has 11 correctness checks split between scenario-specific and
-reusable language requirements.
+Migrated scenarios cover Python, .NET, Java, and TypeScript. Each evaluation
+has scenario-specific and reusable language correctness checks; the number of
+checks can vary by scenario.
 
 ## Scenario layout
 

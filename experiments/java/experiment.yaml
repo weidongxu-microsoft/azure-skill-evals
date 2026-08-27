@@ -1,6 +1,7 @@
 name: java-three-way
 evals:
   - ../../scenarios/cosmos-db-java-crud/eval.yaml
+  - ../../scenarios/app-configuration-java-config-values/eval.yaml
 vary:
   - /environment/skills
   - /environment/mcpServers

@@ -32,7 +32,9 @@ const checks = {
       python,
     ) && /\bDefaultAzureCredential\s*\(/.test(python),
   "language/client-lifecycle": ({ python }) =>
-    /(?:with|async\s+with)\s+(?:\w+\.)*\w*Client\s*\(/.test(python) ||
+    /(?:with|async\s+with)\s+(?:\w+\.)*\w*Client(?:\.from_connection_string)?\s*\(/.test(
+      python,
+    ) ||
     /\b\w+\.close\s*\(\s*\)/.test(python),
   "language/async-client": ({ python }) => {
     const usesAsyncAzureClient =
