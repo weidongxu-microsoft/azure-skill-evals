@@ -1,29 +1,3 @@
-import { readFileSync, readdirSync } from "node:fs";
-import { join } from "node:path";
-
-function collectTopLevelFiles(root, predicate) {
-  return readdirSync(root, { withFileTypes: true })
-    .filter((entry) => entry.isFile() && predicate(entry.name))
-    .map((entry) => join(root, entry.name));
-}
-
-export function loadWorkspace(root) {
-  const pythonFiles = collectTopLevelFiles(root, (path) => path.endsWith(".py"));
-  const dependencyFiles = collectTopLevelFiles(
-    root,
-    (path) =>
-      /(?:requirements[^\\/]*\.txt|pyproject\.toml|setup\.py)$/i.test(path),
-  );
-
-  return {
-    pythonFiles,
-    python: pythonFiles.map((path) => readFileSync(path, "utf8")).join("\n"),
-    dependencies: dependencyFiles
-      .map((path) => readFileSync(path, "utf8"))
-      .join("\n"),
-  };
-}
-
 const rules = {
   "prompt/azure-cosmos-package": ({ dependencies }) =>
     /\bazure-cosmos\b/i.test(dependencies),
@@ -41,20 +15,6 @@ const rules = {
   "prompt/cosmos-exception": ({ python }) =>
     /\bCosmosHttpResponseError\b/.test(python) &&
     /\bexcept\b[\s\S]{0,120}?CosmosHttpResponseError/.test(python),
-  "language/correct-imports": ({ python }) =>
-    /from\s+azure\.cosmos\s+import\s+/.test(python),
-  "language/default-azure-credential": ({ python }) =>
-    /from\s+azure\.identity\s+import\s+[^\n]*DefaultAzureCredential/.test(
-      python,
-    ) && /\bDefaultAzureCredential\s*\(/.test(python),
-  "language/client-lifecycle": ({ python }) =>
-    /with\s+CosmosClient\s*\(/.test(python) ||
-    /\bclient\.close\s*\(\s*\)/.test(python),
-  "language/async-client": () => true,
-  "language/exception-handling": ({ python }) =>
-    /\bexcept\b[\s\S]{0,120}?(?:CosmosHttpResponseError|AzureError)/.test(
-      python,
-    ),
 };
 
 export function evaluateRule(name, workspace) {

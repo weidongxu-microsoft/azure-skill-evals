@@ -3,10 +3,9 @@
 ## Problem statement
 
 The existing Hyoka reports proved that Azure tooling can improve generated
-code, but the evaluation harness has two correctness gaps. Workspace checks can
-fail when the expected file exists, and Azure MCP checks can fail when the
-trajectory contains successful Azure MCP child-tool calls. Hyoka also does not
-provide reusable Vally test suites or native multi-variant experiments.
+code, but behavior checks can obscure whether the generated application is
+actually better. Hyoka also does not provide reusable Vally test suites or
+native multi-variant experiments.
 
 The Cosmos DB Python reference run scored 8/13, 9/13, and 10/13 across the three
 arms. All arms missed `enable_cross_partition_query`, and the improved arms
@@ -17,8 +16,9 @@ explicitly activated `azure-cosmos-py`.
 
 Vally owns execution, trajectories, grading, and experiment isolation. Each
 scenario directory owns its eval, experiment, golden application, grader, and
-grader tests. One `eval.yaml` defines the stimulus and the 13 equally weighted
-graders. One experiment file changes only `/environment/skills` and
+grader tests. Shared language checks live under `languages/`. One `eval.yaml`
+defines the stimulus and the 12 equally weighted correctness graders. One
+experiment file changes only `/environment/skills` and
 `/environment/mcpServers`, so prompts, models, limits, and graders cannot drift
 between arms.
 
@@ -27,20 +27,19 @@ External skill repositories and npm packages are pinned in
 repositories under `.work/dependencies/`; generated dependencies and reports
 stay outside Git.
 
-Grader names preserve four independent result groups:
+Grader names preserve three independent result groups:
 
 | Prefix | Responsibility |
 |---|---|
 | `prompt/` | Scenario-specific completion requirements |
 | `language/` | Reusable Python and Azure SDK conventions |
 | `workspace/` | Generated file presence |
-| `trajectory/` | Tool and skill behavior |
 
-Static Node.js checks grade code structure. Vally's built-in file and trajectory
-graders validate artifacts and tool calls. The colocated golden application
-must compile, pass Ruff, and pass every deterministic rule. Raw Vally
+Static Node.js checks grade code structure, and Vally's built-in file grader
+validates artifacts. The colocated golden application must compile, pass Ruff,
+and pass every deterministic rule. Raw Vally
 trajectories remain the source of truth for skill activation, MCP calls,
-timing, errors, and token usage.
+timing, errors, and token usage, but these diagnostics do not affect scores.
 
 ## What changes
 
@@ -75,8 +74,9 @@ branches.
 ### Behavioral evidence
 
 **Decision:** Report configured, loaded, activated, and invoked tools as
-different facts. A score increase alone does not prove that a skill or MCP
-server affected the result.
+different diagnostic facts. Do not award points for tool calls or skill
+activation. A score increase alone does not prove that a skill or MCP server
+affected the result.
 
 ### Trial count
 
@@ -122,7 +122,7 @@ least three trials per arm before drawing comparative quality conclusions.
 
 ## Scope
 
-Version 1 includes the Cosmos DB Python CRUD stimulus, 13 existing criteria,
+Version 1 includes the Cosmos DB Python CRUD stimulus, 12 correctness criteria,
 three experiment arms, dependency bootstrap, configuration linting, grader unit
 tests, and one trial per arm.
 
@@ -133,8 +133,7 @@ workspace, MCP, and skill evidence.
 ## Success criteria
 
 - Vally plans and runs exactly three variants with no configuration drift.
-- Each variant produces Python code and 13 independently visible checks.
+- Each variant produces Python code and 12 independently visible checks.
 - Workspace grading recognizes generated Python files.
-- The Azure arm records at least one Azure MCP call.
-- The SDK arm records activation of `azure-cosmos-py`.
-- Results distinguish prompt, language, workspace, and trajectory checks.
+- Results distinguish prompt, language, and workspace checks.
+- Trajectories preserve MCP and skill diagnostics without changing scores.

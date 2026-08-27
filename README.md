@@ -37,10 +37,15 @@ scenarios/<name>/
 └── tools/
     ├── grader entrypoint
     └── deterministic rules
+
+languages/<language>/
+├── check entrypoint
+├── reusable deterministic checks
+└── grader tests
 ```
 
-Put only genuinely reusable runners and infrastructure in root-level
-directories.
+Scenario evals stage the applicable shared language checker and declare each
+check separately so Vally reports independent one-point results.
 
 ## Scoring
 
@@ -49,7 +54,10 @@ Every criterion has weight 1. Grader names identify the source of each check:
 - `prompt/*`: requirements specific to the customer scenario.
 - `language/*`: reusable language and SDK conventions.
 - `workspace/*`: required generated artifacts.
-- `trajectory/*`: required agent behavior, including Azure MCP use.
+
+Scores measure only the generated application and code. MCP calls and skill
+activation remain available in Vally trajectories as diagnostic evidence, but
+they do not affect correctness scores.
 
 The golden application proves that the deterministic grader suite has at least
 one valid solution without requiring generated code to match one exact

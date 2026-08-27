@@ -28,9 +28,16 @@ scenarios/<name>/
 └── tools/
     ├── grader entrypoint
     └── deterministic rules
+
+languages/<language>/
+├── check entrypoint
+├── reusable deterministic checks
+└── grader tests
 ```
 
-Add root-level tooling only when multiple scenarios reuse it.
+Add root-level tooling only when multiple scenarios reuse it. Vally 0.12 does
+not support external grader-list includes, so each eval declares its
+`language/*` graders while invoking the shared language checker.
 
 ## Sources of truth
 
@@ -42,6 +49,7 @@ Add root-level tooling only when multiple scenarios reuse it.
 - `scenarios/<name>/golden/` contains the runnable, lint-clean reference
   application.
 - `scenarios/<name>/*.test.mjs` validates scenario-specific graders.
+- `languages/<language>/` implements and tests reusable language checks.
 - `dependencies.lock.json` records pinned external repositories and package
   versions.
 - `docs/pilot-results/` contains concise, reviewed findings from completed
@@ -86,11 +94,10 @@ Every criterion has weight 1. Preserve these result groups:
 - `prompt/*`: scenario-specific requirements.
 - `language/*`: reusable language and SDK conventions.
 - `workspace/*`: required generated artifacts.
-- `trajectory/*`: required tool or skill behavior.
 
-Report content checks separately from behavior checks. A baseline intentionally
-cannot pass a criterion requiring Azure MCP, so do not present only the combined
-score when comparing code quality.
+Grade only application and code correctness. Do not score MCP calls, tool
+calls, or skill activation. Use Vally trajectories to diagnose whether
+configured tools and skills loaded or were invoked.
 
 Skills are staged into the Vally workspace. Generated-code graders must inspect
 only the expected generated files and must not pass because a skill contains

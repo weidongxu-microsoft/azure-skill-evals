@@ -38,7 +38,7 @@ stimuli:
         config:
           command: node
           args:
-            - .vally/tools/check-cosmos-python.mjs
+            - .vally/scenarios/cosmos-db-python-crud/tools/check-cosmos-python.mjs
             - prompt/azure-cosmos-package
       - type: run-command
         name: prompt/cosmos-client
@@ -46,7 +46,7 @@ stimuli:
         config:
           command: node
           args:
-            - .vally/tools/check-cosmos-python.mjs
+            - .vally/scenarios/cosmos-db-python-crud/tools/check-cosmos-python.mjs
             - prompt/cosmos-client
       - type: run-command
         name: prompt/create-database
@@ -54,7 +54,7 @@ stimuli:
         config:
           command: node
           args:
-            - .vally/tools/check-cosmos-python.mjs
+            - .vally/scenarios/cosmos-db-python-crud/tools/check-cosmos-python.mjs
             - prompt/create-database
       - type: run-command
         name: prompt/create-container
@@ -62,7 +62,7 @@ stimuli:
         config:
           command: node
           args:
-            - .vally/tools/check-cosmos-python.mjs
+            - .vally/scenarios/cosmos-db-python-crud/tools/check-cosmos-python.mjs
             - prompt/create-container
       - type: run-command
         name: prompt/cross-partition-query
@@ -70,7 +70,7 @@ stimuli:
         config:
           command: node
           args:
-            - .vally/tools/check-cosmos-python.mjs
+            - .vally/scenarios/cosmos-db-python-crud/tools/check-cosmos-python.mjs
             - prompt/cross-partition-query
       - type: run-command
         name: prompt/cosmos-exception
@@ -78,7 +78,7 @@ stimuli:
         config:
           command: node
           args:
-            - .vally/tools/check-cosmos-python.mjs
+            - .vally/scenarios/cosmos-db-python-crud/tools/check-cosmos-python.mjs
             - prompt/cosmos-exception
       - type: run-command
         name: language/correct-imports
@@ -86,7 +86,7 @@ stimuli:
         config:
           command: node
           args:
-            - .vally/tools/check-cosmos-python.mjs
+            - .vally/languages/python/check.mjs
             - language/correct-imports
       - type: run-command
         name: language/default-azure-credential
@@ -94,7 +94,7 @@ stimuli:
         config:
           command: node
           args:
-            - .vally/tools/check-cosmos-python.mjs
+            - .vally/languages/python/check.mjs
             - language/default-azure-credential
       - type: run-command
         name: language/client-lifecycle
@@ -102,7 +102,7 @@ stimuli:
         config:
           command: node
           args:
-            - .vally/tools/check-cosmos-python.mjs
+            - .vally/languages/python/check.mjs
             - language/client-lifecycle
       - type: run-command
         name: language/async-client
@@ -110,7 +110,7 @@ stimuli:
         config:
           command: node
           args:
-            - .vally/tools/check-cosmos-python.mjs
+            - .vally/languages/python/check.mjs
             - language/async-client
       - type: run-command
         name: language/exception-handling
@@ -118,25 +118,23 @@ stimuli:
         config:
           command: node
           args:
-            - .vally/tools/check-cosmos-python.mjs
+            - .vally/languages/python/check.mjs
             - language/exception-handling
       - type: file-exists
         name: workspace/python-file
         weight: 1
         config:
           path: cosmos_crud.py
-      - type: tool-calls
-        name: trajectory/azure-mcp
-        weight: 1
-        config:
-          required:
-            - name: "^azure[-_]"
     environment:
       files:
         - src: tools/check-cosmos-python.mjs
-          dest: .vally/tools/check-cosmos-python.mjs
+          dest: .vally/scenarios/cosmos-db-python-crud/tools/check-cosmos-python.mjs
         - src: tools/cosmos-python-rules.mjs
-          dest: .vally/tools/cosmos-python-rules.mjs
+          dest: .vally/scenarios/cosmos-db-python-crud/tools/cosmos-python-rules.mjs
+        - src: ../../languages/python/check.mjs
+          dest: .vally/languages/python/check.mjs
+        - src: ../../languages/python/checks.mjs
+          dest: .vally/languages/python/checks.mjs
 artifacts:
   include:
     - "**/*.py"
