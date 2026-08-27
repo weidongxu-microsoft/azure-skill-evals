@@ -13,6 +13,25 @@ Keep the prompt, model, trial count, timeout, and graders identical across the
 three variants. Experiments may vary only the declared skill and MCP
 environment paths.
 
+## Scenario layout
+
+Keep all files owned by one evaluation case together:
+
+```text
+scenarios/<name>/
+├── eval.yaml
+├── experiment.yaml
+├── rules.test.mjs
+├── golden/
+│   ├── application source
+│   └── dependency manifest
+└── tools/
+    ├── grader entrypoint
+    └── deterministic rules
+```
+
+Add root-level tooling only when multiple scenarios reuse it.
+
 ## Sources of truth
 
 - `scenarios/<name>/eval.yaml` defines stimuli, grader composition, weights,

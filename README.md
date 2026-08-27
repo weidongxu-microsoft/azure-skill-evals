@@ -22,6 +22,26 @@ pnpm experiment:cosmos
 The experiment runs one trial per arm. Vally writes timestamped output under
 `reports/`.
 
+## Scenario layout
+
+Keep everything owned by one evaluation case together:
+
+```text
+scenarios/<name>/
+├── eval.yaml
+├── experiment.yaml
+├── rules.test.mjs
+├── golden/
+│   ├── application source
+│   └── dependency manifest
+└── tools/
+    ├── grader entrypoint
+    └── deterministic rules
+```
+
+Put only genuinely reusable runners and infrastructure in root-level
+directories.
+
 ## Scoring
 
 Every criterion has weight 1. Grader names identify the source of each check:
@@ -31,10 +51,9 @@ Every criterion has weight 1. Grader names identify the source of each check:
 - `workspace/*`: required generated artifacts.
 - `trajectory/*`: required agent behavior, including Azure MCP use.
 
-Each scenario keeps its eval, experiment, graders, tests, and runnable golden
-application together under `scenarios/<name>/`. The golden application proves
-that the deterministic grader suite has at least one valid solution without
-requiring generated code to match one exact implementation.
+The golden application proves that the deterministic grader suite has at least
+one valid solution without requiring generated code to match one exact
+implementation.
 
 See [Architecture](docs/architecture.md) for repository boundaries and the
 migration plan. See the
