@@ -6,7 +6,8 @@ graders across three environments:
 
 1. No Azure MCP server or skills.
 2. Azure MCP plus general Azure skills.
-3. Azure MCP plus general Azure skills and a language-specific SDK skill.
+3. Azure MCP plus general Azure skills and the complete language-specific SDK
+   skill suite.
 
 ## Run the Cosmos DB evaluations
 
@@ -34,7 +35,6 @@ Keep everything owned by one evaluation case together:
 ```text
 scenarios/<name>/
 ├── eval.yaml
-├── experiment.yaml
 ├── rules.test.mjs
 ├── golden/
 │   ├── application source
@@ -47,10 +47,14 @@ languages/<language>/
 ├── check entrypoint
 ├── reusable deterministic checks
 └── grader tests
+
+experiments/<language>/
+└── experiment.yaml
 ```
 
 Scenario evals stage the applicable shared language checker and declare each
-check separately so Vally reports independent one-point results.
+check separately so Vally reports independent one-point results. Language
+experiments own the three environment variants and can run multiple evals.
 
 ## Scoring
 
@@ -68,11 +72,9 @@ The golden application proves that the deterministic grader suite has at least
 one valid solution without requiring generated code to match one exact
 implementation.
 
-The pinned `microsoft/skills` revision has data-plane Cosmos skills for Python,
-Java, and TypeScript. It has no Cosmos data-plane .NET skill, so the .NET
-third arm loads `azure-resource-manager-cosmosdb-dotnet`, the only Cosmos .NET
-skill. That skill explicitly distinguishes management-plane operations from
-the requested `Microsoft.Azure.Cosmos` data-plane work.
+The third arm exposes every skill from the applicable `microsoft/skills`
+language plugin. Scores measure whether adding that complete suite improves
+the generated application; no particular skill must be invoked.
 
 See [Architecture](docs/architecture.md) for repository boundaries and the
 migration plan. See the

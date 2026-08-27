@@ -1,6 +1,6 @@
-name: cosmos-db-typescript-three-way
+name: java-three-way
 evals:
-  - eval.yaml
+  - ../../scenarios/cosmos-db-java-crud/eval.yaml
 vary:
   - /environment/skills
   - /environment/mcpServers
@@ -10,7 +10,7 @@ variants:
     environment:
       skills: []
       mcpServers: null
-  azure:
+  azure-skill-mcp:
     environment:
       skills: &azure-skills
         - ../../.work/dependencies/azure-skills/.github/plugins/azure-skills/skills/airunway-aks-setup
@@ -53,7 +53,7 @@ variants:
           env:
             npm_config_registry: https://pkgs.dev.azure.com/azure-sdk/public/_packaging/azure-sdk-for-js/npm/registry/
           timeout: 30s
-  azure-with-sdk:
+  azure-skill-mcp-microsoft-skill:
     environment:
       skills:
         - ../../.work/dependencies/azure-skills/.github/plugins/azure-skills/skills/airunway-aks-setup
@@ -84,7 +84,32 @@ variants:
         - ../../.work/dependencies/azure-skills/.github/plugins/azure-skills/skills/entra-app-registration
         - ../../.work/dependencies/azure-skills/.github/plugins/azure-skills/skills/microsoft-foundry
         - ../../.work/dependencies/azure-skills/.github/plugins/azure-skills/skills/python-appservice-deploy
-        - ../../.work/dependencies/microsoft-skills/.github/plugins/azure-sdk-typescript/skills/azure-cosmos-ts
+        - ../../.work/dependencies/microsoft-skills/.github/plugins/azure-sdk-java/skills/azure-ai-agents-persistent-java
+        - ../../.work/dependencies/microsoft-skills/.github/plugins/azure-sdk-java/skills/azure-ai-anomalydetector-java
+        - ../../.work/dependencies/microsoft-skills/.github/plugins/azure-sdk-java/skills/azure-ai-contentsafety-java
+        - ../../.work/dependencies/microsoft-skills/.github/plugins/azure-sdk-java/skills/azure-ai-formrecognizer-java
+        - ../../.work/dependencies/microsoft-skills/.github/plugins/azure-sdk-java/skills/azure-ai-projects-java
+        - ../../.work/dependencies/microsoft-skills/.github/plugins/azure-sdk-java/skills/azure-ai-vision-imageanalysis-java
+        - ../../.work/dependencies/microsoft-skills/.github/plugins/azure-sdk-java/skills/azure-ai-voicelive-java
+        - ../../.work/dependencies/microsoft-skills/.github/plugins/azure-sdk-java/skills/azure-appconfiguration-java
+        - ../../.work/dependencies/microsoft-skills/.github/plugins/azure-sdk-java/skills/azure-communication-callautomation-java
+        - ../../.work/dependencies/microsoft-skills/.github/plugins/azure-sdk-java/skills/azure-communication-callingserver-java
+        - ../../.work/dependencies/microsoft-skills/.github/plugins/azure-sdk-java/skills/azure-communication-chat-java
+        - ../../.work/dependencies/microsoft-skills/.github/plugins/azure-sdk-java/skills/azure-communication-common-java
+        - ../../.work/dependencies/microsoft-skills/.github/plugins/azure-sdk-java/skills/azure-communication-sms-java
+        - ../../.work/dependencies/microsoft-skills/.github/plugins/azure-sdk-java/skills/azure-compute-batch-java
+        - ../../.work/dependencies/microsoft-skills/.github/plugins/azure-sdk-java/skills/azure-cosmos-java
+        - ../../.work/dependencies/microsoft-skills/.github/plugins/azure-sdk-java/skills/azure-data-tables-java
+        - ../../.work/dependencies/microsoft-skills/.github/plugins/azure-sdk-java/skills/azure-eventgrid-java
+        - ../../.work/dependencies/microsoft-skills/.github/plugins/azure-sdk-java/skills/azure-eventhub-java
+        - ../../.work/dependencies/microsoft-skills/.github/plugins/azure-sdk-java/skills/azure-identity-java
+        - ../../.work/dependencies/microsoft-skills/.github/plugins/azure-sdk-java/skills/azure-messaging-webpubsub-java
+        - ../../.work/dependencies/microsoft-skills/.github/plugins/azure-sdk-java/skills/azure-monitor-ingestion-java
+        - ../../.work/dependencies/microsoft-skills/.github/plugins/azure-sdk-java/skills/azure-monitor-opentelemetry-exporter-java
+        - ../../.work/dependencies/microsoft-skills/.github/plugins/azure-sdk-java/skills/azure-monitor-query-java
+        - ../../.work/dependencies/microsoft-skills/.github/plugins/azure-sdk-java/skills/azure-security-keyvault-keys-java
+        - ../../.work/dependencies/microsoft-skills/.github/plugins/azure-sdk-java/skills/azure-security-keyvault-secrets-java
+        - ../../.work/dependencies/microsoft-skills/.github/plugins/azure-sdk-java/skills/azure-storage-blob-java
       mcpServers: *azure-mcp
 execution:
   workers: 1

@@ -1,6 +1,6 @@
-name: cosmos-db-python-three-way
+name: python-three-way
 evals:
-  - eval.yaml
+  - ../../scenarios/cosmos-db-python-crud/eval.yaml
 vary:
   - /environment/skills
   - /environment/mcpServers
@@ -10,7 +10,7 @@ variants:
     environment:
       skills: []
       mcpServers: null
-  azure:
+  azure-skill-mcp:
     environment:
       skills: &azure-skills
         - ../../.work/dependencies/azure-skills/.github/plugins/azure-skills/skills/airunway-aks-setup
@@ -53,7 +53,7 @@ variants:
           env:
             npm_config_registry: https://pkgs.dev.azure.com/azure-sdk/public/_packaging/azure-sdk-for-js/npm/registry/
           timeout: 30s
-  azure-with-sdk:
+  azure-skill-mcp-microsoft-skill:
     environment:
       skills:
         - ../../.work/dependencies/azure-skills/.github/plugins/azure-skills/skills/airunway-aks-setup
@@ -84,7 +84,46 @@ variants:
         - ../../.work/dependencies/azure-skills/.github/plugins/azure-skills/skills/entra-app-registration
         - ../../.work/dependencies/azure-skills/.github/plugins/azure-skills/skills/microsoft-foundry
         - ../../.work/dependencies/azure-skills/.github/plugins/azure-skills/skills/python-appservice-deploy
+        - ../../.work/dependencies/microsoft-skills/.github/plugins/azure-sdk-python/skills/agent-framework-azure-ai-py
+        - ../../.work/dependencies/microsoft-skills/.github/plugins/azure-sdk-python/skills/azure-ai-contentsafety-py
+        - ../../.work/dependencies/microsoft-skills/.github/plugins/azure-sdk-python/skills/azure-ai-contentunderstanding-py
+        - ../../.work/dependencies/microsoft-skills/.github/plugins/azure-sdk-python/skills/azure-ai-language-conversations-py
+        - ../../.work/dependencies/microsoft-skills/.github/plugins/azure-sdk-python/skills/azure-ai-ml-py
+        - ../../.work/dependencies/microsoft-skills/.github/plugins/azure-sdk-python/skills/azure-ai-projects-py
+        - ../../.work/dependencies/microsoft-skills/.github/plugins/azure-sdk-python/skills/azure-ai-textanalytics-py
+        - ../../.work/dependencies/microsoft-skills/.github/plugins/azure-sdk-python/skills/azure-ai-transcription-py
+        - ../../.work/dependencies/microsoft-skills/.github/plugins/azure-sdk-python/skills/azure-ai-translation-document-py
+        - ../../.work/dependencies/microsoft-skills/.github/plugins/azure-sdk-python/skills/azure-ai-translation-text-py
+        - ../../.work/dependencies/microsoft-skills/.github/plugins/azure-sdk-python/skills/azure-ai-vision-imageanalysis-py
+        - ../../.work/dependencies/microsoft-skills/.github/plugins/azure-sdk-python/skills/azure-ai-voicelive-py
+        - ../../.work/dependencies/microsoft-skills/.github/plugins/azure-sdk-python/skills/azure-appconfiguration-py
+        - ../../.work/dependencies/microsoft-skills/.github/plugins/azure-sdk-python/skills/azure-containerregistry-py
+        - ../../.work/dependencies/microsoft-skills/.github/plugins/azure-sdk-python/skills/azure-cosmos-db-py
         - ../../.work/dependencies/microsoft-skills/.github/plugins/azure-sdk-python/skills/azure-cosmos-py
+        - ../../.work/dependencies/microsoft-skills/.github/plugins/azure-sdk-python/skills/azure-data-tables-py
+        - ../../.work/dependencies/microsoft-skills/.github/plugins/azure-sdk-python/skills/azure-eventgrid-py
+        - ../../.work/dependencies/microsoft-skills/.github/plugins/azure-sdk-python/skills/azure-eventhub-py
+        - ../../.work/dependencies/microsoft-skills/.github/plugins/azure-sdk-python/skills/azure-identity-py
+        - ../../.work/dependencies/microsoft-skills/.github/plugins/azure-sdk-python/skills/azure-keyvault-py
+        - ../../.work/dependencies/microsoft-skills/.github/plugins/azure-sdk-python/skills/azure-messaging-webpubsubservice-py
+        - ../../.work/dependencies/microsoft-skills/.github/plugins/azure-sdk-python/skills/azure-mgmt-apicenter-py
+        - ../../.work/dependencies/microsoft-skills/.github/plugins/azure-sdk-python/skills/azure-mgmt-apimanagement-py
+        - ../../.work/dependencies/microsoft-skills/.github/plugins/azure-sdk-python/skills/azure-mgmt-botservice-py
+        - ../../.work/dependencies/microsoft-skills/.github/plugins/azure-sdk-python/skills/azure-mgmt-fabric-py
+        - ../../.work/dependencies/microsoft-skills/.github/plugins/azure-sdk-python/skills/azure-monitor-ingestion-py
+        - ../../.work/dependencies/microsoft-skills/.github/plugins/azure-sdk-python/skills/azure-monitor-opentelemetry-exporter-py
+        - ../../.work/dependencies/microsoft-skills/.github/plugins/azure-sdk-python/skills/azure-monitor-opentelemetry-py
+        - ../../.work/dependencies/microsoft-skills/.github/plugins/azure-sdk-python/skills/azure-monitor-query-py
+        - ../../.work/dependencies/microsoft-skills/.github/plugins/azure-sdk-python/skills/azure-search-documents-py
+        - ../../.work/dependencies/microsoft-skills/.github/plugins/azure-sdk-python/skills/azure-servicebus-py
+        - ../../.work/dependencies/microsoft-skills/.github/plugins/azure-sdk-python/skills/azure-speech-to-text-rest-py
+        - ../../.work/dependencies/microsoft-skills/.github/plugins/azure-sdk-python/skills/azure-storage-blob-py
+        - ../../.work/dependencies/microsoft-skills/.github/plugins/azure-sdk-python/skills/azure-storage-file-datalake-py
+        - ../../.work/dependencies/microsoft-skills/.github/plugins/azure-sdk-python/skills/azure-storage-file-share-py
+        - ../../.work/dependencies/microsoft-skills/.github/plugins/azure-sdk-python/skills/azure-storage-queue-py
+        - ../../.work/dependencies/microsoft-skills/.github/plugins/azure-sdk-python/skills/fastapi-router-py
+        - ../../.work/dependencies/microsoft-skills/.github/plugins/azure-sdk-python/skills/m365-agents-py
+        - ../../.work/dependencies/microsoft-skills/.github/plugins/azure-sdk-python/skills/pydantic-models-py
       mcpServers: *azure-mcp
 execution:
   workers: 1

@@ -1,6 +1,6 @@
-name: cosmos-db-dotnet-three-way
+name: typescript-three-way
 evals:
-  - eval.yaml
+  - ../../scenarios/cosmos-db-typescript-crud/eval.yaml
 vary:
   - /environment/skills
   - /environment/mcpServers
@@ -10,7 +10,7 @@ variants:
     environment:
       skills: []
       mcpServers: null
-  azure:
+  azure-skill-mcp:
     environment:
       skills: &azure-skills
         - ../../.work/dependencies/azure-skills/.github/plugins/azure-skills/skills/airunway-aks-setup
@@ -53,7 +53,7 @@ variants:
           env:
             npm_config_registry: https://pkgs.dev.azure.com/azure-sdk/public/_packaging/azure-sdk-for-js/npm/registry/
           timeout: 30s
-  azure-with-sdk:
+  azure-skill-mcp-microsoft-skill:
     environment:
       skills:
         - ../../.work/dependencies/azure-skills/.github/plugins/azure-skills/skills/airunway-aks-setup
@@ -84,7 +84,31 @@ variants:
         - ../../.work/dependencies/azure-skills/.github/plugins/azure-skills/skills/entra-app-registration
         - ../../.work/dependencies/azure-skills/.github/plugins/azure-skills/skills/microsoft-foundry
         - ../../.work/dependencies/azure-skills/.github/plugins/azure-skills/skills/python-appservice-deploy
-        - ../../.work/dependencies/microsoft-skills/.github/plugins/azure-sdk-dotnet/skills/azure-resource-manager-cosmosdb-dotnet
+        - ../../.work/dependencies/microsoft-skills/.github/plugins/azure-sdk-typescript/skills/applicationinsights-web-ts
+        - ../../.work/dependencies/microsoft-skills/.github/plugins/azure-sdk-typescript/skills/azure-ai-contentsafety-ts
+        - ../../.work/dependencies/microsoft-skills/.github/plugins/azure-sdk-typescript/skills/azure-ai-document-intelligence-ts
+        - ../../.work/dependencies/microsoft-skills/.github/plugins/azure-sdk-typescript/skills/azure-ai-projects-ts
+        - ../../.work/dependencies/microsoft-skills/.github/plugins/azure-sdk-typescript/skills/azure-ai-translation-ts
+        - ../../.work/dependencies/microsoft-skills/.github/plugins/azure-sdk-typescript/skills/azure-ai-voicelive-ts
+        - ../../.work/dependencies/microsoft-skills/.github/plugins/azure-sdk-typescript/skills/azure-appconfiguration-ts
+        - ../../.work/dependencies/microsoft-skills/.github/plugins/azure-sdk-typescript/skills/azure-cosmos-ts
+        - ../../.work/dependencies/microsoft-skills/.github/plugins/azure-sdk-typescript/skills/azure-eventhub-ts
+        - ../../.work/dependencies/microsoft-skills/.github/plugins/azure-sdk-typescript/skills/azure-identity-ts
+        - ../../.work/dependencies/microsoft-skills/.github/plugins/azure-sdk-typescript/skills/azure-keyvault-keys-ts
+        - ../../.work/dependencies/microsoft-skills/.github/plugins/azure-sdk-typescript/skills/azure-keyvault-secrets-ts
+        - ../../.work/dependencies/microsoft-skills/.github/plugins/azure-sdk-typescript/skills/azure-microsoft-playwright-testing-ts
+        - ../../.work/dependencies/microsoft-skills/.github/plugins/azure-sdk-typescript/skills/azure-monitor-opentelemetry-ts
+        - ../../.work/dependencies/microsoft-skills/.github/plugins/azure-sdk-typescript/skills/azure-postgres-ts
+        - ../../.work/dependencies/microsoft-skills/.github/plugins/azure-sdk-typescript/skills/azure-search-documents-ts
+        - ../../.work/dependencies/microsoft-skills/.github/plugins/azure-sdk-typescript/skills/azure-servicebus-ts
+        - ../../.work/dependencies/microsoft-skills/.github/plugins/azure-sdk-typescript/skills/azure-storage-blob-ts
+        - ../../.work/dependencies/microsoft-skills/.github/plugins/azure-sdk-typescript/skills/azure-storage-file-share-ts
+        - ../../.work/dependencies/microsoft-skills/.github/plugins/azure-sdk-typescript/skills/azure-storage-queue-ts
+        - ../../.work/dependencies/microsoft-skills/.github/plugins/azure-sdk-typescript/skills/azure-web-pubsub-ts
+        - ../../.work/dependencies/microsoft-skills/.github/plugins/azure-sdk-typescript/skills/frontend-ui-dark-ts
+        - ../../.work/dependencies/microsoft-skills/.github/plugins/azure-sdk-typescript/skills/m365-agents-ts
+        - ../../.work/dependencies/microsoft-skills/.github/plugins/azure-sdk-typescript/skills/react-flow-node-ts
+        - ../../.work/dependencies/microsoft-skills/.github/plugins/azure-sdk-typescript/skills/zustand-store-ts
       mcpServers: *azure-mcp
 execution:
   workers: 1

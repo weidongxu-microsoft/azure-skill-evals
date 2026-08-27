@@ -1,6 +1,6 @@
-name: cosmos-db-java-three-way
+name: dotnet-three-way
 evals:
-  - eval.yaml
+  - ../../scenarios/cosmos-db-dotnet-crud/eval.yaml
 vary:
   - /environment/skills
   - /environment/mcpServers
@@ -10,7 +10,7 @@ variants:
     environment:
       skills: []
       mcpServers: null
-  azure:
+  azure-skill-mcp:
     environment:
       skills: &azure-skills
         - ../../.work/dependencies/azure-skills/.github/plugins/azure-skills/skills/airunway-aks-setup
@@ -53,7 +53,7 @@ variants:
           env:
             npm_config_registry: https://pkgs.dev.azure.com/azure-sdk/public/_packaging/azure-sdk-for-js/npm/registry/
           timeout: 30s
-  azure-with-sdk:
+  azure-skill-mcp-microsoft-skill:
     environment:
       skills:
         - ../../.work/dependencies/azure-skills/.github/plugins/azure-skills/skills/airunway-aks-setup
@@ -84,7 +84,35 @@ variants:
         - ../../.work/dependencies/azure-skills/.github/plugins/azure-skills/skills/entra-app-registration
         - ../../.work/dependencies/azure-skills/.github/plugins/azure-skills/skills/microsoft-foundry
         - ../../.work/dependencies/azure-skills/.github/plugins/azure-skills/skills/python-appservice-deploy
-        - ../../.work/dependencies/microsoft-skills/.github/plugins/azure-sdk-java/skills/azure-cosmos-java
+        - ../../.work/dependencies/microsoft-skills/.github/plugins/azure-sdk-dotnet/skills/azure-ai-agents-persistent-dotnet
+        - ../../.work/dependencies/microsoft-skills/.github/plugins/azure-sdk-dotnet/skills/azure-ai-document-intelligence-dotnet
+        - ../../.work/dependencies/microsoft-skills/.github/plugins/azure-sdk-dotnet/skills/azure-ai-openai-dotnet
+        - ../../.work/dependencies/microsoft-skills/.github/plugins/azure-sdk-dotnet/skills/azure-ai-projects-dotnet
+        - ../../.work/dependencies/microsoft-skills/.github/plugins/azure-sdk-dotnet/skills/azure-ai-voicelive-dotnet
+        - ../../.work/dependencies/microsoft-skills/.github/plugins/azure-sdk-dotnet/skills/azure-eventgrid-dotnet
+        - ../../.work/dependencies/microsoft-skills/.github/plugins/azure-sdk-dotnet/skills/azure-eventhub-dotnet
+        - ../../.work/dependencies/microsoft-skills/.github/plugins/azure-sdk-dotnet/skills/azure-identity-dotnet
+        - ../../.work/dependencies/microsoft-skills/.github/plugins/azure-sdk-dotnet/skills/azure-maps-search-dotnet
+        - ../../.work/dependencies/microsoft-skills/.github/plugins/azure-sdk-dotnet/skills/azure-mgmt-apicenter-dotnet
+        - ../../.work/dependencies/microsoft-skills/.github/plugins/azure-sdk-dotnet/skills/azure-mgmt-apimanagement-dotnet
+        - ../../.work/dependencies/microsoft-skills/.github/plugins/azure-sdk-dotnet/skills/azure-mgmt-applicationinsights-dotnet
+        - ../../.work/dependencies/microsoft-skills/.github/plugins/azure-sdk-dotnet/skills/azure-mgmt-arizeaiobservabilityeval-dotnet
+        - ../../.work/dependencies/microsoft-skills/.github/plugins/azure-sdk-dotnet/skills/azure-mgmt-botservice-dotnet
+        - ../../.work/dependencies/microsoft-skills/.github/plugins/azure-sdk-dotnet/skills/azure-mgmt-fabric-dotnet
+        - ../../.work/dependencies/microsoft-skills/.github/plugins/azure-sdk-dotnet/skills/azure-mgmt-mongodbatlas-dotnet
+        - ../../.work/dependencies/microsoft-skills/.github/plugins/azure-sdk-dotnet/skills/azure-mgmt-weightsandbiases-dotnet
+        - ../../.work/dependencies/microsoft-skills/.github/plugins/azure-sdk-dotnet/skills/azure-resource-manager-cosmosdb-dotnet
+        - ../../.work/dependencies/microsoft-skills/.github/plugins/azure-sdk-dotnet/skills/azure-resource-manager-durabletask-dotnet
+        - ../../.work/dependencies/microsoft-skills/.github/plugins/azure-sdk-dotnet/skills/azure-resource-manager-mysql-dotnet
+        - ../../.work/dependencies/microsoft-skills/.github/plugins/azure-sdk-dotnet/skills/azure-resource-manager-playwright-dotnet
+        - ../../.work/dependencies/microsoft-skills/.github/plugins/azure-sdk-dotnet/skills/azure-resource-manager-postgresql-dotnet
+        - ../../.work/dependencies/microsoft-skills/.github/plugins/azure-sdk-dotnet/skills/azure-resource-manager-redis-dotnet
+        - ../../.work/dependencies/microsoft-skills/.github/plugins/azure-sdk-dotnet/skills/azure-resource-manager-sql-dotnet
+        - ../../.work/dependencies/microsoft-skills/.github/plugins/azure-sdk-dotnet/skills/azure-search-documents-dotnet
+        - ../../.work/dependencies/microsoft-skills/.github/plugins/azure-sdk-dotnet/skills/azure-security-keyvault-keys-dotnet
+        - ../../.work/dependencies/microsoft-skills/.github/plugins/azure-sdk-dotnet/skills/azure-servicebus-dotnet
+        - ../../.work/dependencies/microsoft-skills/.github/plugins/azure-sdk-dotnet/skills/m365-agents-dotnet
+        - ../../.work/dependencies/microsoft-skills/.github/plugins/azure-sdk-dotnet/skills/microsoft-azure-webjobs-extensions-authentication-events-dotnet
       mcpServers: *azure-mcp
 execution:
   workers: 1

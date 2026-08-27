@@ -7,11 +7,15 @@ environments:
 
 1. Baseline without Azure MCP or skills.
 2. Azure MCP plus general Azure skills.
-3. Azure MCP plus general Azure skills and a language-specific SDK skill.
+3. Azure MCP plus general Azure skills and the complete language-specific SDK
+   skill suite.
 
 Keep the prompt, model, trial count, timeout, and graders identical across the
 three variants. Experiments may vary only the declared skill and MCP
 environment paths.
+
+The third arm must expose every skill from the applicable `microsoft/skills`
+language plugin. Do not grade or require invocation of a particular skill.
 
 The Cosmos DB CRUD suite currently covers Python, .NET, Java, and TypeScript.
 Each language has 11 correctness checks split between scenario-specific and
@@ -24,7 +28,6 @@ Keep all files owned by one evaluation case together:
 ```text
 scenarios/<name>/
 ├── eval.yaml
-├── experiment.yaml
 ├── rules.test.mjs
 ├── golden/
 │   ├── application source
@@ -37,6 +40,9 @@ languages/<language>/
 ├── check entrypoint
 ├── reusable deterministic checks
 └── grader tests
+
+experiments/<language>/
+└── experiment.yaml
 ```
 
 Add root-level tooling only when multiple scenarios reuse it. Vally 0.12 does
@@ -49,7 +55,8 @@ not support external grader-list includes, so each eval declares its
   and artifacts.
 - `scenarios/<name>/tools/` implements scenario-specific deterministic code
   criteria.
-- `scenarios/<name>/experiment.yaml` defines controlled environment variants.
+- `experiments/<language>/experiment.yaml` defines controlled environment
+  variants shared by all scenarios for that language.
 - `scenarios/<name>/golden/` contains the runnable, lint-clean reference
   application.
 - `scenarios/<name>/*.test.mjs` validates scenario-specific graders.
@@ -118,10 +125,10 @@ python -m compileall -q scenarios
 python -m ruff check scenarios
 pnpm test:golden
 vally lint --eval-spec scenarios --strict --verbose
-vally experiment run scenarios/cosmos-db-python-crud/experiment.yaml --output-dir reports --dry-run
-vally experiment run scenarios/cosmos-db-dotnet-crud/experiment.yaml --output-dir reports --dry-run
-vally experiment run scenarios/cosmos-db-java-crud/experiment.yaml --output-dir reports --dry-run
-vally experiment run scenarios/cosmos-db-typescript-crud/experiment.yaml --output-dir reports --dry-run
+vally experiment run experiments/python/experiment.yaml --output-dir reports --dry-run
+vally experiment run experiments/dotnet/experiment.yaml --output-dir reports --dry-run
+vally experiment run experiments/java/experiment.yaml --output-dir reports --dry-run
+vally experiment run experiments/typescript/experiment.yaml --output-dir reports --dry-run
 ```
 
 Use one trial per arm only for harness development. Use repeated trials before
