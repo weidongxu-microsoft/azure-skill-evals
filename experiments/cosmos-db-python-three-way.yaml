@@ -13,34 +13,34 @@ variants:
   azure:
     environment:
       skills: &azure-skills
-        - ../../../../../../.work/dependencies/azure-skills/.github/plugins/azure-skills/skills/airunway-aks-setup
-        - ../../../../../../.work/dependencies/azure-skills/.github/plugins/azure-skills/skills/appinsights-instrumentation
-        - ../../../../../../.work/dependencies/azure-skills/.github/plugins/azure-skills/skills/azure-ai
-        - ../../../../../../.work/dependencies/azure-skills/.github/plugins/azure-skills/skills/azure-aigateway
-        - ../../../../../../.work/dependencies/azure-skills/.github/plugins/azure-skills/skills/azure-app-onboard-prereq
-        - ../../../../../../.work/dependencies/azure-skills/.github/plugins/azure-skills/skills/azure-app-onboard
-        - ../../../../../../.work/dependencies/azure-skills/.github/plugins/azure-skills/skills/azure-cloud-migrate
-        - ../../../../../../.work/dependencies/azure-skills/.github/plugins/azure-skills/skills/azure-compliance
-        - ../../../../../../.work/dependencies/azure-skills/.github/plugins/azure-skills/skills/azure-compute
-        - ../../../../../../.work/dependencies/azure-skills/.github/plugins/azure-skills/skills/azure-cost
-        - ../../../../../../.work/dependencies/azure-skills/.github/plugins/azure-skills/skills/azure-deploy
-        - ../../../../../../.work/dependencies/azure-skills/.github/plugins/azure-skills/skills/azure-diagnostics
-        - ../../../../../../.work/dependencies/azure-skills/.github/plugins/azure-skills/skills/azure-enterprise-infra-planner
-        - ../../../../../../.work/dependencies/azure-skills/.github/plugins/azure-skills/skills/azure-kubernetes
-        - ../../../../../../.work/dependencies/azure-skills/.github/plugins/azure-skills/skills/azure-kusto
-        - ../../../../../../.work/dependencies/azure-skills/.github/plugins/azure-skills/skills/azure-messaging
-        - ../../../../../../.work/dependencies/azure-skills/.github/plugins/azure-skills/skills/azure-prepare
-        - ../../../../../../.work/dependencies/azure-skills/.github/plugins/azure-skills/skills/azure-quotas
-        - ../../../../../../.work/dependencies/azure-skills/.github/plugins/azure-skills/skills/azure-reliability
-        - ../../../../../../.work/dependencies/azure-skills/.github/plugins/azure-skills/skills/azure-resource-lookup
-        - ../../../../../../.work/dependencies/azure-skills/.github/plugins/azure-skills/skills/azure-resource-visualizer
-        - ../../../../../../.work/dependencies/azure-skills/.github/plugins/azure-skills/skills/azure-storage
-        - ../../../../../../.work/dependencies/azure-skills/.github/plugins/azure-skills/skills/azure-upgrade
-        - ../../../../../../.work/dependencies/azure-skills/.github/plugins/azure-skills/skills/azure-validate
-        - ../../../../../../.work/dependencies/azure-skills/.github/plugins/azure-skills/skills/entra-agent-id
-        - ../../../../../../.work/dependencies/azure-skills/.github/plugins/azure-skills/skills/entra-app-registration
-        - ../../../../../../.work/dependencies/azure-skills/.github/plugins/azure-skills/skills/microsoft-foundry
-        - ../../../../../../.work/dependencies/azure-skills/.github/plugins/azure-skills/skills/python-appservice-deploy
+        - ../.work/dependencies/azure-skills/.github/plugins/azure-skills/skills/airunway-aks-setup
+        - ../.work/dependencies/azure-skills/.github/plugins/azure-skills/skills/appinsights-instrumentation
+        - ../.work/dependencies/azure-skills/.github/plugins/azure-skills/skills/azure-ai
+        - ../.work/dependencies/azure-skills/.github/plugins/azure-skills/skills/azure-aigateway
+        - ../.work/dependencies/azure-skills/.github/plugins/azure-skills/skills/azure-app-onboard-prereq
+        - ../.work/dependencies/azure-skills/.github/plugins/azure-skills/skills/azure-app-onboard
+        - ../.work/dependencies/azure-skills/.github/plugins/azure-skills/skills/azure-cloud-migrate
+        - ../.work/dependencies/azure-skills/.github/plugins/azure-skills/skills/azure-compliance
+        - ../.work/dependencies/azure-skills/.github/plugins/azure-skills/skills/azure-compute
+        - ../.work/dependencies/azure-skills/.github/plugins/azure-skills/skills/azure-cost
+        - ../.work/dependencies/azure-skills/.github/plugins/azure-skills/skills/azure-deploy
+        - ../.work/dependencies/azure-skills/.github/plugins/azure-skills/skills/azure-diagnostics
+        - ../.work/dependencies/azure-skills/.github/plugins/azure-skills/skills/azure-enterprise-infra-planner
+        - ../.work/dependencies/azure-skills/.github/plugins/azure-skills/skills/azure-kubernetes
+        - ../.work/dependencies/azure-skills/.github/plugins/azure-skills/skills/azure-kusto
+        - ../.work/dependencies/azure-skills/.github/plugins/azure-skills/skills/azure-messaging
+        - ../.work/dependencies/azure-skills/.github/plugins/azure-skills/skills/azure-prepare
+        - ../.work/dependencies/azure-skills/.github/plugins/azure-skills/skills/azure-quotas
+        - ../.work/dependencies/azure-skills/.github/plugins/azure-skills/skills/azure-reliability
+        - ../.work/dependencies/azure-skills/.github/plugins/azure-skills/skills/azure-resource-lookup
+        - ../.work/dependencies/azure-skills/.github/plugins/azure-skills/skills/azure-resource-visualizer
+        - ../.work/dependencies/azure-skills/.github/plugins/azure-skills/skills/azure-storage
+        - ../.work/dependencies/azure-skills/.github/plugins/azure-skills/skills/azure-upgrade
+        - ../.work/dependencies/azure-skills/.github/plugins/azure-skills/skills/azure-validate
+        - ../.work/dependencies/azure-skills/.github/plugins/azure-skills/skills/entra-agent-id
+        - ../.work/dependencies/azure-skills/.github/plugins/azure-skills/skills/entra-app-registration
+        - ../.work/dependencies/azure-skills/.github/plugins/azure-skills/skills/microsoft-foundry
+        - ../.work/dependencies/azure-skills/.github/plugins/azure-skills/skills/python-appservice-deploy
       mcpServers: &azure-mcp
         azure:
           type: stdio
@@ -56,35 +56,35 @@ variants:
   azure-with-sdk:
     environment:
       skills:
-        - ../../../../../../.work/dependencies/azure-skills/.github/plugins/azure-skills/skills/airunway-aks-setup
-        - ../../../../../../.work/dependencies/azure-skills/.github/plugins/azure-skills/skills/appinsights-instrumentation
-        - ../../../../../../.work/dependencies/azure-skills/.github/plugins/azure-skills/skills/azure-ai
-        - ../../../../../../.work/dependencies/azure-skills/.github/plugins/azure-skills/skills/azure-aigateway
-        - ../../../../../../.work/dependencies/azure-skills/.github/plugins/azure-skills/skills/azure-app-onboard-prereq
-        - ../../../../../../.work/dependencies/azure-skills/.github/plugins/azure-skills/skills/azure-app-onboard
-        - ../../../../../../.work/dependencies/azure-skills/.github/plugins/azure-skills/skills/azure-cloud-migrate
-        - ../../../../../../.work/dependencies/azure-skills/.github/plugins/azure-skills/skills/azure-compliance
-        - ../../../../../../.work/dependencies/azure-skills/.github/plugins/azure-skills/skills/azure-compute
-        - ../../../../../../.work/dependencies/azure-skills/.github/plugins/azure-skills/skills/azure-cost
-        - ../../../../../../.work/dependencies/azure-skills/.github/plugins/azure-skills/skills/azure-deploy
-        - ../../../../../../.work/dependencies/azure-skills/.github/plugins/azure-skills/skills/azure-diagnostics
-        - ../../../../../../.work/dependencies/azure-skills/.github/plugins/azure-skills/skills/azure-enterprise-infra-planner
-        - ../../../../../../.work/dependencies/azure-skills/.github/plugins/azure-skills/skills/azure-kubernetes
-        - ../../../../../../.work/dependencies/azure-skills/.github/plugins/azure-skills/skills/azure-kusto
-        - ../../../../../../.work/dependencies/azure-skills/.github/plugins/azure-skills/skills/azure-messaging
-        - ../../../../../../.work/dependencies/azure-skills/.github/plugins/azure-skills/skills/azure-prepare
-        - ../../../../../../.work/dependencies/azure-skills/.github/plugins/azure-skills/skills/azure-quotas
-        - ../../../../../../.work/dependencies/azure-skills/.github/plugins/azure-skills/skills/azure-reliability
-        - ../../../../../../.work/dependencies/azure-skills/.github/plugins/azure-skills/skills/azure-resource-lookup
-        - ../../../../../../.work/dependencies/azure-skills/.github/plugins/azure-skills/skills/azure-resource-visualizer
-        - ../../../../../../.work/dependencies/azure-skills/.github/plugins/azure-skills/skills/azure-storage
-        - ../../../../../../.work/dependencies/azure-skills/.github/plugins/azure-skills/skills/azure-upgrade
-        - ../../../../../../.work/dependencies/azure-skills/.github/plugins/azure-skills/skills/azure-validate
-        - ../../../../../../.work/dependencies/azure-skills/.github/plugins/azure-skills/skills/entra-agent-id
-        - ../../../../../../.work/dependencies/azure-skills/.github/plugins/azure-skills/skills/entra-app-registration
-        - ../../../../../../.work/dependencies/azure-skills/.github/plugins/azure-skills/skills/microsoft-foundry
-        - ../../../../../../.work/dependencies/azure-skills/.github/plugins/azure-skills/skills/python-appservice-deploy
-        - ../../../../../../.work/dependencies/microsoft-skills/.github/plugins/azure-sdk-python/skills/azure-cosmos-py
+        - ../.work/dependencies/azure-skills/.github/plugins/azure-skills/skills/airunway-aks-setup
+        - ../.work/dependencies/azure-skills/.github/plugins/azure-skills/skills/appinsights-instrumentation
+        - ../.work/dependencies/azure-skills/.github/plugins/azure-skills/skills/azure-ai
+        - ../.work/dependencies/azure-skills/.github/plugins/azure-skills/skills/azure-aigateway
+        - ../.work/dependencies/azure-skills/.github/plugins/azure-skills/skills/azure-app-onboard-prereq
+        - ../.work/dependencies/azure-skills/.github/plugins/azure-skills/skills/azure-app-onboard
+        - ../.work/dependencies/azure-skills/.github/plugins/azure-skills/skills/azure-cloud-migrate
+        - ../.work/dependencies/azure-skills/.github/plugins/azure-skills/skills/azure-compliance
+        - ../.work/dependencies/azure-skills/.github/plugins/azure-skills/skills/azure-compute
+        - ../.work/dependencies/azure-skills/.github/plugins/azure-skills/skills/azure-cost
+        - ../.work/dependencies/azure-skills/.github/plugins/azure-skills/skills/azure-deploy
+        - ../.work/dependencies/azure-skills/.github/plugins/azure-skills/skills/azure-diagnostics
+        - ../.work/dependencies/azure-skills/.github/plugins/azure-skills/skills/azure-enterprise-infra-planner
+        - ../.work/dependencies/azure-skills/.github/plugins/azure-skills/skills/azure-kubernetes
+        - ../.work/dependencies/azure-skills/.github/plugins/azure-skills/skills/azure-kusto
+        - ../.work/dependencies/azure-skills/.github/plugins/azure-skills/skills/azure-messaging
+        - ../.work/dependencies/azure-skills/.github/plugins/azure-skills/skills/azure-prepare
+        - ../.work/dependencies/azure-skills/.github/plugins/azure-skills/skills/azure-quotas
+        - ../.work/dependencies/azure-skills/.github/plugins/azure-skills/skills/azure-reliability
+        - ../.work/dependencies/azure-skills/.github/plugins/azure-skills/skills/azure-resource-lookup
+        - ../.work/dependencies/azure-skills/.github/plugins/azure-skills/skills/azure-resource-visualizer
+        - ../.work/dependencies/azure-skills/.github/plugins/azure-skills/skills/azure-storage
+        - ../.work/dependencies/azure-skills/.github/plugins/azure-skills/skills/azure-upgrade
+        - ../.work/dependencies/azure-skills/.github/plugins/azure-skills/skills/azure-validate
+        - ../.work/dependencies/azure-skills/.github/plugins/azure-skills/skills/entra-agent-id
+        - ../.work/dependencies/azure-skills/.github/plugins/azure-skills/skills/entra-app-registration
+        - ../.work/dependencies/azure-skills/.github/plugins/azure-skills/skills/microsoft-foundry
+        - ../.work/dependencies/azure-skills/.github/plugins/azure-skills/skills/python-appservice-deploy
+        - ../.work/dependencies/microsoft-skills/.github/plugins/azure-sdk-python/skills/azure-cosmos-py
       mcpServers: *azure-mcp
 execution:
   workers: 1
