@@ -1,0 +1,98 @@
+name: identity-typescript-service-principal-auth
+description: Compare Azure tooling for TypeScript service principal authentication
+version: "1.0"
+type: capability
+scoring:
+  weights: {}
+  threshold: 1
+defaults:
+  runs: 1
+  timeout: 30m
+  model: gpt-5.6-sol
+  judge_model: gpt-5.6-sol
+stimuli:
+  - name: identity-dp-typescript-service-principal
+    prompt: |-
+      Write a TypeScript program that authenticates an Azure Key Vault client using a service principal client secret.
+
+      Write the code to files. Do not reply with code blocks.
+
+      1. Show the required @azure/identity, @azure/keyvault-secrets, and dotenv npm packages.
+      2. Initialize dotenv before reading environment variables.
+      3. Read AZURE_TENANT_ID, AZURE_CLIENT_ID, AZURE_CLIENT_SECRET, AZURE_KEY_VAULT_URL, and AZURE_KEY_VAULT_SECRET_NAME from the environment without fallback secrets.
+      4. Create ClientSecretCredential with the tenant ID, client ID, and client secret in the correct order. Never hard-code or log the client secret.
+      5. Pass that credential to SecretClient.
+      6. Await getSecret and print the returned secret value.
+      7. Meaningfully handle AuthenticationError for invalid credentials without swallowing unrelated errors.
+    tags:
+      service: identity
+      plane: data-plane
+      language: typescript
+      category: auth
+    graders:
+      - type: run-command
+        name: prompt/identity-packages
+        weight: 1
+        config:
+          command: node
+          args:
+            - .vally/scenarios/identity-typescript-service-principal-auth/tools/check-service-principal-typescript.mjs
+            - prompt/identity-packages
+      - type: run-command
+        name: prompt/environment-secret-management
+        weight: 1
+        config:
+          command: node
+          args:
+            - .vally/scenarios/identity-typescript-service-principal-auth/tools/check-service-principal-typescript.mjs
+            - prompt/environment-secret-management
+      - type: run-command
+        name: prompt/client-secret-credential
+        weight: 1
+        config:
+          command: node
+          args:
+            - .vally/scenarios/identity-typescript-service-principal-auth/tools/check-service-principal-typescript.mjs
+            - prompt/client-secret-credential
+      - type: run-command
+        name: prompt/credential-client-association
+        weight: 1
+        config:
+          command: node
+          args:
+            - .vally/scenarios/identity-typescript-service-principal-auth/tools/check-service-principal-typescript.mjs
+            - prompt/credential-client-association
+      - type: run-command
+        name: prompt/authenticated-operation
+        weight: 1
+        config:
+          command: node
+          args:
+            - .vally/scenarios/identity-typescript-service-principal-auth/tools/check-service-principal-typescript.mjs
+            - prompt/authenticated-operation
+      - type: run-command
+        name: prompt/authentication-errors
+        weight: 1
+        config:
+          command: node
+          args:
+            - .vally/scenarios/identity-typescript-service-principal-auth/tools/check-service-principal-typescript.mjs
+            - prompt/authentication-errors
+    environment:
+      files:
+        - src: tools/check-service-principal-typescript.mjs
+          dest: .vally/scenarios/identity-typescript-service-principal-auth/tools/check-service-principal-typescript.mjs
+        - src: tools/service-principal-typescript-rules.mjs
+          dest: .vally/scenarios/identity-typescript-service-principal-auth/tools/service-principal-typescript-rules.mjs
+        - src: ../../languages/typescript/checks.mjs
+          dest: .vally/languages/typescript/checks.mjs
+artifacts:
+  include:
+    - "**/*.ts"
+    - "**/*.js"
+    - "**/package.json"
+    - "**/tsconfig.json"
+  exclude:
+    - "**/.vally/**"
+    - "**/node_modules/**"
+    - "**/dist/**"

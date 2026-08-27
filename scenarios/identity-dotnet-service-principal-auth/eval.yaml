@@ -1,0 +1,97 @@
+name: identity-dotnet-service-principal-auth
+description: Compare Azure tooling for service principal authentication in .NET
+version: "1.0"
+type: capability
+scoring:
+  weights: {}
+  threshold: 1
+defaults:
+  runs: 1
+  timeout: 30m
+  model: gpt-5.6-sol
+  judge_model: gpt-5.6-sol
+stimuli:
+  - name: identity-dp-dotnet-service-principal
+    prompt: |-
+      Write a complete C# program that authenticates to Azure Blob Storage with a service principal client secret.
+
+      Write the code to files. Do not reply with code blocks.
+
+      1. Add Azure.Identity and Azure.Storage.Blobs NuGet packages.
+      2. Read AZURE_TENANT_ID, AZURE_CLIENT_ID, AZURE_CLIENT_SECRET, and AZURE_STORAGE_BLOB_ENDPOINT from environment variables without hard-coded fallback values.
+      3. Construct ClientSecretCredential with the tenant ID, client ID, and client secret, in the correct argument positions.
+      4. Pass that credential and the configured endpoint to BlobServiceClient.
+      5. Await BlobServiceClient.GetAccountInfoAsync and print both the account kind and SKU.
+      6. Handle AuthenticationFailedException with useful error details. Do not swallow unrelated exceptions.
+
+      Never print or log the client secret.
+    tags:
+      service: identity
+      plane: data-plane
+      language: dotnet
+      category: auth
+    graders:
+      - type: run-command
+        name: prompt/identity-packages
+        weight: 1
+        config:
+          command: node
+          args:
+            - .vally/scenarios/identity-dotnet-service-principal-auth/tools/check-identity-dotnet-service-principal.mjs
+            - prompt/identity-packages
+      - type: run-command
+        name: prompt/environment-secret-management
+        weight: 1
+        config:
+          command: node
+          args:
+            - .vally/scenarios/identity-dotnet-service-principal-auth/tools/check-identity-dotnet-service-principal.mjs
+            - prompt/environment-secret-management
+      - type: run-command
+        name: prompt/client-secret-credential
+        weight: 1
+        config:
+          command: node
+          args:
+            - .vally/scenarios/identity-dotnet-service-principal-auth/tools/check-identity-dotnet-service-principal.mjs
+            - prompt/client-secret-credential
+      - type: run-command
+        name: prompt/credential-client-association
+        weight: 1
+        config:
+          command: node
+          args:
+            - .vally/scenarios/identity-dotnet-service-principal-auth/tools/check-identity-dotnet-service-principal.mjs
+            - prompt/credential-client-association
+      - type: run-command
+        name: prompt/authenticated-operation
+        weight: 1
+        config:
+          command: node
+          args:
+            - .vally/scenarios/identity-dotnet-service-principal-auth/tools/check-identity-dotnet-service-principal.mjs
+            - prompt/authenticated-operation
+      - type: run-command
+        name: prompt/authentication-errors
+        weight: 1
+        config:
+          command: node
+          args:
+            - .vally/scenarios/identity-dotnet-service-principal-auth/tools/check-identity-dotnet-service-principal.mjs
+            - prompt/authentication-errors
+    environment:
+      files:
+        - src: tools/check-identity-dotnet-service-principal.mjs
+          dest: .vally/scenarios/identity-dotnet-service-principal-auth/tools/check-identity-dotnet-service-principal.mjs
+        - src: tools/identity-dotnet-service-principal-rules.mjs
+          dest: .vally/scenarios/identity-dotnet-service-principal-auth/tools/identity-dotnet-service-principal-rules.mjs
+        - src: ../../languages/dotnet/checks.mjs
+          dest: .vally/languages/dotnet/checks.mjs
+artifacts:
+  include:
+    - "**/*.cs"
+    - "**/*.csproj"
+  exclude:
+    - "**/.vally/**"
+    - "**/bin/**"
+    - "**/obj/**"

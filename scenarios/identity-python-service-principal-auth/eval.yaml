@@ -1,0 +1,97 @@
+name: identity-python-service-principal-auth
+description: Compare Azure tooling for Python service principal authentication
+version: "1.0"
+type: capability
+scoring:
+  weights: {}
+  threshold: 1
+defaults:
+  runs: 1
+  timeout: 30m
+  model: gpt-5.6-sol
+  judge_model: gpt-5.6-sol
+stimuli:
+  - name: identity-dp-python-service-principal
+    prompt: |-
+      Write a complete, runnable Python application that authenticates an Azure Key Vault client with a service principal client secret and retrieves a secret.
+
+      Write the code to files. Do not reply with code blocks.
+
+      1. Show the required pip packages for Azure Identity and Key Vault secrets.
+      2. Read the service principal tenant ID, client ID, and client secret from AZURE_TENANT_ID, AZURE_CLIENT_ID, and AZURE_CLIENT_SECRET without hard-coded credential fallbacks.
+      3. Construct ClientSecretCredential with those values and pass that credential to SecretClient.
+      4. Read the vault URL and secret name from AZURE_KEY_VAULT_URL and AZURE_KEY_VAULT_SECRET_NAME.
+      5. Call SecretClient.get_secret and print the retrieved secret value without logging or printing the service principal client secret.
+      6. Handle ClientAuthenticationError usefully around the authenticated operation without swallowing unrelated failures.
+    tags:
+      service: identity
+      plane: data-plane
+      language: python
+      category: authentication
+    graders:
+      - type: run-command
+        name: prompt/identity-packages
+        weight: 1
+        config:
+          command: node
+          args:
+            - .vally/scenarios/identity-python-service-principal-auth/tools/check-service-principal-python.mjs
+            - prompt/identity-packages
+      - type: run-command
+        name: prompt/environment-secret-management
+        weight: 1
+        config:
+          command: node
+          args:
+            - .vally/scenarios/identity-python-service-principal-auth/tools/check-service-principal-python.mjs
+            - prompt/environment-secret-management
+      - type: run-command
+        name: prompt/client-secret-credential
+        weight: 1
+        config:
+          command: node
+          args:
+            - .vally/scenarios/identity-python-service-principal-auth/tools/check-service-principal-python.mjs
+            - prompt/client-secret-credential
+      - type: run-command
+        name: prompt/credential-client-association
+        weight: 1
+        config:
+          command: node
+          args:
+            - .vally/scenarios/identity-python-service-principal-auth/tools/check-service-principal-python.mjs
+            - prompt/credential-client-association
+      - type: run-command
+        name: prompt/authenticated-operation
+        weight: 1
+        config:
+          command: node
+          args:
+            - .vally/scenarios/identity-python-service-principal-auth/tools/check-service-principal-python.mjs
+            - prompt/authenticated-operation
+      - type: run-command
+        name: prompt/authentication-errors
+        weight: 1
+        config:
+          command: node
+          args:
+            - .vally/scenarios/identity-python-service-principal-auth/tools/check-service-principal-python.mjs
+            - prompt/authentication-errors
+    environment:
+      files:
+        - src: tools/check-service-principal-python.mjs
+          dest: .vally/scenarios/identity-python-service-principal-auth/tools/check-service-principal-python.mjs
+        - src: tools/service-principal-rules.mjs
+          dest: .vally/scenarios/identity-python-service-principal-auth/tools/service-principal-rules.mjs
+        - src: tools/service_principal_analyzer.py
+          dest: .vally/scenarios/identity-python-service-principal-auth/tools/service_principal_analyzer.py
+artifacts:
+  include:
+    - "**/*.py"
+    - "**/requirements*.txt"
+    - "**/pyproject.toml"
+    - "**/setup.py"
+  exclude:
+    - "**/.vally/**"
+    - "**/.venv/**"
+    - "**/__pycache__/**"

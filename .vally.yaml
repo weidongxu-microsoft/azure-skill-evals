@@ -39,3 +39,10 @@ suites:
       - scenarios/identity-dotnet-managed-identity-auth/eval.yaml
       - scenarios/identity-java-managed-identity-auth/eval.yaml
       - scenarios/identity-typescript-managed-identity-auth/eval.yaml
+  identity-service-principal-auth:
+    description: Service principal authentication evaluation across four languages
+    evals:
+      - scenarios/identity-python-service-principal-auth/eval.yaml
+      - scenarios/identity-dotnet-service-principal-auth/eval.yaml
+      - scenarios/identity-java-service-principal-auth/eval.yaml
+      - scenarios/identity-typescript-service-principal-auth/eval.yaml

@@ -1,0 +1,94 @@
+name: identity-java-service-principal-auth
+description: Compare Azure tooling for service principal authentication in Java
+version: "1.0"
+type: capability
+scoring:
+  weights: {}
+  threshold: 1
+defaults:
+  runs: 1
+  timeout: 30m
+  model: gpt-5.6-sol
+  judge_model: gpt-5.6-sol
+stimuli:
+  - name: identity-dp-java-service-principal
+    prompt: |-
+      Write a Java 17 program that authenticates to Azure Key Vault with a service principal client secret.
+
+      Write the code to files. Do not reply with code blocks.
+
+      1. Add Maven dependencies for Azure Identity and Azure Key Vault Secrets.
+      2. Read the tenant ID, client ID, client secret, vault URL, and secret name from AZURE_TENANT_ID, AZURE_CLIENT_ID, AZURE_CLIENT_SECRET, AZURE_KEY_VAULT_URL, and AZURE_KEY_VAULT_SECRET_NAME. Do not use literal or default credential values, and never print or log the client secret.
+      3. Build a ClientSecretCredential with ClientSecretCredentialBuilder using the tenant ID, client ID, and client secret.
+      4. Pass that credential to SecretClientBuilder and build a SecretClient for the vault URL.
+      5. Call SecretClient.getSecret with the configured secret name and print the returned secret value.
+      6. Handle ClientAuthenticationException meaningfully without swallowing unrelated failures.
+    tags:
+      service: identity
+      plane: data-plane
+      language: java
+      category: authentication
+    graders:
+      - type: run-command
+        name: prompt/identity-packages
+        weight: 1
+        config:
+          command: node
+          args:
+            - .vally/scenarios/identity-java-service-principal-auth/tools/check-service-principal-java.mjs
+            - prompt/identity-packages
+      - type: run-command
+        name: prompt/environment-secret-management
+        weight: 1
+        config:
+          command: node
+          args:
+            - .vally/scenarios/identity-java-service-principal-auth/tools/check-service-principal-java.mjs
+            - prompt/environment-secret-management
+      - type: run-command
+        name: prompt/client-secret-credential
+        weight: 1
+        config:
+          command: node
+          args:
+            - .vally/scenarios/identity-java-service-principal-auth/tools/check-service-principal-java.mjs
+            - prompt/client-secret-credential
+      - type: run-command
+        name: prompt/credential-client-association
+        weight: 1
+        config:
+          command: node
+          args:
+            - .vally/scenarios/identity-java-service-principal-auth/tools/check-service-principal-java.mjs
+            - prompt/credential-client-association
+      - type: run-command
+        name: prompt/authenticated-operation
+        weight: 1
+        config:
+          command: node
+          args:
+            - .vally/scenarios/identity-java-service-principal-auth/tools/check-service-principal-java.mjs
+            - prompt/authenticated-operation
+      - type: run-command
+        name: prompt/authentication-errors
+        weight: 1
+        config:
+          command: node
+          args:
+            - .vally/scenarios/identity-java-service-principal-auth/tools/check-service-principal-java.mjs
+            - prompt/authentication-errors
+    environment:
+      files:
+        - src: tools/check-service-principal-java.mjs
+          dest: .vally/scenarios/identity-java-service-principal-auth/tools/check-service-principal-java.mjs
+        - src: tools/service-principal-java-rules.mjs
+          dest: .vally/scenarios/identity-java-service-principal-auth/tools/service-principal-java-rules.mjs
+artifacts:
+  include:
+    - "**/*.java"
+    - "**/pom.xml"
+    - "**/build.gradle"
+    - "**/build.gradle.kts"
+  exclude:
+    - "**/.vally/**"
+    - "**/target/**"
