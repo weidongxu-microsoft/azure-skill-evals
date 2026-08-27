@@ -1,0 +1,111 @@
+name: key-vault-dotnet-crud-secrets
+description: Compare Azure tooling for a .NET Key Vault secret CRUD task
+version: "1.0"
+type: capability
+scoring:
+  weights: {}
+  threshold: 1
+defaults:
+  runs: 1
+  timeout: 30m
+  model: gpt-5.6-sol
+  judge_model: gpt-5.6-sol
+stimuli:
+  - name: key-vault-dp-dotnet-crud
+    prompt: |-
+      Write a C# console application that performs all four CRUD operations on Azure Key Vault secrets:
+
+      Write the code to files. Do not reply with code blocks.
+
+      1. Create a new secret called "my-secret" with value "my-secret-value".
+      2. Read the secret back and print its value.
+      3. Update the same secret to a new value "updated-value".
+      4. Delete the secret and purge it from a soft-delete enabled vault.
+
+      Use SecretClient with DefaultAzureCredential. Wait for the delete operation to complete before purging. Include meaningful RequestFailedException handling and show the required NuGet packages.
+    tags:
+      service: key-vault
+      plane: data-plane
+      language: dotnet
+      category: crud
+    graders:
+      - type: run-command
+        name: prompt/key-vault-manifest
+        weight: 1
+        config:
+          command: node
+          args:
+            - .vally/scenarios/key-vault-dotnet-crud-secrets/tools/check-key-vault-dotnet.mjs
+            - prompt/key-vault-manifest
+      - type: run-command
+        name: prompt/default-azure-credential
+        weight: 1
+        config:
+          command: node
+          args:
+            - .vally/scenarios/key-vault-dotnet-crud-secrets/tools/check-key-vault-dotnet.mjs
+            - prompt/default-azure-credential
+      - type: run-command
+        name: prompt/secret-client
+        weight: 1
+        config:
+          command: node
+          args:
+            - .vally/scenarios/key-vault-dotnet-crud-secrets/tools/check-key-vault-dotnet.mjs
+            - prompt/secret-client
+      - type: run-command
+        name: prompt/create-secret
+        weight: 1
+        config:
+          command: node
+          args:
+            - .vally/scenarios/key-vault-dotnet-crud-secrets/tools/check-key-vault-dotnet.mjs
+            - prompt/create-secret
+      - type: run-command
+        name: prompt/get-print-secret
+        weight: 1
+        config:
+          command: node
+          args:
+            - .vally/scenarios/key-vault-dotnet-crud-secrets/tools/check-key-vault-dotnet.mjs
+            - prompt/get-print-secret
+      - type: run-command
+        name: prompt/update-secret
+        weight: 1
+        config:
+          command: node
+          args:
+            - .vally/scenarios/key-vault-dotnet-crud-secrets/tools/check-key-vault-dotnet.mjs
+            - prompt/update-secret
+      - type: run-command
+        name: prompt/delete-wait-purge
+        weight: 1
+        config:
+          command: node
+          args:
+            - .vally/scenarios/key-vault-dotnet-crud-secrets/tools/check-key-vault-dotnet.mjs
+            - prompt/delete-wait-purge
+      - type: run-command
+        name: prompt/request-failed-error
+        weight: 1
+        config:
+          command: node
+          args:
+            - .vally/scenarios/key-vault-dotnet-crud-secrets/tools/check-key-vault-dotnet.mjs
+            - prompt/request-failed-error
+    environment:
+      files:
+        - src: tools/check-key-vault-dotnet.mjs
+          dest: .vally/scenarios/key-vault-dotnet-crud-secrets/tools/check-key-vault-dotnet.mjs
+        - src: tools/key-vault-dotnet-rules.mjs
+          dest: .vally/scenarios/key-vault-dotnet-crud-secrets/tools/key-vault-dotnet-rules.mjs
+        - src: ../../languages/dotnet/checks.mjs
+          dest: .vally/languages/dotnet/checks.mjs
+artifacts:
+  include:
+    - "**/*.cs"
+    - "**/*.csproj"
+  exclude:
+    - "**/.vally/**"
+    - "**/bin/**"
+    - "**/obj/**"

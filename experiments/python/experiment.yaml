@@ -6,6 +6,7 @@ evals:
   - ../../scenarios/identity-python-default-azure-credential/eval.yaml
   - ../../scenarios/identity-python-managed-identity-auth/eval.yaml
   - ../../scenarios/identity-python-service-principal-auth/eval.yaml
+  - ../../scenarios/key-vault-python-crud-secrets/eval.yaml
 vary:
   - /environment/skills
   - /environment/mcpServers

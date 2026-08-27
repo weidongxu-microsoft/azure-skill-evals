@@ -1,0 +1,113 @@
+name: key-vault-typescript-crud-secrets
+description: Compare Azure tooling for a Key Vault TypeScript secret lifecycle task
+version: "1.0"
+type: capability
+scoring:
+  weights: {}
+  threshold: 1
+defaults:
+  runs: 1
+  timeout: 30m
+  model: gpt-5.6-sol
+  judge_model: gpt-5.6-sol
+stimuli:
+  - name: key-vault-dp-typescript-crud
+    prompt: |-
+      Write a Node.js script (TypeScript preferred) that performs all four CRUD operations on Azure Key Vault secrets:
+      1. Create a new secret called "my-secret" with value "my-secret-value"
+      2. Read the secret back and print its value
+      3. Update the secret to a new value "updated-value"
+      4. Delete the secret and purge it (soft-delete enabled vault)
+
+      Use DefaultAzureCredential for authentication. Show required npm packages
+      and include proper error handling with try/catch.
+
+      Write the code to files. Do not reply with code blocks.
+    tags:
+      service: key-vault
+      plane: data-plane
+      language: typescript
+      category: crud
+    graders:
+      - type: run-command
+        name: prompt/packages
+        weight: 1
+        config:
+          command: node
+          args:
+            - .vally/scenarios/key-vault-typescript-crud-secrets/tools/check-key-vault-typescript.mjs
+            - prompt/packages
+      - type: run-command
+        name: prompt/authenticated-client
+        weight: 1
+        config:
+          command: node
+          args:
+            - .vally/scenarios/key-vault-typescript-crud-secrets/tools/check-key-vault-typescript.mjs
+            - prompt/authenticated-client
+      - type: run-command
+        name: prompt/create-secret
+        weight: 1
+        config:
+          command: node
+          args:
+            - .vally/scenarios/key-vault-typescript-crud-secrets/tools/check-key-vault-typescript.mjs
+            - prompt/create-secret
+      - type: run-command
+        name: prompt/read-and-print
+        weight: 1
+        config:
+          command: node
+          args:
+            - .vally/scenarios/key-vault-typescript-crud-secrets/tools/check-key-vault-typescript.mjs
+            - prompt/read-and-print
+      - type: run-command
+        name: prompt/update-secret
+        weight: 1
+        config:
+          command: node
+          args:
+            - .vally/scenarios/key-vault-typescript-crud-secrets/tools/check-key-vault-typescript.mjs
+            - prompt/update-secret
+      - type: run-command
+        name: prompt/delete-and-wait
+        weight: 1
+        config:
+          command: node
+          args:
+            - .vally/scenarios/key-vault-typescript-crud-secrets/tools/check-key-vault-typescript.mjs
+            - prompt/delete-and-wait
+      - type: run-command
+        name: prompt/purge-after-delete
+        weight: 1
+        config:
+          command: node
+          args:
+            - .vally/scenarios/key-vault-typescript-crud-secrets/tools/check-key-vault-typescript.mjs
+            - prompt/purge-after-delete
+      - type: run-command
+        name: prompt/rest-error
+        weight: 1
+        config:
+          command: node
+          args:
+            - .vally/scenarios/key-vault-typescript-crud-secrets/tools/check-key-vault-typescript.mjs
+            - prompt/rest-error
+    environment:
+      files:
+        - src: tools/check-key-vault-typescript.mjs
+          dest: .vally/scenarios/key-vault-typescript-crud-secrets/tools/check-key-vault-typescript.mjs
+        - src: tools/key-vault-typescript-rules.mjs
+          dest: .vally/scenarios/key-vault-typescript-crud-secrets/tools/key-vault-typescript-rules.mjs
+        - src: ../../languages/typescript/checks.mjs
+          dest: .vally/languages/typescript/checks.mjs
+artifacts:
+  include:
+    - "**/*.ts"
+    - "**/*.js"
+    - "**/package.json"
+    - "**/tsconfig.json"
+  exclude:
+    - "**/.vally/**"
+    - "**/node_modules/**"
+    - "**/dist/**"

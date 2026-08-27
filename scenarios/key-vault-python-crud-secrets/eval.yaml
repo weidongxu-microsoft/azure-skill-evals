@@ -1,0 +1,114 @@
+name: key-vault-python-crud-secrets
+description: Compare Azure tooling for a Key Vault Python secret lifecycle
+version: "1.0"
+type: capability
+scoring:
+  weights: {}
+  threshold: 1
+defaults:
+  runs: 1
+  timeout: 30m
+  model: gpt-5.6-sol
+  judge_model: gpt-5.6-sol
+stimuli:
+  - name: key-vault-dp-python-crud
+    prompt: |-
+      Write a complete, runnable Python script that performs one Azure Key Vault secret lifecycle.
+
+      Write the code to files. Do not reply with code blocks.
+
+      1. Show the required pip packages for Azure Identity and Key Vault secrets.
+      2. Authenticate one SecretClient with DefaultAzureCredential.
+      3. Create "my-secret" with value "my-secret-value".
+      4. Get "my-secret" and print its retrieved value.
+      5. Update the same secret to "updated-value".
+      6. Begin deleting the same secret, wait for that exact deletion poller to complete, and only then purge the same secret.
+      7. Handle ResourceNotFoundError meaningfully without swallowing unrelated failures.
+    tags:
+      service: key-vault
+      plane: data-plane
+      language: python
+      category: crud
+    graders:
+      - type: run-command
+        name: prompt/key-vault-packages
+        weight: 1
+        config:
+          command: node
+          args:
+            - .vally/scenarios/key-vault-python-crud-secrets/tools/check-key-vault-python.mjs
+            - prompt/key-vault-packages
+      - type: run-command
+        name: prompt/authenticated-secret-client
+        weight: 1
+        config:
+          command: node
+          args:
+            - .vally/scenarios/key-vault-python-crud-secrets/tools/check-key-vault-python.mjs
+            - prompt/authenticated-secret-client
+      - type: run-command
+        name: prompt/create-secret
+        weight: 1
+        config:
+          command: node
+          args:
+            - .vally/scenarios/key-vault-python-crud-secrets/tools/check-key-vault-python.mjs
+            - prompt/create-secret
+      - type: run-command
+        name: prompt/read-secret-value
+        weight: 1
+        config:
+          command: node
+          args:
+            - .vally/scenarios/key-vault-python-crud-secrets/tools/check-key-vault-python.mjs
+            - prompt/read-secret-value
+      - type: run-command
+        name: prompt/update-secret
+        weight: 1
+        config:
+          command: node
+          args:
+            - .vally/scenarios/key-vault-python-crud-secrets/tools/check-key-vault-python.mjs
+            - prompt/update-secret
+      - type: run-command
+        name: prompt/begin-delete-secret
+        weight: 1
+        config:
+          command: node
+          args:
+            - .vally/scenarios/key-vault-python-crud-secrets/tools/check-key-vault-python.mjs
+            - prompt/begin-delete-secret
+      - type: run-command
+        name: prompt/purge-after-delete-completion
+        weight: 1
+        config:
+          command: node
+          args:
+            - .vally/scenarios/key-vault-python-crud-secrets/tools/check-key-vault-python.mjs
+            - prompt/purge-after-delete-completion
+      - type: run-command
+        name: prompt/sdk-error-handling
+        weight: 1
+        config:
+          command: node
+          args:
+            - .vally/scenarios/key-vault-python-crud-secrets/tools/check-key-vault-python.mjs
+            - prompt/sdk-error-handling
+    environment:
+      files:
+        - src: tools/check-key-vault-python.mjs
+          dest: .vally/scenarios/key-vault-python-crud-secrets/tools/check-key-vault-python.mjs
+        - src: tools/key-vault-rules.mjs
+          dest: .vally/scenarios/key-vault-python-crud-secrets/tools/key-vault-rules.mjs
+        - src: tools/key_vault_analyzer.py
+          dest: .vally/scenarios/key-vault-python-crud-secrets/tools/key_vault_analyzer.py
+artifacts:
+  include:
+    - "**/*.py"
+    - "**/requirements*.txt"
+    - "**/pyproject.toml"
+    - "**/setup.py"
+  exclude:
+    - "**/.vally/**"
+    - "**/.venv/**"
+    - "**/__pycache__/**"

@@ -6,6 +6,7 @@ evals:
   - ../../scenarios/identity-dotnet-default-azure-credential/eval.yaml
   - ../../scenarios/identity-dotnet-managed-identity-auth/eval.yaml
   - ../../scenarios/identity-dotnet-service-principal-auth/eval.yaml
+  - ../../scenarios/key-vault-dotnet-crud-secrets/eval.yaml
 vary:
   - /environment/skills
   - /environment/mcpServers

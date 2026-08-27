@@ -6,6 +6,7 @@ evals:
   - ../../scenarios/identity-typescript-default-azure-credential/eval.yaml
   - ../../scenarios/identity-typescript-managed-identity-auth/eval.yaml
   - ../../scenarios/identity-typescript-service-principal-auth/eval.yaml
+  - ../../scenarios/key-vault-typescript-crud-secrets/eval.yaml
 vary:
   - /environment/skills
   - /environment/mcpServers
