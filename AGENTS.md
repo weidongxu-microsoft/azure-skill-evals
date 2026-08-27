@@ -13,6 +13,10 @@ Keep the prompt, model, trial count, timeout, and graders identical across the
 three variants. Experiments may vary only the declared skill and MCP
 environment paths.
 
+The Cosmos DB CRUD suite currently covers Python, .NET, Java, and TypeScript.
+Each language has 11 correctness checks split between scenario-specific and
+reusable language requirements.
+
 ## Scenario layout
 
 Keep all files owned by one evaluation case together:
@@ -112,8 +116,12 @@ Run these commands before committing evaluation changes:
 node --test
 python -m compileall -q scenarios
 python -m ruff check scenarios
+pnpm test:golden
 vally lint --eval-spec scenarios --strict --verbose
 vally experiment run scenarios/cosmos-db-python-crud/experiment.yaml --output-dir reports --dry-run
+vally experiment run scenarios/cosmos-db-dotnet-crud/experiment.yaml --output-dir reports --dry-run
+vally experiment run scenarios/cosmos-db-java-crud/experiment.yaml --output-dir reports --dry-run
+vally experiment run scenarios/cosmos-db-typescript-crud/experiment.yaml --output-dir reports --dry-run
 ```
 
 Use one trial per arm only for harness development. Use repeated trials before

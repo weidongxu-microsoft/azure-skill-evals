@@ -6,8 +6,13 @@
   "scripts": {
     "bootstrap": "pwsh -NoProfile -File scripts/bootstrap-dependencies.ps1",
     "lint:evals": "vally lint --eval-spec scenarios --strict",
-    "test": "node --test && python -m compileall -q scenarios && python -m ruff check scenarios",
-    "experiment:cosmos": "vally experiment run scenarios/cosmos-db-python-crud/experiment.yaml --output-dir reports"
+    "test": "node --test && python -m compileall -q scenarios && python -m ruff check scenarios && pnpm test:golden",
+    "test:golden": "pwsh -NoProfile -File scripts/validate-golden-apps.ps1",
+    "experiment:cosmos": "pnpm experiment:cosmos:python",
+    "experiment:cosmos:python": "vally experiment run scenarios/cosmos-db-python-crud/experiment.yaml --output-dir reports",
+    "experiment:cosmos:dotnet": "vally experiment run scenarios/cosmos-db-dotnet-crud/experiment.yaml --output-dir reports",
+    "experiment:cosmos:java": "vally experiment run scenarios/cosmos-db-java-crud/experiment.yaml --output-dir reports",
+    "experiment:cosmos:typescript": "vally experiment run scenarios/cosmos-db-typescript-crud/experiment.yaml --output-dir reports"
   },
   "devDependencies": {
     "@microsoft/vally-cli": "0.12.0"

@@ -1,0 +1,141 @@
+name: cosmos-db-dotnet-crud-items
+description: Compare Azure tooling for a Cosmos DB .NET CRUD task
+version: "1.0"
+type: capability
+scoring:
+  weights: {}
+  threshold: 1
+defaults:
+  runs: 1
+  timeout: 30m
+  model: gpt-5.6-sol
+  judge_model: gpt-5.6-sol
+stimuli:
+  - name: cosmos-db-dp-dotnet-crud
+    prompt: |-
+      Write a C# program that performs CRUD operations on items in an Azure Cosmos DB NoSQL container.
+
+      Write the code to files. Do not reply with code blocks.
+
+      1. Create a CosmosClient using a connection string.
+      2. Create a database "TestDB" and container "Items" with partition key "/category".
+      3. Insert a JSON item with properties: id, category, name, and quantity.
+      4. Read the item back by id and partition key.
+      5. Query items where category equals "electronics" using SQL-like syntax and a parameter.
+      6. Replace the item with an updated quantity.
+      7. Delete the item.
+
+      Show required NuGet packages and proper error handling with CosmosException and status codes.
+    tags:
+      service: cosmos-db
+      plane: data-plane
+      language: dotnet
+      category: crud
+    graders:
+      - type: run-command
+        name: prompt/cosmos-package
+        weight: 1
+        config:
+          command: node
+          args:
+            - .vally/scenarios/cosmos-db-dotnet-crud/tools/check-cosmos-dotnet.mjs
+            - prompt/cosmos-package
+      - type: run-command
+        name: prompt/cosmos-client
+        weight: 1
+        config:
+          command: node
+          args:
+            - .vally/scenarios/cosmos-db-dotnet-crud/tools/check-cosmos-dotnet.mjs
+            - prompt/cosmos-client
+      - type: run-command
+        name: prompt/database-container
+        weight: 1
+        config:
+          command: node
+          args:
+            - .vally/scenarios/cosmos-db-dotnet-crud/tools/check-cosmos-dotnet.mjs
+            - prompt/database-container
+      - type: run-command
+        name: prompt/item-crud
+        weight: 1
+        config:
+          command: node
+          args:
+            - .vally/scenarios/cosmos-db-dotnet-crud/tools/check-cosmos-dotnet.mjs
+            - prompt/item-crud
+      - type: run-command
+        name: prompt/parameterized-query
+        weight: 1
+        config:
+          command: node
+          args:
+            - .vally/scenarios/cosmos-db-dotnet-crud/tools/check-cosmos-dotnet.mjs
+            - prompt/parameterized-query
+      - type: run-command
+        name: prompt/partition-key
+        weight: 1
+        config:
+          command: node
+          args:
+            - .vally/scenarios/cosmos-db-dotnet-crud/tools/check-cosmos-dotnet.mjs
+            - prompt/partition-key
+      - type: run-command
+        name: prompt/cosmos-exception
+        weight: 1
+        config:
+          command: node
+          args:
+            - .vally/scenarios/cosmos-db-dotnet-crud/tools/check-cosmos-dotnet.mjs
+            - prompt/cosmos-exception
+      - type: run-command
+        name: language/project-manifest
+        weight: 1
+        config:
+          command: node
+          args:
+            - .vally/languages/dotnet/check.mjs
+            - language/project-manifest
+      - type: run-command
+        name: language/current-azure-packages
+        weight: 1
+        config:
+          command: node
+          args:
+            - .vally/languages/dotnet/check.mjs
+            - language/current-azure-packages
+      - type: run-command
+        name: language/async-await
+        weight: 1
+        config:
+          command: node
+          args:
+            - .vally/languages/dotnet/check.mjs
+            - language/async-await
+      - type: run-command
+        name: language/client-lifecycle
+        weight: 1
+        config:
+          command: node
+          args:
+            - .vally/languages/dotnet/check.mjs
+            - language/client-lifecycle
+    environment:
+      files:
+        - src: tools/check-cosmos-dotnet.mjs
+          dest: .vally/scenarios/cosmos-db-dotnet-crud/tools/check-cosmos-dotnet.mjs
+        - src: tools/cosmos-dotnet-rules.mjs
+          dest: .vally/scenarios/cosmos-db-dotnet-crud/tools/cosmos-dotnet-rules.mjs
+        - src: ../../languages/dotnet/check.mjs
+          dest: .vally/languages/dotnet/check.mjs
+        - src: ../../languages/dotnet/checks.mjs
+          dest: .vally/languages/dotnet/checks.mjs
+artifacts:
+  include:
+    - "**/*.cs"
+    - "**/*.csproj"
+    - "**/README.md"
+  exclude:
+    - "**/.vally/**"
+    - "**/bin/**"
+    - "**/obj/**"

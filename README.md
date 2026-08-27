@@ -8,7 +8,7 @@ graders across three environments:
 2. Azure MCP plus general Azure skills.
 3. Azure MCP plus general Azure skills and a language-specific SDK skill.
 
-## Run the Cosmos DB Python pilot
+## Run the Cosmos DB evaluations
 
 ```powershell
 pnpm install
@@ -16,11 +16,16 @@ python -m pip install -r requirements-dev.txt
 pnpm bootstrap
 pnpm lint:evals
 pnpm test
-pnpm experiment:cosmos
+pnpm experiment:cosmos:python
+pnpm experiment:cosmos:dotnet
+pnpm experiment:cosmos:java
+pnpm experiment:cosmos:typescript
 ```
 
-The experiment runs one trial per arm. Vally writes timestamped output under
-`reports/`.
+Each experiment runs one trial per arm. Vally writes timestamped output under
+`reports/`. The repository currently covers Python, .NET, Java, and TypeScript
+Cosmos DB CRUD applications. Each language has 11 correctness checks split
+between scenario-specific and reusable language requirements.
 
 ## Scenario layout
 
@@ -62,6 +67,12 @@ top-level Python file without imposing a specific filename.
 The golden application proves that the deterministic grader suite has at least
 one valid solution without requiring generated code to match one exact
 implementation.
+
+The pinned `microsoft/skills` revision has data-plane Cosmos skills for Python,
+Java, and TypeScript. It has no Cosmos data-plane .NET skill, so the .NET
+third arm loads `azure-resource-manager-cosmosdb-dotnet`, the only Cosmos .NET
+skill. That skill explicitly distinguishes management-plane operations from
+the requested `Microsoft.Azure.Cosmos` data-plane work.
 
 See [Architecture](docs/architecture.md) for repository boundaries and the
 migration plan. See the

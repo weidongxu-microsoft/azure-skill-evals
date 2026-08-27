@@ -5,3 +5,7 @@ reports/
 *.log
 __pycache__/
 *.pyc
+bin/
+obj/
+target/
+dist/

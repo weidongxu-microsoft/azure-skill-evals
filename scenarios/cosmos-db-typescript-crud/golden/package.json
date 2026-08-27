@@ -1,0 +1,17 @@
+{
+  "name": "cosmos-crud-reference",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/cosmos-crud.js"
+  },
+  "dependencies": {
+    "@azure/cosmos": "4.10.0"
+  },
+  "devDependencies": {
+    "typescript": "5.9.2"
+  },
+  "packageManager": "pnpm@10.26.0"
+}

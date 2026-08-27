@@ -16,8 +16,8 @@ explicitly activated `azure-cosmos-py`.
 
 Vally owns execution, trajectories, grading, and experiment isolation. Each
 scenario directory owns its eval, experiment, golden application, grader, and
-grader tests. Shared language checks live under `languages/`. One `eval.yaml`
-defines the stimulus and the 11 equally weighted correctness graders. One
+grader tests. Shared language checks live under `languages/`. Each `eval.yaml`
+defines its stimulus and 11 equally weighted correctness graders. One
 experiment file changes only `/environment/skills` and
 `/environment/mcpServers`, so prompts, models, limits, and graders cannot drift
 between arms.
@@ -113,6 +113,15 @@ least three trials per arm before drawing comparative quality conclusions.
 - **Mitigation:** Enumerate every general Azure skill directory and verify the
   Vally trajectory's loaded and activated skill metrics during the pilot.
 
+### Missing .NET data-plane skill
+
+- **Likelihood:** Certain at the pinned dependency revision
+- **Impact:** Medium
+- **Mitigation:** The .NET third arm uses the only Cosmos .NET skill, which
+  explicitly redirects data-plane work to `Microsoft.Azure.Cosmos`. Report
+  this limitation with results and do not claim parity with the other language
+  SDK-skill arms.
+
 ### Registry or MCP startup failure
 
 - **Likelihood:** Medium
@@ -122,9 +131,10 @@ least three trials per arm before drawing comparative quality conclusions.
 
 ## Scope
 
-Version 1 includes the Cosmos DB Python CRUD stimulus, 11 correctness criteria,
-three experiment arms, dependency bootstrap, configuration linting, grader unit
-tests, and one trial per arm.
+Version 1 includes Cosmos DB CRUD stimuli for Python, .NET, Java, and
+TypeScript. Every language has 11 correctness criteria, three experiment arms,
+a buildable golden application, configuration linting, grader unit tests, and
+one trial per arm.
 
 Version 1 does not migrate all Hyoka prompts, add PR quality gates, or claim
 statistical significance. Those follow after the pilot reproduces correct
