@@ -1,0 +1,149 @@
+name: cosmos-db-python-crud-items
+description: Compare Azure tooling for a Cosmos DB Python CRUD task
+version: "1.0"
+type: capability
+scoring:
+  weights: {}
+  threshold: 1
+defaults:
+  runs: 1
+  timeout: 30m
+  model: gpt-5.6-sol
+  judge_model: gpt-5.6-sol
+stimuli:
+  - name: cosmos-db-dp-python-crud
+    prompt: |-
+      Write a Python script that performs CRUD operations on items in an Azure Cosmos DB NoSQL container.
+
+      Write the code to files. Do not reply with code blocks.
+
+      1. Create a CosmosClient.
+      2. Create a database "TestDB" and container "Items" with partition key "/category".
+      3. Upsert an item dict with keys: id, category, name, quantity.
+      4. Read the item back using read_item() with id and partition key.
+      5. Query items where category equals "electronics" using a parameterized query.
+      6. Replace the item with an updated quantity.
+      7. Delete the item.
+
+      Show required pip packages and handle exceptions from azure.cosmos.exceptions.
+    tags:
+      service: cosmos-db
+      plane: data-plane
+      language: python
+      category: crud
+    graders:
+      - type: run-command
+        name: prompt/azure-cosmos-package
+        weight: 1
+        config:
+          command: node
+          args:
+            - .vally/tools/check-cosmos-python.mjs
+            - prompt/azure-cosmos-package
+      - type: run-command
+        name: prompt/cosmos-client
+        weight: 1
+        config:
+          command: node
+          args:
+            - .vally/tools/check-cosmos-python.mjs
+            - prompt/cosmos-client
+      - type: run-command
+        name: prompt/create-database
+        weight: 1
+        config:
+          command: node
+          args:
+            - .vally/tools/check-cosmos-python.mjs
+            - prompt/create-database
+      - type: run-command
+        name: prompt/create-container
+        weight: 1
+        config:
+          command: node
+          args:
+            - .vally/tools/check-cosmos-python.mjs
+            - prompt/create-container
+      - type: run-command
+        name: prompt/cross-partition-query
+        weight: 1
+        config:
+          command: node
+          args:
+            - .vally/tools/check-cosmos-python.mjs
+            - prompt/cross-partition-query
+      - type: run-command
+        name: prompt/cosmos-exception
+        weight: 1
+        config:
+          command: node
+          args:
+            - .vally/tools/check-cosmos-python.mjs
+            - prompt/cosmos-exception
+      - type: run-command
+        name: language/correct-imports
+        weight: 1
+        config:
+          command: node
+          args:
+            - .vally/tools/check-cosmos-python.mjs
+            - language/correct-imports
+      - type: run-command
+        name: language/default-azure-credential
+        weight: 1
+        config:
+          command: node
+          args:
+            - .vally/tools/check-cosmos-python.mjs
+            - language/default-azure-credential
+      - type: run-command
+        name: language/client-lifecycle
+        weight: 1
+        config:
+          command: node
+          args:
+            - .vally/tools/check-cosmos-python.mjs
+            - language/client-lifecycle
+      - type: run-command
+        name: language/async-client
+        weight: 1
+        config:
+          command: node
+          args:
+            - .vally/tools/check-cosmos-python.mjs
+            - language/async-client
+      - type: run-command
+        name: language/exception-handling
+        weight: 1
+        config:
+          command: node
+          args:
+            - .vally/tools/check-cosmos-python.mjs
+            - language/exception-handling
+      - type: file-exists
+        name: workspace/python-file
+        weight: 1
+        config:
+          path: "**/*.py"
+      - type: tool-calls
+        name: trajectory/azure-mcp
+        weight: 1
+        config:
+          required:
+            - name: "^azure[-_]"
+    environment:
+      files:
+        - src: ../../../../../../tools/check-cosmos-python.mjs
+          dest: .vally/tools/check-cosmos-python.mjs
+        - src: ../../../../../../tools/cosmos-python-rules.mjs
+          dest: .vally/tools/cosmos-python-rules.mjs
+artifacts:
+  include:
+    - "**/*.py"
+    - "**/requirements*.txt"
+    - "**/pyproject.toml"
+    - "**/README.md"
+  exclude:
+    - "**/.vally/**"
+    - "**/.venv/**"
+    - "**/__pycache__/**"

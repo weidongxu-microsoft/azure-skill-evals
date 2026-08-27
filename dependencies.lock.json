@@ -1,0 +1,18 @@
+{
+  "repositories": [
+    {
+      "name": "microsoft-skills",
+      "url": "https://github.com/microsoft/skills.git",
+      "commit": "7066b58141d8cc66f39356b2ee5bb64d428dcf17"
+    },
+    {
+      "name": "azure-skills",
+      "url": "https://github.com/microsoft/azure-skills.git",
+      "commit": "8bcae3112896668ae0a4d02b44dddc0424d88c8c"
+    }
+  ],
+  "packages": {
+    "@microsoft/vally-cli": "0.12.0",
+    "@azure/mcp": "3.0.0-beta.38"
+  }
+}

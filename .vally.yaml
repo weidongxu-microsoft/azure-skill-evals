@@ -1,0 +1,11 @@
+paths:
+  evals:
+    - evals/
+  results: reports/
+
+suites:
+  cosmos-python-pilot:
+    description: Cosmos DB Python CRUD pilot
+    evals:
+      - evals/prompts/cosmos-db/data-plane/python/crud-items/eval.yaml
+

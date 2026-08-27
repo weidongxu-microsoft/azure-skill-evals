@@ -1,0 +1,19 @@
+{
+  "name": "azure-skill-evals",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "bootstrap": "pwsh -NoProfile -File scripts/bootstrap-dependencies.ps1",
+    "lint:evals": "vally lint",
+    "test": "node --test",
+    "experiment:cosmos": "vally experiment run experiments/cosmos-db-python-three-way.yaml --output-dir reports"
+  },
+  "devDependencies": {
+    "@microsoft/vally-cli": "0.12.0"
+  },
+  "engines": {
+    "node": ">=22"
+  },
+  "packageManager": "pnpm@10.26.0"
+}
