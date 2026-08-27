@@ -1,0 +1,135 @@
+name: resource-manager-java-resource-group-crud
+description: Compare Azure tooling for an Azure Resource Manager Java resource group CRUD task
+version: "1.0"
+type: capability
+scoring:
+  weights: {}
+  threshold: 1
+defaults:
+  runs: 1
+  timeout: 30m
+  model: gpt-5.6-sol
+  judge_model: gpt-5.6-sol
+stimuli:
+  - name: resource-manager-mp-java-resource-group-crud
+    prompt: |-
+      Write a Java 17 application that manages an Azure resource group with the
+      current Azure Resource Manager fluent SDK.
+
+      Write the code to files. Do not reply with code blocks.
+
+      Read AZURE_SUBSCRIPTION_ID, RESOURCE_GROUP_NAME, and AZURE_LOCATION from
+      environment variables. AZURE_LOCATION will be set to "eastus".
+
+      Use DefaultAzureCredential and an AzureProfile for AzureEnvironment.AZURE
+      to authenticate AzureResourceManager for AZURE_SUBSCRIPTION_ID. Perform
+      one connected lifecycle on RESOURCE_GROUP_NAME:
+
+      1. Create the resource group in AZURE_LOCATION.
+      2. List resource groups, iterate the result, and print each group.
+      3. Get RESOURCE_GROUP_NAME by name and print the result.
+      4. Update that retrieved group with tag
+         environment=development, apply the update, and print the result.
+      5. Delete RESOURCE_GROUP_NAME synchronously. If using
+         beginDeleteByName, wait for that exact poller to complete.
+      6. Print a deletion confirmation only after deletion completes.
+
+      Include an active Maven or Gradle runtime manifest with
+      com.azure.resourcemanager:azure-resourcemanager:2.63.0 and
+      com.azure:azure-identity:1.18.5. Handle ManagementException or
+      HttpResponseException meaningfully without swallowing failures.
+    tags:
+      service: resource-manager
+      plane: management-plane
+      language: java
+      category: crud
+    graders:
+      - type: run-command
+        name: prompt/source-manifest
+        weight: 1
+        config:
+          command: node
+          args:
+            - .vally/scenarios/resource-manager-java-resource-group-crud/tools/check-resource-manager-java.mjs
+            - prompt/source-manifest
+      - type: run-command
+        name: prompt/authentication
+        weight: 1
+        config:
+          command: node
+          args:
+            - .vally/scenarios/resource-manager-java-resource-group-crud/tools/check-resource-manager-java.mjs
+            - prompt/authentication
+      - type: run-command
+        name: prompt/create-resource-group
+        weight: 1
+        config:
+          command: node
+          args:
+            - .vally/scenarios/resource-manager-java-resource-group-crud/tools/check-resource-manager-java.mjs
+            - prompt/create-resource-group
+      - type: run-command
+        name: prompt/list-resource-groups
+        weight: 1
+        config:
+          command: node
+          args:
+            - .vally/scenarios/resource-manager-java-resource-group-crud/tools/check-resource-manager-java.mjs
+            - prompt/list-resource-groups
+      - type: run-command
+        name: prompt/get-resource-group
+        weight: 1
+        config:
+          command: node
+          args:
+            - .vally/scenarios/resource-manager-java-resource-group-crud/tools/check-resource-manager-java.mjs
+            - prompt/get-resource-group
+      - type: run-command
+        name: prompt/update-resource-group
+        weight: 1
+        config:
+          command: node
+          args:
+            - .vally/scenarios/resource-manager-java-resource-group-crud/tools/check-resource-manager-java.mjs
+            - prompt/update-resource-group
+      - type: run-command
+        name: prompt/delete-resource-group
+        weight: 1
+        config:
+          command: node
+          args:
+            - .vally/scenarios/resource-manager-java-resource-group-crud/tools/check-resource-manager-java.mjs
+            - prompt/delete-resource-group
+      - type: run-command
+        name: prompt/delete-confirmation
+        weight: 1
+        config:
+          command: node
+          args:
+            - .vally/scenarios/resource-manager-java-resource-group-crud/tools/check-resource-manager-java.mjs
+            - prompt/delete-confirmation
+      - type: run-command
+        name: prompt/exception-handling
+        weight: 1
+        config:
+          command: node
+          args:
+            - .vally/scenarios/resource-manager-java-resource-group-crud/tools/check-resource-manager-java.mjs
+            - prompt/exception-handling
+    environment:
+      files:
+        - src: tools/check-resource-manager-java.mjs
+          dest: .vally/scenarios/resource-manager-java-resource-group-crud/tools/check-resource-manager-java.mjs
+        - src: tools/resource-manager-java-rules.mjs
+          dest: .vally/scenarios/resource-manager-java-resource-group-crud/tools/resource-manager-java-rules.mjs
+        - src: ../../languages/java/checks.mjs
+          dest: .vally/languages/java/checks.mjs
+artifacts:
+  include:
+    - "**/*.java"
+    - "**/pom.xml"
+    - "**/build.gradle"
+    - "**/build.gradle.kts"
+  exclude:
+    - "**/.vally/**"
+    - "**/target/**"

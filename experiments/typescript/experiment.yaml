@@ -7,6 +7,7 @@ evals:
   - ../../scenarios/identity-typescript-managed-identity-auth/eval.yaml
   - ../../scenarios/identity-typescript-service-principal-auth/eval.yaml
   - ../../scenarios/key-vault-typescript-crud-secrets/eval.yaml
+  - ../../scenarios/resource-manager-typescript-resource-group-crud/eval.yaml
 vary:
   - /environment/skills
   - /environment/mcpServers

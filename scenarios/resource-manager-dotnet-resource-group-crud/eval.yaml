@@ -1,0 +1,123 @@
+name: resource-manager-dotnet-resource-group-crud
+description: Compare Azure tooling for a .NET resource group lifecycle task
+version: "1.0"
+type: capability
+scoring:
+  weights: {}
+  threshold: 1
+defaults:
+  runs: 1
+  timeout: 30m
+  model: gpt-5.6-sol
+  judge_model: gpt-5.6-sol
+stimuli:
+  - name: resource-manager-mp-dotnet-resource-group-crud
+    prompt: |-
+      Write a complete C# console application that manages one Azure resource group with the current Azure.ResourceManager SDK.
+
+      Write the code to files. Do not reply with code blocks.
+
+      Read the subscription ID and resource group name from AZURE_SUBSCRIPTION_ID and AZURE_RESOURCE_GROUP_NAME. Read AZURE_LOCATION with "eastus" as its default. Authenticate with DefaultAzureCredential, construct ArmClient with the subscription ID, get its default subscription, and use that subscription's resource group collection.
+
+      Perform one reachable lifecycle, in order:
+      1. Create or update the named resource group in the configured location and wait for creation to complete.
+      2. Enumerate the resource groups and print each listed resource group's name.
+      3. Get the named resource group and print a property from the returned resource.
+      4. Apply the tag environment=development to that resource group and print the applied value from the update result.
+      5. Delete that same resource group, wait for deletion to complete, and only then print a confirmation containing its name.
+
+      Include meaningful RequestFailedException handling. Any other catch path must preserve or report the causal exception. Target net8.0 and pin Azure.ResourceManager 1.14.0 and Azure.Identity 1.21.0.
+    tags:
+      service: resource-manager
+      plane: management-plane
+      language: dotnet
+      category: crud
+    graders:
+      - type: run-command
+        name: prompt/source-manifest
+        weight: 1
+        config:
+          command: node
+          args:
+            - .vally/scenarios/resource-manager-dotnet-resource-group-crud/tools/check-resource-group-dotnet.mjs
+            - prompt/source-manifest
+      - type: run-command
+        name: prompt/credential-arm-client
+        weight: 1
+        config:
+          command: node
+          args:
+            - .vally/scenarios/resource-manager-dotnet-resource-group-crud/tools/check-resource-group-dotnet.mjs
+            - prompt/credential-arm-client
+      - type: run-command
+        name: prompt/default-subscription-groups
+        weight: 1
+        config:
+          command: node
+          args:
+            - .vally/scenarios/resource-manager-dotnet-resource-group-crud/tools/check-resource-group-dotnet.mjs
+            - prompt/default-subscription-groups
+      - type: run-command
+        name: prompt/create-resource-group
+        weight: 1
+        config:
+          command: node
+          args:
+            - .vally/scenarios/resource-manager-dotnet-resource-group-crud/tools/check-resource-group-dotnet.mjs
+            - prompt/create-resource-group
+      - type: run-command
+        name: prompt/list-resource-groups
+        weight: 1
+        config:
+          command: node
+          args:
+            - .vally/scenarios/resource-manager-dotnet-resource-group-crud/tools/check-resource-group-dotnet.mjs
+            - prompt/list-resource-groups
+      - type: run-command
+        name: prompt/get-resource-group
+        weight: 1
+        config:
+          command: node
+          args:
+            - .vally/scenarios/resource-manager-dotnet-resource-group-crud/tools/check-resource-group-dotnet.mjs
+            - prompt/get-resource-group
+      - type: run-command
+        name: prompt/update-resource-group
+        weight: 1
+        config:
+          command: node
+          args:
+            - .vally/scenarios/resource-manager-dotnet-resource-group-crud/tools/check-resource-group-dotnet.mjs
+            - prompt/update-resource-group
+      - type: run-command
+        name: prompt/delete-resource-group
+        weight: 1
+        config:
+          command: node
+          args:
+            - .vally/scenarios/resource-manager-dotnet-resource-group-crud/tools/check-resource-group-dotnet.mjs
+            - prompt/delete-resource-group
+      - type: run-command
+        name: prompt/request-failed-error
+        weight: 1
+        config:
+          command: node
+          args:
+            - .vally/scenarios/resource-manager-dotnet-resource-group-crud/tools/check-resource-group-dotnet.mjs
+            - prompt/request-failed-error
+    environment:
+      files:
+        - src: tools/check-resource-group-dotnet.mjs
+          dest: .vally/scenarios/resource-manager-dotnet-resource-group-crud/tools/check-resource-group-dotnet.mjs
+        - src: tools/resource-group-dotnet-rules.mjs
+          dest: .vally/scenarios/resource-manager-dotnet-resource-group-crud/tools/resource-group-dotnet-rules.mjs
+        - src: ../../languages/dotnet/checks.mjs
+          dest: .vally/languages/dotnet/checks.mjs
+artifacts:
+  include:
+    - "**/*.cs"
+    - "**/*.csproj"
+  exclude:
+    - "**/.vally/**"
+    - "**/bin/**"
+    - "**/obj/**"

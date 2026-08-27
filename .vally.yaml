@@ -53,3 +53,10 @@ suites:
       - scenarios/identity-dotnet-service-principal-auth/eval.yaml
       - scenarios/identity-java-service-principal-auth/eval.yaml
       - scenarios/identity-typescript-service-principal-auth/eval.yaml
+  resource-manager-resource-group-crud:
+    description: Resource Manager resource group CRUD evaluation across four languages
+    evals:
+      - scenarios/resource-manager-python-resource-group-crud/eval.yaml
+      - scenarios/resource-manager-dotnet-resource-group-crud/eval.yaml
+      - scenarios/resource-manager-java-resource-group-crud/eval.yaml
+      - scenarios/resource-manager-typescript-resource-group-crud/eval.yaml

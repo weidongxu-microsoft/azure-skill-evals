@@ -1,0 +1,19 @@
+{
+  "name": "resource-group-lifecycle-reference",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/resource-group.js"
+  },
+  "dependencies": {
+    "@azure/arm-resources": "8.0.0",
+    "@azure/core-rest-pipeline": "1.25.0",
+    "@azure/identity": "4.13.2"
+  },
+  "devDependencies": {
+    "typescript": "5.9.2"
+  },
+  "packageManager": "pnpm@10.26.0"
+}
