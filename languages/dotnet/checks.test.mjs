@@ -174,3 +174,125 @@ string fake = "await fakeClient.GetAccountInfoAsync()";
   assert.doesNotMatch(filtered, /\bfakeClient\b/);
   assert.doesNotMatch(filtered, /Account kind|SKU/);
 });
+
+test("Service Bus factory resources require async disposal and processor stop", () => {
+  const source = `
+await using var client = new ServiceBusClient(
+    fullyQualifiedNamespace, credential);
+await using var sender = client.CreateSender(queueName);
+await using ServiceBusReceiver receiver = client.CreateReceiver(queueName);
+await using var processor = client.CreateProcessor(queueName);
+try
+{
+    await processor.StartProcessingAsync();
+    await Task.Delay(TimeSpan.FromSeconds(10));
+}
+finally
+{
+    await processor.StopProcessingAsync();
+}
+`;
+
+  assert.equal(
+    evaluateDotnetCheck("language/client-lifecycle", {
+      ...completeWorkspace,
+      source,
+    }),
+    true,
+  );
+});
+
+test("Service Bus lifecycle is type-aware and rejects incomplete cleanup", () => {
+  const base = `
+await using var client = new ServiceBusClient(namespaceName, credential);
+await using var sender = client.CreateSender(queueName);
+await using var receiver = client.CreateReceiver(queueName);
+await using var processor = client.CreateProcessor(queueName);
+try
+{
+    await processor.StartProcessingAsync();
+    await Task.Delay(1000);
+}
+finally
+{
+    await processor.StopProcessingAsync();
+}
+`;
+  const invalid = [
+    base.replace("await using var sender", "var sender"),
+    base.replace("await using var receiver", "using var receiver"),
+    base.replace("await using var processor", "var processor"),
+    base.replace("await processor.StopProcessingAsync();", ""),
+    base.replace(
+      "await processor.StopProcessingAsync();",
+      "await other.StopProcessingAsync();",
+    ),
+    base.replace("await Task.Delay(1000);", ""),
+    base.replace(
+      "await processor.StopProcessingAsync();",
+      "processor.StopProcessingAsync();",
+    ),
+    base.replace("finally", "if (cleanup)"),
+    base.replace("await using var client", "using var client"),
+  ];
+  for (const source of invalid) {
+    assert.equal(
+      evaluateDotnetCheck("language/client-lifecycle", {
+        ...completeWorkspace,
+        source,
+      }),
+      false,
+      source,
+    );
+  }
+});
+
+test("Service Bus explicit awaited disposal is accepted", () => {
+  const source = `
+var client = new ServiceBusClient(namespaceName, credential);
+var sender = client.CreateSender(queueName);
+var receiver = client.CreateReceiver(queueName);
+await sender.DisposeAsync();
+await receiver.DisposeAsync();
+await client.DisposeAsync();
+`;
+  assert.equal(
+    evaluateDotnetCheck("language/client-lifecycle", {
+      ...completeWorkspace,
+      source,
+    }),
+    true,
+  );
+});
+
+test("Service Bus disposal must follow the exact resource's last use", () => {
+  const earlySender = `
+var client = new ServiceBusClient(namespaceName, credential);
+var sender = client.CreateSender(queueName);
+await sender.DisposeAsync();
+await sender.SendMessageAsync(message);
+await client.DisposeAsync();
+`;
+  const earlyClient = `
+var client = new ServiceBusClient(namespaceName, credential);
+var sender = client.CreateSender(queueName);
+await client.DisposeAsync();
+await sender.SendMessageAsync(message);
+await sender.DisposeAsync();
+`;
+  const earlyThenRepeated = `
+await using var client = new ServiceBusClient(namespaceName, credential);
+await using var sender = client.CreateSender(queueName);
+await sender.DisposeAsync();
+await sender.SendMessageAsync(message);
+`;
+  for (const source of [earlySender, earlyClient, earlyThenRepeated]) {
+    assert.equal(
+      evaluateDotnetCheck("language/client-lifecycle", {
+        ...completeWorkspace,
+        source,
+      }),
+      false,
+    );
+  }
+});

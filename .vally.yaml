@@ -60,3 +60,10 @@ suites:
       - scenarios/resource-manager-dotnet-resource-group-crud/eval.yaml
       - scenarios/resource-manager-java-resource-group-crud/eval.yaml
       - scenarios/resource-manager-typescript-resource-group-crud/eval.yaml
+  service-bus-send-receive-messages:
+    description: Service Bus send and receive messages evaluation across four languages
+    evals:
+      - scenarios/service-bus-python-send-receive-messages/eval.yaml
+      - scenarios/service-bus-dotnet-send-receive-messages/eval.yaml
+      - scenarios/service-bus-java-send-receive-messages/eval.yaml
+      - scenarios/service-bus-typescript-send-receive-messages/eval.yaml

@@ -226,7 +226,8 @@ const checks = {
   "language/client-lifecycle": ({ source }) =>
     clientsAreDisposed(source, "CosmosClient") &&
     clientsAreDisposed(source, "EventHubProducerClient") &&
-    processorsAreStopped(source),
+    processorsAreStopped(source) &&
+    serviceBusResourcesAreDisposed(source),
 };
 
 function escapeRegExp(value) {
@@ -293,6 +294,149 @@ function processorsAreStopped(source) {
       ).test(source),
     )
   );
+}
+
+function matchingBrace(source, openIndex) {
+  let depth = 0;
+  for (let index = openIndex; index < source.length; index += 1) {
+    if (source[index] === "{") depth += 1;
+    else if (source[index] === "}" && --depth === 0) return index;
+  }
+  return -1;
+}
+
+function serviceBusFactoryBindings(source, client, type, method) {
+  const escapedClient = escapeRegExp(client);
+  const escapedType = escapeRegExp(type);
+  const result = new Set();
+  const patterns = [
+    new RegExp(
+      `\\b(?:${escapedType}|var)\\s+(\\w+)\\s*=\\s*${escapedClient}\\s*\\.\\s*${method}\\s*\\(`,
+      "g",
+    ),
+    new RegExp(
+      `\\b${escapedType}\\s+(\\w+)\\s*=\\s*${escapedClient}\\s*\\.\\s*${method}\\s*\\(`,
+      "g",
+    ),
+  ];
+  for (const pattern of patterns) {
+    for (const match of source.matchAll(pattern)) result.add(match[1]);
+  }
+  return [...result];
+}
+
+function serviceBusDisposalPosition(source, type, name) {
+  const escapedType = escapeRegExp(type);
+  const escapedName = escapeRegExp(name);
+  const structured = new RegExp(
+    `\\bawait\\s+using\\s+(?:var|${escapedType})\\s+${escapedName}\\s*=`,
+  ).exec(source);
+  const disposals = [
+    ...source.matchAll(
+      new RegExp(
+        `\\bawait\\s+${escapedName}\\s*\\.\\s*DisposeAsync\\s*\\(`,
+        "g",
+      ),
+    ),
+  ];
+  const lastUse = [
+    ...source.matchAll(
+      new RegExp(
+        `\\b${escapedName}\\s*\\.\\s*(?!DisposeAsync\\b)\\w+(?:Async)?\\s*\\(`,
+        "g",
+      ),
+    ),
+  ].at(-1)?.index ?? -1;
+  if (disposals.some((disposal) => disposal.index <= lastUse)) return -1;
+  if (structured) {
+    return source.length * 2 - structured.index;
+  }
+  if (disposals.length === 0) return -1;
+  return disposals.find((disposal) => disposal.index > lastUse)?.index ?? -1;
+}
+
+function serviceBusProcessorIsStopped(source, processor) {
+  const escaped = escapeRegExp(processor);
+  const start = new RegExp(
+    `\\bawait\\s+${escaped}\\s*\\.\\s*StartProcessingAsync\\s*\\(`,
+  ).exec(source);
+  if (!start) return false;
+  const wait = new RegExp(
+    `\\b(?:await\\s+Task\\s*\\.\\s*Delay|await\\s+\\w+(?:\\.\\w+)*\\s*\\.\\s*WaitForCancellationAsync|Console\\s*\\.\\s*Read(?:Line|Key))\\s*\\(`,
+    "g",
+  );
+  const stop = new RegExp(
+    `\\bawait\\s+${escaped}\\s*\\.\\s*StopProcessingAsync\\s*\\(`,
+    "g",
+  );
+  for (const finallyMatch of source.matchAll(/\bfinally\s*\{/g)) {
+    const open = source.indexOf("{", finallyMatch.index);
+    const close = matchingBrace(source, open);
+    if (close < 0) continue;
+    const body = source.slice(open + 1, close);
+    const stopped = stop.exec(body);
+    stop.lastIndex = 0;
+    if (!stopped || finallyMatch.index <= start.index) continue;
+    wait.lastIndex = start.index + start[0].length;
+    const waited = wait.exec(source);
+    wait.lastIndex = 0;
+    if (waited && waited.index < finallyMatch.index) return true;
+  }
+  return false;
+}
+
+function serviceBusResourcesAreDisposed(source) {
+  if (!/\bServiceBus(?:Client|Sender|Receiver|Processor)\b/.test(source)) {
+    return true;
+  }
+  const clients = clientBindings(source, "ServiceBusClient");
+  if (
+    clients.length === 0 ||
+    !clients.every(
+      (name) => serviceBusDisposalPosition(
+        source,
+        "ServiceBusClient",
+        name,
+      ) >= 0,
+    )
+  ) {
+    return false;
+  }
+
+  const resources = [];
+  for (const client of clients) {
+    for (const [type, method] of [
+      ["ServiceBusSender", "CreateSender"],
+      ["ServiceBusReceiver", "CreateReceiver"],
+      ["ServiceBusProcessor", "CreateProcessor"],
+    ]) {
+      for (const name of serviceBusFactoryBindings(
+        source,
+        client,
+        type,
+        method,
+      )) {
+        resources.push({ client, name, type });
+      }
+    }
+  }
+  if (
+    resources.length === 0 ||
+    !resources.every(({ client, name, type }) => {
+      const resourceDisposal = serviceBusDisposalPosition(source, type, name);
+      const clientDisposal = serviceBusDisposalPosition(
+        source,
+        "ServiceBusClient",
+        client,
+      );
+      return resourceDisposal >= 0 && resourceDisposal < clientDisposal;
+    })
+  ) {
+    return false;
+  }
+  return resources
+    .filter(({ type }) => type === "ServiceBusProcessor")
+    .every(({ name }) => serviceBusProcessorIsStopped(source, name));
 }
 
 export function evaluateDotnetCheck(name, workspace) {

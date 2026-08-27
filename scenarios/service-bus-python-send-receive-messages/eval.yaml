@@ -1,0 +1,123 @@
+name: service-bus-python-send-receive-messages
+description: Compare Azure tooling for a Service Bus Python send and receive task
+version: "1.0"
+type: capability
+scoring:
+  weights: {}
+  threshold: 1
+defaults:
+  runs: 1
+  timeout: 30m
+  model: gpt-5.6-sol
+  judge_model: gpt-5.6-sol
+stimuli:
+  - name: service-bus-dp-python-send-receive-messages
+    prompt: |-
+      Write a complete, runnable Python application that sends and receives messages with Azure Service Bus.
+
+      Write the code to files. Do not reply with code blocks.
+
+      1. Show the required pip package for Azure Service Bus.
+      2. Read the connection information and queue, topic, and subscription names from environment variables. An equivalent Microsoft Entra ID configuration is also valid.
+      3. Send one standalone message to the queue.
+      4. Create an SDK message batch for that queue, add exactly five new messages, handle the error raised when a message cannot fit, and send that same batch.
+      5. Use a bounded pull receive operation on the queue. Print each received message body and complete that same message only after processing it.
+      6. Separately send a message to a topic, then receive from its subscription. Print and complete the received subscription message.
+      7. You may use the synchronous or asynchronous client. If you use azure.servicebus.aio, await every asynchronous SDK operation consistently.
+      8. Cleanly dispose the ServiceBusClient and every sender and receiver that the application constructs.
+    tags:
+      service: service-bus
+      plane: data-plane
+      language: python
+      category: messaging
+    graders:
+      - type: run-command
+        name: prompt/service-bus-package
+        weight: 1
+        config:
+          command: node
+          args:
+            - .vally/scenarios/service-bus-python-send-receive-messages/tools/check-service-bus-python.mjs
+            - prompt/service-bus-package
+      - type: run-command
+        name: prompt/client-configuration
+        weight: 1
+        config:
+          command: node
+          args:
+            - .vally/scenarios/service-bus-python-send-receive-messages/tools/check-service-bus-python.mjs
+            - prompt/client-configuration
+      - type: run-command
+        name: prompt/queue-single-send
+        weight: 1
+        config:
+          command: node
+          args:
+            - .vally/scenarios/service-bus-python-send-receive-messages/tools/check-service-bus-python.mjs
+            - prompt/queue-single-send
+      - type: run-command
+        name: prompt/queue-batch-send
+        weight: 1
+        config:
+          command: node
+          args:
+            - .vally/scenarios/service-bus-python-send-receive-messages/tools/check-service-bus-python.mjs
+            - prompt/queue-batch-send
+      - type: run-command
+        name: prompt/queue-receive
+        weight: 1
+        config:
+          command: node
+          args:
+            - .vally/scenarios/service-bus-python-send-receive-messages/tools/check-service-bus-python.mjs
+            - prompt/queue-receive
+      - type: run-command
+        name: prompt/message-settlement
+        weight: 1
+        config:
+          command: node
+          args:
+            - .vally/scenarios/service-bus-python-send-receive-messages/tools/check-service-bus-python.mjs
+            - prompt/message-settlement
+      - type: run-command
+        name: prompt/async-client
+        weight: 1
+        config:
+          command: node
+          args:
+            - .vally/scenarios/service-bus-python-send-receive-messages/tools/check-service-bus-python.mjs
+            - prompt/async-client
+      - type: run-command
+        name: prompt/topic-subscription
+        weight: 1
+        config:
+          command: node
+          args:
+            - .vally/scenarios/service-bus-python-send-receive-messages/tools/check-service-bus-python.mjs
+            - prompt/topic-subscription
+      - type: run-command
+        name: prompt/resource-lifecycle
+        weight: 1
+        config:
+          command: node
+          args:
+            - .vally/scenarios/service-bus-python-send-receive-messages/tools/check-service-bus-python.mjs
+            - prompt/resource-lifecycle
+    environment:
+      files:
+        - src: tools/check-service-bus-python.mjs
+          dest: .vally/scenarios/service-bus-python-send-receive-messages/tools/check-service-bus-python.mjs
+        - src: tools/service-bus-python-rules.mjs
+          dest: .vally/scenarios/service-bus-python-send-receive-messages/tools/service-bus-python-rules.mjs
+        - src: tools/service_bus_analyzer.py
+          dest: .vally/scenarios/service-bus-python-send-receive-messages/tools/service_bus_analyzer.py
+artifacts:
+  include:
+    - "**/*.py"
+    - "**/requirements*.txt"
+    - "**/pyproject.toml"
+    - "**/setup.py"
+  exclude:
+    - "**/.vally/**"
+    - "**/.venv/**"
+    - "**/__pycache__/**"

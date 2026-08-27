@@ -1,0 +1,878 @@
+lockfileVersion: '9.0'
+
+settings:
+  autoInstallPeers: true
+  excludeLinksFromLockfile: false
+
+importers:
+
+  .:
+    dependencies:
+      '@azure/identity':
+        specifier: 4.13.2
+        version: 4.13.2
+      '@azure/service-bus':
+        specifier: 7.9.5
+        version: 7.9.5
+    devDependencies:
+      typescript:
+        specifier: 5.9.2
+        version: 5.9.2
+
+packages:
+
+  '@azure/abort-controller@1.1.0':
+    resolution: {integrity: sha1-eI7nhFelWvihrTQqyxgjg9IRkkk=}
+    engines: {node: '>=12.0.0'}
+
+  '@azure/abort-controller@2.2.0':
+    resolution: {integrity: sha1-k+DoKwGGLn6jtbaZWHGdPz/SyKw=}
+    engines: {node: '>=22.0.0'}
+
+  '@azure/core-amqp@4.5.0':
+    resolution: {integrity: sha1-n32dCXWXAyKRblx23bTKx/ur0XY=}
+    engines: {node: '>=22.0.0'}
+
+  '@azure/core-auth@1.11.0':
+    resolution: {integrity: sha1-Ha7/32LRqHHSK4ZfnzFkpj6h9XU=}
+    engines: {node: '>=22.0.0'}
+
+  '@azure/core-client@1.11.0':
+    resolution: {integrity: sha1-5z0JrHl33l17QVaWt+1F0/3rZ7A=}
+    engines: {node: '>=22.0.0'}
+
+  '@azure/core-paging@1.7.0':
+    resolution: {integrity: sha1-WVl6L1Q4ujxsh4n8hw9p4OeFMag=}
+    engines: {node: '>=22.0.0'}
+
+  '@azure/core-process@1.0.0':
+    resolution: {integrity: sha1-w68cFyI9ZTjhs2ln3clM2uUyy4M=}
+    engines: {node: '>=22.0.0'}
+
+  '@azure/core-rest-pipeline@1.25.0':
+    resolution: {integrity: sha1-kupJEu27H3OV9IKaMAYxF0qoLwg=}
+    engines: {node: '>=22.0.0'}
+
+  '@azure/core-tracing@1.4.0':
+    resolution: {integrity: sha1-1lenAOJNJW0ZXmKKeV22qMxHXqs=}
+    engines: {node: '>=22.0.0'}
+
+  '@azure/core-util@1.14.0':
+    resolution: {integrity: sha1-fOn+V5WPEy3UIlc4VuWkXHIyuwQ=}
+    engines: {node: '>=22.0.0'}
+
+  '@azure/core-xml@1.6.0':
+    resolution: {integrity: sha1-EI8JIOG834owuffoh5ibOhIIK9k=}
+    engines: {node: '>=22.0.0'}
+
+  '@azure/identity@4.13.2':
+    resolution: {integrity: sha1-zq1+af9YbcKL67rqIgG2u2lguE8=}
+    engines: {node: '>=22.0.0'}
+
+  '@azure/logger@1.4.0':
+    resolution: {integrity: sha1-PVpif+WaJ27OdIenndkq1cUIwzk=}
+    engines: {node: '>=22.0.0'}
+
+  '@azure/msal-browser@5.19.0':
+    resolution: {integrity: sha1-cE22OI0bcqrXIhZvDxd4YHH+Yt8=}
+    engines: {node: '>=0.8.0'}
+
+  '@azure/msal-common@16.13.0':
+    resolution: {integrity: sha1-YuQkxrIeFD6O9DdKZNv4dy3+Ggc=}
+    engines: {node: '>=0.8.0'}
+
+  '@azure/msal-node@5.6.0':
+    resolution: {integrity: sha1-jL/v8CG20vPQZKOvuCJirZhehDQ=}
+    engines: {node: '>=20'}
+
+  '@azure/service-bus@7.9.5':
+    resolution: {integrity: sha1-rVpvPK+eMmnF6DjXsV7NAw4tjTM=}
+    engines: {node: '>=18.0.0'}
+
+  '@nodable/entities@3.0.0':
+    resolution: {integrity: sha1-aUcDvIZNMOrtVcLj3vANvWFJNnA=}
+
+  '@types/is-buffer@2.0.2':
+    resolution: {integrity: sha1-Pc2OIefWwtMS0Ln2zyO7bKHvn3Y=}
+
+  '@types/node@26.2.0':
+    resolution: {integrity: sha1-Wkh1qGL9qP3Ffej6pXm7gey6FoU=}
+
+  '@typespec/ts-http-runtime@0.3.8':
+    resolution: {integrity: sha1-tN7lpeeXGu3HCVO7fS2/V4P0LTg=}
+    engines: {node: '>=22.0.0'}
+
+  agent-base@7.1.4:
+    resolution: {integrity: sha1-48121MVI7oldPD/Y3B9sW5Ay56g=}
+    engines: {node: '>= 14'}
+
+  anynum@1.0.1:
+    resolution: {integrity: sha1-KqwA4I3603JsHUYuYNvC+DFlmkQ=}
+
+  available-typed-arrays@1.0.7:
+    resolution: {integrity: sha1-pcw3XWoDwu/IelU/PgsVIt7xSEY=}
+    engines: {node: '>= 0.4'}
+
+  base64-js@1.5.1:
+    resolution: {integrity: sha1-GxtEAWClv3rUC2UPCVljSBkDkwo=}
+
+  buffer-equal-constant-time@1.0.1:
+    resolution: {integrity: sha1-+OcRMvf/5uAaXJaXpMbz5I1cyBk=}
+
+  buffer@6.0.3:
+    resolution: {integrity: sha1-Ks5XhFnMj74qcKqo9S7mO2p0xsY=}
+
+  bundle-name@4.1.0:
+    resolution: {integrity: sha1-87lrNBYNZDGhnXaIE1r3z7h5eIk=}
+    engines: {node: '>=18'}
+
+  call-bind-apply-helpers@1.0.2:
+    resolution: {integrity: sha1-S1QowiK+mF15w9gmV0edvgtZstY=}
+    engines: {node: '>= 0.4'}
+
+  call-bind@1.0.9:
+    resolution: {integrity: sha1-OaZEcAyAvH0MqRAvxtHUOy/X7uc=}
+    engines: {node: '>= 0.4'}
+
+  call-bound@1.0.4:
+    resolution: {integrity: sha1-I43pNdKippKSjFOMfM+pEGf9Bio=}
+    engines: {node: '>= 0.4'}
+
+  debug@4.4.3:
+    resolution: {integrity: sha1-xq5DLZvZZiWC/OCHCbA4xY6ePWo=}
+    engines: {node: '>=6.0'}
+    peerDependencies:
+      supports-color: '*'
+    peerDependenciesMeta:
+      supports-color:
+        optional: true
+
+  default-browser-id@5.0.1:
+    resolution: {integrity: sha1-96fMuPUQS/jg9xujscz6Xq/bIeg=}
+    engines: {node: '>=18'}
+
+  default-browser@5.5.1:
+    resolution: {integrity: sha1-F5Cv/FJoD7sR4XyrJ1LWmqKjfSw=}
+    engines: {node: '>=18'}
+
+  define-data-property@1.1.4:
+    resolution: {integrity: sha1-iU3BQbt9MGCuQ2b2oBB+aPvkjF4=}
+    engines: {node: '>= 0.4'}
+
+  define-lazy-prop@3.0.0:
+    resolution: {integrity: sha1-27Ga37dG1/xtc0oGty9KANAhJV8=}
+    engines: {node: '>=12'}
+
+  dunder-proto@1.0.1:
+    resolution: {integrity: sha1-165mfh3INIL4tw/Q9u78UNow9Yo=}
+    engines: {node: '>= 0.4'}
+
+  ecdsa-sig-formatter@1.0.11:
+    resolution: {integrity: sha1-rg8PothQRe8UqBfao86azQSJ5b8=}
+
+  es-define-property@1.0.1:
+    resolution: {integrity: sha1-mD6y+aZyTpMD9hrd8BHHLgngsPo=}
+    engines: {node: '>= 0.4'}
+
+  es-errors@1.3.0:
+    resolution: {integrity: sha1-BfdaJdq5jk+x3NXhRywFRtUFfI8=}
+    engines: {node: '>= 0.4'}
+
+  es-object-atoms@1.1.2:
+    resolution: {integrity: sha1-otCzcyBXJN+lJdI7DD4bHKWCyZs=}
+    engines: {node: '>= 0.4'}
+
+  events@3.3.0:
+    resolution: {integrity: sha1-Mala0Kkk4tLEGagTrrLE6HjqdAA=}
+    engines: {node: '>=0.8.x'}
+
+  fast-xml-builder@1.3.1:
+    resolution: {integrity: sha1-7wWzU7RVl0g9+wnUUKBiorrsOoI=}
+
+  fast-xml-parser@5.11.0:
+    resolution: {integrity: sha1-fNnqDjTBVhnBrwx+LY4YPIke6DI=}
+    hasBin: true
+
+  for-each@0.3.5:
+    resolution: {integrity: sha1-1lBogCeCaSD+6wr3R+57lCGkHUc=}
+    engines: {node: '>= 0.4'}
+
+  function-bind@1.1.2:
+    resolution: {integrity: sha1-LALYZNl/PqbIgwxGTL0Rq26rehw=}
+
+  generator-function@2.0.1:
+    resolution: {integrity: sha1-DnXdQQ0SQ2h6C6LpUblO7bj3N6I=}
+    engines: {node: '>= 0.4'}
+
+  get-intrinsic@1.3.0:
+    resolution: {integrity: sha1-dD8OO2lkqTpUke0b/6rgVNf5jQE=}
+    engines: {node: '>= 0.4'}
+
+  get-proto@1.0.1:
+    resolution: {integrity: sha1-FQs/J0OGnvPoUewMSdFbHRTQDuE=}
+    engines: {node: '>= 0.4'}
+
+  gopd@1.2.0:
+    resolution: {integrity: sha1-ifVrghe9vIgCvSmd9tfxCB1+UaE=}
+    engines: {node: '>= 0.4'}
+
+  has-property-descriptors@1.0.2:
+    resolution: {integrity: sha1-lj7X0HHce/XwhMW/vg0bYiJYaFQ=}
+
+  has-symbols@1.1.0:
+    resolution: {integrity: sha1-/JxqeDoISVHQuXH+EBjegTcHozg=}
+    engines: {node: '>= 0.4'}
+
+  has-tostringtag@1.0.2:
+    resolution: {integrity: sha1-LNxC1AvvLltO6rfAGnPFTOerWrw=}
+    engines: {node: '>= 0.4'}
+
+  hasown@2.0.4:
+    resolution: {integrity: sha1-jGLYy5C+sqrV0KW2dYGtmFTD8AM=}
+    engines: {node: '>= 0.4'}
+
+  http-proxy-agent@7.0.2:
+    resolution: {integrity: sha1-mosfJGhmwChQlIZYX2K48sGMJw4=}
+    engines: {node: '>= 14'}
+
+  https-proxy-agent@7.0.6:
+    resolution: {integrity: sha1-2o3+rH2hMLBcK6S1nJts1mYRprk=}
+    engines: {node: '>= 14'}
+
+  ieee754@1.2.1:
+    resolution: {integrity: sha1-jrehCmP/8l0VpXsAFYbRd9Gw01I=}
+
+  inherits@2.0.4:
+    resolution: {integrity: sha1-D6LGT5MpF8NDOg3tVTY6rjdBa3w=}
+
+  is-arguments@1.2.0:
+    resolution: {integrity: sha1-rVjGrs9WO3jvK/BN9UDaj119jhs=}
+    engines: {node: '>= 0.4'}
+
+  is-buffer@2.0.5:
+    resolution: {integrity: sha1-68JS5ADSL/jXf6CYiIIaJKZYwZE=}
+    engines: {node: '>=4'}
+
+  is-callable@1.2.7:
+    resolution: {integrity: sha1-O8KoXqdC2eNiBdys3XLKH9xRsFU=}
+    engines: {node: '>= 0.4'}
+
+  is-docker@3.0.0:
+    resolution: {integrity: sha1-kAk6oxBid9inelkQ265xdH4VogA=}
+    engines: {node: ^12.20.0 || ^14.13.1 || >=16.0.0}
+    hasBin: true
+
+  is-generator-function@1.1.2:
+    resolution: {integrity: sha1-rjth49XqTkg5uQutIrAjNQUaF9U=}
+    engines: {node: '>= 0.4'}
+
+  is-inside-container@1.0.0:
+    resolution: {integrity: sha1-6B+6aZZi6zHb2vJnZqYdSBRxfqQ=}
+    engines: {node: '>=14.16'}
+    hasBin: true
+
+  is-regex@1.2.1:
+    resolution: {integrity: sha1-dtcKPtEO+b5I61d4h9dCBb8MrSI=}
+    engines: {node: '>= 0.4'}
+
+  is-typed-array@1.1.15:
+    resolution: {integrity: sha1-S/tKRbYc7oOlpG+6d45OjVnAzgs=}
+    engines: {node: '>= 0.4'}
+
+  is-unsafe@2.0.2:
+    resolution: {integrity: sha1-ux6tF/GqaI9kMyWLVh6YsaRaGvw=}
+
+  is-wsl@3.1.1:
+    resolution: {integrity: sha1-MniXsmgyo+sRfabCdJLQTKEyWU8=}
+    engines: {node: '>=16'}
+
+  jsonwebtoken@9.0.3:
+    resolution: {integrity: sha1-bNV6sB6bCsB8uEfVPTybbuMfeuI=}
+    engines: {node: '>=12', npm: '>=6'}
+
+  jssha@3.3.2:
+    resolution: {integrity: sha1-MMUbWri/ix7PJBYBWAPUT1y/Bp4=}
+
+  jwa@2.0.1:
+    resolution: {integrity: sha1-v4F20a0M1y4PP1gzhZWhPhELyAQ=}
+
+  jws@4.0.1:
+    resolution: {integrity: sha1-B+3Bvo+sIOZ3soPs4mFJi9OPBpA=}
+
+  lodash.includes@4.3.0:
+    resolution: {integrity: sha1-YLuYqHy5I8aMoeUTJUgzFISfVT8=}
+
+  lodash.isboolean@3.0.3:
+    resolution: {integrity: sha1-bC4XHbKiV82WgC/UOwGyDV9YcPY=}
+
+  lodash.isinteger@4.0.4:
+    resolution: {integrity: sha1-YZwK89A/iwTDH1iChAt3sRzWg0M=}
+
+  lodash.isnumber@3.0.3:
+    resolution: {integrity: sha1-POdoEMWSjQM1IwGsKHMX8RwLH/w=}
+
+  lodash.isplainobject@4.0.6:
+    resolution: {integrity: sha1-fFJqUtibRcRcxpC4gWO+BJf1UMs=}
+
+  lodash.isstring@4.0.1:
+    resolution: {integrity: sha1-1SfftUVuynzJu5XV2ur4i6VKVFE=}
+
+  lodash.once@4.1.1:
+    resolution: {integrity: sha1-DdOXEhPHxW34gJd9UEyI+0cal6w=}
+
+  long@5.3.2:
+    resolution: {integrity: sha1-HYRGMJWZkmLX17f4v9SozFUWf4M=}
+
+  math-intrinsics@1.1.0:
+    resolution: {integrity: sha1-oN10voHiqlwvJ+Zc4oNgXuTit/k=}
+    engines: {node: '>= 0.4'}
+
+  ms@2.1.3:
+    resolution: {integrity: sha1-V0yBOM4dK1hh8LRFedut1gxmFbI=}
+
+  open@10.2.0:
+    resolution: {integrity: sha1-udhVvgB2IOgLb7BfrJgUH+Yttzw=}
+    engines: {node: '>=18'}
+
+  path-expression-matcher@1.6.2:
+    resolution: {integrity: sha1-VnxzwHGX6dzvJOkO3NxXEFZZkWg=}
+    engines: {node: '>=14.0.0'}
+
+  possible-typed-array-names@1.1.0:
+    resolution: {integrity: sha1-k+NYK8DlQmWG2dB7ee5A/IQd5K4=}
+    engines: {node: '>= 0.4'}
+
+  process@0.11.10:
+    resolution: {integrity: sha1-czIwDoQBYb2j5podHZGn1LwW8YI=}
+    engines: {node: '>= 0.6.0'}
+
+  rhea-promise@3.0.3:
+    resolution: {integrity: sha1-/GjjkBlELFM4o5mbXj4ogG8/ENI=}
+
+  rhea@3.0.5:
+    resolution: {integrity: sha1-kj5/1kysoPd+MXRmd5+v7RHZgcA=}
+
+  run-applescript@7.1.0:
+    resolution: {integrity: sha1-Lp5UxGZOwxBsW1Yw4knT1llcSRE=}
+    engines: {node: '>=18'}
+
+  safe-buffer@5.2.1:
+    resolution: {integrity: sha1-Hq+fqb2x/dTsdfWPnNtOa3gn7sY=}
+
+  safe-regex-test@1.1.0:
+    resolution: {integrity: sha1-f4fftnoxUHguqvGFg/9dFxGsEME=}
+    engines: {node: '>= 0.4'}
+
+  semver@7.8.5:
+    resolution: {integrity: sha1-ObZGA33VDBT7RR5+TKxY7YuGP2k=}
+    engines: {node: '>=10'}
+    hasBin: true
+
+  set-function-length@1.2.2:
+    resolution: {integrity: sha1-qscjFBmOrtl1z3eyw7a4gGleVEk=}
+    engines: {node: '>= 0.4'}
+
+  strnum@2.4.2:
+    resolution: {integrity: sha1-r0OrUaBtBCJwI/wuQsoikhTsEPA=}
+
+  tslib@2.8.1:
+    resolution: {integrity: sha1-YS7+TtI11Wfoq6Xypfq3AoCt6D8=}
+
+  typescript@5.9.2:
+    resolution: {integrity: sha1-2TRQzd7FFUotXKvjuBArgzFvsqY=}
+    engines: {node: '>=14.17'}
+    hasBin: true
+
+  undici-types@8.3.0:
+    resolution: {integrity: sha1-ROn8nzJEZIzeo15Pm7LWgelBCAk=}
+
+  util@0.12.5:
+    resolution: {integrity: sha1-XxemBZtz22GodWaHgaHCsTa9b7w=}
+
+  which-typed-array@1.1.22:
+    resolution: {integrity: sha1-jzzHiu+0C0NzRt1Aodv6XR2kP+k=}
+    engines: {node: '>= 0.4'}
+
+  wsl-utils@0.1.0:
+    resolution: {integrity: sha1-h4PU32cdTVA2W+LuTHGRegVXuqs=}
+    engines: {node: '>=18'}
+
+  xml-naming@0.3.0:
+    resolution: {integrity: sha1-RsHhi/4oWEeZgt0qzPNNFudJ7aI=}
+    engines: {node: '>=16.0.0'}
+
+snapshots:
+
+  '@azure/abort-controller@1.1.0':
+    dependencies:
+      tslib: 2.8.1
+
+  '@azure/abort-controller@2.2.0':
+    dependencies:
+      tslib: 2.8.1
+
+  '@azure/core-amqp@4.5.0':
+    dependencies:
+      '@azure/abort-controller': 2.2.0
+      '@azure/core-auth': 1.11.0
+      '@azure/core-util': 1.14.0
+      '@azure/logger': 1.4.0
+      buffer: 6.0.3
+      events: 3.3.0
+      process: 0.11.10
+      rhea: 3.0.5
+      rhea-promise: 3.0.3
+      tslib: 2.8.1
+      util: 0.12.5
+    transitivePeerDependencies:
+      - supports-color
+
+  '@azure/core-auth@1.11.0':
+    dependencies:
+      '@azure/abort-controller': 2.2.0
+      '@azure/core-util': 1.14.0
+      tslib: 2.8.1
+    transitivePeerDependencies:
+      - supports-color
+
+  '@azure/core-client@1.11.0':
+    dependencies:
+      '@azure/abort-controller': 2.2.0
+      '@azure/core-auth': 1.11.0
+      '@azure/core-rest-pipeline': 1.25.0
+      '@azure/core-tracing': 1.4.0
+      '@azure/core-util': 1.14.0
+      '@azure/logger': 1.4.0
+      tslib: 2.8.1
+    transitivePeerDependencies:
+      - supports-color
+
+  '@azure/core-paging@1.7.0':
+    dependencies:
+      tslib: 2.8.1
+
+  '@azure/core-process@1.0.0': {}
+
+  '@azure/core-rest-pipeline@1.25.0':
+    dependencies:
+      '@azure/abort-controller': 2.2.0
+      '@azure/core-auth': 1.11.0
+      '@azure/core-tracing': 1.4.0
+      '@azure/core-util': 1.14.0
+      '@azure/logger': 1.4.0
+      '@typespec/ts-http-runtime': 0.3.8
+      tslib: 2.8.1
+    transitivePeerDependencies:
+      - supports-color
+
+  '@azure/core-tracing@1.4.0':
+    dependencies:
+      tslib: 2.8.1
+
+  '@azure/core-util@1.14.0':
+    dependencies:
+      '@azure/abort-controller': 2.2.0
+      '@typespec/ts-http-runtime': 0.3.8
+      tslib: 2.8.1
+    transitivePeerDependencies:
+      - supports-color
+
+  '@azure/core-xml@1.6.0':
+    dependencies:
+      fast-xml-parser: 5.11.0
+      tslib: 2.8.1
+
+  '@azure/identity@4.13.2':
+    dependencies:
+      '@azure/abort-controller': 2.2.0
+      '@azure/core-auth': 1.11.0
+      '@azure/core-client': 1.11.0
+      '@azure/core-process': 1.0.0
+      '@azure/core-rest-pipeline': 1.25.0
+      '@azure/core-tracing': 1.4.0
+      '@azure/core-util': 1.14.0
+      '@azure/logger': 1.4.0
+      '@azure/msal-browser': 5.19.0
+      '@azure/msal-node': 5.6.0
+      open: 10.2.0
+      tslib: 2.8.1
+    transitivePeerDependencies:
+      - supports-color
+
+  '@azure/logger@1.4.0':
+    dependencies:
+      '@typespec/ts-http-runtime': 0.3.8
+      tslib: 2.8.1
+    transitivePeerDependencies:
+      - supports-color
+
+  '@azure/msal-browser@5.19.0':
+    dependencies:
+      '@azure/msal-common': 16.13.0
+
+  '@azure/msal-common@16.13.0': {}
+
+  '@azure/msal-node@5.6.0':
+    dependencies:
+      '@azure/msal-common': 16.13.0
+      jsonwebtoken: 9.0.3
+
+  '@azure/service-bus@7.9.5':
+    dependencies:
+      '@azure/abort-controller': 1.1.0
+      '@azure/core-amqp': 4.5.0
+      '@azure/core-auth': 1.11.0
+      '@azure/core-client': 1.11.0
+      '@azure/core-paging': 1.7.0
+      '@azure/core-rest-pipeline': 1.25.0
+      '@azure/core-tracing': 1.4.0
+      '@azure/core-util': 1.14.0
+      '@azure/core-xml': 1.6.0
+      '@azure/logger': 1.4.0
+      '@types/is-buffer': 2.0.2
+      buffer: 6.0.3
+      is-buffer: 2.0.5
+      jssha: 3.3.2
+      long: 5.3.2
+      process: 0.11.10
+      rhea-promise: 3.0.3
+      tslib: 2.8.1
+    transitivePeerDependencies:
+      - supports-color
+
+  '@nodable/entities@3.0.0': {}
+
+  '@types/is-buffer@2.0.2':
+    dependencies:
+      '@types/node': 26.2.0
+
+  '@types/node@26.2.0':
+    dependencies:
+      undici-types: 8.3.0
+
+  '@typespec/ts-http-runtime@0.3.8':
+    dependencies:
+      http-proxy-agent: 7.0.2
+      https-proxy-agent: 7.0.6
+      tslib: 2.8.1
+    transitivePeerDependencies:
+      - supports-color
+
+  agent-base@7.1.4: {}
+
+  anynum@1.0.1: {}
+
+  available-typed-arrays@1.0.7:
+    dependencies:
+      possible-typed-array-names: 1.1.0
+
+  base64-js@1.5.1: {}
+
+  buffer-equal-constant-time@1.0.1: {}
+
+  buffer@6.0.3:
+    dependencies:
+      base64-js: 1.5.1
+      ieee754: 1.2.1
+
+  bundle-name@4.1.0:
+    dependencies:
+      run-applescript: 7.1.0
+
+  call-bind-apply-helpers@1.0.2:
+    dependencies:
+      es-errors: 1.3.0
+      function-bind: 1.1.2
+
+  call-bind@1.0.9:
+    dependencies:
+      call-bind-apply-helpers: 1.0.2
+      es-define-property: 1.0.1
+      get-intrinsic: 1.3.0
+      set-function-length: 1.2.2
+
+  call-bound@1.0.4:
+    dependencies:
+      call-bind-apply-helpers: 1.0.2
+      get-intrinsic: 1.3.0
+
+  debug@4.4.3:
+    dependencies:
+      ms: 2.1.3
+
+  default-browser-id@5.0.1: {}
+
+  default-browser@5.5.1:
+    dependencies:
+      bundle-name: 4.1.0
+      default-browser-id: 5.0.1
+
+  define-data-property@1.1.4:
+    dependencies:
+      es-define-property: 1.0.1
+      es-errors: 1.3.0
+      gopd: 1.2.0
+
+  define-lazy-prop@3.0.0: {}
+
+  dunder-proto@1.0.1:
+    dependencies:
+      call-bind-apply-helpers: 1.0.2
+      es-errors: 1.3.0
+      gopd: 1.2.0
+
+  ecdsa-sig-formatter@1.0.11:
+    dependencies:
+      safe-buffer: 5.2.1
+
+  es-define-property@1.0.1: {}
+
+  es-errors@1.3.0: {}
+
+  es-object-atoms@1.1.2:
+    dependencies:
+      es-errors: 1.3.0
+
+  events@3.3.0: {}
+
+  fast-xml-builder@1.3.1:
+    dependencies:
+      path-expression-matcher: 1.6.2
+      xml-naming: 0.3.0
+
+  fast-xml-parser@5.11.0:
+    dependencies:
+      '@nodable/entities': 3.0.0
+      fast-xml-builder: 1.3.1
+      is-unsafe: 2.0.2
+      path-expression-matcher: 1.6.2
+      strnum: 2.4.2
+      xml-naming: 0.3.0
+
+  for-each@0.3.5:
+    dependencies:
+      is-callable: 1.2.7
+
+  function-bind@1.1.2: {}
+
+  generator-function@2.0.1: {}
+
+  get-intrinsic@1.3.0:
+    dependencies:
+      call-bind-apply-helpers: 1.0.2
+      es-define-property: 1.0.1
+      es-errors: 1.3.0
+      es-object-atoms: 1.1.2
+      function-bind: 1.1.2
+      get-proto: 1.0.1
+      gopd: 1.2.0
+      has-symbols: 1.1.0
+      hasown: 2.0.4
+      math-intrinsics: 1.1.0
+
+  get-proto@1.0.1:
+    dependencies:
+      dunder-proto: 1.0.1
+      es-object-atoms: 1.1.2
+
+  gopd@1.2.0: {}
+
+  has-property-descriptors@1.0.2:
+    dependencies:
+      es-define-property: 1.0.1
+
+  has-symbols@1.1.0: {}
+
+  has-tostringtag@1.0.2:
+    dependencies:
+      has-symbols: 1.1.0
+
+  hasown@2.0.4:
+    dependencies:
+      function-bind: 1.1.2
+
+  http-proxy-agent@7.0.2:
+    dependencies:
+      agent-base: 7.1.4
+      debug: 4.4.3
+    transitivePeerDependencies:
+      - supports-color
+
+  https-proxy-agent@7.0.6:
+    dependencies:
+      agent-base: 7.1.4
+      debug: 4.4.3
+    transitivePeerDependencies:
+      - supports-color
+
+  ieee754@1.2.1: {}
+
+  inherits@2.0.4: {}
+
+  is-arguments@1.2.0:
+    dependencies:
+      call-bound: 1.0.4
+      has-tostringtag: 1.0.2
+
+  is-buffer@2.0.5: {}
+
+  is-callable@1.2.7: {}
+
+  is-docker@3.0.0: {}
+
+  is-generator-function@1.1.2:
+    dependencies:
+      call-bound: 1.0.4
+      generator-function: 2.0.1
+      get-proto: 1.0.1
+      has-tostringtag: 1.0.2
+      safe-regex-test: 1.1.0
+
+  is-inside-container@1.0.0:
+    dependencies:
+      is-docker: 3.0.0
+
+  is-regex@1.2.1:
+    dependencies:
+      call-bound: 1.0.4
+      gopd: 1.2.0
+      has-tostringtag: 1.0.2
+      hasown: 2.0.4
+
+  is-typed-array@1.1.15:
+    dependencies:
+      which-typed-array: 1.1.22
+
+  is-unsafe@2.0.2: {}
+
+  is-wsl@3.1.1:
+    dependencies:
+      is-inside-container: 1.0.0
+
+  jsonwebtoken@9.0.3:
+    dependencies:
+      jws: 4.0.1
+      lodash.includes: 4.3.0
+      lodash.isboolean: 3.0.3
+      lodash.isinteger: 4.0.4
+      lodash.isnumber: 3.0.3
+      lodash.isplainobject: 4.0.6
+      lodash.isstring: 4.0.1
+      lodash.once: 4.1.1
+      ms: 2.1.3
+      semver: 7.8.5
+
+  jssha@3.3.2: {}
+
+  jwa@2.0.1:
+    dependencies:
+      buffer-equal-constant-time: 1.0.1
+      ecdsa-sig-formatter: 1.0.11
+      safe-buffer: 5.2.1
+
+  jws@4.0.1:
+    dependencies:
+      jwa: 2.0.1
+      safe-buffer: 5.2.1
+
+  lodash.includes@4.3.0: {}
+
+  lodash.isboolean@3.0.3: {}
+
+  lodash.isinteger@4.0.4: {}
+
+  lodash.isnumber@3.0.3: {}
+
+  lodash.isplainobject@4.0.6: {}
+
+  lodash.isstring@4.0.1: {}
+
+  lodash.once@4.1.1: {}
+
+  long@5.3.2: {}
+
+  math-intrinsics@1.1.0: {}
+
+  ms@2.1.3: {}
+
+  open@10.2.0:
+    dependencies:
+      default-browser: 5.5.1
+      define-lazy-prop: 3.0.0
+      is-inside-container: 1.0.0
+      wsl-utils: 0.1.0
+
+  path-expression-matcher@1.6.2: {}
+
+  possible-typed-array-names@1.1.0: {}
+
+  process@0.11.10: {}
+
+  rhea-promise@3.0.3:
+    dependencies:
+      debug: 4.4.3
+      rhea: 3.0.5
+      tslib: 2.8.1
+    transitivePeerDependencies:
+      - supports-color
+
+  rhea@3.0.5:
+    dependencies:
+      debug: 4.4.3
+    transitivePeerDependencies:
+      - supports-color
+
+  run-applescript@7.1.0: {}
+
+  safe-buffer@5.2.1: {}
+
+  safe-regex-test@1.1.0:
+    dependencies:
+      call-bound: 1.0.4
+      es-errors: 1.3.0
+      is-regex: 1.2.1
+
+  semver@7.8.5: {}
+
+  set-function-length@1.2.2:
+    dependencies:
+      define-data-property: 1.1.4
+      es-errors: 1.3.0
+      function-bind: 1.1.2
+      get-intrinsic: 1.3.0
+      gopd: 1.2.0
+      has-property-descriptors: 1.0.2
+
+  strnum@2.4.2:
+    dependencies:
+      anynum: 1.0.1
+
+  tslib@2.8.1: {}
+
+  typescript@5.9.2: {}
+
+  undici-types@8.3.0: {}
+
+  util@0.12.5:
+    dependencies:
+      inherits: 2.0.4
+      is-arguments: 1.2.0
+      is-generator-function: 1.1.2
+      is-typed-array: 1.1.15
+      which-typed-array: 1.1.22
+
+  which-typed-array@1.1.22:
+    dependencies:
+      available-typed-arrays: 1.0.7
+      call-bind: 1.0.9
+      call-bound: 1.0.4
+      for-each: 0.3.5
+      get-proto: 1.0.1
+      gopd: 1.2.0
+      has-tostringtag: 1.0.2
+
+  wsl-utils@0.1.0:
+    dependencies:
+      is-wsl: 3.1.1
+
+  xml-naming@0.3.0: {}

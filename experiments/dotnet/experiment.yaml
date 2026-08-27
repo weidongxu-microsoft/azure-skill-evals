@@ -8,6 +8,7 @@ evals:
   - ../../scenarios/identity-dotnet-service-principal-auth/eval.yaml
   - ../../scenarios/key-vault-dotnet-crud-secrets/eval.yaml
   - ../../scenarios/resource-manager-dotnet-resource-group-crud/eval.yaml
+  - ../../scenarios/service-bus-dotnet-send-receive-messages/eval.yaml
 vary:
   - /environment/skills
   - /environment/mcpServers
