@@ -1,0 +1,132 @@
+name: identity-java-default-azure-credential
+description: Compare Azure tooling for DefaultAzureCredential authentication in Java
+version: "1.0"
+type: capability
+scoring:
+  weights: {}
+  threshold: 1
+defaults:
+  runs: 1
+  timeout: 30m
+  model: gpt-5.6-sol
+  judge_model: gpt-5.6-sol
+stimuli:
+  - name: identity-dp-java-default-azure-credential
+    prompt: |-
+      Write a Java program that authenticates to Azure Key Vault with DefaultAzureCredential.
+
+      Write the code to files. Do not reply with code blocks.
+
+      1. Show the Maven dependencies for Azure Identity and Azure Key Vault Secrets.
+      2. Build a DefaultAzureCredential with DefaultAzureCredentialBuilder.
+      3. Pass that credential to a SecretClientBuilder and build a SecretClient.
+      4. Retrieve a secret from Key Vault and print its value.
+      5. Handle CredentialUnavailableException and ClientAuthenticationException.
+      6. Enable debug diagnostics for the com.azure.identity logger using a supported Java logging implementation.
+
+      Use environment variables for the Key Vault URL and secret name. Do not hard-code credentials.
+    tags:
+      service: identity
+      plane: data-plane
+      language: java
+      category: authentication
+    graders:
+      - type: run-command
+        name: prompt/identity-packages
+        weight: 1
+        config:
+          command: node
+          args:
+            - .vally/scenarios/identity-java-default-azure-credential/tools/check-identity-java.mjs
+            - prompt/identity-packages
+      - type: run-command
+        name: prompt/default-azure-credential
+        weight: 1
+        config:
+          command: node
+          args:
+            - .vally/scenarios/identity-java-default-azure-credential/tools/check-identity-java.mjs
+            - prompt/default-azure-credential
+      - type: run-command
+        name: prompt/credential-client-association
+        weight: 1
+        config:
+          command: node
+          args:
+            - .vally/scenarios/identity-java-default-azure-credential/tools/check-identity-java.mjs
+            - prompt/credential-client-association
+      - type: run-command
+        name: prompt/authenticated-operation
+        weight: 1
+        config:
+          command: node
+          args:
+            - .vally/scenarios/identity-java-default-azure-credential/tools/check-identity-java.mjs
+            - prompt/authenticated-operation
+      - type: run-command
+        name: prompt/auth-errors
+        weight: 1
+        config:
+          command: node
+          args:
+            - .vally/scenarios/identity-java-default-azure-credential/tools/check-identity-java.mjs
+            - prompt/auth-errors
+      - type: run-command
+        name: prompt/identity-diagnostics
+        weight: 1
+        config:
+          command: node
+          args:
+            - .vally/scenarios/identity-java-default-azure-credential/tools/check-identity-java.mjs
+            - prompt/identity-diagnostics
+      - type: run-command
+        name: language/build-manifest
+        weight: 1
+        config:
+          command: node
+          args:
+            - .vally/languages/java/check.mjs
+            - language/build-manifest
+      - type: run-command
+        name: language/current-azure-dependencies
+        weight: 1
+        config:
+          command: node
+          args:
+            - .vally/languages/java/check.mjs
+            - language/current-azure-dependencies
+      - type: run-command
+        name: language/current-imports
+        weight: 1
+        config:
+          command: node
+          args:
+            - .vally/languages/java/check.mjs
+            - language/current-imports
+      - type: run-command
+        name: language/client-builder
+        weight: 1
+        config:
+          command: node
+          args:
+            - .vally/languages/java/check.mjs
+            - language/client-builder
+    environment:
+      files:
+        - src: tools/check-identity-java.mjs
+          dest: .vally/scenarios/identity-java-default-azure-credential/tools/check-identity-java.mjs
+        - src: tools/identity-java-rules.mjs
+          dest: .vally/scenarios/identity-java-default-azure-credential/tools/identity-java-rules.mjs
+        - src: ../../languages/java/check.mjs
+          dest: .vally/languages/java/check.mjs
+        - src: ../../languages/java/checks.mjs
+          dest: .vally/languages/java/checks.mjs
+artifacts:
+  include:
+    - "**/*.java"
+    - "**/pom.xml"
+    - "**/build.gradle"
+    - "**/build.gradle.kts"
+  exclude:
+    - "**/.vally/**"
+    - "**/target/**"

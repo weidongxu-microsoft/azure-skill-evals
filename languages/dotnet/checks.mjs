@@ -29,6 +29,8 @@ function collectProjectFiles(root, predicate) {
 export function dotnetCodeOnly(source) {
   let result = "";
   let state = "code";
+  const interpolationStates = [];
+  let interpolationDepth = 0;
 
   for (let index = 0; index < source.length; index += 1) {
     const character = source[index];
@@ -58,6 +60,70 @@ export function dotnetCodeOnly(source) {
         result += '"""';
         index += 2;
         state = "code";
+      } else {
+        result += character === "\n" ? "\n" : " ";
+      }
+      continue;
+    }
+    if (
+      state === "interpolated-string" ||
+      state === "interpolated-verbatim-string"
+    ) {
+      const verbatim = state === "interpolated-verbatim-string";
+      if (character === "{" && next === "{") {
+        result += "  ";
+        index += 1;
+      } else if (character === "{") {
+        result += " ";
+        interpolationStates.push(state);
+        interpolationDepth = 1;
+        state = "interpolation";
+      } else if (character === '"' && verbatim && next === '"') {
+        result += "  ";
+        index += 1;
+      } else if (character === '"' || (!verbatim && character === "\\")) {
+        result += character === '"' ? '"' : "  ";
+        if (character === "\\") {
+          index += 1;
+        } else {
+          state = "code";
+        }
+      } else {
+        result += character === "\n" ? "\n" : " ";
+      }
+      continue;
+    }
+    if (state === "interpolation") {
+      if (character === "{") {
+        interpolationDepth += 1;
+        result += character;
+      } else if (character === "}") {
+        interpolationDepth -= 1;
+        result += interpolationDepth === 0 ? " " : character;
+        if (interpolationDepth === 0) {
+          state = interpolationStates.pop();
+        }
+      } else if (character === '"') {
+        result += character;
+        state = "interpolation-string";
+      } else if (character === "'") {
+        result += character;
+        state = "interpolation-character";
+      } else {
+        result += character;
+      }
+      continue;
+    }
+    if (state === "interpolation-string" || state === "interpolation-character") {
+      if (character === "\\") {
+        result += "  ";
+        index += 1;
+      } else if (
+        (state === "interpolation-string" && character === '"') ||
+        (state === "interpolation-character" && character === "'")
+      ) {
+        result += character;
+        state = "interpolation";
       } else {
         result += character === "\n" ? "\n" : " ";
       }
@@ -106,6 +172,17 @@ export function dotnetCodeOnly(source) {
       result += '"""';
       index += 2;
       state = "raw-string";
+    } else if (
+      source.startsWith('$@"', index) ||
+      source.startsWith('@$"', index)
+    ) {
+      result += source.slice(index, index + 3);
+      index += 2;
+      state = "interpolated-verbatim-string";
+    } else if (source.startsWith('$"', index)) {
+      result += '$"';
+      index += 1;
+      state = "interpolated-string";
     } else if (character === '"') {
       result += character;
       state = source[index - 1] === "@" ? "verbatim-string" : "string";

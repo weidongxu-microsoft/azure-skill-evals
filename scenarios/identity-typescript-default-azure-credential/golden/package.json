@@ -1,0 +1,19 @@
+{
+  "name": "identity-default-credential-reference",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/identity.js"
+  },
+  "dependencies": {
+    "@azure/identity": "4.13.2",
+    "@azure/keyvault-secrets": "4.11.2",
+    "@azure/logger": "1.4.0"
+  },
+  "devDependencies": {
+    "typescript": "5.9.2"
+  },
+  "packageManager": "pnpm@10.26.0"
+}

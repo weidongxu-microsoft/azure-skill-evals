@@ -25,3 +25,10 @@ suites:
       - scenarios/event-hubs-dotnet-send-receive-events/eval.yaml
       - scenarios/event-hubs-java-send-receive-events/eval.yaml
       - scenarios/event-hubs-typescript-send-receive-events/eval.yaml
+  identity-default-azure-credential:
+    description: DefaultAzureCredential evaluation across four languages
+    evals:
+      - scenarios/identity-python-default-azure-credential/eval.yaml
+      - scenarios/identity-dotnet-default-azure-credential/eval.yaml
+      - scenarios/identity-java-default-azure-credential/eval.yaml
+      - scenarios/identity-typescript-default-azure-credential/eval.yaml

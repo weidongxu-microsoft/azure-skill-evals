@@ -2,7 +2,11 @@ import assert from "node:assert/strict";
 import { fileURLToPath } from "node:url";
 import test from "node:test";
 
-import { evaluateDotnetCheck, loadDotnetWorkspace } from "./checks.mjs";
+import {
+  dotnetCodeOnly,
+  evaluateDotnetCheck,
+  loadDotnetWorkspace,
+} from "./checks.mjs";
 
 const completeWorkspace = {
   sourceFiles: ["Program.cs"],
@@ -156,4 +160,17 @@ await producer.DisposeAsync();
     evaluateDotnetCheck("language/client-lifecycle", workspace),
     false,
   );
+});
+
+test("code filtering preserves only expressions from interpolated strings", () => {
+  const filtered = dotnetCodeOnly(`
+Console.WriteLine($"Account kind: {response.Value.AccountKind}");
+Console.WriteLine($@"SKU: {account.SkuName}");
+string fake = "await fakeClient.GetAccountInfoAsync()";
+`);
+
+  assert.match(filtered, /\bresponse\.Value\.AccountKind\b/);
+  assert.match(filtered, /\baccount\.SkuName\b/);
+  assert.doesNotMatch(filtered, /\bfakeClient\b/);
+  assert.doesNotMatch(filtered, /Account kind|SKU/);
 });

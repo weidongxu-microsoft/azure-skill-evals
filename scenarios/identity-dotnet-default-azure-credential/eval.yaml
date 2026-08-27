@@ -1,0 +1,132 @@
+name: identity-dotnet-default-azure-credential
+description: Compare Azure tooling for a .NET DefaultAzureCredential task
+version: "1.0"
+type: capability
+scoring:
+  weights: {}
+  threshold: 1
+defaults:
+  runs: 1
+  timeout: 30m
+  model: gpt-5.6-sol
+  judge_model: gpt-5.6-sol
+stimuli:
+  - name: identity-dp-dotnet-default-azure-credential
+    prompt: |-
+      Write a C# program that authenticates to Azure Blob Storage with DefaultAzureCredential.
+
+      Write the code to files. Do not reply with code blocks.
+
+      1. Add the current Azure Identity and Blob Storage NuGet packages.
+      2. Construct a DefaultAzureCredential.
+      3. Pass that credential to a BlobServiceClient for an account endpoint.
+      4. Asynchronously get the storage account information and print it.
+      5. Handle CredentialUnavailableException and AuthenticationFailedException, including useful error details.
+      6. Enable Azure Identity diagnostics with an AzureEventSourceListener.
+
+      Read the account endpoint from an environment variable and explain how to run the application.
+    tags:
+      service: identity
+      plane: data-plane
+      language: dotnet
+      category: auth
+    graders:
+      - type: run-command
+        name: prompt/identity-packages
+        weight: 1
+        config:
+          command: node
+          args:
+            - .vally/scenarios/identity-dotnet-default-azure-credential/tools/check-identity-dotnet.mjs
+            - prompt/identity-packages
+      - type: run-command
+        name: prompt/default-azure-credential
+        weight: 1
+        config:
+          command: node
+          args:
+            - .vally/scenarios/identity-dotnet-default-azure-credential/tools/check-identity-dotnet.mjs
+            - prompt/default-azure-credential
+      - type: run-command
+        name: prompt/credential-client-association
+        weight: 1
+        config:
+          command: node
+          args:
+            - .vally/scenarios/identity-dotnet-default-azure-credential/tools/check-identity-dotnet.mjs
+            - prompt/credential-client-association
+      - type: run-command
+        name: prompt/authenticated-operation
+        weight: 1
+        config:
+          command: node
+          args:
+            - .vally/scenarios/identity-dotnet-default-azure-credential/tools/check-identity-dotnet.mjs
+            - prompt/authenticated-operation
+      - type: run-command
+        name: prompt/auth-errors
+        weight: 1
+        config:
+          command: node
+          args:
+            - .vally/scenarios/identity-dotnet-default-azure-credential/tools/check-identity-dotnet.mjs
+            - prompt/auth-errors
+      - type: run-command
+        name: prompt/identity-diagnostics
+        weight: 1
+        config:
+          command: node
+          args:
+            - .vally/scenarios/identity-dotnet-default-azure-credential/tools/check-identity-dotnet.mjs
+            - prompt/identity-diagnostics
+      - type: run-command
+        name: language/project-manifest
+        weight: 1
+        config:
+          command: node
+          args:
+            - .vally/languages/dotnet/check.mjs
+            - language/project-manifest
+      - type: run-command
+        name: language/current-azure-packages
+        weight: 1
+        config:
+          command: node
+          args:
+            - .vally/languages/dotnet/check.mjs
+            - language/current-azure-packages
+      - type: run-command
+        name: language/async-await
+        weight: 1
+        config:
+          command: node
+          args:
+            - .vally/languages/dotnet/check.mjs
+            - language/async-await
+      - type: run-command
+        name: language/client-lifecycle
+        weight: 1
+        config:
+          command: node
+          args:
+            - .vally/languages/dotnet/check.mjs
+            - language/client-lifecycle
+    environment:
+      files:
+        - src: tools/check-identity-dotnet.mjs
+          dest: .vally/scenarios/identity-dotnet-default-azure-credential/tools/check-identity-dotnet.mjs
+        - src: tools/identity-dotnet-rules.mjs
+          dest: .vally/scenarios/identity-dotnet-default-azure-credential/tools/identity-dotnet-rules.mjs
+        - src: ../../languages/dotnet/check.mjs
+          dest: .vally/languages/dotnet/check.mjs
+        - src: ../../languages/dotnet/checks.mjs
+          dest: .vally/languages/dotnet/checks.mjs
+artifacts:
+  include:
+    - "**/*.cs"
+    - "**/*.csproj"
+    - "**/README.md"
+  exclude:
+    - "**/.vally/**"
+    - "**/bin/**"
+    - "**/obj/**"
