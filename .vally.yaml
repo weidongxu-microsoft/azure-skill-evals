@@ -32,3 +32,10 @@ suites:
       - scenarios/identity-dotnet-default-azure-credential/eval.yaml
       - scenarios/identity-java-default-azure-credential/eval.yaml
       - scenarios/identity-typescript-default-azure-credential/eval.yaml
+  identity-managed-identity-auth:
+    description: Managed identity authentication evaluation across four languages
+    evals:
+      - scenarios/identity-python-managed-identity-auth/eval.yaml
+      - scenarios/identity-dotnet-managed-identity-auth/eval.yaml
+      - scenarios/identity-java-managed-identity-auth/eval.yaml
+      - scenarios/identity-typescript-managed-identity-auth/eval.yaml

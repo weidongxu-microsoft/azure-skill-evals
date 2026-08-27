@@ -1,0 +1,115 @@
+name: identity-dotnet-managed-identity-auth
+description: Compare Azure tooling for managed identity authentication in .NET
+version: "1.0"
+type: capability
+scoring:
+  weights: {}
+  threshold: 1
+defaults:
+  runs: 1
+  timeout: 30m
+  model: gpt-5.6-sol
+  judge_model: gpt-5.6-sol
+stimuli:
+  - name: identity-dp-dotnet-managed-identity
+    prompt: |-
+      Write a complete C# program that demonstrates managed identity authentication for Azure Blob Storage.
+
+      Write the code to files. Do not reply with code blocks.
+
+      1. Target .NET 8 and pin Azure.Identity 1.21.0 and Azure.Storage.Blobs 12.29.2.
+      2. Read AZURE_STORAGE_BLOB_ENDPOINT and the user-assigned managed identity client ID from AZURE_CLIENT_ID.
+      3. Construct ManagedIdentityCredential examples for both a system-assigned identity and the user-assigned client ID.
+      4. Configure DefaultAzureCredential to use that user-assigned managed identity without excluding managed identity.
+      5. Build a ChainedTokenCredential whose first credential is managed identity and whose second credential is AzureCliCredential for local development.
+      6. Pass one of the demonstrated credentials to BlobServiceClient.
+      7. Await BlobServiceClient.GetAccountInfoAsync and print both the account kind and SKU.
+      8. Handle CredentialUnavailableException with useful diagnostic details, while allowing unrelated exceptions to propagate.
+
+      Do not hard-code credentials.
+    tags:
+      service: identity
+      plane: data-plane
+      language: dotnet
+      category: auth
+    graders:
+      - type: run-command
+        name: prompt/identity-packages
+        weight: 1
+        config:
+          command: node
+          args:
+            - .vally/scenarios/identity-dotnet-managed-identity-auth/tools/check-identity-dotnet-managed.mjs
+            - prompt/identity-packages
+      - type: run-command
+        name: prompt/system-assigned-credential
+        weight: 1
+        config:
+          command: node
+          args:
+            - .vally/scenarios/identity-dotnet-managed-identity-auth/tools/check-identity-dotnet-managed.mjs
+            - prompt/system-assigned-credential
+      - type: run-command
+        name: prompt/user-assigned-credential
+        weight: 1
+        config:
+          command: node
+          args:
+            - .vally/scenarios/identity-dotnet-managed-identity-auth/tools/check-identity-dotnet-managed.mjs
+            - prompt/user-assigned-credential
+      - type: run-command
+        name: prompt/default-azure-credential
+        weight: 1
+        config:
+          command: node
+          args:
+            - .vally/scenarios/identity-dotnet-managed-identity-auth/tools/check-identity-dotnet-managed.mjs
+            - prompt/default-azure-credential
+      - type: run-command
+        name: prompt/local-fallback-chain
+        weight: 1
+        config:
+          command: node
+          args:
+            - .vally/scenarios/identity-dotnet-managed-identity-auth/tools/check-identity-dotnet-managed.mjs
+            - prompt/local-fallback-chain
+      - type: run-command
+        name: prompt/credential-client-association
+        weight: 1
+        config:
+          command: node
+          args:
+            - .vally/scenarios/identity-dotnet-managed-identity-auth/tools/check-identity-dotnet-managed.mjs
+            - prompt/credential-client-association
+      - type: run-command
+        name: prompt/authenticated-operation
+        weight: 1
+        config:
+          command: node
+          args:
+            - .vally/scenarios/identity-dotnet-managed-identity-auth/tools/check-identity-dotnet-managed.mjs
+            - prompt/authenticated-operation
+      - type: run-command
+        name: prompt/credential-unavailable-error
+        weight: 1
+        config:
+          command: node
+          args:
+            - .vally/scenarios/identity-dotnet-managed-identity-auth/tools/check-identity-dotnet-managed.mjs
+            - prompt/credential-unavailable-error
+    environment:
+      files:
+        - src: tools/check-identity-dotnet-managed.mjs
+          dest: .vally/scenarios/identity-dotnet-managed-identity-auth/tools/check-identity-dotnet-managed.mjs
+        - src: tools/identity-dotnet-managed-rules.mjs
+          dest: .vally/scenarios/identity-dotnet-managed-identity-auth/tools/identity-dotnet-managed-rules.mjs
+        - src: ../../languages/dotnet/checks.mjs
+          dest: .vally/languages/dotnet/checks.mjs
+artifacts:
+  include:
+    - "**/*.cs"
+    - "**/*.csproj"
+  exclude:
+    - "**/.vally/**"
+    - "**/bin/**"
+    - "**/obj/**"

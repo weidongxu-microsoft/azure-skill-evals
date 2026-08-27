@@ -4,6 +4,7 @@ evals:
   - ../../scenarios/app-configuration-python-config-values/eval.yaml
   - ../../scenarios/event-hubs-python-send-receive-events/eval.yaml
   - ../../scenarios/identity-python-default-azure-credential/eval.yaml
+  - ../../scenarios/identity-python-managed-identity-auth/eval.yaml
 vary:
   - /environment/skills
   - /environment/mcpServers

@@ -1,0 +1,113 @@
+name: identity-java-managed-identity-auth
+description: Compare Azure tooling for managed identity authentication in Java
+version: "1.0"
+type: capability
+scoring:
+  weights: {}
+  threshold: 1
+defaults:
+  runs: 1
+  timeout: 30m
+  model: gpt-5.6-sol
+  judge_model: gpt-5.6-sol
+stimuli:
+  - name: identity-dp-java-managed-identity
+    prompt: |-
+      Write a Java 17 program that demonstrates Azure managed identity authentication.
+
+      Write the code to files. Do not reply with code blocks.
+
+      1. Add Maven dependencies for Azure Identity and Azure Key Vault Secrets.
+      2. Build both a system-assigned ManagedIdentityCredential and a user-assigned ManagedIdentityCredential. Read the user-assigned client ID from AZURE_CLIENT_ID.
+      3. Build a managed-identity-enabled DefaultAzureCredential using that client ID.
+      4. Build a local fallback ChainedTokenCredential ordered with managed identity first and AzureCliCredential last.
+      5. Pass one of those credentials to SecretClientBuilder. Read the vault URL from AZURE_KEY_VAULT_URL.
+      6. Read the secret name from AZURE_KEY_VAULT_SECRET_NAME, call SecretClient.getSecret, and print the secret value.
+      7. Handle CredentialUnavailableException meaningfully without swallowing unrelated failures.
+
+      Do not hard-code credentials.
+    tags:
+      service: identity
+      plane: data-plane
+      language: java
+      category: authentication
+    graders:
+      - type: run-command
+        name: prompt/identity-packages
+        weight: 1
+        config:
+          command: node
+          args:
+            - .vally/scenarios/identity-java-managed-identity-auth/tools/check-managed-identity-java.mjs
+            - prompt/identity-packages
+      - type: run-command
+        name: prompt/system-assigned-credential
+        weight: 1
+        config:
+          command: node
+          args:
+            - .vally/scenarios/identity-java-managed-identity-auth/tools/check-managed-identity-java.mjs
+            - prompt/system-assigned-credential
+      - type: run-command
+        name: prompt/user-assigned-credential
+        weight: 1
+        config:
+          command: node
+          args:
+            - .vally/scenarios/identity-java-managed-identity-auth/tools/check-managed-identity-java.mjs
+            - prompt/user-assigned-credential
+      - type: run-command
+        name: prompt/default-azure-credential
+        weight: 1
+        config:
+          command: node
+          args:
+            - .vally/scenarios/identity-java-managed-identity-auth/tools/check-managed-identity-java.mjs
+            - prompt/default-azure-credential
+      - type: run-command
+        name: prompt/local-fallback-chain
+        weight: 1
+        config:
+          command: node
+          args:
+            - .vally/scenarios/identity-java-managed-identity-auth/tools/check-managed-identity-java.mjs
+            - prompt/local-fallback-chain
+      - type: run-command
+        name: prompt/credential-client-association
+        weight: 1
+        config:
+          command: node
+          args:
+            - .vally/scenarios/identity-java-managed-identity-auth/tools/check-managed-identity-java.mjs
+            - prompt/credential-client-association
+      - type: run-command
+        name: prompt/authenticated-operation
+        weight: 1
+        config:
+          command: node
+          args:
+            - .vally/scenarios/identity-java-managed-identity-auth/tools/check-managed-identity-java.mjs
+            - prompt/authenticated-operation
+      - type: run-command
+        name: prompt/credential-unavailable-error
+        weight: 1
+        config:
+          command: node
+          args:
+            - .vally/scenarios/identity-java-managed-identity-auth/tools/check-managed-identity-java.mjs
+            - prompt/credential-unavailable-error
+    environment:
+      files:
+        - src: tools/check-managed-identity-java.mjs
+          dest: .vally/scenarios/identity-java-managed-identity-auth/tools/check-managed-identity-java.mjs
+        - src: tools/managed-identity-java-rules.mjs
+          dest: .vally/scenarios/identity-java-managed-identity-auth/tools/managed-identity-java-rules.mjs
+artifacts:
+  include:
+    - "**/*.java"
+    - "**/pom.xml"
+    - "**/build.gradle"
+    - "**/build.gradle.kts"
+  exclude:
+    - "**/.vally/**"
+    - "**/target/**"

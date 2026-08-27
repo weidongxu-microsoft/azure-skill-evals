@@ -4,6 +4,7 @@ evals:
   - ../../scenarios/app-configuration-typescript-config-values/eval.yaml
   - ../../scenarios/event-hubs-typescript-send-receive-events/eval.yaml
   - ../../scenarios/identity-typescript-default-azure-credential/eval.yaml
+  - ../../scenarios/identity-typescript-managed-identity-auth/eval.yaml
 vary:
   - /environment/skills
   - /environment/mcpServers

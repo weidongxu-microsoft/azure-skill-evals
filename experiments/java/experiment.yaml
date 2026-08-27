@@ -4,6 +4,7 @@ evals:
   - ../../scenarios/app-configuration-java-config-values/eval.yaml
   - ../../scenarios/event-hubs-java-send-receive-events/eval.yaml
   - ../../scenarios/identity-java-default-azure-credential/eval.yaml
+  - ../../scenarios/identity-java-managed-identity-auth/eval.yaml
 vary:
   - /environment/skills
   - /environment/mcpServers

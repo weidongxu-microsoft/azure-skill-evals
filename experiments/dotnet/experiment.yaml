@@ -4,6 +4,7 @@ evals:
   - ../../scenarios/app-configuration-dotnet-config-values/eval.yaml
   - ../../scenarios/event-hubs-dotnet-send-receive-events/eval.yaml
   - ../../scenarios/identity-dotnet-default-azure-credential/eval.yaml
+  - ../../scenarios/identity-dotnet-managed-identity-auth/eval.yaml
 vary:
   - /environment/skills
   - /environment/mcpServers
