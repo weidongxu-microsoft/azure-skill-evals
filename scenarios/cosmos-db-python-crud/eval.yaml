@@ -120,11 +120,6 @@ stimuli:
           args:
             - .vally/languages/python/check.mjs
             - language/exception-handling
-      - type: file-exists
-        name: workspace/python-file
-        weight: 1
-        config:
-          path: cosmos_crud.py
     environment:
       files:
         - src: tools/check-cosmos-python.mjs

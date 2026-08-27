@@ -93,11 +93,12 @@ Every criterion has weight 1. Preserve these result groups:
 
 - `prompt/*`: scenario-specific requirements.
 - `language/*`: reusable language and SDK conventions.
-- `workspace/*`: required generated artifacts.
 
 Grade only application and code correctness. Do not score MCP calls, tool
 calls, or skill activation. Use Vally trajectories to diagnose whether
-configured tools and skills loaded or were invoked.
+configured tools and skills loaded or were invoked. Language and prompt checker
+entrypoints must reject workspaces with no top-level source file; do not require
+a filename unless the stimulus explicitly specifies one.
 
 Skills are staged into the Vally workspace. Generated-code graders must inspect
 only the expected generated files and must not pass because a skill contains

@@ -17,7 +17,7 @@ explicitly activated `azure-cosmos-py`.
 Vally owns execution, trajectories, grading, and experiment isolation. Each
 scenario directory owns its eval, experiment, golden application, grader, and
 grader tests. Shared language checks live under `languages/`. One `eval.yaml`
-defines the stimulus and the 12 equally weighted correctness graders. One
+defines the stimulus and the 11 equally weighted correctness graders. One
 experiment file changes only `/environment/skills` and
 `/environment/mcpServers`, so prompts, models, limits, and graders cannot drift
 between arms.
@@ -27,17 +27,17 @@ External skill repositories and npm packages are pinned in
 repositories under `.work/dependencies/`; generated dependencies and reports
 stay outside Git.
 
-Grader names preserve three independent result groups:
+Grader names preserve two independent result groups:
 
 | Prefix | Responsibility |
 |---|---|
 | `prompt/` | Scenario-specific completion requirements |
 | `language/` | Reusable Python and Azure SDK conventions |
-| `workspace/` | Generated file presence |
 
-Static Node.js checks grade code structure, and Vally's built-in file grader
-validates artifacts. The colocated golden application must compile, pass Ruff,
-and pass every deterministic rule. Raw Vally
+Static Node.js checks grade code structure and reject workspaces without a
+top-level Python file. They do not require a specific filename unless the
+stimulus does. The colocated golden application must compile, pass Ruff, and
+pass every deterministic rule. Raw Vally
 trajectories remain the source of truth for skill activation, MCP calls,
 timing, errors, and token usage, but these diagnostics do not affect scores.
 
@@ -122,7 +122,7 @@ least three trials per arm before drawing comparative quality conclusions.
 
 ## Scope
 
-Version 1 includes the Cosmos DB Python CRUD stimulus, 12 correctness criteria,
+Version 1 includes the Cosmos DB Python CRUD stimulus, 11 correctness criteria,
 three experiment arms, dependency bootstrap, configuration linting, grader unit
 tests, and one trial per arm.
 
@@ -133,7 +133,6 @@ workspace, MCP, and skill evidence.
 ## Success criteria
 
 - Vally plans and runs exactly three variants with no configuration drift.
-- Each variant produces Python code and 12 independently visible checks.
-- Workspace grading recognizes generated Python files.
-- Results distinguish prompt, language, and workspace checks.
+- Each variant produces Python code and 11 independently visible checks.
+- Results distinguish prompt and language checks.
 - Trajectories preserve MCP and skill diagnostics without changing scores.

@@ -53,11 +53,11 @@ Every criterion has weight 1. Grader names identify the source of each check:
 
 - `prompt/*`: requirements specific to the customer scenario.
 - `language/*`: reusable language and SDK conventions.
-- `workspace/*`: required generated artifacts.
 
 Scores measure only the generated application and code. MCP calls and skill
 activation remain available in Vally trajectories as diagnostic evidence, but
-they do not affect correctness scores.
+they do not affect correctness scores. Checker entrypoints require at least one
+top-level Python file without imposing a specific filename.
 
 The golden application proves that the deterministic grader suite has at least
 one valid solution without requiring generated code to match one exact
