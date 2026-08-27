@@ -15,9 +15,10 @@ explicitly activated `azure-cosmos-py`.
 
 ## Proposed architecture
 
-Vally owns execution, trajectories, grading, and experiment isolation. One
-`eval.yaml` defines the stimulus and the 13 equally weighted graders. One
-experiment file changes only `/environment/skills` and
+Vally owns execution, trajectories, grading, and experiment isolation. Each
+scenario directory owns its eval, experiment, golden application, grader, and
+grader tests. One `eval.yaml` defines the stimulus and the 13 equally weighted
+graders. One experiment file changes only `/environment/skills` and
 `/environment/mcpServers`, so prompts, models, limits, and graders cannot drift
 between arms.
 
@@ -35,10 +36,11 @@ Grader names preserve four independent result groups:
 | `workspace/` | Generated file presence |
 | `trajectory/` | Tool and skill behavior |
 
-Static Node.js checks grade code structure. Vally's built-in file and
-trajectory graders validate artifacts and tool calls. Raw Vally trajectories
-remain the source of truth for skill activation, MCP calls, timing, errors, and
-token usage.
+Static Node.js checks grade code structure. Vally's built-in file and trajectory
+graders validate artifacts and tool calls. The colocated golden application
+must compile, pass Ruff, and pass every deterministic rule. Raw Vally
+trajectories remain the source of truth for skill activation, MCP calls,
+timing, errors, and token usage.
 
 ## What changes
 
@@ -136,4 +138,3 @@ workspace, MCP, and skill evidence.
 - The Azure arm records at least one Azure MCP call.
 - The SDK arm records activation of `azure-cosmos-py`.
 - Results distinguish prompt, language, workspace, and trajectory checks.
-

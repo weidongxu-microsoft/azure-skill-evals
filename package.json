@@ -5,9 +5,9 @@
   "type": "module",
   "scripts": {
     "bootstrap": "pwsh -NoProfile -File scripts/bootstrap-dependencies.ps1",
-    "lint:evals": "vally lint",
-    "test": "node --test",
-    "experiment:cosmos": "vally experiment run experiments/cosmos-db-python-three-way.yaml --output-dir reports"
+    "lint:evals": "vally lint --eval-spec scenarios --strict",
+    "test": "node --test && python -m compileall -q scenarios && python -m ruff check scenarios",
+    "experiment:cosmos": "vally experiment run scenarios/cosmos-db-python-crud/experiment.yaml --output-dir reports"
   },
   "devDependencies": {
     "@microsoft/vally-cli": "0.12.0"

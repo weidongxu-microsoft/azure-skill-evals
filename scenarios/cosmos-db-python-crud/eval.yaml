@@ -133,9 +133,9 @@ stimuli:
             - name: "^azure[-_]"
     environment:
       files:
-        - src: ../../../../../../tools/check-cosmos-python.mjs
+        - src: tools/check-cosmos-python.mjs
           dest: .vally/tools/check-cosmos-python.mjs
-        - src: ../../../../../../tools/cosmos-python-rules.mjs
+        - src: tools/cosmos-python-rules.mjs
           dest: .vally/tools/cosmos-python-rules.mjs
 artifacts:
   include:

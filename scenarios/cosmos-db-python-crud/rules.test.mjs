@@ -2,40 +2,21 @@ import assert from "node:assert/strict";
 import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { fileURLToPath } from "node:url";
 import test from "node:test";
 
 import {
   evaluateRule,
   loadWorkspace,
   ruleNames,
-} from "../tools/cosmos-python-rules.mjs";
+} from "./tools/cosmos-python-rules.mjs";
 
-const completeWorkspace = {
-  pythonFiles: ["cosmos_crud.py"],
-  dependencies: "azure-cosmos>=4.7\nazure-identity>=1.17\n",
-  python: `
-from azure.cosmos import CosmosClient, PartitionKey
-from azure.cosmos.exceptions import CosmosHttpResponseError
-from azure.identity import DefaultAzureCredential
+const goldenWorkspacePath = fileURLToPath(
+  new URL("./golden", import.meta.url),
+);
+const completeWorkspace = loadWorkspace(goldenWorkspacePath);
 
-try:
-    credential = DefaultAzureCredential()
-    with CosmosClient(endpoint, credential=credential) as client:
-        database = client.create_database_if_not_exists(id="TestDB")
-        container = database.create_container_if_not_exists(
-            id="Items",
-            partition_key=PartitionKey(path="/category"),
-        )
-        container.query_items(
-            query=query,
-            enable_cross_partition_query=True,
-        )
-except CosmosHttpResponseError:
-    raise
-`,
-};
-
-test("complete Cosmos sample passes every static rule", () => {
+test("lint-clean reference application passes every static rule", () => {
   for (const rule of ruleNames()) {
     assert.equal(evaluateRule(rule, completeWorkspace), true, rule);
   }

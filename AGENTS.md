@@ -15,21 +15,28 @@ environment paths.
 
 ## Sources of truth
 
-- `evals/**/eval.yaml` defines stimuli, grader composition, weights, and
-  artifacts.
-- `tools/*-rules.mjs` implements deterministic code criteria.
-- `experiments/*.yaml` defines controlled environment variants.
+- `scenarios/<name>/eval.yaml` defines stimuli, grader composition, weights,
+  and artifacts.
+- `scenarios/<name>/tools/` implements scenario-specific deterministic code
+  criteria.
+- `scenarios/<name>/experiment.yaml` defines controlled environment variants.
+- `scenarios/<name>/golden/` contains the runnable, lint-clean reference
+  application.
+- `scenarios/<name>/*.test.mjs` validates scenario-specific graders.
 - `dependencies.lock.json` records pinned external repositories and package
   versions.
 - `docs/pilot-results/` contains concise, reviewed findings from completed
   experiments.
 
-Files under `tests/` are unit tests for repository tooling and graders. A code
-sample embedded in a test is a synthetic fixture that exercises grader
-behavior. It is not canonical generated code, a golden answer, or an
-LLM-as-judge oracle. Graders must accept equivalent valid implementations and
-must include negative and alternate-form fixtures to prevent overfitting to one
-sample.
+Code synthesized inside a negative test exercises one grader behavior. Tests
+must load their positive workspace from the corresponding real application in
+the scenario's `golden/` directory.
+
+A golden application establishes that at least one complete, executable
+implementation passes syntax checks, linting, and every deterministic grader.
+It is a positive oracle, not the only canonical answer. Graders must accept
+equivalent valid implementations and must include negative and alternate-form
+fixtures to prevent overfitting to the reference application's exact structure.
 
 ## Dependency locking
 
@@ -76,10 +83,11 @@ Run these commands before committing evaluation changes:
 
 ```powershell
 node --test
-vally lint --eval-spec evals --strict --verbose
-vally experiment run experiments/cosmos-db-python-three-way.yaml --output-dir reports --dry-run
+python -m compileall -q scenarios
+python -m ruff check scenarios
+vally lint --eval-spec scenarios --strict --verbose
+vally experiment run scenarios/cosmos-db-python-crud/experiment.yaml --output-dir reports --dry-run
 ```
 
 Use one trial per arm only for harness development. Use repeated trials before
 drawing comparative quality conclusions.
-

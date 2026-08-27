@@ -1,5 +1,7 @@
 node_modules/
+.ruff_cache/
 .work/
 reports/
 *.log
-
+__pycache__/
+*.pyc

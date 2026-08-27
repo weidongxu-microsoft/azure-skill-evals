@@ -12,6 +12,7 @@ graders across three environments:
 
 ```powershell
 pnpm install
+python -m pip install -r requirements-dev.txt
 pnpm bootstrap
 pnpm lint:evals
 pnpm test
@@ -29,6 +30,11 @@ Every criterion has weight 1. Grader names identify the source of each check:
 - `language/*`: reusable language and SDK conventions.
 - `workspace/*`: required generated artifacts.
 - `trajectory/*`: required agent behavior, including Azure MCP use.
+
+Each scenario keeps its eval, experiment, graders, tests, and runnable golden
+application together under `scenarios/<name>/`. The golden application proves
+that the deterministic grader suite has at least one valid solution without
+requiring generated code to match one exact implementation.
 
 See [Architecture](docs/architecture.md) for repository boundaries and the
 migration plan. See the
