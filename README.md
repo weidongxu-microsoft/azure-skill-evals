@@ -31,5 +31,6 @@ Every criterion has weight 1. Grader names identify the source of each check:
 - `trajectory/*`: required agent behavior, including Azure MCP use.
 
 See [Architecture](docs/architecture.md) for repository boundaries and the
-migration plan.
-
+migration plan. See the
+[Cosmos DB Python pilot](docs/pilot-results/cosmos-db-python.md) for the first
+three-way trial.

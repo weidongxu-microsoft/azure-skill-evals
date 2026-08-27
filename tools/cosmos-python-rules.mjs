@@ -1,35 +1,15 @@
-import { readFileSync, readdirSync, statSync } from "node:fs";
+import { readFileSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 
-const excludedDirectories = new Set([
-  ".git",
-  ".vally",
-  ".venv",
-  "node_modules",
-  "venv",
-  "__pycache__",
-]);
-
-function collectFiles(root, predicate, files = []) {
-  for (const entry of readdirSync(root)) {
-    if (excludedDirectories.has(entry)) {
-      continue;
-    }
-
-    const path = join(root, entry);
-    const stat = statSync(path);
-    if (stat.isDirectory()) {
-      collectFiles(path, predicate, files);
-    } else if (predicate(path)) {
-      files.push(path);
-    }
-  }
-  return files;
+function collectTopLevelFiles(root, predicate) {
+  return readdirSync(root, { withFileTypes: true })
+    .filter((entry) => entry.isFile() && predicate(entry.name))
+    .map((entry) => join(root, entry.name));
 }
 
 export function loadWorkspace(root) {
-  const pythonFiles = collectFiles(root, (path) => path.endsWith(".py"));
-  const dependencyFiles = collectFiles(
+  const pythonFiles = collectTopLevelFiles(root, (path) => path.endsWith(".py"));
+  const dependencyFiles = collectTopLevelFiles(
     root,
     (path) =>
       /(?:requirements[^\\/]*\.txt|pyproject\.toml|setup\.py)$/i.test(path),
@@ -52,7 +32,8 @@ const rules = {
     /\.create_database_if_not_exists\s*\(/.test(python),
   "prompt/create-container": ({ python }) =>
     /\.create_container_if_not_exists\s*\(/.test(python) &&
-    /PartitionKey\s*\(\s*path\s*=\s*["']\/category["']/.test(python),
+    /PartitionKey\s*\(\s*path\s*=/.test(python) &&
+    /["']\/category["']/.test(python),
   "prompt/cross-partition-query": ({ python }) =>
     /\.query_items\s*\([\s\S]{0,1200}?enable_cross_partition_query\s*=\s*True/.test(
       python,
@@ -87,4 +68,3 @@ export function evaluateRule(name, workspace) {
 export function ruleNames() {
   return Object.keys(rules);
 }
-

@@ -124,7 +124,7 @@ stimuli:
         name: workspace/python-file
         weight: 1
         config:
-          path: "**/*.py"
+          path: cosmos_crud.py
       - type: tool-calls
         name: trajectory/azure-mcp
         weight: 1
