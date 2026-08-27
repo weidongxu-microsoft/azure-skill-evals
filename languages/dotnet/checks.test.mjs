@@ -1,7 +1,5 @@
 import assert from "node:assert/strict";
-import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
-import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { fileURLToPath } from "node:url";
 import test from "node:test";
 
 import { evaluateDotnetCheck, loadDotnetWorkspace } from "./checks.mjs";
@@ -58,21 +56,104 @@ test("legacy packages and undisposed clients fail", () => {
   );
 });
 
-test("loader accepts a conventional nested src project", () => {
-  const root = mkdtempSync(join(tmpdir(), "azure-skill-evals-dotnet-"));
-  const projectRoot = join(root, "src", "CosmosCrud");
-  mkdirSync(projectRoot, { recursive: true });
-  writeFileSync(join(projectRoot, "Program.cs"), "Console.WriteLine();\n");
-  writeFileSync(
-    join(projectRoot, "CosmosCrud.csproj"),
-    '<Project Sdk="Microsoft.NET.Sdk"></Project>\n',
+test("loader accepts a conventional project and ignores build output", () => {
+  const root = fileURLToPath(
+    new URL(
+      "../../scenarios/cosmos-db-dotnet-crud/golden",
+      import.meta.url,
+    ),
   );
-  const generatedRoot = join(projectRoot, "obj");
-  mkdirSync(generatedRoot);
-  writeFileSync(join(generatedRoot, "Generated.cs"), "class Generated {}\n");
-
   const workspace = loadDotnetWorkspace(root);
 
   assert.equal(workspace.sourceFiles.length, 1);
   assert.equal(workspace.projectFiles.length, 1);
+});
+
+test("Event Hubs producer disposal and processor stopping are type-aware", () => {
+  const validSources = [
+    `
+await using var producer = new EventHubProducerClient(connectionString);
+var processor = new EventProcessorClient(store, group, connectionString);
+await processor.StopProcessingAsync();
+`,
+    `
+EventHubProducerClient producer = new(connectionString, eventHubName);
+EventProcessorClient processor =
+    new(store, group, connectionString, eventHubName);
+try
+{
+    await processor.StartProcessingAsync();
+}
+finally
+{
+    await processor.StopProcessingAsync();
+    await producer.CloseAsync();
+}
+`,
+  ];
+
+  for (const source of validSources) {
+    assert.equal(
+      evaluateDotnetCheck("language/client-lifecycle", {
+        ...completeWorkspace,
+        source,
+      }),
+      true,
+    );
+  }
+});
+
+test("Event Hubs lifecycle rejects unrelated or incomplete cleanup", () => {
+  const invalidSources = [
+    `
+var producer = new EventHubProducerClient(connectionString);
+other.DisposeAsync();
+`,
+    `
+await using var producer = new EventHubProducerClient(connectionString);
+var processor = new EventProcessorClient(store, group, connectionString);
+other.StopProcessingAsync();
+`,
+    `
+var first = new EventHubProducerClient(connectionString);
+await using var second = new EventHubProducerClient(connectionString);
+first.SendAsync(batch);
+`,
+    `
+using var producer = new EventHubProducerClient(connectionString);
+`,
+    `
+var producer = new EventHubProducerClient(connectionString);
+producer.Dispose();
+`,
+  ];
+
+  for (const source of invalidSources) {
+    assert.equal(
+      evaluateDotnetCheck("language/client-lifecycle", {
+        ...completeWorkspace,
+        source,
+      }),
+      false,
+    );
+  }
+});
+
+test("comments and strings cannot satisfy shared source checks", () => {
+  const workspace = {
+    ...completeWorkspace,
+    source: `
+// await producer.DisposeAsync();
+var producer = new EventHubProducerClient(connectionString);
+string example = """
+await producer.DisposeAsync();
+""";
+`,
+  };
+
+  assert.equal(evaluateDotnetCheck("language/async-await", workspace), false);
+  assert.equal(
+    evaluateDotnetCheck("language/client-lifecycle", workspace),
+    false,
+  );
 });

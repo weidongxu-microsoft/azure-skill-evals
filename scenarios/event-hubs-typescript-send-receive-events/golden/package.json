@@ -1,0 +1,19 @@
+{
+  "name": "event-hubs-send-receive-reference",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/event-hubs.js"
+  },
+  "dependencies": {
+    "@azure/event-hubs": "6.0.4",
+    "@azure/eventhubs-checkpointstore-blob": "2.0.1",
+    "@azure/storage-blob": "12.33.0"
+  },
+  "devDependencies": {
+    "typescript": "5.9.2"
+  },
+  "packageManager": "pnpm@10.26.0"
+}

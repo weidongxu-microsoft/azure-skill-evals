@@ -2,6 +2,7 @@ name: typescript-three-way
 evals:
   - ../../scenarios/cosmos-db-typescript-crud/eval.yaml
   - ../../scenarios/app-configuration-typescript-config-values/eval.yaml
+  - ../../scenarios/event-hubs-typescript-send-receive-events/eval.yaml
 vary:
   - /environment/skills
   - /environment/mcpServers

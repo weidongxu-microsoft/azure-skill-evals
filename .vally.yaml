@@ -18,3 +18,10 @@ suites:
       - scenarios/app-configuration-dotnet-config-values/eval.yaml
       - scenarios/app-configuration-java-config-values/eval.yaml
       - scenarios/app-configuration-typescript-config-values/eval.yaml
+  event-hubs-send-receive-events:
+    description: Event Hubs send and receive evaluation across four languages
+    evals:
+      - scenarios/event-hubs-python-send-receive-events/eval.yaml
+      - scenarios/event-hubs-dotnet-send-receive-events/eval.yaml
+      - scenarios/event-hubs-java-send-receive-events/eval.yaml
+      - scenarios/event-hubs-typescript-send-receive-events/eval.yaml

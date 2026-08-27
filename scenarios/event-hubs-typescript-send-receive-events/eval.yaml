@@ -1,0 +1,150 @@
+name: event-hubs-typescript-send-receive-events
+description: Compare Azure tooling for an Event Hubs TypeScript send and receive task
+version: "1.0"
+type: capability
+scoring:
+  weights: {}
+  threshold: 1
+defaults:
+  runs: 1
+  timeout: 30m
+  model: gpt-5.6-sol
+  judge_model: gpt-5.6-sol
+stimuli:
+  - name: event-hubs-dp-typescript-send-receive
+    prompt: |-
+      Write a TypeScript program that sends and receives events with Azure Event Hubs.
+
+      Write the code to files. Do not reply with code blocks.
+
+      1. Show the required @azure/event-hubs, @azure/eventhubs-checkpointstore-blob, and @azure/storage-blob npm packages.
+      2. Create an EventHubProducerClient from a connection string and Event Hub name.
+      3. Create an event batch and add 10 events. Give every event a body and custom properties, and handle an event that does not fit in the batch.
+      4. Send the batch.
+      5. Create a blob-backed checkpoint store and an EventHubConsumerClient in the default consumer group.
+      6. Subscribe with event and error handlers. Print each received event body.
+      7. Update the checkpoint after processing received events.
+      8. Keep receiving until shutdown, then close the subscription, consumer, and producer.
+    tags:
+      service: event-hubs
+      plane: data-plane
+      language: typescript
+      category: streaming
+    graders:
+      - type: run-command
+        name: prompt/event-hubs-packages
+        weight: 1
+        config:
+          command: node
+          args:
+            - .vally/scenarios/event-hubs-typescript-send-receive-events/tools/check-event-hubs-typescript.mjs
+            - prompt/event-hubs-packages
+      - type: run-command
+        name: prompt/producer-client
+        weight: 1
+        config:
+          command: node
+          args:
+            - .vally/scenarios/event-hubs-typescript-send-receive-events/tools/check-event-hubs-typescript.mjs
+            - prompt/producer-client
+      - type: run-command
+        name: prompt/event-batch
+        weight: 1
+        config:
+          command: node
+          args:
+            - .vally/scenarios/event-hubs-typescript-send-receive-events/tools/check-event-hubs-typescript.mjs
+            - prompt/event-batch
+      - type: run-command
+        name: prompt/send-batch
+        weight: 1
+        config:
+          command: node
+          args:
+            - .vally/scenarios/event-hubs-typescript-send-receive-events/tools/check-event-hubs-typescript.mjs
+            - prompt/send-batch
+      - type: run-command
+        name: prompt/checkpointed-consumer
+        weight: 1
+        config:
+          command: node
+          args:
+            - .vally/scenarios/event-hubs-typescript-send-receive-events/tools/check-event-hubs-typescript.mjs
+            - prompt/checkpointed-consumer
+      - type: run-command
+        name: prompt/receive-handlers
+        weight: 1
+        config:
+          command: node
+          args:
+            - .vally/scenarios/event-hubs-typescript-send-receive-events/tools/check-event-hubs-typescript.mjs
+            - prompt/receive-handlers
+      - type: run-command
+        name: prompt/update-checkpoint
+        weight: 1
+        config:
+          command: node
+          args:
+            - .vally/scenarios/event-hubs-typescript-send-receive-events/tools/check-event-hubs-typescript.mjs
+            - prompt/update-checkpoint
+      - type: run-command
+        name: prompt/client-lifecycle
+        weight: 1
+        config:
+          command: node
+          args:
+            - .vally/scenarios/event-hubs-typescript-send-receive-events/tools/check-event-hubs-typescript.mjs
+            - prompt/client-lifecycle
+      - type: run-command
+        name: language/package-manifest
+        weight: 1
+        config:
+          command: node
+          args:
+            - .vally/languages/typescript/check.mjs
+            - language/package-manifest
+      - type: run-command
+        name: language/current-azure-packages
+        weight: 1
+        config:
+          command: node
+          args:
+            - .vally/languages/typescript/check.mjs
+            - language/current-azure-packages
+      - type: run-command
+        name: language/async-await
+        weight: 1
+        config:
+          command: node
+          args:
+            - .vally/languages/typescript/check.mjs
+            - language/async-await
+      - type: run-command
+        name: language/typescript-config
+        weight: 1
+        config:
+          command: node
+          args:
+            - .vally/languages/typescript/check.mjs
+            - language/typescript-config
+    environment:
+      files:
+        - src: tools/check-event-hubs-typescript.mjs
+          dest: .vally/scenarios/event-hubs-typescript-send-receive-events/tools/check-event-hubs-typescript.mjs
+        - src: tools/event-hubs-typescript-rules.mjs
+          dest: .vally/scenarios/event-hubs-typescript-send-receive-events/tools/event-hubs-typescript-rules.mjs
+        - src: ../../languages/typescript/check.mjs
+          dest: .vally/languages/typescript/check.mjs
+        - src: ../../languages/typescript/checks.mjs
+          dest: .vally/languages/typescript/checks.mjs
+artifacts:
+  include:
+    - "**/*.ts"
+    - "**/*.js"
+    - "**/package.json"
+    - "**/tsconfig.json"
+    - "**/README.md"
+  exclude:
+    - "**/.vally/**"
+    - "**/node_modules/**"
+    - "**/dist/**"

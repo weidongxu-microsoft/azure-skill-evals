@@ -2,6 +2,7 @@ name: dotnet-three-way
 evals:
   - ../../scenarios/cosmos-db-dotnet-crud/eval.yaml
   - ../../scenarios/app-configuration-dotnet-config-values/eval.yaml
+  - ../../scenarios/event-hubs-dotnet-send-receive-events/eval.yaml
 vary:
   - /environment/skills
   - /environment/mcpServers

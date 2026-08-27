@@ -2,6 +2,7 @@ name: python-three-way
 evals:
   - ../../scenarios/cosmos-db-python-crud/eval.yaml
   - ../../scenarios/app-configuration-python-config-values/eval.yaml
+  - ../../scenarios/event-hubs-python-send-receive-events/eval.yaml
 vary:
   - /environment/skills
   - /environment/mcpServers
