@@ -93,7 +93,16 @@ The `packages` object is currently a central version record only:
 
 - Pin Vally independently in `package.json`.
 - Pin Azure MCP independently in each experiment's MCP declaration.
+- Pin Copilot CLI independently in `package.json`.
 - Keep those declarations synchronized with `dependencies.lock.json`.
+
+Keep `@github/copilot` pinned to `1.0.71` until
+github/copilot-cli#4202 is resolved and a controlled GitHub Actions run
+confirms that built-in file tools work. Copilot CLI `1.0.72` and later can
+report `Path does not exist` or `Session filesystem path escapes root` for
+existing Vally workspace files on hosted Linux runners while shell access
+still succeeds. Update both `package.json` and `dependencies.lock.json` when
+testing a newer version.
 
 Do not use mutable branch references or `@latest` in evaluations. On PCs
 within the Microsoft corporate network, use the approved npm registry
