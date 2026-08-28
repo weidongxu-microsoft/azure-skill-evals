@@ -53,26 +53,9 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - uses: pnpm/action-setup@v4
-        with:
-          version: 10.26.0
-
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-
-      - uses: actions/setup-python@v5
-        with:
-          python-version: "3.12"
-
-      - uses: actions/setup-dotnet@v4
-        with:
-          dotnet-version: "8.0.x"
-
-      - uses: actions/setup-java@v4
-        with:
-          distribution: temurin
-          java-version: "17"
 
       - name: Configure approved npm registry authentication
         env:
@@ -89,6 +72,24 @@ jobs:
           npm config set "${registry}:_password" "$password" --location=user
           npm config set "${registry}:email" npm@example.invalid --location=user
           npm config set "${registry}:always-auth" true --location=user
+
+      - name: Install pnpm
+        run: >-
+          npm install --global pnpm@10.26.0
+          --registry=https://pkgs.dev.azure.com/azure-sdk/public/_packaging/azure-sdk-for-js/npm/registry/
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "8.0.x"
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
 
       - name: Install dependencies
         run: |
