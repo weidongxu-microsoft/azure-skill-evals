@@ -41,8 +41,8 @@ service=identity;language=python,typescript
 
 Choose one environment variant or `all`. Dry-run is enabled by default so the
 resolved plans can be reviewed before running agents. Configure the
-`AZURE_ARTIFACTS_TOKEN` repository secret with a raw Azure DevOps token that
-has read access to the approved npm feed. Copilot requests use the workflow's
+`AZURE_ARTIFACTS_TOKEN` repository secret with an authentication token that has
+read access to the approved npm feed. Copilot requests use the workflow's
 built-in `GITHUB_TOKEN`.
 
 The same selector can be checked locally without running Vally:

@@ -66,11 +66,8 @@ jobs:
             echo "::error::Configure the AZURE_ARTIFACTS_TOKEN repository secret for the approved npm feed."
             exit 1
           fi
-          password="$(printf '%s' "$AZURE_ARTIFACTS_TOKEN" | base64 -w 0)"
           registry=//pkgs.dev.azure.com/azure-sdk/public/_packaging/azure-sdk-for-js/npm/registry/
-          npm config set "${registry}:username" github-actions --location=user
-          npm config set "${registry}:_password" "$password" --location=user
-          npm config set "${registry}:email" npm@example.invalid --location=user
+          npm config set "${registry}:_authToken" "$AZURE_ARTIFACTS_TOKEN" --location=user
 
       - name: Install pnpm
         run: >-
