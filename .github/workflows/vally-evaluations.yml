@@ -57,22 +57,14 @@ jobs:
         with:
           node-version: 22
 
-      - name: Configure approved npm registry authentication
-        env:
-          AZURE_ARTIFACTS_TOKEN: ${{ secrets.AZURE_ARTIFACTS_TOKEN }}
+      - name: Configure public npm registry
         shell: bash
         run: |
-          if [[ -z "$AZURE_ARTIFACTS_TOKEN" ]]; then
-            echo "::error::Configure the AZURE_ARTIFACTS_TOKEN repository secret for the approved npm feed."
-            exit 1
-          fi
-          registry=//pkgs.dev.azure.com/azure-sdk/public/_packaging/azure-sdk-for-js/npm/registry/
-          npm config set "${registry}:_authToken" "$AZURE_ARTIFACTS_TOKEN" --location=user
+          rm -f .npmrc
+          npm config set registry https://registry.npmjs.org/ --location=user
 
       - name: Install pnpm
-        run: >-
-          npm install --global pnpm@10.26.0
-          --registry=https://pkgs.dev.azure.com/azure-sdk/public/_packaging/azure-sdk-for-js/npm/registry/
+        run: npm install --global pnpm@10.26.0 --registry=https://registry.npmjs.org/
 
       - uses: actions/setup-python@v5
         with:
@@ -92,7 +84,7 @@ jobs:
           pnpm install --no-frozen-lockfile
           python -m pip install -r requirements-dev.txt
           npm install --global @github/copilot@1.0.81-6 \
-            --registry=https://pkgs.dev.azure.com/azure-sdk/public/_packaging/azure-sdk-for-js/npm/registry/
+            --registry=https://registry.npmjs.org/
 
       - name: Bootstrap pinned skill repositories
         shell: pwsh
