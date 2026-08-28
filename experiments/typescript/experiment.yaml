@@ -12,6 +12,7 @@ evals:
   - ../../scenarios/storage-typescript-account-mgmt/eval.yaml
   - ../../scenarios/storage-typescript-crud-blobs/eval.yaml
   - ../../scenarios/storage-typescript-blob-storage-manager/eval.yaml
+  - ../../scenarios/storage-typescript-encrypted-uploader/eval.yaml
 vary:
   - /environment/skills
   - /environment/mcpServers
