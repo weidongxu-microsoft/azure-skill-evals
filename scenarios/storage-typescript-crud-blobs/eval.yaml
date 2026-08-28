@@ -1,0 +1,150 @@
+name: storage-typescript-crud-blobs
+description: Compare Azure tooling for a Blob Storage TypeScript CRUD task
+version: "1.0"
+type: capability
+scoring:
+  weights: {}
+  threshold: 1
+defaults:
+  runs: 1
+  timeout: 30m
+  model: gpt-5.6-sol
+  judge_model: gpt-5.6-sol
+stimuli:
+  - name: storage-dp-typescript-crud-blobs
+    prompt: |-
+      Write a TypeScript program that performs CRUD operations on Azure Blob Storage:
+      1. Create a BlobServiceClient using DefaultAzureCredential.
+      2. Create a container named "my-container" if it doesn't exist.
+      3. Upload the string "Hello Azure!" as a block blob named "greeting.txt".
+      4. List all blobs in the container and log their names.
+      5. Download the blob and print its content as a string.
+      6. Delete the blob and then delete the container.
+
+      Show the required npm packages and proper error handling with RestError.
+      Use async/await throughout.
+
+      Write the code to files. Do not reply with code blocks.
+    tags:
+      service: storage
+      plane: data-plane
+      language: typescript
+      category: crud
+    graders:
+      - type: run-command
+        name: prompt/packages
+        weight: 1
+        config:
+          command: node
+          args:
+            - .vally/scenarios/storage-typescript-crud-blobs/tools/check-storage-typescript.mjs
+            - prompt/packages
+      - type: run-command
+        name: prompt/authenticated-client
+        weight: 1
+        config:
+          command: node
+          args:
+            - .vally/scenarios/storage-typescript-crud-blobs/tools/check-storage-typescript.mjs
+            - prompt/authenticated-client
+      - type: run-command
+        name: prompt/container-create
+        weight: 1
+        config:
+          command: node
+          args:
+            - .vally/scenarios/storage-typescript-crud-blobs/tools/check-storage-typescript.mjs
+            - prompt/container-create
+      - type: run-command
+        name: prompt/upload
+        weight: 1
+        config:
+          command: node
+          args:
+            - .vally/scenarios/storage-typescript-crud-blobs/tools/check-storage-typescript.mjs
+            - prompt/upload
+      - type: run-command
+        name: prompt/list-and-output
+        weight: 1
+        config:
+          command: node
+          args:
+            - .vally/scenarios/storage-typescript-crud-blobs/tools/check-storage-typescript.mjs
+            - prompt/list-and-output
+      - type: run-command
+        name: prompt/download-and-output
+        weight: 1
+        config:
+          command: node
+          args:
+            - .vally/scenarios/storage-typescript-crud-blobs/tools/check-storage-typescript.mjs
+            - prompt/download-and-output
+      - type: run-command
+        name: prompt/delete-lifecycle
+        weight: 1
+        config:
+          command: node
+          args:
+            - .vally/scenarios/storage-typescript-crud-blobs/tools/check-storage-typescript.mjs
+            - prompt/delete-lifecycle
+      - type: run-command
+        name: prompt/rest-error
+        weight: 1
+        config:
+          command: node
+          args:
+            - .vally/scenarios/storage-typescript-crud-blobs/tools/check-storage-typescript.mjs
+            - prompt/rest-error
+      - type: run-command
+        name: language/package-manifest
+        weight: 1
+        config:
+          command: node
+          args:
+            - .vally/languages/typescript/check.mjs
+            - language/package-manifest
+      - type: run-command
+        name: language/current-azure-packages
+        weight: 1
+        config:
+          command: node
+          args:
+            - .vally/languages/typescript/check.mjs
+            - language/current-azure-packages
+      - type: run-command
+        name: language/async-await
+        weight: 1
+        config:
+          command: node
+          args:
+            - .vally/languages/typescript/check.mjs
+            - language/async-await
+      - type: run-command
+        name: language/typescript-config
+        weight: 1
+        config:
+          command: node
+          args:
+            - .vally/languages/typescript/check.mjs
+            - language/typescript-config
+    environment:
+      files:
+        - src: tools/check-storage-typescript.mjs
+          dest: .vally/scenarios/storage-typescript-crud-blobs/tools/check-storage-typescript.mjs
+        - src: tools/storage-typescript-rules.mjs
+          dest: .vally/scenarios/storage-typescript-crud-blobs/tools/storage-typescript-rules.mjs
+        - src: ../../languages/typescript/check.mjs
+          dest: .vally/languages/typescript/check.mjs
+        - src: ../../languages/typescript/checks.mjs
+          dest: .vally/languages/typescript/checks.mjs
+artifacts:
+  include:
+    - "**/*.ts"
+    - "**/*.js"
+    - "**/package.json"
+    - "**/tsconfig.json"
+    - "**/README.md"
+  exclude:
+    - "**/.vally/**"
+    - "**/node_modules/**"
+    - "**/dist/**"

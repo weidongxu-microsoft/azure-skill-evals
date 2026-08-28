@@ -1,0 +1,158 @@
+name: storage-java-crud-blobs
+description: Compare Azure tooling for an Azure Blob Storage Java CRUD task
+version: "1.0"
+type: capability
+scoring:
+  weights: {}
+  threshold: 1
+defaults:
+  runs: 1
+  timeout: 30m
+  model: gpt-5.6-sol
+  judge_model: gpt-5.6-sol
+stimuli:
+  - name: storage-dp-java-crud
+    prompt: |-
+      Write a Java 17 application that performs one connected CRUD lifecycle
+      against Azure Blob Storage.
+
+      Write the code to files. Do not reply with code blocks.
+
+      Read the storage account blob-service endpoint from
+      AZURE_STORAGE_ACCOUNT_URL. Use DefaultAzureCredential with
+      BlobServiceClientBuilder to create the Blob Storage client.
+
+      1. Get the container named "my-container" and create it only when it
+         does not already exist.
+      2. Upload the local file "data.txt" as "uploads/data.txt".
+      3. List the container's blobs and print each blob's name and size.
+      4. Download the same blob to "data-downloaded.txt".
+      5. Delete the same blob, then delete the same container.
+
+      Include an active Maven or Gradle runtime manifest with
+      com.azure:azure-identity:1.18.5 and
+      com.azure:azure-storage-blob:12.35.1. Handle BlobStorageException
+      meaningfully, including its status code, without swallowing failures.
+      Equivalent synchronous, asynchronous, or helper-based SDK forms are
+      valid when the operations remain connected and execute in order.
+    tags:
+      service: storage
+      plane: data-plane
+      language: java
+      category: crud
+    graders:
+      - type: run-command
+        name: prompt/sdk-dependencies
+        weight: 1
+        config:
+          command: node
+          args:
+            - .vally/scenarios/storage-java-crud-blobs/tools/check-storage-java.mjs
+            - prompt/sdk-dependencies
+      - type: run-command
+        name: prompt/client-authentication
+        weight: 1
+        config:
+          command: node
+          args:
+            - .vally/scenarios/storage-java-crud-blobs/tools/check-storage-java.mjs
+            - prompt/client-authentication
+      - type: run-command
+        name: prompt/container-create
+        weight: 1
+        config:
+          command: node
+          args:
+            - .vally/scenarios/storage-java-crud-blobs/tools/check-storage-java.mjs
+            - prompt/container-create
+      - type: run-command
+        name: prompt/upload-blob
+        weight: 1
+        config:
+          command: node
+          args:
+            - .vally/scenarios/storage-java-crud-blobs/tools/check-storage-java.mjs
+            - prompt/upload-blob
+      - type: run-command
+        name: prompt/list-blobs
+        weight: 1
+        config:
+          command: node
+          args:
+            - .vally/scenarios/storage-java-crud-blobs/tools/check-storage-java.mjs
+            - prompt/list-blobs
+      - type: run-command
+        name: prompt/download-blob
+        weight: 1
+        config:
+          command: node
+          args:
+            - .vally/scenarios/storage-java-crud-blobs/tools/check-storage-java.mjs
+            - prompt/download-blob
+      - type: run-command
+        name: prompt/delete-lifecycle
+        weight: 1
+        config:
+          command: node
+          args:
+            - .vally/scenarios/storage-java-crud-blobs/tools/check-storage-java.mjs
+            - prompt/delete-lifecycle
+      - type: run-command
+        name: prompt/blob-storage-exception
+        weight: 1
+        config:
+          command: node
+          args:
+            - .vally/scenarios/storage-java-crud-blobs/tools/check-storage-java.mjs
+            - prompt/blob-storage-exception
+      - type: run-command
+        name: language/build-manifest
+        weight: 1
+        config:
+          command: node
+          args:
+            - .vally/languages/java/check.mjs
+            - language/build-manifest
+      - type: run-command
+        name: language/current-azure-dependencies
+        weight: 1
+        config:
+          command: node
+          args:
+            - .vally/languages/java/check.mjs
+            - language/current-azure-dependencies
+      - type: run-command
+        name: language/current-imports
+        weight: 1
+        config:
+          command: node
+          args:
+            - .vally/languages/java/check.mjs
+            - language/current-imports
+      - type: run-command
+        name: language/client-builder
+        weight: 1
+        config:
+          command: node
+          args:
+            - .vally/languages/java/check.mjs
+            - language/client-builder
+    environment:
+      files:
+        - src: tools/check-storage-java.mjs
+          dest: .vally/scenarios/storage-java-crud-blobs/tools/check-storage-java.mjs
+        - src: tools/storage-java-rules.mjs
+          dest: .vally/scenarios/storage-java-crud-blobs/tools/storage-java-rules.mjs
+        - src: ../../languages/java/check.mjs
+          dest: .vally/languages/java/check.mjs
+        - src: ../../languages/java/checks.mjs
+          dest: .vally/languages/java/checks.mjs
+artifacts:
+  include:
+    - "**/*.java"
+    - "**/pom.xml"
+    - "**/build.gradle"
+    - "**/build.gradle.kts"
+  exclude:
+    - "**/.vally/**"
+    - "**/target/**"
