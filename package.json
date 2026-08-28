@@ -8,11 +8,11 @@
     "lint:evals": "vally lint --eval-spec scenarios --strict",
     "test": "node --test && python -m compileall -q scenarios && python -m ruff check scenarios && pnpm test:golden",
     "test:golden": "pwsh -NoProfile -File scripts/validate-golden-apps.ps1",
-    "experiment:cosmos": "pnpm experiment:cosmos:python",
-    "experiment:cosmos:python": "vally experiment run experiments/python/experiment.yaml --output-dir reports",
-    "experiment:cosmos:dotnet": "vally experiment run experiments/dotnet/experiment.yaml --output-dir reports",
-    "experiment:cosmos:java": "vally experiment run experiments/java/experiment.yaml --output-dir reports",
-    "experiment:cosmos:typescript": "vally experiment run experiments/typescript/experiment.yaml --output-dir reports"
+    "experiment": "pnpm experiment:python",
+    "experiment:python": "vally experiment run experiments/python/experiment.yaml --output-dir reports",
+    "experiment:dotnet": "vally experiment run experiments/dotnet/experiment.yaml --output-dir reports",
+    "experiment:java": "vally experiment run experiments/java/experiment.yaml --output-dir reports",
+    "experiment:typescript": "vally experiment run experiments/typescript/experiment.yaml --output-dir reports"
   },
   "devDependencies": {
     "@microsoft/vally-cli": "0.12.0"

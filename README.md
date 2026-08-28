@@ -17,10 +17,10 @@ python -m pip install -r requirements-dev.txt
 pnpm bootstrap
 pnpm lint:evals
 pnpm test
-pnpm experiment:cosmos:python
-pnpm experiment:cosmos:dotnet
-pnpm experiment:cosmos:java
-pnpm experiment:cosmos:typescript
+pnpm experiment:python
+pnpm experiment:dotnet
+pnpm experiment:java
+pnpm experiment:typescript
 ```
 
 Each language experiment runs every migrated scenario once per arm. Vally
