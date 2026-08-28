@@ -71,7 +71,6 @@ jobs:
           npm config set "${registry}:username" github-actions --location=user
           npm config set "${registry}:_password" "$password" --location=user
           npm config set "${registry}:email" npm@example.invalid --location=user
-          npm config set "${registry}:always-auth" true --location=user
 
       - name: Install pnpm
         run: >-
