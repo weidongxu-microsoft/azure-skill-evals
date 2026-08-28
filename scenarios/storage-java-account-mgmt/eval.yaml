@@ -1,0 +1,142 @@
+name: storage-java-account-mgmt
+description: Compare Azure tooling for an Azure Storage Java account management task
+version: "1.0"
+type: capability
+scoring:
+  weights: {}
+  threshold: 1
+defaults:
+  runs: 1
+  timeout: 30m
+  model: gpt-5.6-sol
+  judge_model: gpt-5.6-sol
+stimuli:
+  - name: storage-mp-java-account-mgmt
+    prompt: |-
+      Write a Java 17 application that manages an Azure Storage account with
+      the current Azure Resource Manager fluent SDK.
+
+      Write the code to files. Do not reply with code blocks.
+
+      Read AZURE_SUBSCRIPTION_ID, RESOURCE_GROUP_NAME,
+      AZURE_STORAGE_ACCOUNT_NAME, and AZURE_LOCATION from environment
+      variables. AZURE_LOCATION will be set to "eastus". The resource group
+      already exists; do not create or delete it.
+
+      Use DefaultAzureCredential and an AzureProfile for AzureEnvironment.AZURE
+      to authenticate StorageManager for AZURE_SUBSCRIPTION_ID. Perform one
+      connected lifecycle on AZURE_STORAGE_ACCOUNT_NAME:
+
+      1. Define the account in AZURE_LOCATION and RESOURCE_GROUP_NAME with
+         StorageAccountSkuType.STANDARD_LRS and the general-purpose V2 account
+         kind, then create it.
+      2. List accounts by RESOURCE_GROUP_NAME, iterate the result, and print
+         non-secret information for each account.
+      3. Get AZURE_STORAGE_ACCOUNT_NAME by RESOURCE_GROUP_NAME and print
+         non-secret information from the retrieved account.
+      4. Get that account's blob service properties through the same
+         StorageManager, update them with withBlobVersioningEnabled(), apply
+         the update, and print the updated blob-versioning state.
+      5. Delete the same account with deleteByResourceGroup, then print a
+         deletion confirmation only after deletion completes.
+
+      Include an active Maven or Gradle runtime manifest with
+      com.azure.resourcemanager:azure-resourcemanager-storage:2.57.2 and
+      com.azure:azure-identity:1.18.5. Handle ManagementException or
+      HttpResponseException meaningfully without swallowing failures. Do not
+      retrieve account keys or manage the resource-group lifecycle.
+    tags:
+      service: storage
+      plane: management-plane
+      language: java
+      category: account-management
+    graders:
+      - type: run-command
+        name: prompt/source-manifest
+        weight: 1
+        config:
+          command: node
+          args:
+            - .vally/scenarios/storage-java-account-mgmt/tools/check-storage-java.mjs
+            - prompt/source-manifest
+      - type: run-command
+        name: prompt/authentication
+        weight: 1
+        config:
+          command: node
+          args:
+            - .vally/scenarios/storage-java-account-mgmt/tools/check-storage-java.mjs
+            - prompt/authentication
+      - type: run-command
+        name: prompt/create-storage-account
+        weight: 1
+        config:
+          command: node
+          args:
+            - .vally/scenarios/storage-java-account-mgmt/tools/check-storage-java.mjs
+            - prompt/create-storage-account
+      - type: run-command
+        name: prompt/list-storage-accounts
+        weight: 1
+        config:
+          command: node
+          args:
+            - .vally/scenarios/storage-java-account-mgmt/tools/check-storage-java.mjs
+            - prompt/list-storage-accounts
+      - type: run-command
+        name: prompt/get-storage-account
+        weight: 1
+        config:
+          command: node
+          args:
+            - .vally/scenarios/storage-java-account-mgmt/tools/check-storage-java.mjs
+            - prompt/get-storage-account
+      - type: run-command
+        name: prompt/update-blob-versioning
+        weight: 1
+        config:
+          command: node
+          args:
+            - .vally/scenarios/storage-java-account-mgmt/tools/check-storage-java.mjs
+            - prompt/update-blob-versioning
+      - type: run-command
+        name: prompt/delete-storage-account
+        weight: 1
+        config:
+          command: node
+          args:
+            - .vally/scenarios/storage-java-account-mgmt/tools/check-storage-java.mjs
+            - prompt/delete-storage-account
+      - type: run-command
+        name: prompt/delete-confirmation
+        weight: 1
+        config:
+          command: node
+          args:
+            - .vally/scenarios/storage-java-account-mgmt/tools/check-storage-java.mjs
+            - prompt/delete-confirmation
+      - type: run-command
+        name: prompt/exception-handling
+        weight: 1
+        config:
+          command: node
+          args:
+            - .vally/scenarios/storage-java-account-mgmt/tools/check-storage-java.mjs
+            - prompt/exception-handling
+    environment:
+      files:
+        - src: tools/check-storage-java.mjs
+          dest: .vally/scenarios/storage-java-account-mgmt/tools/check-storage-java.mjs
+        - src: tools/storage-java-rules.mjs
+          dest: .vally/scenarios/storage-java-account-mgmt/tools/storage-java-rules.mjs
+        - src: ../../languages/java/checks.mjs
+          dest: .vally/languages/java/checks.mjs
+artifacts:
+  include:
+    - "**/*.java"
+    - "**/pom.xml"
+    - "**/build.gradle"
+    - "**/build.gradle.kts"
+  exclude:
+    - "**/.vally/**"
+    - "**/target/**"

@@ -1,0 +1,126 @@
+name: storage-typescript-account-mgmt
+description: Compare Azure tooling for a Storage TypeScript account management task
+version: "1.0"
+type: capability
+scoring:
+  weights: {}
+  threshold: 1
+defaults:
+  runs: 1
+  timeout: 30m
+  model: gpt-5.6-sol
+  judge_model: gpt-5.6-sol
+stimuli:
+  - name: storage-mp-typescript-account-mgmt
+    prompt: |-
+      Write a TypeScript Node.js program that manages an Azure Storage account through one complete lifecycle.
+
+      Write the code to files. Do not reply with code blocks.
+
+      1. Read the Azure subscription ID, resource group name, and storage account name from environment variables. Use "eastus" as the location.
+      2. Authenticate with DefaultAzureCredential and create a StorageManagementClient.
+      3. Create the storage account in that resource group with Standard_LRS, StorageV2, and no access tier. Wait for creation to finish.
+      4. List storage accounts in that resource group by asynchronously iterating the SDK result, printing each account name.
+      5. Get that storage account's properties and print a non-secret property from the returned result. Do not call listKeys.
+      6. Enable blob versioning for that account's default Blob service with blobServices.setServiceProperties(), and print the returned versioning setting.
+      7. Await deletion of that same storage account and only then print a deletion confirmation.
+
+      Show the required npm packages. Handle Azure request/authentication failures meaningfully and preserve unknown failures.
+    tags:
+      service: storage
+      plane: management-plane
+      language: typescript
+      category: crud
+    graders:
+      - type: run-command
+        name: prompt/packages
+        weight: 1
+        config:
+          command: node
+          args:
+            - .vally/scenarios/storage-typescript-account-mgmt/tools/check-storage-typescript.mjs
+            - prompt/packages
+      - type: run-command
+        name: prompt/environment
+        weight: 1
+        config:
+          command: node
+          args:
+            - .vally/scenarios/storage-typescript-account-mgmt/tools/check-storage-typescript.mjs
+            - prompt/environment
+      - type: run-command
+        name: prompt/authenticated-client
+        weight: 1
+        config:
+          command: node
+          args:
+            - .vally/scenarios/storage-typescript-account-mgmt/tools/check-storage-typescript.mjs
+            - prompt/authenticated-client
+      - type: run-command
+        name: prompt/create-and-output
+        weight: 1
+        config:
+          command: node
+          args:
+            - .vally/scenarios/storage-typescript-account-mgmt/tools/check-storage-typescript.mjs
+            - prompt/create-and-output
+      - type: run-command
+        name: prompt/list-and-output
+        weight: 1
+        config:
+          command: node
+          args:
+            - .vally/scenarios/storage-typescript-account-mgmt/tools/check-storage-typescript.mjs
+            - prompt/list-and-output
+      - type: run-command
+        name: prompt/get-and-output
+        weight: 1
+        config:
+          command: node
+          args:
+            - .vally/scenarios/storage-typescript-account-mgmt/tools/check-storage-typescript.mjs
+            - prompt/get-and-output
+      - type: run-command
+        name: prompt/versioning-and-output
+        weight: 1
+        config:
+          command: node
+          args:
+            - .vally/scenarios/storage-typescript-account-mgmt/tools/check-storage-typescript.mjs
+            - prompt/versioning-and-output
+      - type: run-command
+        name: prompt/delete-and-confirm
+        weight: 1
+        config:
+          command: node
+          args:
+            - .vally/scenarios/storage-typescript-account-mgmt/tools/check-storage-typescript.mjs
+            - prompt/delete-and-confirm
+      - type: run-command
+        name: prompt/error-handling
+        weight: 1
+        config:
+          command: node
+          args:
+            - .vally/scenarios/storage-typescript-account-mgmt/tools/check-storage-typescript.mjs
+            - prompt/error-handling
+    environment:
+      files:
+        - src: tools/check-storage-typescript.mjs
+          dest: .vally/scenarios/storage-typescript-account-mgmt/tools/check-storage-typescript.mjs
+        - src: tools/storage-typescript-rules.mjs
+          dest: .vally/scenarios/storage-typescript-account-mgmt/tools/storage-typescript-rules.mjs
+        - src: tools/source-manifest.mjs
+          dest: .vally/scenarios/storage-typescript-account-mgmt/tools/source-manifest.mjs
+        - src: ../../languages/typescript/checks.mjs
+          dest: .vally/languages/typescript/checks.mjs
+artifacts:
+  include:
+    - "**/*.ts"
+    - "**/*.js"
+    - "**/package.json"
+    - "**/tsconfig.json"
+  exclude:
+    - "**/.vally/**"
+    - "**/node_modules/**"
+    - "**/dist/**"

@@ -9,6 +9,7 @@ evals:
   - ../../scenarios/key-vault-python-crud-secrets/eval.yaml
   - ../../scenarios/resource-manager-python-resource-group-crud/eval.yaml
   - ../../scenarios/service-bus-python-send-receive-messages/eval.yaml
+  - ../../scenarios/storage-python-account-mgmt/eval.yaml
 vary:
   - /environment/skills
   - /environment/mcpServers

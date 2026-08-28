@@ -67,3 +67,10 @@ suites:
       - scenarios/service-bus-dotnet-send-receive-messages/eval.yaml
       - scenarios/service-bus-java-send-receive-messages/eval.yaml
       - scenarios/service-bus-typescript-send-receive-messages/eval.yaml
+  storage-account-mgmt:
+    description: Storage account management evaluation across four languages
+    evals:
+      - scenarios/storage-python-account-mgmt/eval.yaml
+      - scenarios/storage-dotnet-account-mgmt/eval.yaml
+      - scenarios/storage-java-account-mgmt/eval.yaml
+      - scenarios/storage-typescript-account-mgmt/eval.yaml

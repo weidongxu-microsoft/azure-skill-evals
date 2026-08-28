@@ -9,6 +9,7 @@ evals:
   - ../../scenarios/key-vault-typescript-crud-secrets/eval.yaml
   - ../../scenarios/resource-manager-typescript-resource-group-crud/eval.yaml
   - ../../scenarios/service-bus-typescript-send-receive-messages/eval.yaml
+  - ../../scenarios/storage-typescript-account-mgmt/eval.yaml
 vary:
   - /environment/skills
   - /environment/mcpServers

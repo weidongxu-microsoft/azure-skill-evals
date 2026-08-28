@@ -1,0 +1,126 @@
+name: storage-python-account-mgmt
+description: Compare Azure tooling for a Python storage account lifecycle
+version: "1.0"
+type: capability
+scoring:
+  weights: {}
+  threshold: 1
+defaults:
+  runs: 1
+  timeout: 30m
+  model: gpt-5.6-sol
+  judge_model: gpt-5.6-sol
+stimuli:
+  - name: storage-mp-python-account-mgmt
+    prompt: |-
+      Write a complete, runnable Python script that performs one Azure Storage account management lifecycle.
+
+      Write the code to files. Do not reply with code blocks.
+
+      1. Show the required pip packages for Azure Identity and Azure Storage management.
+      2. Read the subscription ID, resource group name, storage account name, and location from AZURE_SUBSCRIPTION_ID, AZURE_RESOURCE_GROUP_NAME, AZURE_STORAGE_ACCOUNT_NAME, and AZURE_LOCATION. Use eastus as the location default.
+      3. Authenticate one StorageManagementClient with DefaultAzureCredential and that subscription ID.
+      4. Create the storage account in the existing resource group with Standard_LRS, StorageV2, and the configured location. Wait for the exact begin_create poller's result.
+      5. List storage accounts with list_by_resource_group, iterate the returned collection, and print each account name.
+      6. Get the created account with get_properties and print one nonsecret property from the returned result.
+      7. Enable blob versioning on the default blob service with is_versioning_enabled=True and print the observed setting from the returned result.
+      8. Begin deleting the same account, wait for that exact poller's result, and print a deletion confirmation only after completion.
+      9. Handle HttpResponseError and authentication errors meaningfully without swallowing unrelated failures.
+
+      Do not create or delete the resource group, request account keys, or set an access tier.
+    tags:
+      service: storage
+      plane: management-plane
+      language: python
+      category: crud
+    graders:
+      - type: run-command
+        name: prompt/sdk-packages
+        weight: 1
+        config:
+          command: node
+          args:
+            - .vally/scenarios/storage-python-account-mgmt/tools/check-storage-account-python.mjs
+            - prompt/sdk-packages
+      - type: run-command
+        name: prompt/configuration
+        weight: 1
+        config:
+          command: node
+          args:
+            - .vally/scenarios/storage-python-account-mgmt/tools/check-storage-account-python.mjs
+            - prompt/configuration
+      - type: run-command
+        name: prompt/authenticated-management-client
+        weight: 1
+        config:
+          command: node
+          args:
+            - .vally/scenarios/storage-python-account-mgmt/tools/check-storage-account-python.mjs
+            - prompt/authenticated-management-client
+      - type: run-command
+        name: prompt/create-storage-account
+        weight: 1
+        config:
+          command: node
+          args:
+            - .vally/scenarios/storage-python-account-mgmt/tools/check-storage-account-python.mjs
+            - prompt/create-storage-account
+      - type: run-command
+        name: prompt/list-storage-accounts
+        weight: 1
+        config:
+          command: node
+          args:
+            - .vally/scenarios/storage-python-account-mgmt/tools/check-storage-account-python.mjs
+            - prompt/list-storage-accounts
+      - type: run-command
+        name: prompt/get-storage-account-properties
+        weight: 1
+        config:
+          command: node
+          args:
+            - .vally/scenarios/storage-python-account-mgmt/tools/check-storage-account-python.mjs
+            - prompt/get-storage-account-properties
+      - type: run-command
+        name: prompt/enable-blob-versioning
+        weight: 1
+        config:
+          command: node
+          args:
+            - .vally/scenarios/storage-python-account-mgmt/tools/check-storage-account-python.mjs
+            - prompt/enable-blob-versioning
+      - type: run-command
+        name: prompt/delete-storage-account
+        weight: 1
+        config:
+          command: node
+          args:
+            - .vally/scenarios/storage-python-account-mgmt/tools/check-storage-account-python.mjs
+            - prompt/delete-storage-account
+      - type: run-command
+        name: prompt/sdk-error-handling
+        weight: 1
+        config:
+          command: node
+          args:
+            - .vally/scenarios/storage-python-account-mgmt/tools/check-storage-account-python.mjs
+            - prompt/sdk-error-handling
+    environment:
+      files:
+        - src: tools/check-storage-account-python.mjs
+          dest: .vally/scenarios/storage-python-account-mgmt/tools/check-storage-account-python.mjs
+        - src: tools/storage-account-rules.mjs
+          dest: .vally/scenarios/storage-python-account-mgmt/tools/storage-account-rules.mjs
+        - src: tools/storage_account_analyzer.py
+          dest: .vally/scenarios/storage-python-account-mgmt/tools/storage_account_analyzer.py
+artifacts:
+  include:
+    - "**/*.py"
+    - "**/requirements*.txt"
+    - "**/pyproject.toml"
+    - "**/setup.py"
+  exclude:
+    - "**/.vally/**"
+    - "**/.venv/**"
+    - "**/__pycache__/**"

@@ -9,6 +9,7 @@ evals:
   - ../../scenarios/key-vault-java-crud-secrets/eval.yaml
   - ../../scenarios/resource-manager-java-resource-group-crud/eval.yaml
   - ../../scenarios/service-bus-java-send-receive-messages/eval.yaml
+  - ../../scenarios/storage-java-account-mgmt/eval.yaml
 vary:
   - /environment/skills
   - /environment/mcpServers

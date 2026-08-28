@@ -1,0 +1,123 @@
+name: storage-dotnet-account-mgmt
+description: Compare Azure tooling for a .NET storage account management task
+version: "1.0"
+type: capability
+scoring:
+  weights: {}
+  threshold: 1
+defaults:
+  runs: 1
+  timeout: 30m
+  model: gpt-5.6-sol
+  judge_model: gpt-5.6-sol
+stimuli:
+  - name: storage-mp-dotnet-account-mgmt
+    prompt: |-
+      Write a complete C# console application that manages one Azure storage account with the current Azure.ResourceManager.Storage SDK.
+
+      Write the code to files. Do not reply with code blocks.
+
+      Read the subscription ID, existing resource group name, and storage account name from AZURE_SUBSCRIPTION_ID, AZURE_RESOURCE_GROUP_NAME, and AZURE_STORAGE_ACCOUNT_NAME. Read AZURE_LOCATION with "eastus" as its default. Authenticate with DefaultAzureCredential, construct ArmClient with the subscription ID, get its default subscription, get the existing resource group, and use that resource group's storage account collection.
+
+      Perform one reachable lifecycle, in order:
+      1. Create or update the named storage account with Standard_LRS, StorageV2, and the configured location, and wait for the operation to complete.
+      2. Enumerate the storage accounts and print each listed account's name.
+      3. Get the named storage account asynchronously and print a property from the returned resource.
+      4. Create or update that account's associated default Blob service with versioning enabled, wait for completion, and print the observed IsVersioningEnabled value from the result.
+      5. Delete that same storage account, wait for deletion to complete, and only then print a confirmation containing its name.
+
+      Include meaningful RequestFailedException handling. Any other catch path must preserve or report the causal exception. Target net8.0 and pin Azure.ResourceManager.Storage 1.7.0 and Azure.Identity 1.21.0.
+    tags:
+      service: storage
+      plane: management-plane
+      language: dotnet
+      category: crud
+    graders:
+      - type: run-command
+        name: prompt/source-manifest
+        weight: 1
+        config:
+          command: node
+          args:
+            - .vally/scenarios/storage-dotnet-account-mgmt/tools/check-storage-dotnet.mjs
+            - prompt/source-manifest
+      - type: run-command
+        name: prompt/credential-arm-client
+        weight: 1
+        config:
+          command: node
+          args:
+            - .vally/scenarios/storage-dotnet-account-mgmt/tools/check-storage-dotnet.mjs
+            - prompt/credential-arm-client
+      - type: run-command
+        name: prompt/subscription-resource-group-accounts
+        weight: 1
+        config:
+          command: node
+          args:
+            - .vally/scenarios/storage-dotnet-account-mgmt/tools/check-storage-dotnet.mjs
+            - prompt/subscription-resource-group-accounts
+      - type: run-command
+        name: prompt/create-storage-account
+        weight: 1
+        config:
+          command: node
+          args:
+            - .vally/scenarios/storage-dotnet-account-mgmt/tools/check-storage-dotnet.mjs
+            - prompt/create-storage-account
+      - type: run-command
+        name: prompt/list-storage-accounts
+        weight: 1
+        config:
+          command: node
+          args:
+            - .vally/scenarios/storage-dotnet-account-mgmt/tools/check-storage-dotnet.mjs
+            - prompt/list-storage-accounts
+      - type: run-command
+        name: prompt/get-storage-account
+        weight: 1
+        config:
+          command: node
+          args:
+            - .vally/scenarios/storage-dotnet-account-mgmt/tools/check-storage-dotnet.mjs
+            - prompt/get-storage-account
+      - type: run-command
+        name: prompt/configure-blob-service
+        weight: 1
+        config:
+          command: node
+          args:
+            - .vally/scenarios/storage-dotnet-account-mgmt/tools/check-storage-dotnet.mjs
+            - prompt/configure-blob-service
+      - type: run-command
+        name: prompt/delete-storage-account
+        weight: 1
+        config:
+          command: node
+          args:
+            - .vally/scenarios/storage-dotnet-account-mgmt/tools/check-storage-dotnet.mjs
+            - prompt/delete-storage-account
+      - type: run-command
+        name: prompt/request-failed-error
+        weight: 1
+        config:
+          command: node
+          args:
+            - .vally/scenarios/storage-dotnet-account-mgmt/tools/check-storage-dotnet.mjs
+            - prompt/request-failed-error
+    environment:
+      files:
+        - src: tools/check-storage-dotnet.mjs
+          dest: .vally/scenarios/storage-dotnet-account-mgmt/tools/check-storage-dotnet.mjs
+        - src: tools/storage-dotnet-rules.mjs
+          dest: .vally/scenarios/storage-dotnet-account-mgmt/tools/storage-dotnet-rules.mjs
+        - src: ../../languages/dotnet/checks.mjs
+          dest: .vally/languages/dotnet/checks.mjs
+artifacts:
+  include:
+    - "**/*.cs"
+    - "**/*.csproj"
+  exclude:
+    - "**/.vally/**"
+    - "**/bin/**"
+    - "**/obj/**"
