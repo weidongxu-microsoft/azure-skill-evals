@@ -82,7 +82,10 @@ jobs:
       - name: Install dependencies
         run: |
           pnpm install --no-frozen-lockfile --public-hoist-pattern '@github/copilot-*'
-          node --input-type=module -e "import { fileURLToPath } from 'node:url'; console.log('COPILOT_CLI_PATH=' + fileURLToPath(new URL('./index.js', import.meta.resolve('@github/copilot-linux-x64'))))" >> "$GITHUB_ENV"
+          copilot_cli_path=$(node --input-type=module -e "import { fileURLToPath } from 'node:url'; console.log(fileURLToPath(new URL('./index.js', import.meta.resolve('@github/copilot-linux-x64'))))")
+          echo "COPILOT_CLI_PATH=$copilot_cli_path" >> "$GITHUB_ENV"
+          pnpm list @microsoft/vally @github/copilot-sdk @github/copilot --depth 10
+          node "$copilot_cli_path" --version
           python -m pip install -r requirements-dev.txt
 
       - name: Bootstrap pinned skill repositories
