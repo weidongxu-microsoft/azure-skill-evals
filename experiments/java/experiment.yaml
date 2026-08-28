@@ -11,6 +11,7 @@ evals:
   - ../../scenarios/service-bus-java-send-receive-messages/eval.yaml
   - ../../scenarios/storage-java-account-mgmt/eval.yaml
   - ../../scenarios/storage-java-crud-blobs/eval.yaml
+  - ../../scenarios/storage-java-blob-storage-manager/eval.yaml
 vary:
   - /environment/skills
   - /environment/mcpServers

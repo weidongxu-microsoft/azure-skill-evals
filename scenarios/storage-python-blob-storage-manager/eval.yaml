@@ -1,0 +1,178 @@
+name: storage-python-blob-storage-manager
+description: Compare Azure tooling for an advanced Azure Blob Storage Python manager
+version: "1.0"
+type: capability
+scoring:
+  weights: {}
+  threshold: 1
+defaults:
+  runs: 1
+  timeout: 30m
+  model: gpt-5.6-sol
+  judge_model: gpt-5.6-sol
+stimuli:
+  - name: storage-dp-python-blob-manager
+    prompt: |-
+      Create a Python project that provides a reusable Azure Blob Storage management utility.
+
+      **Write the code to files (use file-write tools, do not reply with code blocks).**
+
+      The project needs:
+
+      - A **service module** (both sync and async versions) that wraps blob operations: upload (with optional metadata and blob index tags for later querying), download, list blobs in a container, and delete. The upload method should handle large files efficiently so that uploading a multi-gigabyte file doesn't load the entire thing into memory or fail on slow connections. The service should also prevent concurrent writers from overwriting each other's changes when updating the same blob.
+
+      - A **configuration module** that connects to Azure securely using the storage account endpoint (from an environment variable). No connection strings or account keys should be used — the app will run in Azure with `DefaultAzureCredential`. The configuration should set up a custom retry policy (exponential backoff, configurable max retries and delay), so the app behaves predictably under transient failures. It should also enable HTTP request/response logging at a configurable level for debugging.
+
+      - The service should **handle errors gracefully** — if a storage operation fails (e.g., blob not found, permission denied, or a lease is already held by another client), the error should be caught and handled with a clear message rather than crashing. Each operation should also accept an **optional timeout**, so callers can control how long they're willing to wait for a response.
+
+      - A **main script** that wires everything together and demos each operation using the sync implementation first, then repeats the same operations using the async implementation: uploads a sample file with some index tags, lists blobs, downloads the file back, acquires a lease and overwrites it, and finally deletes it. Print status at each step.
+
+      Include a `requirements.txt` with the necessary Azure SDK dependencies.
+    tags:
+      service: storage
+      plane: data-plane
+      language: python
+      category: crud
+    graders:
+      - type: run-command
+        name: prompt/sdk-packages
+        weight: 1
+        config:
+          command: node
+          args:
+            - .vally/scenarios/storage-python-blob-storage-manager/tools/check-storage-blob-manager-python.mjs
+            - prompt/sdk-packages
+      - type: run-command
+        name: prompt/secure-client-configuration
+        weight: 1
+        config:
+          command: node
+          args:
+            - .vally/scenarios/storage-python-blob-storage-manager/tools/check-storage-blob-manager-python.mjs
+            - prompt/secure-client-configuration
+      - type: run-command
+        name: prompt/retry-and-http-logging
+        weight: 1
+        config:
+          command: node
+          args:
+            - .vally/scenarios/storage-python-blob-storage-manager/tools/check-storage-blob-manager-python.mjs
+            - prompt/retry-and-http-logging
+      - type: run-command
+        name: prompt/sync-service-operations
+        weight: 1
+        config:
+          command: node
+          args:
+            - .vally/scenarios/storage-python-blob-storage-manager/tools/check-storage-blob-manager-python.mjs
+            - prompt/sync-service-operations
+      - type: run-command
+        name: prompt/async-service-operations
+        weight: 1
+        config:
+          command: node
+          args:
+            - .vally/scenarios/storage-python-blob-storage-manager/tools/check-storage-blob-manager-python.mjs
+            - prompt/async-service-operations
+      - type: run-command
+        name: prompt/streaming-upload-and-tags
+        weight: 1
+        config:
+          command: node
+          args:
+            - .vally/scenarios/storage-python-blob-storage-manager/tools/check-storage-blob-manager-python.mjs
+            - prompt/streaming-upload-and-tags
+      - type: run-command
+        name: prompt/lease-protected-overwrite
+        weight: 1
+        config:
+          command: node
+          args:
+            - .vally/scenarios/storage-python-blob-storage-manager/tools/check-storage-blob-manager-python.mjs
+            - prompt/lease-protected-overwrite
+      - type: run-command
+        name: prompt/operation-timeouts
+        weight: 1
+        config:
+          command: node
+          args:
+            - .vally/scenarios/storage-python-blob-storage-manager/tools/check-storage-blob-manager-python.mjs
+            - prompt/operation-timeouts
+      - type: run-command
+        name: prompt/sdk-error-handling
+        weight: 1
+        config:
+          command: node
+          args:
+            - .vally/scenarios/storage-python-blob-storage-manager/tools/check-storage-blob-manager-python.mjs
+            - prompt/sdk-error-handling
+      - type: run-command
+        name: prompt/demo-workflow
+        weight: 1
+        config:
+          command: node
+          args:
+            - .vally/scenarios/storage-python-blob-storage-manager/tools/check-storage-blob-manager-python.mjs
+            - prompt/demo-workflow
+      - type: run-command
+        name: language/correct-imports
+        weight: 1
+        config:
+          command: node
+          args:
+            - .vally/languages/python/check.mjs
+            - language/correct-imports
+      - type: run-command
+        name: language/default-azure-credential
+        weight: 1
+        config:
+          command: node
+          args:
+            - .vally/languages/python/check.mjs
+            - language/default-azure-credential
+      - type: run-command
+        name: language/client-lifecycle
+        weight: 1
+        config:
+          command: node
+          args:
+            - .vally/languages/python/check.mjs
+            - language/client-lifecycle
+      - type: run-command
+        name: language/async-client
+        weight: 1
+        config:
+          command: node
+          args:
+            - .vally/languages/python/check.mjs
+            - language/async-client
+      - type: run-command
+        name: language/exception-handling
+        weight: 1
+        config:
+          command: node
+          args:
+            - .vally/languages/python/check.mjs
+            - language/exception-handling
+    environment:
+      files:
+        - src: tools/check-storage-blob-manager-python.mjs
+          dest: .vally/scenarios/storage-python-blob-storage-manager/tools/check-storage-blob-manager-python.mjs
+        - src: tools/storage-blob-manager-rules.mjs
+          dest: .vally/scenarios/storage-python-blob-storage-manager/tools/storage-blob-manager-rules.mjs
+        - src: tools/storage_blob_manager_analyzer.py
+          dest: .vally/scenarios/storage-python-blob-storage-manager/tools/storage_blob_manager_analyzer.py
+        - src: ../../languages/python/check.mjs
+          dest: .vally/languages/python/check.mjs
+        - src: ../../languages/python/checks.mjs
+          dest: .vally/languages/python/checks.mjs
+artifacts:
+  include:
+    - "**/*.py"
+    - "**/requirements*.txt"
+    - "**/pyproject.toml"
+    - "**/setup.py"
+  exclude:
+    - "**/.vally/**"
+    - "**/.venv/**"
+    - "**/__pycache__/**"

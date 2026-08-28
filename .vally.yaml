@@ -74,6 +74,12 @@ suites:
       - scenarios/storage-dotnet-account-mgmt/eval.yaml
       - scenarios/storage-java-account-mgmt/eval.yaml
       - scenarios/storage-typescript-account-mgmt/eval.yaml
+  storage-blob-storage-manager:
+    description: Blob Storage manager evaluation across available Hyoka languages
+    evals:
+      - scenarios/storage-python-blob-storage-manager/eval.yaml
+      - scenarios/storage-java-blob-storage-manager/eval.yaml
+      - scenarios/storage-typescript-blob-storage-manager/eval.yaml
   storage-crud-blobs:
     description: Blob Storage CRUD evaluation across available Hyoka languages
     evals:

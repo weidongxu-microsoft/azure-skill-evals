@@ -1,0 +1,149 @@
+name: storage-java-blob-storage-manager
+description: Compare Azure tooling for a Java Blob Storage manager task
+version: "1.0"
+type: capability
+scoring:
+  weights: {}
+  threshold: 1
+defaults:
+  runs: 1
+  timeout: 30m
+  model: gpt-5.6-sol
+  judge_model: gpt-5.6-sol
+stimuli:
+  - name: storage-dp-java-blob-manager
+    prompt: |-
+      Create a small Java 17 Maven project that provides a reusable Azure Blob Storage management utility.
+
+      Write the code to files. Do not reply with code blocks.
+
+      The project needs:
+
+      - A service class (both sync and async versions) that wraps blob operations: upload (with optional metadata and blob index tags for later querying), download, list blobs in a container, and delete. The upload method should handle large files efficiently so that uploading a multi-gigabyte file doesn't load the entire thing into memory or fail on slow connections. The service should also prevent concurrent writers from overwriting each other's changes when updating the same blob.
+
+      - A configuration class that connects to Azure securely using the storage account endpoint (from an environment variable). No connection strings or account keys should be used — the app will run in Azure with managed identity. The configuration should set up a custom retry policy (exponential backoff, configurable max retries and delay) and a per-request timeout, so the app behaves predictably under transient failures. It should also enable HTTP request/response logging at a configurable level for debugging.
+
+      - A Main class that wires everything together and demos each operation using the sync implementation first, then repeats the same operations using the async implementation: uploads a sample file with some index tags, lists blobs, downloads the file back, acquires a lease and overwrites it, and finally deletes it. Print status at each step.
+
+      Include a complete pom.xml with the necessary Azure SDK dependencies.
+    tags:
+      service: storage
+      plane: data-plane
+      language: java
+      category: crud
+    graders:
+      - type: run-command
+        name: prompt/sdk-dependencies
+        weight: 1
+        config:
+          command: node
+          args:
+            - .vally/scenarios/storage-java-blob-storage-manager/tools/check-storage-java.mjs
+            - prompt/sdk-dependencies
+      - type: run-command
+        name: prompt/secure-configuration
+        weight: 1
+        config:
+          command: node
+          args:
+            - .vally/scenarios/storage-java-blob-storage-manager/tools/check-storage-java.mjs
+            - prompt/secure-configuration
+      - type: run-command
+        name: prompt/retry-timeout-logging
+        weight: 1
+        config:
+          command: node
+          args:
+            - .vally/scenarios/storage-java-blob-storage-manager/tools/check-storage-java.mjs
+            - prompt/retry-timeout-logging
+      - type: run-command
+        name: prompt/sync-service-operations
+        weight: 1
+        config:
+          command: node
+          args:
+            - .vally/scenarios/storage-java-blob-storage-manager/tools/check-storage-java.mjs
+            - prompt/sync-service-operations
+      - type: run-command
+        name: prompt/async-service-operations
+        weight: 1
+        config:
+          command: node
+          args:
+            - .vally/scenarios/storage-java-blob-storage-manager/tools/check-storage-java.mjs
+            - prompt/async-service-operations
+      - type: run-command
+        name: prompt/parallel-upload-and-tags
+        weight: 1
+        config:
+          command: node
+          args:
+            - .vally/scenarios/storage-java-blob-storage-manager/tools/check-storage-java.mjs
+            - prompt/parallel-upload-and-tags
+      - type: run-command
+        name: prompt/lease-overwrite
+        weight: 1
+        config:
+          command: node
+          args:
+            - .vally/scenarios/storage-java-blob-storage-manager/tools/check-storage-java.mjs
+            - prompt/lease-overwrite
+      - type: run-command
+        name: prompt/reactive-demo-flow
+        weight: 1
+        config:
+          command: node
+          args:
+            - .vally/scenarios/storage-java-blob-storage-manager/tools/check-storage-java.mjs
+            - prompt/reactive-demo-flow
+      - type: run-command
+        name: language/build-manifest
+        weight: 1
+        config:
+          command: node
+          args:
+            - .vally/languages/java/check.mjs
+            - language/build-manifest
+      - type: run-command
+        name: language/current-azure-dependencies
+        weight: 1
+        config:
+          command: node
+          args:
+            - .vally/languages/java/check.mjs
+            - language/current-azure-dependencies
+      - type: run-command
+        name: language/current-imports
+        weight: 1
+        config:
+          command: node
+          args:
+            - .vally/languages/java/check.mjs
+            - language/current-imports
+      - type: run-command
+        name: language/client-builder
+        weight: 1
+        config:
+          command: node
+          args:
+            - .vally/languages/java/check.mjs
+            - language/client-builder
+    environment:
+      files:
+        - src: tools/check-storage-java.mjs
+          dest: .vally/scenarios/storage-java-blob-storage-manager/tools/check-storage-java.mjs
+        - src: tools/storage-java-rules.mjs
+          dest: .vally/scenarios/storage-java-blob-storage-manager/tools/storage-java-rules.mjs
+        - src: ../../languages/java/check.mjs
+          dest: .vally/languages/java/check.mjs
+        - src: ../../languages/java/checks.mjs
+          dest: .vally/languages/java/checks.mjs
+artifacts:
+  include:
+    - "**/*.java"
+    - "**/pom.xml"
+    - "**/build.gradle"
+    - "**/build.gradle.kts"
+  exclude:
+    - "**/.vally/**"
+    - "**/target/**"
