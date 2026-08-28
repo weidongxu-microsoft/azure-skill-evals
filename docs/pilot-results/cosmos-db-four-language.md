@@ -7,8 +7,8 @@ TypeScript across three environments:
 
 - `baseline`: no skills or Azure MCP.
 - `azure-skill-mcp`: general Azure skills and Azure MCP.
-- `+ Microsoft Skills`: Azure Skill + MCP plus the complete Microsoft
-  language-specific SDK skill suite.
+- `azure-skill-mcp-microsoft-skill`: the same environment plus the complete
+  language skill suite.
 
 The raw data is under `reports/cosmos-full-suite-20260827/`. One trial per arm
 is suitable for harness debugging, not a comparative quality conclusion.
@@ -17,7 +17,7 @@ is suitable for harness debugging, not a comparative quality conclusion.
 
 Each language had 11 equally weighted deterministic checks.
 
-| Language | Baseline | Azure Skill + MCP | + Microsoft Skills |
+| Language | Baseline | Azure skill + MCP | Azure skill + MCP + language suite |
 |---|---:|---:|---:|
 | Python | 9/11 | 9/11 | 10/11 |
 | .NET | 7/11 | 8/11 | 8/11 |
@@ -34,17 +34,17 @@ or executed staged grader files while generating their answer.
 | Language | Variant | Misses |
 |---|---|---|
 | Python | Baseline | `language/default-azure-credential`, `language/client-lifecycle` |
-| Python | Azure Skill + MCP | `prompt/cross-partition-query`, `language/client-lifecycle` |
-| Python | + Microsoft Skills | `prompt/cross-partition-query` |
+| Python | Azure skill + MCP | `prompt/cross-partition-query`, `language/client-lifecycle` |
+| Python | Language suite | `prompt/cross-partition-query` |
 | .NET | Baseline | `prompt/database-container`, `prompt/item-crud`, `prompt/parameterized-query`, `prompt/partition-key` |
-| .NET | Azure Skill + MCP | `prompt/database-container`, `prompt/parameterized-query`, `prompt/partition-key` |
-| .NET | + Microsoft Skills | `prompt/database-container`, `prompt/parameterized-query`, `prompt/partition-key` |
+| .NET | Azure skill + MCP | `prompt/database-container`, `prompt/parameterized-query`, `prompt/partition-key` |
+| .NET | Language suite | `prompt/database-container`, `prompt/parameterized-query`, `prompt/partition-key` |
 | Java | Baseline | `prompt/database-container`, `prompt/query-iteration`, `prompt/parameterized-query`, `language/client-lifecycle` |
-| Java | Azure Skill + MCP | None |
-| Java | + Microsoft Skills | `prompt/database-container`, `prompt/query-iteration`, `prompt/parameterized-query` |
+| Java | Azure skill + MCP | None |
+| Java | Language suite | `prompt/database-container`, `prompt/query-iteration`, `prompt/parameterized-query` |
 | TypeScript | Baseline | None |
-| TypeScript | Azure Skill + MCP | `prompt/parameterized-query`, `prompt/replace-delete` |
-| TypeScript | + Microsoft Skills | `prompt/parameterized-query`, `prompt/replace-delete` |
+| TypeScript | Azure skill + MCP | `prompt/parameterized-query`, `prompt/replace-delete` |
+| TypeScript | Language suite | `prompt/parameterized-query`, `prompt/replace-delete` |
 
 ## Reviewed application quality
 
@@ -53,7 +53,7 @@ or executed staged grader files while generating their answer.
 All three outputs implemented the requested CRUD sequence and passed Python
 syntax compilation. The baseline used endpoint/key authentication and enabled
 cross-partition querying, but did not close its client. The Azure-only arm used
-`DefaultAzureCredential` but also left its client open. The Microsoft Skills arm
+`DefaultAzureCredential` but also left its client open. The language-suite arm
 used `DefaultAzureCredential` and managed the client lifecycle.
 
 The two `prompt/cross-partition-query` misses are real relative to the current
@@ -68,7 +68,7 @@ correctness requirement because key authentication is supported.
 All three outputs produced complete applications using
 `Microsoft.Azure.Cosmos`, parameterized `QueryDefinition` queries, partition
 keys, quantity updates, and status-aware `CosmosException` handling. Each
-application ultimately built successfully. The baseline and Microsoft Skills
+application ultimately built successfully. The baseline and language-suite
 arms initially omitted the explicit `Newtonsoft.Json` dependency required by
 the selected Cosmos package, then added it after the build exposed the error.
 
@@ -81,7 +81,7 @@ property assignment. They should not be counted as application defects.
 
 All three outputs compiled with Maven and implemented the CRUD lifecycle. The
 Azure-only arm received 11/11 after changing valid constants to literals to
-match the exposed graders. The baseline and Microsoft Skills outputs use valid
+match the exposed graders. The baseline and language-suite outputs use valid
 container overloads or constants that the rules reject. Their query results
 are iterable even when the source does not explicitly name
 `CosmosPagedIterable`, and their SQL parameters use a constant whose value is
@@ -96,7 +96,7 @@ lifecycle enforcement should become scenario- or type-specific.
 ### TypeScript
 
 The Azure-only output installed dependencies and passed `tsc`. The baseline
-and Microsoft Skills outputs passed syntax checks, but their dependency restores
+and language-suite outputs passed syntax checks, but their dependency restores
 were blocked by registry/cache state, so their final type-check was not proven
 in the run.
 
@@ -112,10 +112,10 @@ by the rule. These four misses are false negatives.
 | Variant | Tokens | Turns | Tool calls | Wall time | Azure MCP calls | Errors |
 |---|---:|---:|---:|---:|---:|---:|
 | Baseline | 966,679 | 49 | 62 | 425.0 s | 0 | 0 |
-| Azure Skill + MCP | 1,703,288 | 44 | 55 | 552.3 s | 11 | 0 |
-| + Microsoft Skills | 1,871,325 | 51 | 68 | 733.0 s | 12 | 0 |
+| Azure skill + MCP | 1,703,288 | 44 | 55 | 552.3 s | 11 | 0 |
+| Language suite | 1,871,325 | 51 | 68 | 733.0 s | 12 | 0 |
 
-The Microsoft Skills arm activated one relevant skill in every language:
+The language-suite arm activated one relevant skill in every language:
 
 | Language | Activated skill |
 |---|---|
@@ -132,7 +132,7 @@ correct data-plane package. No skill activation or MCP call affected scoring.
 
 Five of the 12 agents inspected or executed files under `.vally` while
 generating code: .NET baseline, Java Azure-only, Python Azure-only, TypeScript
-baseline, and TypeScript Microsoft Skills. Java Azure-only changed constants to
+baseline, and TypeScript language-suite. Java Azure-only changed constants to
 literal values specifically to satisfy the deterministic rules. This leaks the
 oracle and can reward grader matching rather than independent implementation.
 Future runs must keep executable graders available to Vally without exposing

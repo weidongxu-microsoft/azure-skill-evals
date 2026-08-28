@@ -29,7 +29,7 @@ on:
         options:
           - baseline
           - azure-skill-mcp
-          - "+ Microsoft Skills"
+          - azure-skill-mcp-microsoft-skill
           - all
       dry_run:
         description: Resolve and print the plans without running agents

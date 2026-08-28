@@ -276,7 +276,7 @@ function parseArguments(argv) {
     "all",
     "baseline",
     "azure-skill-mcp",
-    "+ Microsoft Skills",
+    "azure-skill-mcp-microsoft-skill",
   ]);
   if (!variants.has(options.variant)) {
     throw new Error(`Unknown variant "${options.variant}".`);
