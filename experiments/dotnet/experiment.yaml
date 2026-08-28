@@ -62,7 +62,7 @@ variants:
           env:
             npm_config_registry: https://pkgs.dev.azure.com/azure-sdk/public/_packaging/azure-sdk-for-js/npm/registry/
           timeout: 30s
-  azure-skill-mcp-microsoft-skill:
+  "+ Microsoft Skills":
     environment:
       skills:
         - ../../.work/dependencies/azure-skills/.github/plugins/azure-skills/skills/airunway-aks-setup
