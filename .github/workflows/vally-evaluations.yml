@@ -1,0 +1,131 @@
+name: Vally evaluations
+
+on:
+  workflow_dispatch:
+    inputs:
+      selection:
+        description: Select all evaluations, evaluations matching tags, or one named suite
+        required: true
+        type: choice
+        default: suite
+        options:
+          - suite
+          - tags
+          - all
+      suite:
+        description: Suite from .vally.yaml; used when selection is suite
+        required: false
+        type: string
+        default: cosmos-crud
+      tags:
+        description: Semicolon-separated filters, for example service=identity;language=python
+        required: false
+        type: string
+      variant:
+        description: Environment variant to run
+        required: true
+        type: choice
+        default: baseline
+        options:
+          - baseline
+          - azure-skill-mcp
+          - azure-skill-mcp-microsoft-skill
+          - all
+      dry_run:
+        description: Resolve and print the plans without running agents
+        required: true
+        type: boolean
+        default: true
+
+permissions:
+  contents: read
+  copilot-requests: write
+
+concurrency:
+  group: vally-evaluations
+  cancel-in-progress: false
+
+jobs:
+  evaluate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 360
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.26.0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "8.0.x"
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Configure approved npm registry authentication
+        env:
+          AZURE_ARTIFACTS_TOKEN: ${{ secrets.AZURE_ARTIFACTS_TOKEN }}
+        shell: bash
+        run: |
+          if [[ -z "$AZURE_ARTIFACTS_TOKEN" ]]; then
+            echo "::error::Configure the AZURE_ARTIFACTS_TOKEN repository secret for the approved npm feed."
+            exit 1
+          fi
+          password="$(printf '%s' "$AZURE_ARTIFACTS_TOKEN" | base64 -w 0)"
+          registry=//pkgs.dev.azure.com/azure-sdk/public/_packaging/azure-sdk-for-js/npm/registry/
+          npm config set "${registry}:username" github-actions --location=user
+          npm config set "${registry}:_password" "$password" --location=user
+          npm config set "${registry}:email" npm@example.invalid --location=user
+          npm config set "${registry}:always-auth" true --location=user
+
+      - name: Install dependencies
+        run: |
+          pnpm install --no-frozen-lockfile
+          python -m pip install -r requirements-dev.txt
+          npm install --global @github/copilot@1.0.81-6 \
+            --registry=https://pkgs.dev.azure.com/azure-sdk/public/_packaging/azure-sdk-for-js/npm/registry/
+
+      - name: Bootstrap pinned skill repositories
+        shell: pwsh
+        run: pnpm bootstrap
+
+      - name: Run selected evaluations
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          SELECTION: ${{ inputs.selection }}
+          SUITE: ${{ inputs.suite }}
+          TAGS: ${{ inputs.tags }}
+          VARIANT: ${{ inputs.variant }}
+          DRY_RUN: ${{ inputs.dry_run }}
+        shell: bash
+        run: |
+          args=(--mode "$SELECTION" --variant "$VARIANT" --output-dir reports)
+          if [[ "$SELECTION" == "suite" ]]; then
+            args+=(--suite "$SUITE")
+          elif [[ "$SELECTION" == "tags" ]]; then
+            args+=(--tags "$TAGS")
+          fi
+          if [[ "$DRY_RUN" == "true" ]]; then
+            args+=(--dry-run)
+          fi
+          node scripts/run-evaluations.mjs "${args[@]}"
+
+      - name: Upload evaluation reports
+        if: ${{ always() && inputs.dry_run == false }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: vally-reports-${{ github.run_id }}
+          path: reports
+          if-no-files-found: warn
