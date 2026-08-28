@@ -28,6 +28,30 @@ writes timestamped output under `reports/`. The repository covers Python,
 .NET, Java, and TypeScript. Each evaluation has scenario-specific and reusable
 language correctness checks; the number of checks can vary by scenario.
 
+## Run evaluations in GitHub Actions
+
+The `Vally evaluations` workflow supports manual runs of all evaluations,
+evaluations matching tags, or one suite from `.vally.yaml`. Tag clauses are
+separated with semicolons, and comma-separated values within one clause are
+alternatives:
+
+```text
+service=identity;language=python,typescript
+```
+
+Choose one environment variant or `all`. Dry-run is enabled by default so the
+resolved plans can be reviewed before running agents. Configure the
+`AZURE_ARTIFACTS_TOKEN` repository secret with a raw Azure DevOps token that
+has read access to the approved npm feed. Copilot requests use the workflow's
+built-in `GITHUB_TOKEN`.
+
+The same selector can be checked locally without running Vally:
+
+```powershell
+node scripts/run-evaluations.mjs --mode suite --suite cosmos-crud --select-only
+node scripts/run-evaluations.mjs --mode tags --tags "service=identity;language=python" --select-only
+```
+
 ## Scenario layout
 
 Keep everything owned by one evaluation case together:

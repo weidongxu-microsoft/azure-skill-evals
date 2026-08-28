@@ -7,6 +7,7 @@
     "bootstrap": "pwsh -NoProfile -File scripts/bootstrap-dependencies.ps1",
     "lint:evals": "vally lint --eval-spec scenarios --strict",
     "test": "node --test && python -m compileall -q scenarios && python -m ruff check scenarios && pnpm test:golden",
+    "test:selection": "node --test scripts/run-evaluations.test.mjs",
     "test:golden": "pwsh -NoProfile -File scripts/validate-golden-apps.ps1",
     "experiment": "pnpm experiment:python",
     "experiment:python": "vally experiment run experiments/python/experiment.yaml --output-dir reports",
