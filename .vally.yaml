@@ -50,6 +50,12 @@ suites:
       - scenarios/key-vault-dotnet-crud-secrets/eval.yaml
       - scenarios/key-vault-java-crud-secrets/eval.yaml
       - scenarios/key-vault-typescript-crud-secrets/eval.yaml
+  key-vault-secret-config:
+    description: Key Vault-backed configuration provider evaluation across Python, Java, and TypeScript
+    evals:
+      - scenarios/key-vault-python-secret-config/eval.yaml
+      - scenarios/key-vault-java-secret-config/eval.yaml
+      - scenarios/key-vault-typescript-secret-config/eval.yaml
   key-vault-dotnet-error-handling:
     description: Key Vault error-handling evaluation for .NET
     evals:

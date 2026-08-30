@@ -1,0 +1,106 @@
+name: key-vault-typescript-secret-config
+description: Compare Azure tooling for a TypeScript Key Vault-backed configuration provider
+version: "1.0"
+type: capability
+scoring:
+  weights: {}
+  threshold: 1
+defaults:
+  runs: 1
+  timeout: 30m
+  model: gpt-5.6-sol
+  judge_model: gpt-5.6-sol
+stimuli:
+  - name: key-vault-dp-js-ts-secret-config
+    prompt: |-
+      Create a TypeScript Node.js project that implements an application configuration provider backed by Azure Key Vault.
+
+      Write the code to files. Do not reply with code blocks.
+
+      Implement a provider using SecretClient that gets the latest secret or a requested version with getSecret(name, { version }), returns a caller-provided default for a RestError with statusCode 404, and exposes properties.expiresOn. Add an in-memory cache that bulk-loads required keys, reads cached values, refreshes one key on demand, and automatically refreshes secrets whose expiry is inside a configurable warning window.
+
+      Build the client from an environment-provided vault URL with DefaultAzureCredential and no embedded credentials. Implement version-based rotation with setSecret(name, value, { expiresOn }). Also demonstrate safe full cleanup: beginDeleteSecret, await the returned poller's pollUntilDone(), purge the completed deletion, and only then recreate the secret if the name is reused.
+
+      The main script must demonstrate the connected flow: bulk load, cached reads, one-key refresh, near-expiry warning/refresh, version rotation, and delete-wait-purge-recreate cleanup.
+
+      Include package.json and tsconfig.json with exact pins:
+      @azure/core-rest-pipeline 1.25.0,
+      @azure/identity 4.13.2,
+      @azure/keyvault-secrets 4.11.2,
+      TypeScript 5.9.2, and @types/node 26.2.0.
+    tags:
+      service: key-vault
+      plane: data-plane
+      language: typescript
+      category: crud
+    graders:
+      - type: run-command
+        name: prompt/packages
+        weight: 1
+        config: { command: node, args: [.vally/scenarios/key-vault-typescript-secret-config/tools/check-secret-config-typescript.mjs, prompt/packages] }
+      - type: run-command
+        name: prompt/managed-identity-configuration
+        weight: 1
+        config: { command: node, args: [.vally/scenarios/key-vault-typescript-secret-config/tools/check-secret-config-typescript.mjs, prompt/managed-identity-configuration] }
+      - type: run-command
+        name: prompt/versioned-provider
+        weight: 1
+        config: { command: node, args: [.vally/scenarios/key-vault-typescript-secret-config/tools/check-secret-config-typescript.mjs, prompt/versioned-provider] }
+      - type: run-command
+        name: prompt/not-found-default
+        weight: 1
+        config: { command: node, args: [.vally/scenarios/key-vault-typescript-secret-config/tools/check-secret-config-typescript.mjs, prompt/not-found-default] }
+      - type: run-command
+        name: prompt/expiry-aware-cache
+        weight: 1
+        config: { command: node, args: [.vally/scenarios/key-vault-typescript-secret-config/tools/check-secret-config-typescript.mjs, prompt/expiry-aware-cache] }
+      - type: run-command
+        name: prompt/version-based-rotation
+        weight: 1
+        config: { command: node, args: [.vally/scenarios/key-vault-typescript-secret-config/tools/check-secret-config-typescript.mjs, prompt/version-based-rotation] }
+      - type: run-command
+        name: prompt/safe-delete-purge-recreate
+        weight: 1
+        config: { command: node, args: [.vally/scenarios/key-vault-typescript-secret-config/tools/check-secret-config-typescript.mjs, prompt/safe-delete-purge-recreate] }
+      - type: run-command
+        name: prompt/connected-demo
+        weight: 1
+        config: { command: node, args: [.vally/scenarios/key-vault-typescript-secret-config/tools/check-secret-config-typescript.mjs, prompt/connected-demo] }
+      - type: run-command
+        name: language/package-manifest
+        weight: 1
+        config: { command: node, args: [.vally/languages/typescript/check.mjs, language/package-manifest] }
+      - type: run-command
+        name: language/current-azure-packages
+        weight: 1
+        config: { command: node, args: [.vally/languages/typescript/check.mjs, language/current-azure-packages] }
+      - type: run-command
+        name: language/async-await
+        weight: 1
+        config: { command: node, args: [.vally/languages/typescript/check.mjs, language/async-await] }
+      - type: run-command
+        name: language/typescript-config
+        weight: 1
+        config: { command: node, args: [.vally/languages/typescript/check.mjs, language/typescript-config] }
+    environment:
+      files:
+        - src: tools/check-secret-config-typescript.mjs
+          dest: .vally/scenarios/key-vault-typescript-secret-config/tools/check-secret-config-typescript.mjs
+        - src: tools/source-manifest.mjs
+          dest: .vally/scenarios/key-vault-typescript-secret-config/tools/source-manifest.mjs
+        - src: tools/secret-config-typescript-rules.mjs
+          dest: .vally/scenarios/key-vault-typescript-secret-config/tools/secret-config-typescript-rules.mjs
+        - src: ../../languages/typescript/check.mjs
+          dest: .vally/languages/typescript/check.mjs
+        - src: ../../languages/typescript/checks.mjs
+          dest: .vally/languages/typescript/checks.mjs
+artifacts:
+  include:
+    - "**/*.ts"
+    - "**/*.js"
+    - "**/package.json"
+    - "**/tsconfig.json"
+  exclude:
+    - "**/.vally/**"
+    - "**/node_modules/**"
+    - "**/dist/**"
