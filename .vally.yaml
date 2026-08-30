@@ -64,6 +64,11 @@ suites:
       - scenarios/identity-dotnet-managed-identity-auth/eval.yaml
       - scenarios/identity-java-managed-identity-auth/eval.yaml
       - scenarios/identity-typescript-managed-identity-auth/eval.yaml
+  identity-credential-chain:
+    description: Environment-specific credential chain evaluation across Python and Java
+    evals:
+      - scenarios/identity-python-credential-chain/eval.yaml
+      - scenarios/identity-java-credential-chain/eval.yaml
   identity-service-principal-auth:
     description: Service principal authentication evaluation across four languages
     evals:

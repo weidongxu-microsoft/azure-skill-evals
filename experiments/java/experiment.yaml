@@ -6,6 +6,7 @@ evals:
   - ../../scenarios/app-configuration-java-feature-flags/eval.yaml
   - ../../scenarios/event-hubs-java-send-receive-events/eval.yaml
   - ../../scenarios/identity-java-default-azure-credential/eval.yaml
+  - ../../scenarios/identity-java-credential-chain/eval.yaml
   - ../../scenarios/identity-java-managed-identity-auth/eval.yaml
   - ../../scenarios/identity-java-service-principal-auth/eval.yaml
   - ../../scenarios/key-vault-java-crud-secrets/eval.yaml
