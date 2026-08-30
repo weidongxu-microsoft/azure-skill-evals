@@ -124,6 +124,10 @@ suites:
     description: Blob Storage authentication evaluation for .NET
     evals:
       - scenarios/storage-dotnet-authentication/eval.yaml
+  storage-dotnet-batch-blob-operations:
+    description: Blob Storage batch operations evaluation for .NET
+    evals:
+      - scenarios/storage-dotnet-batch-blob-operations/eval.yaml
   storage-blob-storage-manager:
     description: Blob Storage manager evaluation across available Hyoka languages
     evals:

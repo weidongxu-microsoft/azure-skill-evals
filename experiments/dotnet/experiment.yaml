@@ -16,6 +16,7 @@ evals:
   - ../../scenarios/service-bus-dotnet-send-receive-messages/eval.yaml
   - ../../scenarios/storage-dotnet-account-mgmt/eval.yaml
   - ../../scenarios/storage-dotnet-authentication/eval.yaml
+  - ../../scenarios/storage-dotnet-batch-blob-operations/eval.yaml
 vary:
   - /environment/skills
   - /environment/mcpServers
