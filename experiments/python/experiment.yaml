@@ -13,6 +13,7 @@ evals:
   - ../../scenarios/key-vault-python-secret-config/eval.yaml
   - ../../scenarios/resource-manager-python-resource-group-crud/eval.yaml
   - ../../scenarios/service-bus-python-send-receive-messages/eval.yaml
+  - ../../scenarios/service-bus-python-order-processor/eval.yaml
   - ../../scenarios/storage-python-account-mgmt/eval.yaml
   - ../../scenarios/storage-python-crud-blobs/eval.yaml
   - ../../scenarios/storage-python-blob-storage-manager/eval.yaml

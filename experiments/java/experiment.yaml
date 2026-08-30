@@ -13,6 +13,7 @@ evals:
   - ../../scenarios/key-vault-java-secret-config/eval.yaml
   - ../../scenarios/resource-manager-java-resource-group-crud/eval.yaml
   - ../../scenarios/service-bus-java-send-receive-messages/eval.yaml
+  - ../../scenarios/service-bus-java-order-processor/eval.yaml
   - ../../scenarios/storage-java-account-mgmt/eval.yaml
   - ../../scenarios/storage-java-crud-blobs/eval.yaml
   - ../../scenarios/storage-java-blob-storage-manager/eval.yaml

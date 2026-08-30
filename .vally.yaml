@@ -108,6 +108,11 @@ suites:
       - scenarios/service-bus-dotnet-send-receive-messages/eval.yaml
       - scenarios/service-bus-java-send-receive-messages/eval.yaml
       - scenarios/service-bus-typescript-send-receive-messages/eval.yaml
+  service-bus-order-processor:
+    description: Service Bus order processor evaluation across Python and Java
+    evals:
+      - scenarios/service-bus-python-order-processor/eval.yaml
+      - scenarios/service-bus-java-order-processor/eval.yaml
   storage-account-mgmt:
     description: Storage account management evaluation across four languages
     evals:
