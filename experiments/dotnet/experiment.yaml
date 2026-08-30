@@ -9,6 +9,7 @@ evals:
   - ../../scenarios/identity-dotnet-managed-identity-auth/eval.yaml
   - ../../scenarios/identity-dotnet-service-principal-auth/eval.yaml
   - ../../scenarios/key-vault-dotnet-crud-secrets/eval.yaml
+  - ../../scenarios/key-vault-dotnet-error-handling/eval.yaml
   - ../../scenarios/resource-manager-dotnet-resource-group-crud/eval.yaml
   - ../../scenarios/service-bus-dotnet-send-receive-messages/eval.yaml
   - ../../scenarios/storage-dotnet-account-mgmt/eval.yaml

@@ -50,6 +50,10 @@ suites:
       - scenarios/key-vault-dotnet-crud-secrets/eval.yaml
       - scenarios/key-vault-java-crud-secrets/eval.yaml
       - scenarios/key-vault-typescript-crud-secrets/eval.yaml
+  key-vault-dotnet-error-handling:
+    description: Key Vault error-handling evaluation for .NET
+    evals:
+      - scenarios/key-vault-dotnet-error-handling/eval.yaml
   identity-default-azure-credential:
     description: DefaultAzureCredential evaluation across four languages
     evals:
