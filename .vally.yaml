@@ -64,6 +64,10 @@ suites:
     description: Key Vault secret pagination evaluation for .NET
     evals:
       - scenarios/key-vault-dotnet-pagination-list-secrets/eval.yaml
+  key-vault-dotnet-polling-create-vault:
+    description: Key Vault management-plane polling evaluation for .NET
+    evals:
+      - scenarios/key-vault-dotnet-polling-create-vault/eval.yaml
   identity-default-azure-credential:
     description: DefaultAzureCredential evaluation across four languages
     evals:
