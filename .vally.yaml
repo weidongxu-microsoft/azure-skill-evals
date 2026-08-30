@@ -4,6 +4,10 @@ paths:
   results: reports/
 
 suites:
+  cosmos-db-dotnet-pagination-query-items:
+    description: Cosmos DB pagination evaluation for .NET
+    evals:
+      - scenarios/cosmos-db-dotnet-pagination-query-items/eval.yaml
   cosmos-db-dotnet-error-handling:
     description: Cosmos DB error-handling evaluation for .NET
     evals:
