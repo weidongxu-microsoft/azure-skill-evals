@@ -1,6 +1,7 @@
 name: java-three-way
 evals:
   - ../../scenarios/cosmos-db-java-crud/eval.yaml
+  - ../../scenarios/cosmos-db-java-todo-repository/eval.yaml
   - ../../scenarios/app-configuration-java-config-values/eval.yaml
   - ../../scenarios/app-configuration-java-feature-flags/eval.yaml
   - ../../scenarios/event-hubs-java-send-receive-events/eval.yaml

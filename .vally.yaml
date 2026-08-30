@@ -19,6 +19,11 @@ suites:
       - scenarios/cosmos-db-dotnet-crud/eval.yaml
       - scenarios/cosmos-db-java-crud/eval.yaml
       - scenarios/cosmos-db-typescript-crud/eval.yaml
+  cosmos-db-todo-repository:
+    description: Cosmos DB ToDo repository evaluation across Python and Java
+    evals:
+      - scenarios/cosmos-db-python-todo-repository/eval.yaml
+      - scenarios/cosmos-db-java-todo-repository/eval.yaml
   app-configuration-config-values:
     description: App Configuration values evaluation across four languages
     evals:
