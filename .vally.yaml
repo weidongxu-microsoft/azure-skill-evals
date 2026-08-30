@@ -136,6 +136,10 @@ suites:
     description: Blob Storage retry configuration evaluation for .NET
     evals:
       - scenarios/storage-dotnet-retry-configuration/eval.yaml
+  storage-dotnet-polling-create-account:
+    description: Storage account creation polling evaluation for .NET
+    evals:
+      - scenarios/storage-dotnet-polling-create-account/eval.yaml
   storage-blob-storage-manager:
     description: Blob Storage manager evaluation across available Hyoka languages
     evals:
