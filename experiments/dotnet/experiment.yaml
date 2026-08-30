@@ -17,6 +17,7 @@ evals:
   - ../../scenarios/storage-dotnet-account-mgmt/eval.yaml
   - ../../scenarios/storage-dotnet-authentication/eval.yaml
   - ../../scenarios/storage-dotnet-batch-blob-operations/eval.yaml
+  - ../../scenarios/storage-dotnet-error-handling/eval.yaml
 vary:
   - /environment/skills
   - /environment/mcpServers
