@@ -4,6 +4,10 @@ paths:
   results: reports/
 
 suites:
+  cosmos-db-dotnet-error-handling:
+    description: Cosmos DB error-handling evaluation for .NET
+    evals:
+      - scenarios/cosmos-db-dotnet-error-handling/eval.yaml
   cosmos-crud:
     description: Cosmos DB CRUD evaluation across four languages
     evals:
