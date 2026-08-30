@@ -1,0 +1,144 @@
+name: storage-java-blob-event-notifier
+description: Compare Azure tooling for a Java Blob Storage Event Grid notifier task
+version: "1.0"
+type: capability
+scoring:
+  weights: {}
+  threshold: 1
+defaults:
+  runs: 1
+  timeout: 30m
+  model: gpt-5.6-sol
+  judge_model: gpt-5.6-sol
+stimuli:
+  - name: storage-dp-java-blob-event-notifier
+    prompt: |-
+      Create a small Java 17 Maven project that processes Azure Blob Storage lifecycle events delivered via Event Grid.
+
+      Write the code to files. Do not reply with code blocks.
+
+      The project needs:
+
+      - An event receiver class, with synchronous and asynchronous implementations, that accepts a JSON webhook payload and deserializes it with the Azure SDK. Support both the Event Grid schema through EventGridEvent.fromString() and CloudEvents 1.0 through CloudEvent.fromString(). Route Microsoft.Storage.BlobCreated and Microsoft.Storage.BlobDeleted events to different handler operations, and log a warning for unrecognized event types.
+
+      - A blob event handler, with synchronous and asynchronous implementations. For blob-created events, parse the container and complete nested blob name from the Event Grid subject path /blobServices/default/containers/{container}/blobs/{blob}, download the blob, and print its name, size, content type, and access tier. For blob-deleted events, log the deletion. Handle the race where the blob no longer exists by treating BlobStorageException status 404 as a warning while preserving other failures.
+
+      - An event publisher, with synchronous and asynchronous implementations, that accepts an Event Grid topic endpoint and a list of custom notification objects, creates EventGridEvent instances, and publishes them. Use a subject hierarchy such as /documents/invoices/processed for filtering. Log publishing failures and preserve the Event Grid HTTP failure for the caller.
+
+      - A configuration class that builds Blob Storage and Event Grid clients with DefaultAzureCredential and service endpoints read from AZURE_STORAGE_ACCOUNT_URL and AZURE_EVENT_GRID_TOPIC_ENDPOINT. Do not use connection strings, access keys, shared-key credentials, or SAS credentials.
+
+      - A Main class containing realistic Event Grid-schema and CloudEvents 1.0 sample JSON. Each schema example must include blob-created and blob-deleted events. Run a connected synchronous receive, handle, and publish demo first, then run and block the connected asynchronous demo.
+
+      Include a complete Maven manifest with active runtime dependencies pinned to:
+      com.azure:azure-identity:1.18.5,
+      com.azure:azure-storage-blob:12.35.1, and
+      com.azure:azure-messaging-eventgrid:4.31.8.
+    tags:
+      service: storage
+      plane: data-plane
+      language: java
+      category: streaming
+    graders:
+      - type: run-command
+        name: prompt/source-manifest
+        weight: 1
+        config:
+          command: node
+          args: [.vally/scenarios/storage-java-blob-event-notifier/tools/check-storage-java.mjs, prompt/source-manifest]
+      - type: run-command
+        name: prompt/secure-client-configuration
+        weight: 1
+        config:
+          command: node
+          args: [.vally/scenarios/storage-java-blob-event-notifier/tools/check-storage-java.mjs, prompt/secure-client-configuration]
+      - type: run-command
+        name: prompt/dual-schema-receivers
+        weight: 1
+        config:
+          command: node
+          args: [.vally/scenarios/storage-java-blob-event-notifier/tools/check-storage-java.mjs, prompt/dual-schema-receivers]
+      - type: run-command
+        name: prompt/event-routing
+        weight: 1
+        config:
+          command: node
+          args: [.vally/scenarios/storage-java-blob-event-notifier/tools/check-storage-java.mjs, prompt/event-routing]
+      - type: run-command
+        name: prompt/blob-subject-parsing
+        weight: 1
+        config:
+          command: node
+          args: [.vally/scenarios/storage-java-blob-event-notifier/tools/check-storage-java.mjs, prompt/blob-subject-parsing]
+      - type: run-command
+        name: prompt/blob-created-summary
+        weight: 1
+        config:
+          command: node
+          args: [.vally/scenarios/storage-java-blob-event-notifier/tools/check-storage-java.mjs, prompt/blob-created-summary]
+      - type: run-command
+        name: prompt/blob-race-handling
+        weight: 1
+        config:
+          command: node
+          args: [.vally/scenarios/storage-java-blob-event-notifier/tools/check-storage-java.mjs, prompt/blob-race-handling]
+      - type: run-command
+        name: prompt/custom-event-publishing
+        weight: 1
+        config:
+          command: node
+          args: [.vally/scenarios/storage-java-blob-event-notifier/tools/check-storage-java.mjs, prompt/custom-event-publishing]
+      - type: run-command
+        name: prompt/publish-error-handling
+        weight: 1
+        config:
+          command: node
+          args: [.vally/scenarios/storage-java-blob-event-notifier/tools/check-storage-java.mjs, prompt/publish-error-handling]
+      - type: run-command
+        name: prompt/connected-demo
+        weight: 1
+        config:
+          command: node
+          args: [.vally/scenarios/storage-java-blob-event-notifier/tools/check-storage-java.mjs, prompt/connected-demo]
+      - type: run-command
+        name: language/build-manifest
+        weight: 1
+        config:
+          command: node
+          args: [.vally/languages/java/check.mjs, language/build-manifest]
+      - type: run-command
+        name: language/current-azure-dependencies
+        weight: 1
+        config:
+          command: node
+          args: [.vally/languages/java/check.mjs, language/current-azure-dependencies]
+      - type: run-command
+        name: language/current-imports
+        weight: 1
+        config:
+          command: node
+          args: [.vally/languages/java/check.mjs, language/current-imports]
+      - type: run-command
+        name: language/client-builder
+        weight: 1
+        config:
+          command: node
+          args: [.vally/languages/java/check.mjs, language/client-builder]
+    environment:
+      files:
+        - src: tools/check-storage-java.mjs
+          dest: .vally/scenarios/storage-java-blob-event-notifier/tools/check-storage-java.mjs
+        - src: tools/storage-java-rules.mjs
+          dest: .vally/scenarios/storage-java-blob-event-notifier/tools/storage-java-rules.mjs
+        - src: ../../languages/java/check.mjs
+          dest: .vally/languages/java/check.mjs
+        - src: ../../languages/java/checks.mjs
+          dest: .vally/languages/java/checks.mjs
+artifacts:
+  include:
+    - "**/*.java"
+    - "**/pom.xml"
+    - "**/build.gradle"
+    - "**/build.gradle.kts"
+  exclude:
+    - "**/.vally/**"
+    - "**/target/**"

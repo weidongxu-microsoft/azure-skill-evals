@@ -13,6 +13,7 @@ evals:
   - ../../scenarios/storage-python-crud-blobs/eval.yaml
   - ../../scenarios/storage-python-blob-storage-manager/eval.yaml
   - ../../scenarios/storage-python-encrypted-uploader/eval.yaml
+  - ../../scenarios/storage-python-blob-event-notifier/eval.yaml
 vary:
   - /environment/skills
   - /environment/mcpServers

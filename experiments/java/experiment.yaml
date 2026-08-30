@@ -12,6 +12,7 @@ evals:
   - ../../scenarios/storage-java-account-mgmt/eval.yaml
   - ../../scenarios/storage-java-crud-blobs/eval.yaml
   - ../../scenarios/storage-java-blob-storage-manager/eval.yaml
+  - ../../scenarios/storage-java-blob-event-notifier/eval.yaml
   - ../../scenarios/storage-java-encrypted-uploader/eval.yaml
 vary:
   - /environment/skills
