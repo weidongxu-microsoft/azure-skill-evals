@@ -18,6 +18,11 @@ suites:
       - scenarios/app-configuration-dotnet-config-values/eval.yaml
       - scenarios/app-configuration-java-config-values/eval.yaml
       - scenarios/app-configuration-typescript-config-values/eval.yaml
+  app-configuration-feature-flags:
+    description: App Configuration feature flags evaluation across Python and Java
+    evals:
+      - scenarios/app-configuration-python-feature-flags/eval.yaml
+      - scenarios/app-configuration-java-feature-flags/eval.yaml
   event-hubs-send-receive-events:
     description: Event Hubs send and receive evaluation across four languages
     evals:

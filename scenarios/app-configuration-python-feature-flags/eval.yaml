@@ -1,0 +1,110 @@
+name: app-configuration-python-feature-flags
+description: Compare Azure tooling for an App Configuration Python feature flag task
+version: "1.0"
+type: capability
+scoring:
+  weights: {}
+  threshold: 1
+defaults:
+  runs: 1
+  timeout: 30m
+  model: gpt-5.6-sol
+  judge_model: gpt-5.6-sol
+stimuli:
+  - name: app-configuration-dp-python-feature-flags
+    prompt: |-
+      Create a Python project that implements a feature flag and configuration management system backed by Azure App Configuration.
+
+      **Write the code to files (use file-write tools, do not reply with code blocks).**
+
+      The project needs:
+
+      - A **configuration service module** (both sync and async versions) that retrieves settings from App Configuration. It should support fetching a single setting by key, fetching a setting with a specific label (to distinguish between environments like "production" vs "staging"), and listing all settings that match a key prefix (returned as a dictionary). It should also avoid re-downloading values that haven't changed since the last read — minimize unnecessary network traffic when polling for config changes.
+
+      - A **feature flag evaluator module** that reads feature flags from App Configuration. Feature flags in App Configuration use the `.appconfig.featureflag/` key prefix and store their state as a JSON payload. The evaluator should be able to check if a flag is enabled, and also support percentage-based rollout — if a flag is configured for a percentage rollout (e.g., 30% of users), the evaluator should deterministically decide whether a given user ID falls within the rollout percentage using a consistent hash, so the same user always gets the same result.
+
+      - A **configuration watcher module** that periodically polls for configuration changes. It should accept a list of "sentinel" keys to watch and a polling interval. When a sentinel key's value changes, the watcher should trigger a full refresh of all cached configuration. This is the recommended pattern for coordinating config updates in App Configuration.
+
+      - A **main script** that demos both implementations: connecting to App Configuration (endpoint from environment variable, authenticated with `DefaultAzureCredential`), reading some config values with labels, evaluating feature flags for a few sample user IDs with percentage rollout, and starting the config watcher to detect a change. Run the full demo with the sync implementation first, then repeat with the async implementation.
+
+      Include a `requirements.txt` that pins `azure-appconfiguration` to `1.9.0` and `azure-identity` to `1.25.3`.
+    tags:
+      service: app-configuration
+      plane: data-plane
+      language: python
+      category: crud
+    graders:
+      - type: run-command
+        name: prompt/sdk-pins
+        weight: 1
+        config: { command: node, args: [.vally/scenarios/app-configuration-python-feature-flags/tools/check-app-configuration-feature-flags-python.mjs, prompt/sdk-pins] }
+      - type: run-command
+        name: prompt/secure-sync-async-clients
+        weight: 1
+        config: { command: node, args: [.vally/scenarios/app-configuration-python-feature-flags/tools/check-app-configuration-feature-flags-python.mjs, prompt/secure-sync-async-clients] }
+      - type: run-command
+        name: prompt/configuration-reads
+        weight: 1
+        config: { command: node, args: [.vally/scenarios/app-configuration-python-feature-flags/tools/check-app-configuration-feature-flags-python.mjs, prompt/configuration-reads] }
+      - type: run-command
+        name: prompt/etag-conditional-cache
+        weight: 1
+        config: { command: node, args: [.vally/scenarios/app-configuration-python-feature-flags/tools/check-app-configuration-feature-flags-python.mjs, prompt/etag-conditional-cache] }
+      - type: run-command
+        name: prompt/feature-flag-evaluation
+        weight: 1
+        config: { command: node, args: [.vally/scenarios/app-configuration-python-feature-flags/tools/check-app-configuration-feature-flags-python.mjs, prompt/feature-flag-evaluation] }
+      - type: run-command
+        name: prompt/deterministic-percentage-rollout
+        weight: 1
+        config: { command: node, args: [.vally/scenarios/app-configuration-python-feature-flags/tools/check-app-configuration-feature-flags-python.mjs, prompt/deterministic-percentage-rollout] }
+      - type: run-command
+        name: prompt/sentinel-refresh
+        weight: 1
+        config: { command: node, args: [.vally/scenarios/app-configuration-python-feature-flags/tools/check-app-configuration-feature-flags-python.mjs, prompt/sentinel-refresh] }
+      - type: run-command
+        name: prompt/connected-sync-then-async-demo
+        weight: 1
+        config: { command: node, args: [.vally/scenarios/app-configuration-python-feature-flags/tools/check-app-configuration-feature-flags-python.mjs, prompt/connected-sync-then-async-demo] }
+      - type: run-command
+        name: language/correct-imports
+        weight: 1
+        config: { command: node, args: [.vally/languages/python/check.mjs, language/correct-imports] }
+      - type: run-command
+        name: language/default-azure-credential
+        weight: 1
+        config: { command: node, args: [.vally/languages/python/check.mjs, language/default-azure-credential] }
+      - type: run-command
+        name: language/client-lifecycle
+        weight: 1
+        config: { command: node, args: [.vally/languages/python/check.mjs, language/client-lifecycle] }
+      - type: run-command
+        name: language/async-client
+        weight: 1
+        config: { command: node, args: [.vally/languages/python/check.mjs, language/async-client] }
+      - type: run-command
+        name: language/exception-handling
+        weight: 1
+        config: { command: node, args: [.vally/languages/python/check.mjs, language/exception-handling] }
+    environment:
+      files:
+        - src: tools/check-app-configuration-feature-flags-python.mjs
+          dest: .vally/scenarios/app-configuration-python-feature-flags/tools/check-app-configuration-feature-flags-python.mjs
+        - src: tools/feature-flags-rules.mjs
+          dest: .vally/scenarios/app-configuration-python-feature-flags/tools/feature-flags-rules.mjs
+        - src: tools/feature_flags_analyzer.py
+          dest: .vally/scenarios/app-configuration-python-feature-flags/tools/feature_flags_analyzer.py
+        - src: ../../languages/python/check.mjs
+          dest: .vally/languages/python/check.mjs
+        - src: ../../languages/python/checks.mjs
+          dest: .vally/languages/python/checks.mjs
+artifacts:
+  include:
+    - "**/*.py"
+    - "**/requirements*.txt"
+    - "**/pyproject.toml"
+    - "**/setup.py"
+  exclude:
+    - "**/.vally/**"
+    - "**/.venv/**"
+    - "**/__pycache__/**"

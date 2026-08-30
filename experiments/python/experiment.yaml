@@ -2,6 +2,7 @@ name: python-three-way
 evals:
   - ../../scenarios/cosmos-db-python-crud/eval.yaml
   - ../../scenarios/app-configuration-python-config-values/eval.yaml
+  - ../../scenarios/app-configuration-python-feature-flags/eval.yaml
   - ../../scenarios/event-hubs-python-send-receive-events/eval.yaml
   - ../../scenarios/identity-python-default-azure-credential/eval.yaml
   - ../../scenarios/identity-python-managed-identity-auth/eval.yaml
