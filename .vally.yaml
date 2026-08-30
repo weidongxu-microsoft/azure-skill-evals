@@ -132,6 +132,10 @@ suites:
     description: Blob Storage error-handling evaluation for .NET
     evals:
       - scenarios/storage-dotnet-error-handling/eval.yaml
+  storage-dotnet-retry-configuration:
+    description: Blob Storage retry configuration evaluation for .NET
+    evals:
+      - scenarios/storage-dotnet-retry-configuration/eval.yaml
   storage-blob-storage-manager:
     description: Blob Storage manager evaluation across available Hyoka languages
     evals:

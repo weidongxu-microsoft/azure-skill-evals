@@ -18,6 +18,7 @@ evals:
   - ../../scenarios/storage-dotnet-authentication/eval.yaml
   - ../../scenarios/storage-dotnet-batch-blob-operations/eval.yaml
   - ../../scenarios/storage-dotnet-error-handling/eval.yaml
+  - ../../scenarios/storage-dotnet-retry-configuration/eval.yaml
 vary:
   - /environment/skills
   - /environment/mcpServers
