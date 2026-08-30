@@ -74,6 +74,10 @@ suites:
       - scenarios/storage-dotnet-account-mgmt/eval.yaml
       - scenarios/storage-java-account-mgmt/eval.yaml
       - scenarios/storage-typescript-account-mgmt/eval.yaml
+  storage-dotnet-authentication:
+    description: Blob Storage authentication evaluation for .NET
+    evals:
+      - scenarios/storage-dotnet-authentication/eval.yaml
   storage-blob-storage-manager:
     description: Blob Storage manager evaluation across available Hyoka languages
     evals:
