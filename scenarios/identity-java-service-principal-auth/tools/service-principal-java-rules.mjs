@@ -59,7 +59,15 @@ function sanitizeJava(source) {
       const quote = character;
       const end = source.indexOf(quote, index + 1);
       const value = end === -1 ? "" : source.slice(index + 1, end);
-      if (quote === '"' && preserved.has(value)) {
+      const actionableAuthenticationDiagnostic =
+        /\b(?:auth(?:entication)?|credential)\w*\b/i.test(value) &&
+        /\b(?:check|configure|ensure|provide|set|update|verify)\w*\b/i.test(
+          value,
+        );
+      if (
+        quote === '"' &&
+        (preserved.has(value) || actionableAuthenticationDiagnostic)
+      ) {
         result += source.slice(index, end + 1);
         index = end;
       } else {
@@ -449,6 +457,13 @@ function environmentSource(expression, position, context) {
   if (direct) {
     return direct;
   }
+  const accessor = environmentAccessorSource(
+    expression,
+    context.environmentAccessors,
+  );
+  if (accessor) {
+    return accessor;
+  }
   const reference = exactReference(expression);
   const binding = reference && context.resolve(reference, position);
   const state = binding && context.states.get(binding);
@@ -594,7 +609,9 @@ function expressionState(expression, position, expectedKind, context) {
   }
 
   if (expectedKind === "string" || expectedKind === "var") {
-    const environment = directEnvironment(value);
+    const environment =
+      directEnvironment(value) ||
+      environmentAccessorSource(value, context.environmentAccessors);
     if (environment) {
       return { kind: "string", valid: true, environment };
     }
@@ -688,6 +705,7 @@ function expressionState(expression, position, expectedKind, context) {
 
 function analyze(source) {
   const scopes = lexicalScopes(source);
+  const environmentAccessors = environmentAccessorSummaries(source);
   const allDeclarations = declarations(source, scopes);
   const relevant = allDeclarations.filter(
     (declaration) =>
@@ -709,6 +727,7 @@ function analyze(source) {
       constructions,
       source,
       scopes,
+      environmentAccessors,
       createObjectId: () => nextObjectId++,
       resolve: (name, position) =>
         resolveDeclaration(relevant, name, position, scopes),
@@ -784,6 +803,7 @@ function analyze(source) {
 
   return {
     allDeclarations,
+    environmentAccessors,
     scopes,
     simulate,
     clientState,
@@ -808,6 +828,7 @@ function operationKind(expression, position, analysis) {
   const simulation = analysis.simulate(position);
   const context = {
     states: simulation.states,
+    environmentAccessors: analysis.environmentAccessors,
     resolve: (name, at) =>
       resolveDeclaration(
         analysis.allDeclarations,
@@ -1005,10 +1026,22 @@ function helperMethods(source) {
           ?.[1],
       )
       .filter(Boolean);
+    const parameterTypes = splitTopLevel(parameterSource, ",")
+      .map((parameter) => {
+        const parsed =
+          /^(?:(?:final|@\w+(?:\([^)]*\))?)\s+)*([\w$.]+(?:\s*<[^>]+>)?(?:\s*\[\s*\])?)\s+[A-Za-z_$][\w$]*\s*(?:\[\s*\])?\s*$/.exec(
+            parameter.trim(),
+          );
+        return parsed?.[1].replace(/\s+/g, "") ?? "";
+      })
+      .filter(Boolean);
+    const prefix = match[0].slice(0, match[0].lastIndexOf(match[1]));
     methods.push({
       id: methods.length,
       name: match[2],
       parameters,
+      parameterTypes,
+      isStatic: /\bstatic\b/.test(prefix),
       start: match.index,
       bodyStart: open + 1,
       bodyEnd: close,
@@ -1017,6 +1050,228 @@ function helperMethods(source) {
     pattern.lastIndex = open + 1;
   }
   return methods;
+}
+
+function validationBodyAlwaysThrows(body) {
+  const value = body.trim();
+  const throwMatch = /\bthrow\s+[^;]+;\s*$/.exec(value);
+  if (!throwMatch) {
+    return false;
+  }
+  const prefix = value.slice(0, throwMatch.index);
+  return !/\b(?:break|continue|do|for|if|return|switch|try|while|yield)\b/.test(
+    prefix,
+  );
+}
+
+function throwingIfConditions(body) {
+  const conditions = [];
+  const pattern = /\bif\s*\(/g;
+  let match;
+  while ((match = pattern.exec(body)) !== null) {
+    const open = body.indexOf("(", match.index);
+    const close = matchingIndex(body, open);
+    if (close === -1) {
+      continue;
+    }
+    let statementStart = close + 1;
+    statementStart += body.slice(statementStart).match(/^\s*/)[0].length;
+    let statementBody;
+    let statementEndPosition;
+    if (body[statementStart] === "{") {
+      const statementClose = matchingIndex(body, statementStart, "{", "}");
+      if (statementClose === -1) {
+        continue;
+      }
+      statementBody = body.slice(statementStart + 1, statementClose);
+      statementEndPosition = statementClose + 1;
+    } else {
+      const end = statementEnd(body, statementStart);
+      statementBody = body.slice(statementStart, end + 1);
+      statementEndPosition = end + 1;
+    }
+    if (validationBodyAlwaysThrows(statementBody)) {
+      conditions.push({
+        condition: body.slice(open + 1, close),
+        start: match.index,
+      });
+    }
+    pattern.lastIndex = statementEndPosition;
+  }
+  return conditions;
+}
+
+function aliasPattern(alias) {
+  return alias
+    .split(".")
+    .map((part) => part.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"))
+    .join("\\s*\\.\\s*");
+}
+
+function hasNullValidation(condition, aliases) {
+  return Array.from(aliases).some((alias) => {
+    const reference = aliasPattern(alias);
+    return (
+      new RegExp(`(?:\\b${reference}\\b\\s*==\\s*null|null\\s*==\\s*\\b${reference}\\b)`).test(
+        condition,
+      ) ||
+      new RegExp(
+        `\\b(?:java\\.util\\.)?Objects\\s*\\.\\s*isNull\\s*\\(\\s*${reference}\\s*\\)`,
+      ).test(condition)
+    );
+  });
+}
+
+function hasBlankValidation(condition, aliases) {
+  return Array.from(aliases).some((alias) => {
+    const reference = aliasPattern(alias);
+    return new RegExp(
+      `\\b${reference}\\b\\s*\\.\\s*(?:isBlank\\s*\\(\\s*\\)|(?:trim|strip)\\s*\\(\\s*\\)\\s*\\.\\s*isEmpty\\s*\\(\\s*\\))`,
+    ).test(condition);
+  });
+}
+
+function hasNegatedValidation(condition, aliases) {
+  return Array.from(aliases).some((alias) => {
+    const reference = aliasPattern(alias);
+    return new RegExp(
+      `!\\s*(?:\\(\\s*)?(?:${reference}\\s*==\\s*null|(?:java\\.util\\.)?Objects\\s*\\.\\s*isNull\\s*\\(\\s*${reference}\\s*\\)|${reference}\\s*\\.\\s*(?:isBlank\\s*\\(\\s*\\)|(?:trim|strip)\\s*\\(\\s*\\)\\s*\\.\\s*isEmpty\\s*\\(\\s*\\)))`,
+    ).test(condition);
+  });
+}
+
+function directParameterEnvironment(expression, parameter) {
+  const reference = parameter.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  return new RegExp(
+    `^(?:java\\.lang\\.)?System\\s*\\.\\s*getenv\\s*\\(\\s*${reference}\\s*\\)$`,
+  ).test(unwrapParentheses(expression));
+}
+
+function environmentAccessorSummary(method) {
+  if (
+    !method.isStatic ||
+    method.parameters.length !== 1 ||
+    method.parameterTypes.length !== 1 ||
+    simpleType(method.parameterTypes[0]) !== "String"
+  ) {
+    return null;
+  }
+  const parameter = method.parameters[0];
+  const returns = Array.from(method.body.matchAll(/\breturn\s+([^;]+);/g));
+  if (returns.length !== 1) {
+    return null;
+  }
+  const returnPosition = returns[0].index;
+  const derived = new Set();
+  let environmentReads = 0;
+  let environmentReadPosition = -1;
+  for (const assignment of assignmentEvents(method.body)) {
+    if (assignment.name.replace(/^this\./, "") === parameter) {
+      return null;
+    }
+    if (assignment.start >= returnPosition) {
+      continue;
+    }
+    const target = assignment.name.replace(/^this\./, "");
+    if (
+      assignment.operator === "=" &&
+      directParameterEnvironment(assignment.expression, parameter)
+    ) {
+      environmentReads += 1;
+      environmentReadPosition = assignment.start;
+      derived.add(target);
+      continue;
+    }
+    const reference = exactReference(assignment.expression);
+    if (
+      assignment.operator === "=" &&
+      reference &&
+      derived.has(reference.replace(/^this\./, ""))
+    ) {
+      derived.add(target);
+    } else {
+      derived.delete(target);
+    }
+  }
+  if (environmentReads !== 1) {
+    return null;
+  }
+
+  if (
+    !derived.has(exactReference(returns[0][1]).replace(/^this\./, ""))
+  ) {
+    return null;
+  }
+
+  let validatesMissing = false;
+  let validatesBlank = false;
+  for (const validation of throwingIfConditions(method.body)) {
+    if (
+      validation.start <= environmentReadPosition ||
+      validation.start >= returnPosition ||
+      hasNegatedValidation(validation.condition, derived)
+    ) {
+      continue;
+    }
+    const condition = validation.condition;
+    const missing = hasNullValidation(condition, derived);
+    const blank = hasBlankValidation(condition, derived);
+    if (missing && blank && !condition.includes("||")) {
+      continue;
+    }
+    validatesMissing ||= missing;
+    validatesBlank ||= blank;
+  }
+  return validatesMissing && validatesBlank
+    ? { name: method.name, parameterIndex: 0 }
+    : null;
+}
+
+function environmentAccessorSummaries(source) {
+  const methods = helperMethods(source);
+  const definitions = new Map();
+  for (const method of methods) {
+    const candidates = definitions.get(method.name) ?? [];
+    candidates.push({
+      arity: method.parameters.length,
+      summary: environmentAccessorSummary(method),
+    });
+    definitions.set(method.name, candidates);
+  }
+  return definitions;
+}
+
+function environmentAccessorSource(expression, summaries) {
+  if (!summaries) {
+    return "";
+  }
+  const value = unwrapParentheses(expression);
+  const match =
+    /^(?:(?:[A-Za-z_$][\w$]*)\s*\.\s*)?([A-Za-z_$][\w$]*)\s*\(/.exec(
+      value,
+    );
+  if (!match) {
+    return "";
+  }
+  const open = value.indexOf("(", match.index);
+  const close = matchingIndex(value, open);
+  if (close !== value.length - 1) {
+    return "";
+  }
+  const argumentsList = splitTopLevel(value.slice(open + 1, close), ",");
+  const candidates = (summaries.get(match[1]) ?? []).filter(
+    ({ arity }) => arity === argumentsList.length,
+  );
+  if (
+    candidates.length !== 1 ||
+    !candidates[0].summary ||
+    candidates[0].summary.parameterIndex !== 0
+  ) {
+    return "";
+  }
+  return /^"(AZURE_KEY_VAULT_URL|AZURE_KEY_VAULT_SECRET_NAME|AZURE_TENANT_ID|AZURE_CLIENT_ID|AZURE_CLIENT_SECRET)"$/.exec(
+    argumentsList[0].trim(),
+  )?.[1] ?? "";
 }
 
 function mergedHelperSummary(summaries, name) {
@@ -1118,6 +1373,12 @@ function taintExpression(
   );
   if (directEnvironment(value) === "AZURE_CLIENT_SECRET") {
     return new Map([[symbolic ? "secret" : "secret", 0]]);
+  }
+  if (
+    environmentAccessorSource(value, summaries.environmentAccessors) ===
+    "AZURE_CLIENT_SECRET"
+  ) {
+    return new Map([["secret", 0]]);
   }
 
   const methodNames = new Set(summaries.keys());
@@ -1602,6 +1863,7 @@ function taintRegion(
 function allocationIdentityTaint(source, methods) {
   const objects = new Map();
   const cleanSinks = new Set();
+  const environmentAccessors = environmentAccessorSummaries(source);
   const methodsByName = new Map();
   for (const method of methods) {
     const overloads = methodsByName.get(method.name) ?? [];
@@ -1792,6 +2054,12 @@ function allocationIdentityTaint(source, methods) {
     ) {
       return value(true);
     }
+    if (
+      environmentAccessorSource(text, environmentAccessors) ===
+      "AZURE_CLIENT_SECRET"
+    ) {
+      return value(true);
+    }
     const path = normalize(text);
     if (path) return readPath(path, environment);
 
@@ -1974,6 +2242,7 @@ function allocationIdentityTaint(source, methods) {
 
 function hasSecretLeak(source) {
   const methods = helperMethods(source);
+  const environmentAccessors = environmentAccessorSummaries(source);
   const identity = allocationIdentityTaint(source, methods);
   if (identity.exposed) return true;
   source = identity.source;
@@ -1986,8 +2255,10 @@ function hasSecretLeak(source) {
   let summaries = new Map(
     methods.map(({ name }) => [name, []]),
   );
+  summaries.environmentAccessors = environmentAccessors;
   while (true) {
     const next = new Map(Array.from(summaries.keys(), (name) => [name, []]));
+    next.environmentAccessors = environmentAccessors;
     for (const method of methods) {
       const members = new Map();
       const summary = taintRegion(
@@ -2337,7 +2608,7 @@ function allCatches(source) {
   return catches;
 }
 
-function javaHandlerAlwaysCausal(header, body) {
+function javaHandlerAlwaysCausal(header, body, allowNonzeroExit = false) {
   let nextTargetId = 0;
   const outcomes = (start, end, frames = []) => {
     let result = new Set(["fall"]);
@@ -2625,6 +2896,14 @@ function javaHandlerAlwaysCausal(header, body) {
         }
       }
       const text = body.slice(statementStart, index).trim();
+      if (
+        allowNonzeroExit &&
+        /^(?:java\.lang\.)?System\s*\.\s*exit\s*\(\s*[+-]?(?!0+\s*\))\d+\s*\)\s*;\s*$/.test(
+          text,
+        )
+      ) {
+        return new Set(["safe"]);
+      }
       if (/^throw\b/.test(text)) {
         return new Set([
           preservesCatch(header, body.slice(0, index))
@@ -2680,6 +2959,53 @@ function javaHandlerAlwaysCausal(header, body) {
   };
   const result = outcomes(0, body.length);
   return result.size === 1 && result.has("safe");
+}
+
+function actionableAuthenticationExit(body) {
+  const diagnosticCalls = [
+    ...systemOutputCalls(body),
+    ...loggingCalls(body),
+  ];
+  const braceDepthAt = (position) => {
+    let depth = 0;
+    for (let index = 0; index < position; index += 1) {
+      if (body[index] === "{") depth += 1;
+      else if (body[index] === "}") depth -= 1;
+    }
+    return depth;
+  };
+  const actionableDiagnostics = diagnosticCalls.filter(({ args, start }) => {
+    const literals = Array.from(
+      args.matchAll(/"((?:\\.|[^"\\])*)"/g),
+      (match) => match[1],
+    ).join(" ");
+    return (
+      braceDepthAt(start) === 0 &&
+      /\b(?:auth(?:entication)?|credential)\w*\b/i.test(literals) &&
+      /\b(?:check|configure|ensure|provide|set|update|verify)\w*\b/i.test(
+        literals,
+      )
+    );
+  });
+  const exitPattern =
+    /\b(?:java\.lang\.)?System\s*\.\s*exit\s*\(\s*[+-]?(?!0+\s*\))\d+\s*\)/g;
+  const hasOrderedDiagnostic = actionableDiagnostics.some(({ start }) => {
+    const prefix = body.slice(0, start);
+    if (
+      /\b(?:break|continue|do|for|if|return|switch|throw|try|while|yield)\b/.test(
+        prefix,
+      ) ||
+      /\b(?:java\.lang\.)?System\s*\.\s*exit\s*\(/.test(prefix)
+    ) {
+      return false;
+    }
+    exitPattern.lastIndex = start;
+    return exitPattern.exec(body) !== null;
+  });
+  return (
+    hasOrderedDiagnostic &&
+    javaHandlerAlwaysCausal("", body, true)
+  );
 }
 
 function authenticationCatchKind(header, source, position) {
@@ -2759,6 +3085,7 @@ function handlesAuthenticationErrors(source) {
         return (
           environmentSource(expression.slice(open + 1, close), start, {
             states: simulation.states,
+            environmentAccessors: analysis.environmentAccessors,
             resolve: (name, at) =>
               resolveDeclaration(
                 analysis.allDeclarations,
@@ -2780,7 +3107,8 @@ function handlesAuthenticationErrors(source) {
       if (
         kind &&
         (meaningfulCatch(header, catchBody) ||
-          javaHandlerAlwaysCausal(header, catchBody))
+          javaHandlerAlwaysCausal(header, catchBody) ||
+          (kind === "exact" && actionableAuthenticationExit(catchBody)))
       ) {
         hasUsefulConnectedCatch = true;
         usefulConnectedCatches.add(start);

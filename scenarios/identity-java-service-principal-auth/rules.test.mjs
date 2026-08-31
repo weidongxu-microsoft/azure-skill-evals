@@ -4,12 +4,18 @@ import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import test from "node:test";
 
+import { loadJavaWorkspace } from "../../languages/java/checks.mjs";
 import {
   evaluateRule,
   ruleNames,
 } from "./tools/service-principal-java-rules.mjs";
 
 const goldenRoot = fileURLToPath(new URL("./golden", import.meta.url));
+const baseline33420505368 = loadJavaWorkspace(
+  fileURLToPath(
+    new URL("./fixtures/baseline-33420505368", import.meta.url),
+  ),
+);
 
 function collectJavaFiles(root) {
   const files = [];
@@ -88,6 +94,18 @@ test("golden passes exactly the six requested criteria", () => {
   ]);
   for (const rule of ruleNames()) {
     assert.equal(evaluateRule(rule, completeWorkspace), true, rule);
+  }
+});
+
+test("baseline run 33420505368 exact output passes audited criteria", () => {
+  for (const rule of [
+    "prompt/environment-secret-management",
+    "prompt/client-secret-credential",
+    "prompt/credential-client-association",
+    "prompt/authenticated-operation",
+    "prompt/authentication-errors",
+  ]) {
+    assert.equal(evaluateRule(rule, baseline33420505368), true, rule);
   }
 });
 
@@ -443,6 +461,170 @@ System.err.printf("%s%n", client.getSecret(nameAlias).getValue());
     ]) {
       assert.equal(evaluateRule(rule, workspace(source)), true, rule);
     }
+  }
+});
+
+test("validated environment helpers substitute literal caller keys", () => {
+  const helper = `
+private static String obtain(String key) {
+  String value = System.getenv(key);
+  String alias = value;
+  if (alias == null || alias.isBlank()) {
+    throw new IllegalStateException(key);
+  }
+  return alias;
+}`;
+  const source = `${imports}
+${helper}
+String tenantId = obtain("AZURE_TENANT_ID");
+String clientId = obtain("AZURE_CLIENT_ID");
+String clientSecret = obtain("AZURE_CLIENT_SECRET");
+String vaultUrl = obtain("AZURE_KEY_VAULT_URL");
+String secretName = obtain("AZURE_KEY_VAULT_SECRET_NAME");
+${credential}${client}
+try {
+  System.out.println(client.getSecret(secretName).getValue());
+} catch (ClientAuthenticationException failure) {
+  System.err.println(
+      "Azure authentication failed. Verify the service principal credentials.");
+  System.exit(1);
+}`;
+  for (const rule of [
+    "prompt/environment-secret-management",
+    "prompt/client-secret-credential",
+    "prompt/credential-client-association",
+    "prompt/authenticated-operation",
+    "prompt/authentication-errors",
+  ]) {
+    assert.equal(evaluateRule(rule, workspace(source)), true, rule);
+  }
+});
+
+test("environment helpers reject substituted keys, fallbacks, and missing validation", () => {
+  const calls = `
+String tenantId = obtain("AZURE_TENANT_ID");
+String clientId = obtain("AZURE_CLIENT_ID");
+String clientSecret = obtain("AZURE_CLIENT_SECRET");
+String vaultUrl = obtain("AZURE_KEY_VAULT_URL");
+String secretName = obtain("AZURE_KEY_VAULT_SECRET_NAME");`;
+  const application = (helper, caller = calls) => `${imports}
+${helper}
+${caller}
+${credential}${client}
+System.out.println(client.getSecret(secretName).getValue());`;
+  const invalidHelpers = [
+    `static String obtain(String key) {
+       String value = System.getenv("AZURE_CLIENT_SECRET");
+       if (value == null || value.isBlank()) throw new IllegalStateException();
+       return value;
+     }`,
+    `static String obtain(String key) {
+       String selected = "AZURE_CLIENT_SECRET";
+       String value = System.getenv(selected);
+       if (value == null || value.isBlank()) throw new IllegalStateException();
+       return value;
+     }`,
+    `static String obtain(String key) {
+       String value = System.getenv(key);
+       if (value == null || value.isBlank()) throw new IllegalStateException();
+       return "literal";
+     }`,
+    `static String obtain(String key) {
+       String value = System.getenv(key);
+       if (value == null || value.isBlank()) throw new IllegalStateException();
+       return Objects.requireNonNullElse(value, "fallback");
+     }`,
+    `static String obtain(String key) {
+       return System.getenv().getOrDefault(key, "fallback");
+     }`,
+    `static String obtain(String key) {
+       key = "AZURE_CLIENT_SECRET";
+       String value = System.getenv(key);
+       if (value == null || value.isBlank()) throw new IllegalStateException();
+       return value;
+     }`,
+    `static String obtain(String key) {
+       return System.getenv(key);
+     }`,
+    `static String obtain(String key) {
+       String value = System.getenv(key);
+       if (value == null) throw new IllegalStateException();
+       return value;
+     }`,
+    `static String obtain(String key) {
+       String value = System.getenv(key);
+       if (!(value == null || value.isBlank())) {
+         throw new IllegalStateException();
+       }
+       return value;
+     }`,
+    `static String obtain(String key) {
+       String value = System.getenv(key);
+       return value;
+       if (value == null || value.isBlank()) throw new IllegalStateException();
+     }`,
+  ];
+  for (const helper of invalidHelpers) {
+    assert.equal(
+      evaluateRule(
+        "prompt/environment-secret-management",
+        workspace(application(helper)),
+      ),
+      false,
+      helper,
+    );
+  }
+
+  const validHelper = `static String obtain(String key) {
+    String value = System.getenv(key);
+    if (value == null || value.isBlank()) throw new IllegalStateException();
+    return value;
+  }`;
+  assert.equal(
+    evaluateRule(
+      "prompt/environment-secret-management",
+      workspace(
+        application(
+          validHelper,
+          calls.replace(
+            'obtain("AZURE_CLIENT_SECRET")',
+            'obtain("OTHER_CLIENT_SECRET")',
+          ),
+        ),
+      ),
+    ),
+    false,
+  );
+});
+
+test("environment helper secret results remain tainted in logs and aliases", () => {
+  const helper = `static String obtain(String key) {
+    String value = System.getenv(key);
+    if (value == null || value.isBlank()) throw new IllegalStateException();
+    return value;
+  }`;
+  const prefix = `${imports}
+${helper}
+String tenantId = obtain("AZURE_TENANT_ID");
+String clientId = obtain("AZURE_CLIENT_ID");
+String clientSecret = obtain("AZURE_CLIENT_SECRET");
+String vaultUrl = obtain("AZURE_KEY_VAULT_URL");
+String secretName = obtain("AZURE_KEY_VAULT_SECRET_NAME");
+${credential}${client}
+System.out.println(client.getSecret(secretName).getValue());`;
+  for (const leak of [
+    `logger.info(obtain("AZURE_CLIENT_SECRET"));`,
+    `String leaked = clientSecret;
+logger.info(leaked);`,
+  ]) {
+    assert.equal(
+      evaluateRule(
+        "prompt/environment-secret-management",
+        workspace(`${prefix}\n${leak}`),
+      ),
+      false,
+      leak,
+    );
   }
 });
 
@@ -1276,6 +1458,58 @@ try {
       evaluateRule("prompt/authentication-errors", workspace(source)),
       true,
       handler,
+    );
+  }
+});
+
+test("actionable static authentication diagnostics require exact nonzero termination", () => {
+  const handlerSource = (header, message, exit) => `${validPrefix}
+try {
+  System.out.println(client.getSecret(secretName).getValue());
+} catch (${header}) {
+  System.err.println("${message}");
+  System.exit(${exit});
+}`;
+  assert.equal(
+    evaluateRule(
+      "prompt/authentication-errors",
+      workspace(
+        handlerSource(
+          "ClientAuthenticationException failure",
+          "Azure authentication failed. Verify the service principal credentials.",
+          "1",
+        ),
+      ),
+    ),
+    true,
+  );
+  const rejected = [
+    handlerSource(
+      "ClientAuthenticationException failure",
+      "Azure authentication failed. Verify the service principal credentials.",
+      "0",
+    ),
+    handlerSource(
+      "ClientAuthenticationException failure",
+      "Authentication failed.",
+      "1",
+    ),
+    handlerSource(
+      "Exception failure",
+      "Azure authentication failed. Verify the service principal credentials.",
+      "1",
+    ),
+    handlerSource(
+      "ClientAuthenticationException | java.io.IOException failure",
+      "Azure authentication failed. Verify the service principal credentials.",
+      "1",
+    ),
+  ];
+  for (const source of rejected) {
+    assert.equal(
+      evaluateRule("prompt/authentication-errors", workspace(source)),
+      false,
+      source,
     );
   }
 });
