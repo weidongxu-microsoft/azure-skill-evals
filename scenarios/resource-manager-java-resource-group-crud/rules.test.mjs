@@ -11,6 +11,136 @@ import {
 const goldenPath = fileURLToPath(new URL("./golden", import.meta.url));
 const golden = loadJavaWorkspace(goldenPath);
 
+const run33358499457Build = `<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <groupId>com.example</groupId>
+    <artifactId>azure-resource-group-manager</artifactId>
+    <version>1.0.0</version>
+
+    <properties>
+        <maven.compiler.release>17</maven.compiler.release>
+        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+    </properties>
+
+    <dependencies>
+        <dependency>
+            <groupId>com.azure.resourcemanager</groupId>
+            <artifactId>azure-resourcemanager</artifactId>
+            <version>2.63.0</version>
+        </dependency>
+        <dependency>
+            <groupId>com.azure</groupId>
+            <artifactId>azure-identity</artifactId>
+            <version>1.18.5</version>
+        </dependency>
+    </dependencies>
+
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-compiler-plugin</artifactId>
+                <version>3.13.0</version>
+            </plugin>
+            <plugin>
+                <groupId>org.codehaus.mojo</groupId>
+                <artifactId>exec-maven-plugin</artifactId>
+                <version>3.5.0</version>
+                <configuration>
+                    <mainClass>com.example.ResourceGroupManager</mainClass>
+                </configuration>
+            </plugin>
+        </plugins>
+    </build>
+</project>`;
+
+const run33358499457Source = `package com.example;
+
+import com.azure.core.exception.HttpResponseException;
+import com.azure.core.management.AzureEnvironment;
+import com.azure.core.management.exception.ManagementException;
+import com.azure.core.management.profile.AzureProfile;
+import com.azure.core.util.polling.SyncPoller;
+import com.azure.identity.DefaultAzureCredential;
+import com.azure.identity.DefaultAzureCredentialBuilder;
+import com.azure.resourcemanager.AzureResourceManager;
+import com.azure.resourcemanager.resources.fluentcore.model.Accepted;
+import com.azure.resourcemanager.resources.models.ResourceGroup;
+
+public final class ResourceGroupManager {
+    private ResourceGroupManager() {
+    }
+
+    public static void main(String[] args) {
+        String subscriptionId = requiredEnvironmentVariable("AZURE_SUBSCRIPTION_ID");
+        String resourceGroupName = requiredEnvironmentVariable("RESOURCE_GROUP_NAME");
+        String location = requiredEnvironmentVariable("AZURE_LOCATION");
+
+        AzureProfile profile = new AzureProfile(AzureEnvironment.AZURE);
+        DefaultAzureCredential credential = new DefaultAzureCredentialBuilder().build();
+
+        try {
+            AzureResourceManager azure = AzureResourceManager
+                    .authenticate(credential, profile)
+                    .withSubscription(subscriptionId);
+
+            ResourceGroup createdGroup = azure.resourceGroups()
+                    .define(resourceGroupName)
+                    .withRegion(location)
+                    .create();
+            System.out.println("Created resource group: " + createdGroup);
+
+            System.out.println("Resource groups:");
+            for (ResourceGroup resourceGroup : azure.resourceGroups().list()) {
+                System.out.println(resourceGroup);
+            }
+
+            ResourceGroup retrievedGroup = azure.resourceGroups().getByName(resourceGroupName);
+            if (retrievedGroup == null) {
+                throw new IllegalStateException(
+                        "Resource group was not found after creation: " + resourceGroupName);
+            }
+            System.out.println("Retrieved resource group: " + retrievedGroup);
+
+            ResourceGroup updatedGroup = retrievedGroup.update()
+                    .withTag("environment", "development")
+                    .apply();
+            System.out.println("Updated resource group: " + updatedGroup);
+
+            Accepted<Void> deletionOperation =
+                    azure.resourceGroups().beginDeleteByName(resourceGroupName);
+            SyncPoller<Void, Void> deletionPoller = deletionOperation.getSyncPoller();
+            deletionPoller.waitForCompletion();
+            System.out.println("Deleted resource group: " + resourceGroupName);
+        } catch (ManagementException exception) {
+            System.err.printf(
+                    "Azure resource management request failed (status %d): %s%n",
+                    exception.getResponse() == null ? -1 : exception.getResponse().getStatusCode(),
+                    exception.getMessage());
+            throw exception;
+        } catch (HttpResponseException exception) {
+            System.err.printf(
+                    "Azure HTTP request failed (status %d): %s%n",
+                    exception.getResponse() == null ? -1 : exception.getResponse().getStatusCode(),
+                    exception.getMessage());
+            throw exception;
+        }
+    }
+
+    private static String requiredEnvironmentVariable(String name) {
+        String value = System.getenv(name);
+        if (value == null || value.isBlank()) {
+            throw new IllegalArgumentException(
+                    "Required environment variable is missing or blank: " + name);
+        }
+        return value;
+    }
+}`;
+
 const imports = `
 import com.azure.core.exception.HttpResponseException;
 import com.azure.core.management.AzureEnvironment;
@@ -19,6 +149,7 @@ import com.azure.core.management.profile.AzureProfile;
 import com.azure.core.util.polling.SyncPoller;
 import com.azure.identity.DefaultAzureCredentialBuilder;
 import com.azure.resourcemanager.AzureResourceManager;
+import com.azure.resourcemanager.resources.fluentcore.model.Accepted;
 import com.azure.resourcemanager.resources.models.ResourceGroup;
 `;
 
@@ -88,6 +219,16 @@ test("the Java 17 golden application passes exactly nine graders", () => {
   }
 });
 
+test("Vally run 33358499457 final workspace passes every grader", () => {
+  const run33358499457 = workspace(
+    run33358499457Source,
+    run33358499457Build,
+  );
+  for (const rule of ruleNames()) {
+    assert.equal(evaluateRule(rule, run33358499457), true, rule);
+  }
+});
+
 test("all graders require generated Java source", () => {
   for (const rule of ruleNames()) {
     assert.equal(
@@ -96,6 +237,31 @@ test("all graders require generated Java source", () => {
       rule,
     );
   }
+});
+
+test("listing accepts direct output of only the SDK loop resource group", () => {
+  const direct = application({
+    list: `
+      for (ResourceGroup group : azure.resourceGroups().list()) {
+        System.out.println(group);
+      }`,
+  });
+  assert.equal(
+    evaluateRule("prompt/list-resource-groups", workspace(direct)),
+    true,
+  );
+
+  const arbitrary = application({
+    list: `
+      Object unrelated = new Object();
+      for (ResourceGroup group : azure.resourceGroups().list()) {
+        System.out.println(unrelated);
+      }`,
+  });
+  assert.equal(
+    evaluateRule("prompt/list-resource-groups", workspace(arbitrary)),
+    false,
+  );
 });
 
 test("source manifest accepts active Java 17 Maven and Gradle runtime pins", () => {
@@ -190,10 +356,31 @@ test("source manifest rejects inactive, nonruntime, split, wrong, and decoy pins
   }
 });
 
+test("delete rejects completion through a poller from another manager", () => {
+  const unrelated = application({
+    remove: `
+      Accepted<Void> deletion =
+          azure.resourceGroups().beginDeleteByName(name);
+      AzureResourceManager otherAzure = AzureResourceManager
+          .authenticate(credential, profile)
+          .withSubscription(subscription);
+      Accepted<Void> unrelatedDeletion =
+          otherAzure.resourceGroups().beginDeleteByName(name);
+      SyncPoller<Void, Void> poller =
+          unrelatedDeletion.getSyncPoller();
+      poller.waitForCompletion();`,
+  });
+  assert.equal(
+    evaluateRule("prompt/delete-resource-group", workspace(unrelated)),
+    false,
+  );
+});
+
 test("qualified SDK types, aliases, fields, and reachable helpers pass", () => {
   const source = `
 import com.azure.core.exception.HttpResponseException;
 import com.azure.core.management.exception.ManagementException;
+import com.azure.resourcemanager.resources.fluentcore.model.Accepted;
 import com.azure.resourcemanager.resources.models.ResourceGroup;
 class AlternateApplication {
   private static final String SUB =
@@ -234,7 +421,8 @@ class AlternateApplication {
       update.withTag("environment", "development");
       var result = update.apply();
       System.out.println(result.tags());
-      var poller = groups.beginDeleteByName(NAME);
+      Accepted<Void> deletion = groups.beginDeleteByName(NAME);
+      var poller = deletion.getSyncPoller();
       poller.waitForCompletion();
       System.out.println("Deletion completed for " + NAME);
     } catch (ManagementException | IllegalStateException exception) {
@@ -412,11 +600,12 @@ test("update requires retrieved receiver, exact tag, apply, and result output", 
   }
 });
 
-test("delete accepts blocking delete or completion of the exact returned poller", () => {
+test("delete accepts blocking delete or completion of the exact accepted operation poller", () => {
   const poller = application({
     remove: `
-      SyncPoller<?, ?> poller =
+      Accepted<Void> deletion =
           azure.resourceGroups().beginDeleteByName(name);
+      SyncPoller<Void, Void> poller = deletion.getSyncPoller();
       poller.waitForCompletion();`,
   });
   assert.equal(
@@ -424,9 +613,22 @@ test("delete accepts blocking delete or completion of the exact returned poller"
     true,
   );
 
+  const chained = application({
+    remove: `
+      azure.resourceGroups().beginDeleteByName(name)
+          .getSyncPoller().waitForCompletion();`,
+  });
+  assert.equal(
+    evaluateRule("prompt/delete-resource-group", workspace(chained)),
+    true,
+  );
+
   for (const remove of [
     "azure.resourceGroups().beginDeleteByName(name);",
-    "var poller = azure.resourceGroups().beginDeleteByName(name); other.waitForCompletion();",
+    "Accepted<Void> deletion = azure.resourceGroups().beginDeleteByName(name); deletion.getSyncPoller();",
+    "var deletion = azure.resourceGroups().beginDeleteByName(name); deletion.waitForCompletion();",
+    "Object deletion = azure.resourceGroups().beginDeleteByName(name); var poller = deletion.getSyncPoller(); poller.waitForCompletion();",
+    "Accepted<Void> deletion = azure.resourceGroups().beginDeleteByName(name); Object poller = deletion.getSyncPoller(); poller.waitForCompletion();",
     'azure.resourceGroups().deleteByName("other");',
     "fake.resourceGroups().deleteByName(name);",
   ]) {

@@ -27,6 +27,10 @@ const SDK_TYPES = {
     name: "ResourceGroup",
     packageName: "com.azure.resourcemanager.resources.models",
   },
+  accepted: {
+    name: "Accepted",
+    packageName: "com.azure.resourcemanager.resources.fluentcore.model",
+  },
   syncPoller: {
     name: "SyncPoller",
     packageName: "com.azure.core.util.polling",
@@ -1836,6 +1840,7 @@ function executeMethod(
             origin: "list",
             clientId: iterable.clientId,
             listSequence: iterable.sequence,
+            operationSequence: iterable.sequence,
             path: iterable.path,
           });
         }
@@ -2007,6 +2012,15 @@ function executeMethod(
         !declarationTypeMatches(
           assignment.declaredType,
           runtime.types.resourceGroup,
+        )
+      ) {
+        value = null;
+      }
+      if (
+        value?.kind === "accepted" &&
+        !declarationTypeMatches(
+          assignment.declaredType,
+          runtime.types.accepted,
         )
       ) {
         value = null;
@@ -2931,6 +2945,7 @@ function evaluateExpression(expression, scope, runtime, context) {
     "apply",
     "deleteByName",
     "beginDeleteByName",
+    "getSyncPoller",
     "waitForCompletion",
     "name",
     "id",
@@ -3144,14 +3159,25 @@ function evaluateExpression(expression, scope, runtime, context) {
         result = operation === "deleteByName"
           ? { kind: "delete-completed", ...event }
           : {
-              kind: "poller",
-              typed: true,
+              kind: "accepted",
               clientId: event.clientId,
               name,
               deleteSequence: event.sequence,
               path: event.path,
             };
       }
+    } else if (
+      operation === "getSyncPoller" &&
+      receiver?.kind === "accepted"
+    ) {
+      result = {
+        kind: "poller",
+        typed: true,
+        clientId: receiver.clientId,
+        name: receiver.name,
+        deleteSequence: receiver.deleteSequence,
+        path: mergePaths(receiver.path, context.path),
+      };
     } else if (
       operation === "waitForCompletion" &&
       receiver?.kind === "poller" &&
