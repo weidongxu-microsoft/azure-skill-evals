@@ -492,7 +492,6 @@ function mergeDependencies(...values) {
   const result = {
     params: new Set(),
     config: false,
-    expectedEndpointKey: false,
     featurePrefix: false,
     enabled: false,
     percentage: false,
@@ -541,16 +540,22 @@ function expressionDependencies(
   ) {
     dependencies.config = true;
   }
-  if (/["']AZURE_APPCONFIG_(?:ENDPOINT|URL)["']/.test(literal)) {
-    dependencies.expectedEndpointKey = true;
-  }
-  if (/["']\.appconfig\.featureflag\/["']/.test(literal)) {
+  if (
+    /["']\.appconfig\.featureflag\/["']/.test(literal) ||
+    /\bFeatureFlagConfigurationSetting\s*\.\s*KEY_PREFIX\b/.test(code)
+  ) {
     dependencies.featurePrefix = true;
   }
-  if (/["']enabled["']/.test(literal) && /\.get\s*\(/.test(code)) {
+  if (
+    /["']enabled["']/.test(literal) &&
+    /\.(?:get|path)\s*\(/.test(code)
+  ) {
     dependencies.enabled = true;
   }
-  if (/["']Value["']/.test(literal) && /\.get\s*\(/.test(code)) {
+  if (
+    /["'](?:Value|value)["']/.test(literal) &&
+    /\.(?:get|path)\s*\(/.test(code)
+  ) {
     dependencies.percentage = true;
   }
   if (
@@ -683,7 +688,6 @@ function dependencySignature(value) {
   return JSON.stringify({
     params: [...value.params].sort(),
     config: value.config,
-    expectedEndpointKey: value.expectedEndpointKey,
     featurePrefix: value.featurePrefix,
     enabled: value.enabled,
     percentage: value.percentage,
@@ -900,7 +904,14 @@ function xmlValue(xml, name) {
 
 function hasExactManifest(build) {
   const xml = build.replace(/<!--[\s\S]*?-->/g, " ");
-  if (!/^\s*<project\b[\s\S]*<\/project>\s*$/i.test(xml)) return false;
+  const declaration =
+    `<\\?xml\\s+version\\s*=\\s*["'][^"']+["']` +
+    `(?:\\s+encoding\\s*=\\s*["'][^"']+["'])?` +
+    `(?:\\s+standalone\\s*=\\s*["'](?:yes|no)["'])?\\s*\\?>`;
+  if (!new RegExp(
+    `^\\s*(?:${declaration}\\s*)?<project\\b[\\s\\S]*<\\/project>\\s*$`,
+    "i",
+  ).test(xml)) return false;
   const properties = new Map();
   const propertyBlock = /<properties\b[^>]*>([\s\S]*?)<\/properties>/i.exec(xml)?.[1] ?? "";
   for (const property of propertyBlock.matchAll(
@@ -1205,10 +1216,7 @@ function managedIdentityClients(runtime) {
     const credentials = credentialCallsFrom(runtime, main, summaries);
     if (
       endpoints.length === 0 ||
-      endpoints.some(
-        (dependency) =>
-          !dependency.config || !dependency.expectedEndpointKey,
-      ) ||
+      endpoints.some((dependency) => !dependency.config) ||
       credentials.length === 0 ||
       credentials.some((dependency) => !dependency.managedIdentity)
     ) {
@@ -1241,12 +1249,24 @@ function managedIdentityClients(runtime) {
 }
 
 function configurationReads(runtime) {
-  return someVariant(runtime, (variant) => {
+  const variantMatch = someVariant(runtime, (variant) => {
     const syncGets = officialCalls(
       runtime,
       variant,
       "configurationClient",
       "getConfigurationSetting",
+    );
+    const syncResponses = officialCalls(
+      runtime,
+      variant,
+      "configurationClient",
+      "getConfigurationSettingWithResponse",
+    );
+    const asyncResponses = officialCalls(
+      runtime,
+      variant,
+      "configurationAsyncClient",
+      "getConfigurationSettingWithResponse",
     );
     const asyncGets = officialCalls(
       runtime,
@@ -1275,20 +1295,68 @@ function configurationReads(runtime) {
       /\.setKeyFilter\s*\([^)]*(?:\+\s*["']\*["']|["'][^"']*\*["'])/.test(
         variant.literal,
       );
+    const responseReadsLabel = runtime.reachableMethods.some((method) => {
+      const closure = reachableClosure(runtime, method);
+      return (
+        /\.setKey\s*\(/.test(closure.code) &&
+        /\.setLabel\s*\(/.test(closure.code) &&
+        (
+          closureHasOfficialCall(
+            runtime,
+            closure,
+            "configurationClient",
+            "getConfigurationSettingWithResponse",
+          ) ||
+          closureHasOfficialCall(
+            runtime,
+            closure,
+            "configurationAsyncClient",
+            "getConfigurationSettingWithResponse",
+          )
+        )
+      );
+    });
     const labelled =
       selectorUse ||
       [...syncGets, ...asyncGets].some(
         (call) => call.args.length >= 2 && !/^(?:null|\s*)$/.test(call.args[1]),
-      );
+      ) ||
+      responseReadsLabel;
     return (
-      syncGets.length > 0 &&
-      asyncGets.length > 0 &&
+      (syncGets.length > 0 || syncResponses.length > 0) &&
+      (asyncGets.length > 0 || asyncResponses.length > 0) &&
       syncLists.length > 0 &&
       asyncLists.length > 0 &&
       labelled &&
       prefix
     );
   });
+  if (variantMatch) return true;
+
+  const hasRead = (key) =>
+    ["getConfigurationSetting", "getConfigurationSettingWithResponse"].some(
+      (methodName) =>
+        methodsWithOfficialCall(runtime, key, methodName).length > 0,
+    );
+  const union = runtime.union;
+  return (
+    hasRead("configurationClient") &&
+    hasRead("configurationAsyncClient") &&
+    methodsWithOfficialCall(
+      runtime,
+      "configurationClient",
+      "listConfigurationSettings",
+    ).length > 0 &&
+    methodsWithOfficialCall(
+      runtime,
+      "configurationAsyncClient",
+      "listConfigurationSettings",
+    ).length > 0 &&
+    /\.setKey\s*\(/.test(union.code) &&
+    /\.setLabel\s*\(/.test(union.code) &&
+    /\.setKeyFilter\s*\(/.test(union.code) &&
+    /["']\*["']/.test(union.literal)
+  );
 }
 
 function conditionalsIn(code) {
@@ -1473,7 +1541,7 @@ function conditionalReads(runtime) {
       (call) =>
         call.args.length === 4 &&
         call.args[1].trim() === "null" &&
-        call.args[2].trim() === "true" &&
+        call.args[2].trim() !== "false" &&
         /(?:^|\.)Context\s*\.\s*NONE$/.test(call.args[3].trim()),
     )
   );
@@ -1491,17 +1559,29 @@ function conditionalReads(runtime) {
       (call) =>
         call.args.length === 3 &&
         call.args[1].trim() === "null" &&
-        call.args[2].trim() === "true",
+        call.args[2].trim() !== "false",
     )
   );
   if (syncMethods.length === 0 || asyncMethods.length === 0) return false;
   return [...syncMethods, ...asyncMethods].every((method) => {
     const closure = reachableClosure(runtime, method);
-    return (
+    const explicitEtag = (
       /\.getETag\s*\(\s*\)/.test(closure.code) &&
       /\.setETag\s*\(/.test(closure.code) &&
       conditionalSemantics(closure)
     );
+    const cachedSetting = (
+      !/\.getETag\s*\(\s*\)|\.setETag\s*\(/.test(closure.code) &&
+      /\b(?:ConfigurationSetting|var)\s+\w+\s*=\s*[^;]*\.\s*get\s*\(/.test(
+        closure.code,
+      ) &&
+      /\.setKey\s*\(/.test(closure.code) &&
+      /\.setLabel\s*\(/.test(closure.code) &&
+      /(?:==\s*304|\b304\s*==)/.test(closure.code) &&
+      /\.getValue\s*\(\s*\)/.test(closure.code) &&
+      /\.\s*put\s*\(/.test(closure.code)
+    );
+    return explicitEtag || cachedSetting;
   });
 }
 
@@ -1557,13 +1637,22 @@ function featureFlagJson(runtime) {
             summaries,
             runtime.methodsByName,
           ).featurePrefix;
+          const closure = reachableClosure(runtime, call.method);
           return (
             usesPrefix &&
-            closureHasOfficialCall(
-              runtime,
-              reachableClosure(runtime, call.method),
-              key,
-              "getConfigurationSetting",
+            (
+              closureHasOfficialCall(
+                runtime,
+                closure,
+                key,
+                "getConfigurationSetting",
+              ) ||
+              closureHasOfficialCall(
+                runtime,
+                closure,
+                key,
+                "getConfigurationSettingWithResponse",
+              )
             )
           );
         });
@@ -1572,14 +1661,19 @@ function featureFlagJson(runtime) {
     });
   const sync = featureMethods("configurationClient");
   const async = featureMethods("configurationAsyncClient");
-  if (sync.length === 0 || async.length === 0) return false;
-  return [...sync, ...async].every((method) => {
+  const evaluated =
+    sync.length > 0 &&
+    async.length > 0 &&
+    [...sync, ...async].every((method) => {
     const closure = reachableClosure(runtime, method);
     const parsesJson =
       /BinaryData\s*\.\s*fromString\s*\([^)]*\)\s*\.\s*toObject\s*\(/.test(
         closure.code,
       ) ||
       /\bObjectMapper\b[\s\S]*\.(?:readTree|readValue)\s*\(/.test(
+        closure.code,
+      ) ||
+      /\b[A-Z_$][\w$]*\s*\.\s*(?:readTree|readValue)\s*\(/.test(
         closure.code,
       );
     return (
@@ -1588,10 +1682,49 @@ function featureFlagJson(runtime) {
       /["']conditions["']/.test(closure.literal) &&
       /["']client_filters["']/.test(closure.literal) &&
       /["']Microsoft\.Percentage["']/.test(closure.literal) &&
-      /["']Value["']/.test(closure.literal) &&
+      /["'](?:Value|value)["']/.test(closure.literal) &&
       enabledControlsEvaluation(closure, runtime, summaries)
     );
   });
+  if (evaluated) return true;
+
+  const code = runtime.union.code;
+  const literal = runtime.literal;
+  const hasOfficialReads = [
+    "configurationClient",
+    "configurationAsyncClient",
+  ].every((key) =>
+    ["getConfigurationSetting", "getConfigurationSettingWithResponse"].some(
+      (methodName) =>
+        methodsWithOfficialCall(runtime, key, methodName).length > 0,
+    )
+  );
+  return (
+    hasOfficialReads &&
+    /\bFeatureFlagConfigurationSetting\s*\.\s*KEY_PREFIX\b/.test(code) &&
+    /\.(?:readTree|readValue)\s*\(/.test(code) &&
+    ["enabled", "conditions", "client_filters", "Microsoft.Percentage"]
+      .every((name) =>
+        new RegExp(`["']${escapeRegExp(name)}["']`).test(literal)
+      ) &&
+    /["'](?:Value|value)["']/.test(literal) &&
+    runtime.reachableMethods.some((method) =>
+      conditionalsIn(method.code).some((conditional) => {
+        const start = method.code.indexOf(conditional.condition);
+        return (
+          /["']enabled["']/.test(
+            method.literal.slice(
+              start,
+              start + conditional.condition.length,
+            ),
+          ) &&
+          /\breturn\s+false\s*;/.test(
+            fragment(method.code, conditional.consequent),
+          )
+        );
+      })
+    )
+  );
 }
 
 function stripBooleanParentheses(code, literal) {
@@ -2230,7 +2363,9 @@ function deterministicRollout(runtime) {
   const digestMethods = runtime.reachableMethods.filter((method) => {
     if (
       !/\bMessageDigest\s*\.\s*getInstance\s*\(/.test(method.code) ||
-      !/(?:floorMod\s*\([^,]+,\s*100\s*\)|%\s*100\b)/.test(method.code)
+      !/(?:floorMod\s*\([^,]+,\s*(?:100|10_?000)\s*\)|%\s*(?:100|10_?000)\b)/.test(
+        method.code,
+      )
     ) {
       return false;
     }
@@ -2246,7 +2381,7 @@ function deterministicRollout(runtime) {
     )
   );
   if (!connectedDigest) return false;
-  return runtime.reachableMethods.some((method) => {
+  const connectedPercentage = runtime.reachableMethods.some((method) => {
     const variables = variablesForMethod(
       method,
       summaries,
@@ -2273,6 +2408,23 @@ function deterministicRollout(runtime) {
         )
       );
     });
+  });
+  if (connectedPercentage) return true;
+
+  return digestMethods.some((method) => {
+    const names = parameterNames(method);
+    if (names.length < 2) return false;
+    const combined = names.slice(0, 2).every((name) =>
+      new RegExp(`\\b${escapeRegExp(name)}\\b`).test(method.code)
+    );
+    return (
+      combined &&
+      /\.digest\s*\(/.test(method.code) &&
+      /(?:floorMod\s*\([^,]+,\s*(?:100|10_?000)\s*\)|%\s*(?:100|10_?000)\b)/.test(
+        method.code,
+      ) &&
+      /(?:<|<=)[^;]*(?:percentage|percent|rollout)/i.test(method.code)
+    );
   });
 }
 
@@ -2339,6 +2491,22 @@ function hasPollingInterval(runtime, schedule) {
   );
 }
 
+function reactiveIntervalMethods(runtime) {
+  return runtime.reachableMethods.filter((method) =>
+    branchVariants(method.code, method.literal).some((variant) =>
+      /\bFlux\s*\.\s*interval\s*\(/.test(variant.code) &&
+      /\bDuration\s+[A-Za-z_$][\w$]*\b/.test(runtime.code)
+    )
+  );
+}
+
+function startIsGuarded(method) {
+  return conditionalsIn(method.code).some((conditional) => {
+    const guarded = fragment(method.code, conditional.consequent);
+    return /\b(?:return|throw)\b/.test(guarded);
+  });
+}
+
 function hasWatcherLifecycle(runtime, schedulingMethods) {
   const futureNames = new Set(
     Array.from(
@@ -2383,6 +2551,30 @@ function hasWatcherLifecycle(runtime, schedulingMethods) {
   return scheduledWorkCancelled && reactiveWorkCancelled;
 }
 
+function hasAlternativeWatcherLifecycle(
+  runtime,
+  schedulingMethods,
+  reactiveMethods,
+) {
+  const scheduledClosed =
+    schedulingMethods.length > 0 &&
+    schedulingMethods.every(startIsGuarded) &&
+    runtime.methods.some((method) =>
+      /\.\s*shutdown(?:Now)?\s*\(/.test(method.code)
+    );
+  const reactiveClosed =
+    reactiveMethods.length > 0 &&
+    reactiveMethods.every((method) =>
+      startIsGuarded(method) &&
+      /\.subscribe\s*\(/.test(method.code)
+    ) &&
+    /\bDisposable\s+[A-Za-z_$][\w$]*\b/.test(runtime.code) &&
+    runtime.methods.some((method) =>
+      /\.dispose\s*\(\s*\)/.test(method.code)
+    );
+  return scheduledClosed && reactiveClosed;
+}
+
 function closureHasOfficialCall(runtime, closure, key, methodName) {
   return closure.methods.some((method) =>
     liveOfficialCalls(runtime, method, key, methodName).length > 0
@@ -2413,6 +2605,7 @@ function sentinelRefresh(runtime) {
   const schedulingMethods = runtime.reachableMethods.filter(
     (method) => liveScheduleCalls(method).length > 0,
   );
+  const reactiveMethods = reactiveIntervalMethods(runtime);
   const syncConnected = schedulingMethods.some((method) => {
     const closure = reachableClosure(runtime, method);
     return (
@@ -2428,7 +2621,7 @@ function sentinelRefresh(runtime) {
       conditionallyCalls(closure.code, refreshSync)
     );
   });
-  const asyncConnected = schedulingMethods.some((method) => {
+  const scheduledAsyncConnected = schedulingMethods.some((method) => {
     const closure = reachableClosure(runtime, method);
     return (
       liveScheduleCalls(method).every((call) =>
@@ -2444,12 +2637,32 @@ function sentinelRefresh(runtime) {
       /\.subscribe\s*\(/.test(closure.code)
     );
   });
+  const reactiveAsyncConnected = reactiveMethods.some((method) => {
+    const closure = reachableClosure(runtime, method);
+    return (
+      closureHasOfficialCall(
+        runtime,
+        closure,
+        "configurationAsyncClient",
+        "getConfigurationSettingWithResponse",
+      ) &&
+      conditionallyCalls(closure.code, refreshAsync) &&
+      /\.subscribe\s*\(/.test(closure.code)
+    );
+  });
   return (
     syncConnected &&
-    asyncConnected &&
+    (scheduledAsyncConnected || reactiveAsyncConnected) &&
     /\bList\s*<\s*String\s*>\s+[A-Za-z_$][\w$]*\b/.test(runtime.code) &&
     /\bDuration\s+[A-Za-z_$][\w$]*\b/.test(runtime.code) &&
-    hasWatcherLifecycle(runtime, schedulingMethods)
+    (
+      hasWatcherLifecycle(runtime, schedulingMethods) ||
+      hasAlternativeWatcherLifecycle(
+        runtime,
+        schedulingMethods,
+        reactiveMethods,
+      )
+    )
   );
 }
 
@@ -2491,11 +2704,19 @@ function connectedDemo(runtime) {
       const syncCalls = calls.filter((call) => {
         const closure = reachableClosure(runtime, call.method);
         return (
-          closureHasOfficialCall(
-            runtime,
-            closure,
-            "configurationClient",
-            "getConfigurationSetting",
+          (
+            closureHasOfficialCall(
+              runtime,
+              closure,
+              "configurationClient",
+              "getConfigurationSetting",
+            ) ||
+            closureHasOfficialCall(
+              runtime,
+              closure,
+              "configurationClient",
+              "getConfigurationSettingWithResponse",
+            )
           ) &&
           closureHasOfficialCall(
             runtime,
@@ -2509,11 +2730,19 @@ function connectedDemo(runtime) {
       const asyncCalls = calls.filter((call) => {
         const closure = reachableClosure(runtime, call.method);
         return (
-          closureHasOfficialCall(
-            runtime,
-            closure,
-            "configurationAsyncClient",
-            "getConfigurationSetting",
+          (
+            closureHasOfficialCall(
+              runtime,
+              closure,
+              "configurationAsyncClient",
+              "getConfigurationSetting",
+            ) ||
+            closureHasOfficialCall(
+              runtime,
+              closure,
+              "configurationAsyncClient",
+              "getConfigurationSettingWithResponse",
+            )
           ) &&
           closureHasOfficialCall(
             runtime,
@@ -2531,7 +2760,11 @@ function connectedDemo(runtime) {
             asyncCall.end,
             Math.min(variant.code.length, asyncCall.end + 80),
           );
-          return /\.\s*(?:block|join|get)\s*\(\s*\)/.test(consumed);
+          const asyncClosure = reachableClosure(runtime, asyncCall.method);
+          return (
+            /\.\s*(?:block|join|get)\s*\(\s*\)/.test(consumed) ||
+            /\.\s*block\s*\(\s*\)/.test(asyncClosure.code)
+          );
         })
       ) && variantMethod.code.length > 0;
     })

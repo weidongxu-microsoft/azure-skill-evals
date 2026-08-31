@@ -124,8 +124,15 @@ function java17ProfileIsActive(profile) {
 
 function mavenDependencies(content) {
   const xml = content.replace(/<!--[\s\S]*?-->/g, " ");
+  const xmlDeclaration =
+    `<\\?xml\\s+version\\s*=\\s*["'][^"']+["']` +
+    `(?:\\s+encoding\\s*=\\s*["'][^"']+["'])?` +
+    `(?:\\s+standalone\\s*=\\s*["'](?:yes|no)["'])?\\s*\\?>`;
   if (
-    !/^\s*<project\b[\s\S]*<\/project>\s*$/i.test(xml) ||
+    !new RegExp(
+      `^\\s*(?:${xmlDeclaration}\\s*)?<project\\b[\\s\\S]*<\\/project>\\s*$`,
+      "i",
+    ).test(xml) ||
     (xml.match(/<project(?:\s|>)/gi) ?? []).length !== 1
   ) {
     return null;

@@ -147,12 +147,14 @@ function callArguments(text, method) {
 
 function assignmentExpressions(source, typePattern) {
   const assignments = [];
+  const declaredNames = new Set();
   const pattern = new RegExp(
     `\\b(?:${typePattern}|var)\\s+(\\w+)\\s*=\\s*`,
     "g",
   );
   let match;
   while ((match = pattern.exec(source)) !== null) {
+    declaredNames.add(match[1]);
     const end = statementEnd(source, pattern.lastIndex);
     assignments.push({
       name: match[1],
@@ -162,7 +164,28 @@ function assignmentExpressions(source, typePattern) {
     });
     pattern.lastIndex = end + 1;
   }
-  return assignments;
+  for (const name of declaredNames) {
+    const reassignment = new RegExp(
+      `(?:^|[;{}])\\s*(?:this\\s*\\.\\s*)?${name}\\s*=\\s*(?!=)`,
+      "g",
+    );
+    while ((match = reassignment.exec(source)) !== null) {
+      const expressionStart = reassignment.lastIndex;
+      const end = statementEnd(source, expressionStart);
+      if (!assignments.some((assignment) =>
+        assignment.name === name && assignment.end === end
+      )) {
+        assignments.push({
+          name,
+          expression: source.slice(expressionStart, end),
+          start: match.index,
+          end,
+        });
+      }
+      reassignment.lastIndex = end + 1;
+    }
+  }
+  return assignments.sort((left, right) => left.start - right.start);
 }
 
 function resolveAssignment(source, name, typePattern) {

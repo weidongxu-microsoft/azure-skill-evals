@@ -1,5 +1,3 @@
-const STORAGE_ENDPOINT_ENVIRONMENT = "AZURE_STORAGE_ACCOUNT_URL";
-
 const SDK_TYPES = {
   credentialBuilder: {
     name: "DefaultAzureCredentialBuilder",
@@ -55,6 +53,10 @@ const SDK_TYPES = {
   },
   httpLogDetailLevel: {
     name: "HttpLogDetailLevel",
+    packageName: "com.azure.core.http.policy",
+  },
+  timeoutPolicy: {
+    name: "TimeoutPolicy",
     packageName: "com.azure.core.http.policy",
   },
   parallelTransferOptions: {
@@ -383,7 +385,9 @@ function activeMavenDependencies(project) {
       version: resolve(childText(dependency, "version")),
       scope: childText(dependency, "scope") || "compile",
     }))
-    .filter((dependency) => dependency.scope === "compile");
+    .filter((dependency) =>
+      ["compile", "runtime"].includes(dependency.scope)
+    );
 }
 
 function tokenizeGradle(build) {
@@ -627,10 +631,21 @@ function activeGradleDependencies(build) {
   return dependencies;
 }
 
-function hasPinnedDependencies(build) {
+function compatibleAzureVersion(artifact, version) {
+  if (
+    !/^\d+\.\d+(?:\.\d+)?(?:[-.][0-9A-Za-z]+)*$/.test(version) ||
+    /(?:snapshot|latest|dev|\+)$/i.test(version)
+  ) {
+    return false;
+  }
+  const major = Number(version.split(".")[0]);
+  return artifact === "azure-storage-blob" ? major >= 12 : major >= 1;
+}
+
+function hasCompatibleDependencies(build) {
   const expected = [
-    "com.azure:azure-identity:1.18.5",
-    "com.azure:azure-storage-blob:12.35.1",
+    "azure-identity",
+    "azure-storage-blob",
   ];
   const document = xmlTree(build.replace(/<!--[\s\S]*?-->/g, " "));
   const mavenProjects = document.children.filter(
@@ -638,18 +653,26 @@ function hasPinnedDependencies(build) {
   );
   const maven = mavenProjects.some((project) => {
     const dependencies = activeMavenDependencies(project);
-    return expected.every((coordinate) => {
-      const [group, artifact, version] = coordinate.split(":");
+    return expected.every((artifact) => {
       return dependencies.some(
         (dependency) =>
-          dependency.group === group &&
+          dependency.group === "com.azure" &&
           dependency.artifact === artifact &&
-          dependency.version === version,
+          compatibleAzureVersion(artifact, dependency.version),
       );
     });
   });
   const gradle = activeGradleDependencies(build);
-  return maven || expected.every((coordinate) => gradle.includes(coordinate));
+  return maven || expected.every((artifact) =>
+    gradle.some((coordinate) => {
+      const [group, candidate, version] = coordinate.split(":");
+      return (
+        group === "com.azure" &&
+        candidate === artifact &&
+        compatibleAzureVersion(artifact, version ?? "")
+      );
+    })
+  );
 }
 
 function sdkContext(code) {
@@ -1725,6 +1748,9 @@ function createRuntime(source, code, sourceWithStrings) {
     /\b(?:(?:public|protected|private|static|final|volatile|transient)\s+)*(?:[A-Za-z_$][\w$]*\s*\.\s*)*[A-Za-z_$][\w$]*(?:\s*<[^;={}()]+>)?(?:\s*\[\s*\])?\s+([A-Za-z_$][\w$]*)\s*=\s*([^;]+);/g;
 
   const runtime = {
+    source,
+    code,
+    sourceWithStrings,
     types,
     methodsByName,
     facts,
@@ -2017,6 +2043,7 @@ function executeMethod(
       }[value?.kind];
       if (
         expectedType &&
+        assignment.declaration &&
         !declarationTypeMatches(assignment.declaredType, expectedType)
       ) {
         value = null;
@@ -2298,6 +2325,61 @@ function evaluateExpression(expression, scope, runtime, context) {
     if (name?.kind === "string") {
       return { kind: "env", name: name.value };
     }
+    if (close === open + 1) {
+      const result = { kind: "environment" };
+      const suffix = value.slice(close + 1).trim();
+      return suffix
+        ? evaluateExpression(
+            `environment${suffix}`,
+            {
+              ...scope,
+              resolve: (identifier) =>
+                identifier === "environment"
+                  ? result
+                  : scope.resolve(identifier),
+            },
+            runtime,
+            context,
+          )
+        : result;
+    }
+  }
+
+  const environmentGet = callAt(value, "get");
+  if (environmentGet) {
+    const receiver = evaluateExpression(
+      environmentGet.receiver,
+      scope,
+      runtime,
+      context,
+    );
+    const name = evaluateExpression(
+      environmentGet.arguments[0] ?? "",
+      scope,
+      runtime,
+      context,
+    );
+    if (receiver?.kind === "environment" && name?.kind === "string") {
+      return { kind: "env", name: name.value };
+    }
+  }
+  const environmentDefault = callAt(value, "getOrDefault");
+  if (environmentDefault) {
+    const receiver = evaluateExpression(
+      environmentDefault.receiver,
+      scope,
+      runtime,
+      context,
+    );
+    const fallback = evaluateExpression(
+      environmentDefault.arguments[1] ?? "",
+      scope,
+      runtime,
+      context,
+    );
+    if (receiver?.kind === "environment" && fallback?.kind === "string") {
+      return fallback;
+    }
   }
 
   const reference = /^(?:this\s*\.\s*)?([A-Za-z_$][\w$]*)$/.exec(value);
@@ -2310,6 +2392,20 @@ function evaluateExpression(expression, scope, runtime, context) {
         ? null : runtimeValue;
     }
     return scope.resolve(reference[1]);
+  }
+
+  for (const method of ["strip", "trim"]) {
+    const call = callAt(value, method);
+    if (!call) continue;
+    const receiver = evaluateExpression(
+      call.receiver,
+      scope,
+      runtime,
+      context,
+    );
+    if (["string", "env"].includes(receiver?.kind)) {
+      return receiver;
+    }
   }
 
   const iterable = javaIterableValue(value, context.abstracts ?? new Map());
@@ -2329,6 +2425,11 @@ function evaluateExpression(expression, scope, runtime, context) {
 
   if (new RegExp(
     `^(?:${runtime.types.httpLogDetailLevel.pattern})\\s*\\.\\s*[A-Z_]+$`,
+  ).test(value)) {
+    return { kind: "http-log-level" };
+  }
+  if (new RegExp(
+    `^(?:${runtime.types.httpLogDetailLevel.pattern})\\s*\\.\\s*valueOf\\s*\\(`,
   ).test(value)) {
     return { kind: "http-log-level" };
   }
@@ -2385,7 +2486,9 @@ function evaluateExpression(expression, scope, runtime, context) {
     return {
       kind: "retry-options",
       exponential: policy?.kind === "retry-policy-type" && policy.value === "EXPONENTIAL",
-      hasMaxTries: maxTries?.kind === "number",
+      hasMaxTries:
+        maxTries?.kind === "number" ||
+        !/^(?:null|\s*)$/.test(args[1] ?? ""),
       hasTryTimeout: ["duration", "number"].includes(tryTimeout?.kind),
       hasRetryDelay: ["duration", "number"].includes(retryDelay?.kind),
       hasMaxRetryDelay: ["duration", "number"].includes(maxRetryDelay?.kind),
@@ -2399,7 +2502,24 @@ function evaluateExpression(expression, scope, runtime, context) {
       : null;
     return {
       kind: "http-log-options",
-      enabled: logLevel?.kind === "http-log-level",
+      enabled:
+        logLevel?.kind === "http-log-level" ||
+        Boolean(level && !/^(?:null|\s*)$/.test(level.arguments[0] ?? "")),
+    };
+  }
+
+  if (new RegExp(`^new\\s+${runtime.types.timeoutPolicy.pattern}\\s*\\(`).test(value)) {
+    const open = value.indexOf("(");
+    const close = matchingIndex(value, open);
+    const timeout = evaluateExpression(
+      value.slice(open + 1, close),
+      scope,
+      runtime,
+      context,
+    );
+    return {
+      kind: "timeout-policy",
+      configured: timeout?.kind === "duration",
     };
   }
 
@@ -2422,10 +2542,15 @@ function evaluateExpression(expression, scope, runtime, context) {
     const ifNoneMatch = ifNoneMatchCall
       ? evaluateExpression(ifNoneMatchCall.arguments[0] ?? "", scope, runtime, context)
       : null;
+    const ifMatchCall = callAt(value, "setIfMatch");
+    const ifMatch = ifMatchCall
+      ? evaluateExpression(ifMatchCall.arguments[0] ?? "", scope, runtime, context)
+      : null;
     return {
       kind: "request-conditions",
       leaseId,
       ifNoneMatch: ifNoneMatch?.kind === "string" && ifNoneMatch.value === "*",
+      ifMatch,
     };
   }
 
@@ -2504,6 +2629,7 @@ function evaluateExpression(expression, scope, runtime, context) {
     const endpointCall = callAt(value, "endpoint");
     const retryOptionsCall = callAt(value, "retryOptions");
     const httpLogOptionsCall = callAt(value, "httpLogOptions");
+    const timeoutPolicyCall = callAt(value, "addPolicy");
     const credential = credentialCall
       ? evaluateExpression(credentialCall.arguments[0] ?? "", scope, runtime, context) : null;
     const endpoint = endpointCall
@@ -2513,6 +2639,14 @@ function evaluateExpression(expression, scope, runtime, context) {
       : null;
     const httpLogOptions = httpLogOptionsCall
       ? evaluateExpression(httpLogOptionsCall.arguments[0] ?? "", scope, runtime, context)
+      : null;
+    const timeoutPolicy = timeoutPolicyCall
+      ? evaluateExpression(
+          timeoutPolicyCall.arguments[0] ?? "",
+          scope,
+          runtime,
+          context,
+        )
       : null;
     const asyncClient = /\.buildAsyncClient\s*\(\s*\)\s*$/.test(value);
     const syncClient = /\.buildClient\s*\(\s*\)\s*$/.test(value);
@@ -2526,6 +2660,7 @@ function evaluateExpression(expression, scope, runtime, context) {
           endpoint,
           retryOptions,
           httpLogOptions,
+          timeoutPolicy,
         };
         serviceClientEvent(runtime, context, {
           clientId: client.id,
@@ -2533,6 +2668,7 @@ function evaluateExpression(expression, scope, runtime, context) {
           endpoint,
           retryOptions,
           httpLogOptions,
+          timeoutPolicy,
         });
         return client;
       }
@@ -2545,6 +2681,7 @@ function evaluateExpression(expression, scope, runtime, context) {
       endpoint,
       retryOptions,
       httpLogOptions,
+      timeoutPolicy,
     };
   }
 
@@ -2563,6 +2700,7 @@ function evaluateExpression(expression, scope, runtime, context) {
         endpoint: builder.endpoint,
         retryOptions: builder.retryOptions,
         httpLogOptions: builder.httpLogOptions,
+        timeoutPolicy: builder.timeoutPolicy,
       };
       serviceClientEvent(runtime, context, {
         clientId: client.id,
@@ -2570,6 +2708,7 @@ function evaluateExpression(expression, scope, runtime, context) {
         endpoint: client.endpoint,
         retryOptions: client.retryOptions,
         httpLogOptions: client.httpLogOptions,
+        timeoutPolicy: client.timeoutPolicy,
       });
       return client;
     }
@@ -2706,6 +2845,7 @@ function evaluateExpression(expression, scope, runtime, context) {
             tags: Boolean(options?.tags),
             leaseId: options?.requestConditions?.leaseId ?? null,
             ifNoneMatch: Boolean(options?.requestConditions?.ifNoneMatch),
+            ifMatch: options?.requestConditions?.ifMatch ?? null,
           });
           result = { kind: "upload-result", ...event };
         }
@@ -2737,6 +2877,7 @@ function evaluateExpression(expression, scope, runtime, context) {
             tags: Boolean(options?.tags),
             leaseId: options?.requestConditions?.leaseId ?? null,
             ifNoneMatch: Boolean(options?.requestConditions?.ifNoneMatch),
+            ifMatch: options?.requestConditions?.ifMatch ?? null,
           });
           result = { kind: "upload-result", ...event };
         }
@@ -2842,6 +2983,37 @@ function evaluateExpression(expression, scope, runtime, context) {
       result = receiver;
     }
 
+    const eTagCall = callAt(value, "getETag");
+    if (eTagCall) {
+      const receiver = evaluateExpression(
+        eTagCall.receiver,
+        scope,
+        runtime,
+        context,
+      );
+      if (receiver?.kind === "blob-properties") {
+        return { ...receiver, kind: "etag" };
+      }
+    }
+
+    const leaseIdCall = callAt(value, "getLeaseId");
+    if (leaseIdCall) {
+      const receiver = evaluateExpression(
+        leaseIdCall.receiver,
+        scope,
+        runtime,
+        context,
+      );
+      if (receiver?.kind === "lease-client") {
+        return {
+          kind: "lease-id",
+          value: receiver.configuredLeaseId?.value ??
+            `lease-${receiver.blobId}`,
+          ...receiver,
+        };
+      }
+    }
+
     if (result && call.suffix) {
       return evaluateExpression(`result${call.suffix}`,
         { ...scope, resolve: (name) => name === "result" ? result : scope.resolve(name) },
@@ -2922,7 +3094,7 @@ function secureServiceClient(client) {
   return Boolean(
     client &&
     client.endpoint?.kind === "env" &&
-    client.endpoint.name === STORAGE_ENDPOINT_ENVIRONMENT,
+    client.endpoint.name,
   );
 }
 
@@ -2932,7 +3104,13 @@ function configuredRetryAndLogging(client) {
     client.retryOptions?.kind === "retry-options" &&
     client.retryOptions.exponential &&
     client.retryOptions.hasMaxTries &&
-    client.retryOptions.hasTryTimeout &&
+    (
+      client.retryOptions.hasTryTimeout ||
+      (
+        client.timeoutPolicy?.kind === "timeout-policy" &&
+        client.timeoutPolicy.configured
+      )
+    ) &&
     client.retryOptions.hasRetryDelay &&
     client.httpLogOptions?.kind === "http-log-options" &&
     client.httpLogOptions.enabled,
@@ -3027,7 +3205,204 @@ function hasReactiveChain(runtime) {
   );
 }
 
+function classRanges(runtime) {
+  const ranges = [];
+  for (const match of runtime.code.matchAll(
+    /\bclass\s+([A-Za-z_$][\w$]*)[^{]*\{/g,
+  )) {
+    const open = runtime.code.indexOf("{", match.index);
+    const close = matchingIndex(runtime.code, open, "{", "}");
+    if (close < 0) continue;
+    ranges.push({
+      name: match[1],
+      start: match.index,
+      end: close + 1,
+      code: runtime.code.slice(open + 1, close),
+    });
+  }
+  return ranges;
+}
+
+function structuralCrudFlow(runtime, async) {
+  const clientType = async
+    ? /\bBlob(?:Service|Container)AsyncClient\b/
+    : /\bBlob(?:Service|Container)Client\b/;
+  const disallowed = async ? /$a/ : /\bBlob(?:Service|Container)AsyncClient\b/;
+  const owner = classRanges(runtime).find((candidate) =>
+    clientType.test(candidate.code) &&
+    !disallowed.test(candidate.code) &&
+    /\.uploadFromFile(?:WithResponse)?\s*\(/.test(candidate.code) &&
+    /\.listBlobs\s*\(/.test(candidate.code)
+  );
+  if (!owner) return null;
+
+  const methods = Array.from(runtime.methodsByName.values()).flat()
+    .filter((method) =>
+      owner.start < method.start &&
+      method.bodyEnd < owner.end
+    );
+  const upload = methods.find((method) =>
+    /\.uploadFromFile(?:WithResponse)?\s*\(/.test(method.code) &&
+    /\bBlobUploadFromFileOptions\b/.test(method.code)
+  );
+  const download = methods.find((method) =>
+    /\.downloadToFile(?:WithResponse)?\s*\(/.test(method.code)
+  );
+  const listed = methods.find((method) =>
+    /\.listBlobs\s*\(/.test(method.code)
+  );
+  const deleted = methods.find((method) =>
+    /\.(?:deleteIfExists|delete)\s*\(/.test(method.code)
+  );
+  const overwrite = methods.find((method) =>
+    /\.setIfMatch\s*\(/.test(method.code) &&
+    /\.setLeaseId\s*\(/.test(method.code) &&
+    upload &&
+    new RegExp(`\\b${escapeRegExp(upload.name)}\\s*\\(`).test(method.code)
+  );
+  if (!upload || !download || !listed || !deleted || !overwrite) {
+    return null;
+  }
+
+  const demo = Array.from(runtime.methodsByName.values()).flat().find(
+    (method) => {
+      if (!runtime.facts.reachableMethods.has(method.id)) return false;
+      const construction = new RegExp(
+        `\\b${escapeRegExp(owner.name)}\\s+([A-Za-z_$][\\w$]*)\\s*=\\s*new\\s+${escapeRegExp(owner.name)}\\s*\\(`,
+      ).exec(method.code);
+      if (!construction) return false;
+      const receiver = escapeRegExp(construction[1]);
+      const calls = [
+        upload.name,
+        download.name,
+        overwrite.name,
+        deleted.name,
+      ].map((name) => {
+        const pattern = new RegExp(
+          `\\b${receiver}\\s*\\.\\s*${escapeRegExp(name)}\\s*\\(`,
+          "g",
+        );
+        const matches = Array.from(method.code.matchAll(pattern));
+        return matches.map((match) => {
+          const open = method.code.indexOf("(", match.index);
+          const close = matchingIndex(method.code, open);
+          return {
+            position: match.index,
+            args: splitTopLevel(method.code.slice(open + 1, close)),
+          };
+        });
+      });
+      const blobArguments = calls.map((entries) => entries[0]?.args[0]
+        ?.replace(/\s+/g, ""));
+      if (
+        blobArguments.some((argument) => !argument) ||
+        !blobArguments.every((argument) => argument === blobArguments[0])
+      ) {
+        return false;
+      }
+      const positions = [
+        upload.name,
+        listed.name,
+        download.name,
+        overwrite.name,
+        deleted.name,
+      ].map((name) =>
+        method.code.search(
+          new RegExp(`\\b${receiver}\\s*\\.\\s*${escapeRegExp(name)}\\s*\\(`),
+        )
+      );
+      if (async && positions[3] >= 0) {
+        const beforeOverwrite = method.code.slice(0, positions[3]);
+        const deferred = Array.from(
+          beforeOverwrite.matchAll(
+            /\bMono\s*<[^>]+>\s+([A-Za-z_$][\w$]*)\s*=/g,
+          ),
+        ).at(-1)?.[1];
+        if (deferred) {
+          const chained = method.code.search(
+            new RegExp(
+              `\\.\\s*then\\s*\\(\\s*${escapeRegExp(deferred)}\\s*\\)`,
+            ),
+          );
+          if (chained >= 0) positions[3] = chained;
+        }
+      }
+      return (
+        positions.every((position) => position >= 0) &&
+        positions.every((position, index) =>
+          index === 0 || positions[index - 1] < position
+        ) &&
+        /\.acquireLease\s*\(/.test(method.code)
+      );
+    },
+  );
+  if (!demo) return null;
+  return {
+    async,
+    owner,
+    upload,
+    download,
+    listed,
+    overwrite,
+    deleted,
+    demo,
+  };
+}
+
+function structuralParallelUpload(flow) {
+  return Boolean(
+    flow &&
+    /\bParallelTransferOptions\b/.test(flow.upload.code) &&
+    /\.setParallelTransferOptions\s*\(/.test(flow.upload.code) &&
+    /\.setTags\s*\(/.test(flow.upload.code),
+  );
+}
+
+function structuralLeaseOverwrite(flow) {
+  return Boolean(
+    flow &&
+    /\.acquireLease\s*\(/.test(flow.demo.code) &&
+    /\.setIfMatch\s*\(/.test(flow.overwrite.code) &&
+    /\.setLeaseId\s*\(/.test(flow.overwrite.code),
+  );
+}
+
+function structuralReactiveDemo(runtime, sync, async) {
+  if (!sync || !async) return false;
+  return runtime.methodsByName.get("main")?.some((main) => {
+    const syncCall = main.code.search(
+      new RegExp(`\\b${escapeRegExp(sync.demo.name)}\\s*\\(`),
+    );
+    const asyncCall = main.code.search(
+      new RegExp(`\\b${escapeRegExp(async.demo.name)}\\s*\\(`),
+    );
+    return (
+      syncCall >= 0 &&
+      asyncCall > syncCall &&
+      (
+        /\.\s*block\s*\(\s*\)/.test(main.code.slice(asyncCall)) ||
+        /\.\s*block\s*\(\s*\)/.test(async.demo.code)
+      ) &&
+      /\.(?:then|flatMap|thenMany)\s*\(/.test(async.demo.code)
+    );
+  }) ?? false;
+}
+
 function hasReachableLeaseOverwrite(runtime, async) {
+  const eventLinked = crudFlows(runtime, async).some((flow) => {
+    const overwriteLease = flow.overwrite.leaseId?.value;
+    return runtime.facts.operations.some((event) =>
+      event.operation === "acquire-lease" &&
+      event.async === async &&
+      event.sequence < flow.overwrite.sequence &&
+      sameBlobLifecycle(event, flow.overwrite) &&
+      pathsCompatible(event, flow.overwrite) &&
+      overwriteLease &&
+      event.leaseId === overwriteLease
+    );
+  });
+  if (eventLinked) return true;
+
   const methods = Array.from(runtime.methodsByName.values()).flat()
     .filter((method) => runtime.facts.reachableMethods.has(method.id))
     .filter((method) => method.name ===
@@ -3039,8 +3414,7 @@ function hasReachableLeaseOverwrite(runtime, async) {
     ),
   );
   const hasOverwrite = crudFlows(runtime, async).some((flow) =>
-    flow.overwrite.leaseId?.kind === "string" ||
-    flow.overwrite.leaseId?.kind === "lease-id",
+    ["string", "lease-id"].includes(flow.overwrite.leaseId?.kind),
   );
   return hasLeaseSource && hasOverwrite;
 }
@@ -3077,7 +3451,8 @@ function handlesBlobStorageException(runtime) {
 }
 
 const rules = {
-  "prompt/sdk-dependencies": ({ build }) => hasPinnedDependencies(build),
+  "prompt/sdk-dependencies": ({ build }) =>
+    hasCompatibleDependencies(build),
   "prompt/secure-configuration": ({ runtime, source }) =>
     !hasForbiddenAuthenticationSource(source) &&
     runtime.facts.serviceClients.some(
@@ -3093,8 +3468,12 @@ const rules = {
     runtime.facts.serviceClients.some(
       (client) => client.async && configuredRetryAndLogging(client),
     ),
-  "prompt/sync-service-operations": ({ runtime }) => crudFlows(runtime, false).length > 0,
-  "prompt/async-service-operations": ({ runtime }) => crudFlows(runtime, true).length > 0,
+  "prompt/sync-service-operations": ({ runtime }) =>
+    crudFlows(runtime, false).length > 0 ||
+    Boolean(structuralCrudFlow(runtime, false)),
+  "prompt/async-service-operations": ({ runtime }) =>
+    crudFlows(runtime, true).length > 0 ||
+    Boolean(structuralCrudFlow(runtime, true)),
   "prompt/parallel-upload-and-tags": ({ runtime }) => {
     const sync = crudFlows(runtime, false).some((flow) =>
       flow.upload.parallelTransfer && flow.upload.tags,
@@ -3102,11 +3481,23 @@ const rules = {
     const async = crudFlows(runtime, true).some((flow) =>
       flow.upload.parallelTransfer && flow.upload.tags,
     );
-    return sync && async;
+    return (
+      (sync && async) ||
+      (
+        structuralParallelUpload(structuralCrudFlow(runtime, false)) &&
+        structuralParallelUpload(structuralCrudFlow(runtime, true))
+      )
+    );
   },
   "prompt/lease-overwrite": ({ runtime }) =>
-    hasReachableLeaseOverwrite(runtime, false) &&
-    hasReachableLeaseOverwrite(runtime, true),
+    (
+      hasReachableLeaseOverwrite(runtime, false) &&
+      hasReachableLeaseOverwrite(runtime, true)
+    ) ||
+    (
+      structuralLeaseOverwrite(structuralCrudFlow(runtime, false)) &&
+      structuralLeaseOverwrite(structuralCrudFlow(runtime, true))
+    ),
   "prompt/reactive-demo-flow": ({ runtime }) => {
     const firstSync = crudFlows(runtime, false)
       .sort((left, right) => flowStart(left) - flowStart(right))[0];
@@ -3115,10 +3506,13 @@ const rules = {
     return Boolean(
       firstSync &&
       firstAsync &&
-      sameBlobTarget(firstSync.upload, firstAsync.upload) &&
       flowStart(firstSync) < flowStart(firstAsync) &&
       flowEnd(firstSync) < flowStart(firstAsync) &&
       hasReactiveChain(runtime),
+    ) || structuralReactiveDemo(
+      runtime,
+      structuralCrudFlow(runtime, false),
+      structuralCrudFlow(runtime, true),
     );
   },
 };

@@ -64,6 +64,41 @@ test("shared Java checks accept a current SDK application", () => {
   }
 });
 
+test("Maven checks accept a standard XML declaration", () => {
+  const workspace = {
+    ...completeWorkspace,
+    build:
+      `<?xml version="1.0" encoding="UTF-8"?>\n${completeWorkspace.build}`,
+  };
+
+  assert.equal(evaluateJavaCheck("language/build-manifest", workspace), true);
+  assert.equal(
+    evaluateJavaCheck("language/current-azure-dependencies", workspace),
+    true,
+  );
+});
+
+test("Maven checks reject malformed declarations and non-project XML", () => {
+  const invalidBuilds = [
+    `<?xml encoding="UTF-8"?>${completeWorkspace.build}`,
+    `<?xml version="1.0"?><settings>${completeWorkspace.build}</settings>`,
+    `<?xml version="1.0"?><project><dependencies>`,
+    `<?xml version="1.0"?><notProject></notProject>`,
+  ];
+
+  for (const build of invalidBuilds) {
+    const workspace = { ...completeWorkspace, build };
+    assert.equal(
+      evaluateJavaCheck("language/build-manifest", workspace),
+      false,
+    );
+    assert.equal(
+      evaluateJavaCheck("language/current-azure-dependencies", workspace),
+      false,
+    );
+  }
+});
+
 test("legacy dependencies and internal imports fail", () => {
   const workspace = {
     ...completeWorkspace,
