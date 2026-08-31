@@ -1060,7 +1060,7 @@ function printsSecretResult(
 
   const assignment = new RegExp(
     `(?:\\b(?:const|let|var)\\s+|(?<![\\w$.]))(\\w+)` +
-      `(?:\\s*:[^=;]+)?\\s*=\\s*\\(*\\s*await\\s+` +
+      `(?:\\s*:[^=;\\n{}]+)?\\s*=\\s*\\(*\\s*await\\s+` +
       `${escapedClient}\\s*\\.\\s*getSecret\\s*\\(`,
     "g",
   );
@@ -1249,6 +1249,18 @@ function startsWithThrow(source, error) {
   ).test(maskSource(source, true));
 }
 
+function reportsAuthenticationFailure(source, error) {
+  const escapedError = escapeRegExp(error);
+  const calls = ["error", "warn", "log", "info"].flatMap((method) =>
+    methodCalls(source, "console", method)
+  );
+  return calls.some((call) =>
+    new RegExp(
+      `\\b${escapedError}(?:\\s*\\.\\s*(?:message|name|stack))?\\b`,
+    ).test(expressionCode(call.arguments))
+  );
+}
+
 function handlesAuthenticationError(
   source,
   clientCandidates,
@@ -1285,10 +1297,6 @@ function handlesAuthenticationError(
     const authenticationCheck = new RegExp(
       `\\b${escapedError}\\s+instanceof\\s+(?:${typeAlternation}|\\w+\\.AuthenticationError)\\b`,
     );
-    const reports = new RegExp(
-      `\\bconsole\\s*\\.\\s*(?:error|warn|log)\\s*\\([\\s\\S]{0,300}?\\b${escapedError}(?:\\s*\\.\\s*(?:message|name|stack))?\\b`,
-    );
-
     return ifBlocks(body).some((block) => {
       if (!authenticationCheck.test(maskSource(block.condition, true))) {
         return false;
@@ -1303,14 +1311,14 @@ function handlesAuthenticationError(
           body.slice(block.end);
         return (
           startsWithThrow(block.consequent, error) &&
-          reports.test(maskSource(authenticationPath, true))
+          reportsAuthenticationFailure(authenticationPath, error)
         );
       }
 
       const nonAuthenticationPath = block.alternate ??
         body.slice(block.end);
       return (
-        reports.test(maskSource(block.consequent, true)) &&
+        reportsAuthenticationFailure(block.consequent, error) &&
         startsWithThrow(nonAuthenticationPath, error)
       );
     });

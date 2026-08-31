@@ -2387,24 +2387,28 @@ function tryCatchBlocks(source) {
   return blocks;
 }
 
-function hasTopLevelRethrow(source, errorName) {
-  const code = maskSource(source);
-  const pattern = new RegExp(`\\bthrow\\s+${escapeRegExp(errorName)}\\b`, "g");
-  let depth = 0;
-  let match = pattern.exec(code);
-  for (let index = 0; index < code.length; index += 1) {
-    if (match && index === match.index) {
-      if (depth === 0) return true;
-      match = pattern.exec(code);
+function catchReportsFailure(block) {
+  const code = maskSource(block.body);
+  const source = maskSource(block.body, false);
+  const error = escapeRegExp(block.error);
+  for (const match of code.matchAll(
+    /\bconsole\s*\.\s*(?:error|warn|log|info)\s*\(/g,
+  )) {
+    const opening = match.index + match[0].lastIndexOf("(");
+    const argumentsText = balancedText(source, opening);
+    if (
+      new RegExp(
+        `\\b${error}(?:\\s*\\.\\s*(?:message|statusCode|code|name|stack))?\\b`,
+      ).test(maskSource(argumentsText, false)) ||
+      /\b(?:error|fail(?:ed|ure)?|key\s+vault|secret)\b/i.test(argumentsText)
+    ) {
+      return true;
     }
-    if (code[index] === "{") depth += 1;
-    if (code[index] === "}") depth -= 1;
   }
   return false;
 }
 
-function meaningfulRestErrorHandling(analysis) {
-  if (analysis.restErrorTypes.size === 0) return false;
+function meaningfulTryCatchHandling(analysis) {
   const blocks = tryCatchBlocks(analysis.source).filter(
     (block) =>
       typeScriptMayThrow(
@@ -2414,54 +2418,7 @@ function meaningfulRestErrorHandling(analysis) {
       ) &&
       analysis.controlFlow.context(block.index).reachable,
   );
-  const allCatchesPropagateUnknown = blocks.every((block) => {
-    const code = maskSource(block.body);
-    const error = escapeRegExp(block.error);
-    const unconditional = hasTopLevelRethrow(block.body, block.error);
-    const exhaustivePositive = new RegExp(
-      `if\\s*\\([\\s\\S]*?\\b${error}\\s+instanceof[\\s\\S]+?\\)\\s*\\{[\\s\\S]*?\\}\\s*else\\s*\\{\\s*throw\\s+${error}\\b`,
-    ).test(code);
-    const exhaustiveNegative = new RegExp(
-      `if\\s*\\(\\s*!\\s*\\(?\\s*${error}\\s+instanceof[\\s\\S]+?\\)?\\s*\\)\\s*\\{\\s*throw\\s+${error}\\b`,
-    ).test(code);
-    return unconditional || exhaustivePositive || exhaustiveNegative;
-  });
-  if (!allCatchesPropagateUnknown) return false;
-  const typePattern = [...analysis.restErrorTypes]
-    .map((name) => escapeRegExp(name).replace(/\\\./g, "\\s*\\.\\s*"))
-    .join("|");
   return blocks.some((block) => {
-    const body = maskSource(block.body, false);
-    const code = maskSource(block.body);
-    const error = escapeRegExp(block.error);
-    const check = new RegExp(
-      `\\b${error}\\s+instanceof\\s+(?:${typePattern})\\b`,
-    );
-    const checkMatch = check.exec(code);
-    if (!checkMatch) return false;
-    const checkedType = checkMatch[0].match(/instanceof\s+([\w$.\s]+)/)?.[1]
-      ?.replace(/\s+/g, "");
-    const checkedRoot = checkedType?.split(".")[0];
-    if (
-      !checkedRoot ||
-      analysis.bindings.resolve(
-        checkedRoot,
-        block.bodyStart + checkMatch.index,
-      )?.kind !== "import"
-    ) {
-      return false;
-    }
-    const reports = new RegExp(
-      `\\bconsole\\s*\\.\\s*(?:error|warn|log)\\s*\\([\\s\\S]{0,500}?\\b${error}\\s*\\.\\s*(?:message|statusCode|code|name|stack)\\b`,
-    );
-    if (!reports.test(body)) return false;
-    const unconditionalRethrow = hasTopLevelRethrow(block.body, block.error);
-    const positive = new RegExp(
-      `if\\s*\\(\\s*${error}\\s+instanceof[\\s\\S]+?\\)\\s*\\{[\\s\\S]*?\\}\\s*else\\s*\\{\\s*throw\\s+${error}\\b`,
-    ).test(code);
-    const negative = new RegExp(
-      `if\\s*\\(\\s*!\\s*\\(?\\s*${error}\\s+instanceof[\\s\\S]+?\\)?\\s*\\)\\s*\\{\\s*throw\\s+${error}\\b`,
-    ).test(code);
     const wrapsLifecycleDirectly =
       ["setSecret", "getSecret", "beginDeleteSecret"].some((method) =>
         new RegExp(`\\.${method}\\s*\\(`).test(maskSource(block.tryBody))
@@ -2478,8 +2435,7 @@ function meaningfulRestErrorHandling(analysis) {
       )
     );
     const wrapsLifecycle = wrapsLifecycleDirectly || wrapsLifecycleHelper;
-    return wrapsLifecycle &&
-      (unconditionalRethrow || positive || negative);
+    return wrapsLifecycle && catchReportsFailure(block);
   });
 }
 
@@ -2529,7 +2485,7 @@ const rules = {
   },
   "prompt/rest-error": (workspace) => {
     if (!hasSource(workspace)) return false;
-    return meaningfulRestErrorHandling(createAnalysis(workspace));
+    return meaningfulTryCatchHandling(createAnalysis(workspace));
   },
 };
 

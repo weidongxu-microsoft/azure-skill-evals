@@ -14,6 +14,11 @@ import {
 
 const goldenWorkspacePath = fileURLToPath(new URL("./golden", import.meta.url));
 const completeWorkspace = loadTypeScriptWorkspace(goldenWorkspacePath);
+const baseline33374429826 = loadTypeScriptWorkspace(
+  fileURLToPath(
+    new URL("./fixtures/baseline-33374429826", import.meta.url),
+  ),
+);
 
 function withSource(source) {
   return { ...completeWorkspace, source };
@@ -52,6 +57,52 @@ test("TypeScript Identity reference passes every language check", () => {
       check,
     );
   }
+});
+
+test("baseline run 33374429826 exact output passes every grader", () => {
+  for (const rule of ruleNames()) {
+    assert.equal(evaluateRule(rule, baseline33374429826), true, rule);
+  }
+  for (const check of typeScriptCheckNames()) {
+    assert.equal(
+      evaluateTypeScriptCheck(check, baseline33374429826),
+      true,
+      check,
+    );
+  }
+});
+
+test("module-scoped authenticated clients retain operation provenance", () => {
+  const source = `
+const credential = new DefaultAzureCredential();
+const client = new SecretClient(vaultUrl, credential);
+async function read(name: string): Promise<void> {
+  const secret = await client.getSecret(name);
+  console.info(\`secret=\${secret.value}\`);
+}
+await read(secretName);
+`;
+  assert.equal(
+    evaluateRule("prompt/authenticated-operation", withIdentitySource(source)),
+    true,
+  );
+});
+
+test("module-scoped client provenance is invalidated by credential mutation", () => {
+  const source = `
+let credential = new DefaultAzureCredential();
+const client = new SecretClient(vaultUrl, credential);
+credential = anotherCredential;
+async function read(name: string): Promise<void> {
+  const secret = await client.getSecret(name);
+  console.info(\`secret=\${secret.value}\`);
+}
+await read(secretName);
+`;
+  assert.equal(
+    evaluateRule("prompt/authenticated-operation", withIdentitySource(source)),
+    false,
+  );
 });
 
 test("all three runtime packages are required", () => {
@@ -837,6 +888,25 @@ try {
       source,
     );
   }
+});
+
+test("template-interpolated authentication diagnostics are accepted", () => {
+  const source = `
+const client = new SecretClient(vaultUrl, new DefaultAzureCredential());
+try {
+  await client.getSecret(secretName);
+} catch (error) {
+  if (error instanceof AuthenticationError) {
+    console.error(\`Azure credential authentication failed: \${error.message}\`);
+  } else {
+    throw error;
+  }
+}
+`;
+  assert.equal(
+    evaluateRule("prompt/authentication-errors", withIdentitySource(source)),
+    true,
+  );
 });
 
 test("non-authentication errors must be rethrown outside the auth branch", () => {

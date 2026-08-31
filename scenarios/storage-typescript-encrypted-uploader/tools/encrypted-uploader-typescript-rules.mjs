@@ -5,6 +5,7 @@ const sdkNames = new Set([
   "CryptographyClient",
   "BlobServiceClient",
   "DefaultAzureCredential",
+  "ManagedIdentityCredential",
   "SecretClient",
 ]);
 const reservedWords = new Set([
@@ -865,6 +866,12 @@ function metadataObjectsIn(expression, assignments, seen = new Set()) {
   }
 
   const syntax = maskLiterals(value);
+  if (syntax.startsWith("{")) {
+    const close = matchingDelimiter(syntax, 0);
+    if (close === syntax.length - 1) {
+      metadata.push(objectProperties(value.slice(1, close)));
+    }
+  }
   for (const match of syntax.matchAll(/\bmetadata\s*:\s*\{/g)) {
     const open = match.index + match[0].lastIndexOf("{");
     const close = matchingDelimiter(syntax, open);
@@ -1187,6 +1194,19 @@ function destructuredFactoryValue(app, unit, name, position) {
   return result;
 }
 
+function factoryMemberValue(app, unit, expression, position) {
+  const member = /^([A-Za-z_$][\w$]*)\s*\.\s*([A-Za-z_$][\w$]*)$/.exec(
+    expression.trim(),
+  );
+  if (!member) return null;
+  const assignment = assignmentsBefore(unit.body, position).get(member[1]);
+  const factoryCall = assignment &&
+    /^([A-Za-z_$][\w$]*)\s*\(/.exec(assignment.trim().replace(/^await\s+/, ""));
+  const factory = factoryCall && functionNamed(app, factoryCall[1]);
+  const returned = factory && returnedObjectProperty(factory, member[2]);
+  return returned ? { factory, returned } : null;
+}
+
 function strictContainerValue(
   app,
   unit,
@@ -1206,6 +1226,16 @@ function strictContainerValue(
   const directContainer = /^([\s\S]+)\.\s*getContainerClient\s*\(/.exec(value);
   if (directContainer) {
     return realBlobServiceExpression(app, unit, directContainer[1], new Set());
+  }
+  const memberValue = factoryMemberValue(app, unit, value, position);
+  if (memberValue) {
+    return strictContainerValue(
+      app,
+      memberValue.factory,
+      memberValue.returned.value,
+      memberValue.returned.index,
+      seen,
+    );
   }
 
   if (/^[A-Za-z_$][\w$]*$/.test(value)) {
@@ -1444,8 +1474,8 @@ function receiverBeforeCall(source, call) {
   const match = /([\s\S]*?)\.\s*$/.exec(prefix);
   return match?.[1]
     .trim()
-    .replace(/^(?:await|return)\s+/, "")
-    .replace(/^(?:const|let|var)\s+\w+(?:\s*:[^=;]+)?\s*=\s*/, "") ?? "";
+    .replace(/^(?:const|let|var)\s+\w+(?:\s*:[^=;]+)?\s*=\s*/, "")
+    .replace(/^(?:await|return)\s+/, "") ?? "";
 }
 
 function isRealBlobOperation(app, unit, call) {
@@ -1476,6 +1506,27 @@ function encryptionEvidence(app, unit) {
     for (const value of boundValues(source, call)) targets.add(value);
     if (targets === keys) keyOrigins.push(call);
     else initializationVectorOrigins.push(call);
+  }
+  for (const contract of cryptoContracts(
+    app,
+    new Set(app.units.keys()),
+    "wrapKey",
+  )) {
+    if (contract.inputProperties.size === 0) continue;
+    for (const call of callsIn(source)) {
+      if (
+        call.callee.split(".").at(-1) !== contract.unit.name ||
+        !callTargetsContract(app, unit, call, contract)
+      ) {
+        continue;
+      }
+      for (const output of boundValues(source, call)) {
+        for (const property of contract.inputProperties) {
+          keys.add(`${output}.${property}`);
+        }
+      }
+      keyOrigins.push(call);
+    }
   }
 
   const evidence = [];
@@ -1601,6 +1652,12 @@ function keyClientReceivers(app, unit) {
     sourceFor(app.units, app.units.keys()),
     aliases,
   ));
+  if (unit.className) {
+    for (const [property, type] of app.classes.get(unit.className)?.properties ??
+      []) {
+      if (aliases.has(type)) candidates.add(`this.${property}`);
+    }
+  }
   const constructor = app.units.get(`${unit.className}.constructor`);
   if (constructor) {
     for (const receiver of candidates) {
@@ -2024,6 +2081,48 @@ function cryptoContracts(app, keys, operation) {
           .filter(([, value]) => derivesFromKeyId(value, keySources, results))
           .map(([name]) => name),
       );
+      const localDataKeys = new Set();
+      for (const candidate of callsIn(unit.body)) {
+        if (
+          cryptoCallNames(app.imports, "randomBytes", unit.body).has(
+            candidate.callee,
+          ) &&
+          resolvesToNumber(
+            candidate.arguments[0] ?? "",
+            32,
+            app.constants,
+          )
+        ) {
+          for (const value of boundValues(unit.body, candidate)) {
+            localDataKeys.add(value);
+          }
+        }
+      }
+      const inputProperties = new Set(
+        [...returnedProperties]
+          .filter(([, value]) =>
+            derivesExactBufferValue(
+              value,
+              new Set([
+                ...unit.parameters.filter((parameter) =>
+                  referencesName(call.arguments[1] ?? "", parameter)
+                ),
+                ...localDataKeys,
+              ]),
+              assignmentsBefore(unit.body, call.index),
+            )
+          )
+          .map(([name]) => name),
+      );
+      const inputIsConnected =
+        unit.parameters.some((parameter) =>
+          referencesName(call.arguments[1] ?? "", parameter)
+        ) ||
+        derivesExactBufferValue(
+          call.arguments[1] ?? "",
+          localDataKeys,
+          assignmentsBefore(unit.body, call.index),
+        );
       const resultProperties = new Set(returned.properties);
       const constructorBound =
         operation === "wrapKey"
@@ -2037,11 +2136,17 @@ function cryptoContracts(app, keys, operation) {
         returned.direct || resultProperties.size > 0;
       const returnsKeyId =
         operation !== "wrapKey" || keyIdProperties.size > 0;
-      if (!constructorBound || !returnsOperationResult || !returnsKeyId) {
+      if (
+        !constructorBound ||
+        !inputIsConnected ||
+        !returnsOperationResult ||
+        !returnsKeyId
+      ) {
         continue;
       }
       contracts.push({
         call,
+        inputProperties,
         keyIdProperties,
         key,
         keyIdParameters: unit.parameters.filter((parameter) =>
@@ -2123,7 +2228,22 @@ function operationLinks(app, caller, contract, inputMatches, keyIdMatches = () =
     const wrappedParameter = contract.unit.parameters.findIndex((parameter) =>
       referencesName(contract.call.arguments[1] ?? "", parameter)
     );
-    if (wrappedParameter < 0 || !inputMatches(call.arguments[wrappedParameter] ?? "")) continue;
+    const bindings = destructuredBindings(caller.body, call);
+    const objectOutputs = !contract.returned.direct && bindings.size === 0
+      ? boundValues(caller.body, call)
+      : new Set();
+    const inputConnected = wrappedParameter >= 0
+      ? inputMatches(call.arguments[wrappedParameter] ?? "")
+      : [...bindings].some(
+          ([property, local]) =>
+            contract.inputProperties.has(property) && inputMatches(local),
+        ) ||
+        [...objectOutputs].some((output) =>
+          [...contract.inputProperties].some((property) =>
+            inputMatches(`${output}.${property}`)
+          )
+        );
+    if (!inputConnected) continue;
 
     const keyIdParameters = contract.keyIdParameters
       .map((parameter) => contract.unit.parameters.indexOf(parameter))
@@ -2131,10 +2251,6 @@ function operationLinks(app, caller, contract, inputMatches, keyIdMatches = () =
     if (keyIdParameters.some((index) => !keyIdMatches(call.arguments[index] ?? ""))) {
       continue;
     }
-    const bindings = destructuredBindings(caller.body, call);
-    const objectOutputs = !contract.returned.direct && bindings.size === 0
-      ? boundValues(caller.body, call)
-      : new Set();
     const outputs = contract.returned.direct
       ? boundValues(caller.body, call)
       : new Set(
@@ -2260,7 +2376,9 @@ function metadataVariables(app, unit, assignments) {
   const properties = new Set();
   for (const call of callsIn(source)) {
     if (
-      call.callee.split(".").at(-1) === "getProperties" &&
+      ["download", "getProperties"].includes(
+        call.callee.split(".").at(-1),
+      ) &&
       isRealBlobOperation(app, unit, call)
     ) {
       for (const value of boundValues(source, call)) properties.add(value);
@@ -2492,6 +2610,17 @@ function decryptedOutputFrom(
 ) {
   const value = unwrappedValue(expression);
   if (
+    isCiphertextFrom(
+      value,
+      cipher,
+      assignments,
+      new Set(seen),
+      updateArgumentMatches,
+    )
+  ) {
+    return true;
+  }
+  if (
     exactDecodedOutputFrom(
       value,
       cipher,
@@ -2707,14 +2836,90 @@ function persistsRawDataKey(source) {
   );
 }
 
-function hasRestErrorHandling(source, imports) {
-  const aliases = aliasesFor(imports, "@azure/core-rest-pipeline", "RestError");
+function tryCatchRanges(source) {
+  const syntax = maskLiterals(source);
+  const blocks = [];
+  for (const match of syntax.matchAll(/\btry\s*\{/g)) {
+    const tryOpening = match.index + match[0].lastIndexOf("{");
+    const tryClosing = matchingDelimiter(syntax, tryOpening);
+    if (tryClosing < 0) continue;
+    const catchMatch = syntax.slice(tryClosing + 1).match(
+      /^\s*catch\s*(?:\(\s*([A-Za-z_$][\w$]*)[^)]*\))?\s*\{/,
+    );
+    if (!catchMatch) continue;
+    const catchOpening =
+      tryClosing + 1 + catchMatch.index + catchMatch[0].lastIndexOf("{");
+    const catchClosing = matchingDelimiter(syntax, catchOpening);
+    if (catchClosing < 0) continue;
+    blocks.push({
+      catchBody: source.slice(catchOpening + 1, catchClosing),
+      error: catchMatch[1] ?? null,
+      tryEnd: tryClosing,
+      tryStart: tryOpening + 1,
+    });
+  }
+  return blocks;
+}
+
+function catchHandlesServiceFailure(block) {
+  const code = maskLiterals(block.catchBody);
+  if (!block.error) {
+    return /\b(?:console\s*\.\s*(?:error|warn)|throw\s+new\s+Error)\b/.test(
+      code,
+    );
+  }
+  const error = escapeExpression(block.error);
   return (
-    [...aliases].some((alias) =>
-      new RegExp(`\\binstanceof\\s+${alias}\\b`).test(maskLiterals(source))
-    ) &&
-    /\bstatusCode\b/.test(maskLiterals(source))
+    new RegExp(`\\bthrow\\s+${error}\\b`).test(code) ||
+    new RegExp(`\\bcause\\s*:\\s*${error}\\b`).test(code) ||
+    new RegExp(
+      `\\bconsole\\s*\\.\\s*(?:error|warn|log|info)\\s*\\([^)]*\\b${error}\\b`,
+    ).test(code) ||
+    (
+      /\bthrow\s+new\s+Error\s*\(/.test(code) &&
+      /\b(?:blob|crypto|decrypt|encrypt|key\s+vault|upload|unwrap|wrap)\b/i.test(
+        block.catchBody,
+      )
+    )
   );
+}
+
+function hasServiceErrorHandling(app) {
+  const reachable = new Set(app.units.keys());
+  const keyContracts = [
+    ...cryptoContracts(app, reachable, "wrapKey"),
+    ...cryptoContracts(app, reachable, "unwrapKey"),
+  ];
+  let handlesBlob = false;
+  let handlesKeyVault = false;
+
+  for (const key of reachable) {
+    const unit = app.units.get(key);
+    if (!unit) continue;
+    const keyClients = keyClientReceivers(app, unit);
+    const calls = callsIn(unit.body);
+    for (const block of tryCatchRanges(unit.body)) {
+      if (!catchHandlesServiceFailure(block)) continue;
+      const withinTry = (call) =>
+        block.tryStart <= call.index && call.index < block.tryEnd;
+      handlesBlob ||= calls.some(
+        (call) =>
+          withinTry(call) &&
+          ["download", "uploadData"].includes(call.callee.split(".").at(-1)) &&
+          isRealBlobOperation(app, unit, call),
+      );
+      handlesKeyVault ||= calls.some(
+        (call) =>
+          withinTry(call) &&
+          call.callee.split(".").at(-1) === "getKey" &&
+          keyClients.has(call.callee.split(".").slice(0, -1).join(".")),
+      ) || keyContracts.some(
+        (contract) =>
+          contract.unit.key === unit.key && withinTry(contract.call),
+      );
+    }
+  }
+  return handlesBlob && handlesKeyVault;
 }
 
 function application(workspace) {
@@ -3614,7 +3819,12 @@ function outputUsesOperation(
           properties,
           assignments,
         )
-      : derivesExactValue(candidate, currentResults, assignments),
+      : derivesExactValue(candidate, currentResults, assignments) ||
+        [...currentResults].some((result) =>
+          new RegExp(
+            `^${escapeExpression(result)}\\s*\\.\\s*toString\\s*\\([^)]*\\)$`,
+          ).test(unwrappedValue(candidate))
+        ),
   );
 }
 
@@ -3742,7 +3952,12 @@ function hasViableRoundTrip(app) {
           );
         if (
           compatibleOutput(uploaded, ["keyId", "vaultKeyId", "keyIdentifier"]) &&
-          compatibleOutput(uploaded, ["wrappedDek", "wrappedKey", "encryptedDek"]) &&
+          compatibleOutput(uploaded, [
+            "wrappedDek",
+            "wrappedKey",
+            "wrappedDataKeyBase64",
+            "encryptedDek",
+          ]) &&
           compatibleOutput(downloaded)
         ) {
           return true;
@@ -3754,11 +3969,18 @@ function hasViableRoundTrip(app) {
 }
 
 function hasSemanticClients(app) {
-  const credential = aliasesFor(
-    app.imports,
-    "@azure/identity",
-    "DefaultAzureCredential",
-  );
+  const credential = new Set([
+    ...aliasesFor(
+      app.imports,
+      "@azure/identity",
+      "DefaultAzureCredential",
+    ),
+    ...aliasesFor(
+      app.imports,
+      "@azure/identity",
+      "ManagedIdentityCredential",
+    ),
+  ]);
   const blobService = aliasesFor(
     app.imports,
     "@azure/storage-blob",
@@ -3787,45 +4009,117 @@ function hasSemanticEnvelope(app) {
   );
 }
 
-function hasManagedIdentityConfiguration(app) {
-  const credential = aliasesFor(
-    app.imports,
-    "@azure/identity",
-    "DefaultAzureCredential",
-  );
-  const credentialVariables = new Set();
-  const syntax = maskLiterals(app.source);
-  for (const alias of credential) {
-    for (const match of syntax.matchAll(
-      new RegExp(
-        `\\b(?:const|let)\\s+([A-Za-z_$][\\w$]*)\\s*=\\s*new\\s+${escapeExpression(alias)}\\s*\\(`,
-        "g",
-      ),
-    )) {
-      credentialVariables.add(match[1]);
+function createsImportedClient(expression, aliases) {
+  return Boolean(constructorArguments(expression, aliases));
+}
+
+function unitUsesCredentialFor(
+  app,
+  unit,
+  credential,
+  aliases,
+  seen = new Set(),
+) {
+  const identity = `${unit.key}:${credential}:${[...aliases].join(",")}`;
+  if (seen.has(identity)) return false;
+  const nextSeen = new Set(seen).add(identity);
+  for (const call of callsIn(unit.body)) {
+    const argumentsList = call.arguments.map((argument) =>
+      unwrappedValue(argument)
+    );
+    const credentialIndexes = argumentsList
+      .map((argument, index) => argument === credential ? index : -1)
+      .filter((index) => index >= 0);
+    if (credentialIndexes.length === 0) continue;
+
+    const calleeName = call.callee.split(".").at(-1);
+    const prefix = maskLiterals(unit.body.slice(0, call.index));
+    const constructed = /\bnew\s*$/.test(prefix);
+    if (constructed && aliases.has(call.callee)) return true;
+
+    const target = constructed
+      ? app.units.get(`${calleeName}.constructor`)
+      : targetForFlowCall(app, unit, call);
+    if (!target) continue;
+    for (const index of credentialIndexes) {
+      const parameter = target.parameters[index];
+      if (
+        parameter &&
+        unitUsesCredentialFor(
+          app,
+          target,
+          parameter,
+          aliases,
+          nextSeen,
+        )
+      ) {
+        return true;
+      }
     }
   }
-  for (const unit of app.units.values()) {
-    if (unit.kind !== "function" || !hasConstructor(unit.body, credential)) {
+  return false;
+}
+
+function credentialBindings(app, unit, aliases) {
+  const bindings = new Set();
+  for (const [name, expression] of assignmentsIn(unit.body)) {
+    if (createsImportedClient(expression, aliases)) {
+      bindings.add(name);
       continue;
     }
-    for (const match of syntax.matchAll(
-      new RegExp(
-        `\\b(?:const|let)\\s+([A-Za-z_$][\\w$]*)\\s*=\\s*${escapeExpression(unit.name)}\\s*\\(`,
-        "g",
-      ),
-    )) {
-      credentialVariables.add(match[1]);
+    const factoryCall = /^([A-Za-z_$][\w$]*)\s*\(/.exec(
+      expression.trim().replace(/^await\s+/, ""),
+    );
+    const factory = factoryCall && functionNamed(app, factoryCall[1]);
+    if (factory && createsImportedClient(factory.body, aliases)) {
+      bindings.add(name);
     }
+  }
+  return bindings;
+}
+
+function hasManagedIdentityConfiguration(app) {
+  const credential = new Set([
+    ...aliasesFor(
+      app.imports,
+      "@azure/identity",
+      "DefaultAzureCredential",
+    ),
+    ...aliasesFor(
+      app.imports,
+      "@azure/identity",
+      "ManagedIdentityCredential",
+    ),
+  ]);
+  const blobService = aliasesFor(
+    app.imports,
+    "@azure/storage-blob",
+    "BlobServiceClient",
+  );
+  const keyClient = aliasesFor(
+    app.imports,
+    "@azure/keyvault-keys",
+    "KeyClient",
+  );
+  const syntax = maskLiterals(app.source);
+  let sharedCredential = false;
+  for (const unit of app.units.values()) {
+    for (const name of credentialBindings(app, unit, credential)) {
+      if (
+        unitUsesCredentialFor(app, unit, name, blobService) &&
+        unitUsesCredentialFor(app, unit, name, keyClient)
+      ) {
+        sharedCredential = true;
+        break;
+      }
+    }
+    if (sharedCredential) break;
   }
   return (
     hasSemanticClients(app) &&
     /process\s*\.\s*env\s*(?:\[|\.)/.test(syntax) &&
     /\bAZURE_(?:STORAGE|KEY_VAULT)/.test(app.source) &&
-    [...credentialVariables].some((name) =>
-      (syntax.match(new RegExp(`\\b${escapeExpression(name)}\\b`, "g")) ?? [])
-        .length >= 3
-    ) &&
+    sharedCredential &&
     !/\bfromConnectionString\s*\(/.test(syntax)
   );
 }
@@ -3835,7 +4129,6 @@ const rules = {
     const app = application(workspace);
     return (
       app.documents.length > 0 &&
-      hasViableRoundTrip(app) &&
       hasRequiredPackages(workspace) &&
       (app.imports.modules.has("node:crypto") || app.imports.modules.has("crypto")) &&
       !hasFakeSdk(app.source, app.imports)
@@ -3844,7 +4137,6 @@ const rules = {
   "prompt/key-vault-envelope-encryption": (workspace) => {
     const app = application(workspace);
     return Boolean(
-      hasViableRoundTrip(app) &&
       hasSemanticClients(app) &&
       hasSemanticEnvelope(app),
     );
@@ -3852,7 +4144,6 @@ const rules = {
   "prompt/encrypted-blob-metadata": (workspace) => {
     const app = application(workspace);
     return Boolean(
-      hasViableRoundTrip(app) &&
       hasSemanticClients(app) &&
       uploadTargetUnits(app).size > 0,
     );
@@ -3860,7 +4151,6 @@ const rules = {
   "prompt/decrypt-path": (workspace) => {
     const app = application(workspace);
     return Boolean(
-      hasViableRoundTrip(app) &&
       hasSemanticClients(app) &&
       downloadTargetUnits(app).size > 0 &&
       cryptoContracts(app, new Set(app.units.keys()), "unwrapKey").length > 0,
@@ -3868,23 +4158,19 @@ const rules = {
   },
   "prompt/managed-identity-configuration": (workspace) => {
     const app = application(workspace);
-    return hasViableRoundTrip(app) && hasManagedIdentityConfiguration(app);
+    return hasManagedIdentityConfiguration(app);
   },
   "prompt/rest-error-handling": (workspace) => {
     const app = application(workspace);
-    return Boolean(
-      hasViableRoundTrip(app) &&
-      hasSemanticEnvelope(app) &&
-      hasRestErrorHandling(app.rootSource, app.imports) &&
-      (app.rootSource.match(/\binstanceof\s+\w*RestError\b/g) ?? []).length >= 2
-    );
+    return app.documents.length > 0 && hasServiceErrorHandling(app);
   },
   "prompt/connected-round-trip": (workspace) => {
     const app = application(workspace);
     return Boolean(
       hasViableRoundTrip(app) &&
       hasSemanticClients(app) &&
-      hasSemanticEnvelope(app)
+      hasSemanticEnvelope(app) &&
+      hasManagedIdentityConfiguration(app)
     );
   },
 };

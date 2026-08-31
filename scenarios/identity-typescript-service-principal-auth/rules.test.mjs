@@ -10,6 +10,11 @@ import {
 
 const goldenPath = fileURLToPath(new URL("./golden", import.meta.url));
 const completeWorkspace = loadTypeScriptWorkspace(goldenPath);
+const baseline33374429826 = loadTypeScriptWorkspace(
+  fileURLToPath(
+    new URL("./fixtures/baseline-33374429826", import.meta.url),
+  ),
+);
 
 const imports = `
 import "dotenv/config";
@@ -57,6 +62,32 @@ test("golden passes exactly the six service-principal criteria", () => {
   for (const rule of ruleNames()) {
     assert.equal(evaluateRule(rule, completeWorkspace), true, rule);
   }
+});
+
+test("baseline run 33374429826 exact output passes every criterion", () => {
+  for (const rule of ruleNames()) {
+    assert.equal(evaluateRule(rule, baseline33374429826), true, rule);
+  }
+});
+
+test("actionable static authentication diagnostics are accepted", () => {
+  const source = setup(`
+try {
+  await client.getSecret(secretName);
+} catch (error) {
+  if (error instanceof AuthenticationError) {
+    console.error(
+      "Azure authentication failed. Verify the service principal credentials.",
+    );
+    process.exitCode = 1;
+  } else {
+    throw error;
+  }
+}`);
+  assert.equal(
+    evaluateRule("prompt/authentication-errors", workspace(source)),
+    true,
+  );
 });
 
 test("every criterion requires generated source", () => {

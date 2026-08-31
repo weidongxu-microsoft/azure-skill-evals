@@ -14,6 +14,11 @@ import {
 
 const goldenPath = fileURLToPath(new URL("./golden", import.meta.url));
 const golden = loadTypeScriptWorkspace(goldenPath);
+const baseline33374429826 = loadTypeScriptWorkspace(
+  fileURLToPath(
+    new URL("./fixtures/baseline-33374429826", import.meta.url),
+  ),
+);
 
 function withSource(source, packageJson = golden.packageJson) {
   return { ...golden, packageJson, source };
@@ -69,6 +74,24 @@ test("reference has exactly eight passing criteria", () => {
 test("reference passes reusable TypeScript checks", () => {
   for (const check of typeScriptCheckNames()) {
     assert.equal(evaluateTypeScriptCheck(check, golden), true, check);
+  }
+});
+
+test("baseline run 33374429826 passes only its correctly implemented criteria", () => {
+  for (const rule of ruleNames().slice(0, -1)) {
+    assert.equal(evaluateRule(rule, baseline33374429826), true, rule);
+  }
+  assert.equal(
+    evaluateRule("prompt/rest-error", baseline33374429826),
+    false,
+    "the generated lifecycle uses Promise.catch instead of requested try/catch",
+  );
+  for (const check of typeScriptCheckNames()) {
+    assert.equal(
+      evaluateTypeScriptCheck(check, baseline33374429826),
+      true,
+      check,
+    );
   }
 });
 
@@ -159,20 +182,20 @@ test("a locally shadowed SDK constructor is rejected", () => {
   assert.equal(evaluateRule("prompt/create-secret", withSource(workspace)), false);
 });
 
-test("type-only imports cannot masquerade as runtime SDK values", () => {
+test("type-only credential and client imports cannot masquerade as runtime SDK values", () => {
   for (const imported of [
     "DefaultAzureCredential",
     "SecretClient",
-    "RestError",
   ]) {
     const source = program(completeLifecycle).source.replace(
       `import { ${imported} }`,
       `import type { ${imported} }`,
     );
-    const rule = imported === "RestError"
-      ? "prompt/rest-error"
-      : "prompt/authenticated-client";
-    assert.equal(evaluateRule(rule, withSource(source)), false, imported);
+    assert.equal(
+      evaluateRule("prompt/authenticated-client", withSource(source)),
+      false,
+      imported,
+    );
   }
 });
 
@@ -580,21 +603,23 @@ import { SecretClient } from "@azure/keyvault-secrets";`;
   }
 });
 
-test("RestError handling requires the real type, details, and unknown rethrow", () => {
+test("try/catch handling does not require a specific Azure exception type", () => {
+  const source = program(completeLifecycle).source
+    .replace('import { RestError } from "@azure/core-rest-pipeline";', "")
+    .replace(
+      "if (error instanceof RestError) {\n      console.error(error.statusCode, error.message);\n    }\n    throw error;",
+      "console.error(`Key Vault operation failed: ${String(error)}`);",
+    );
+  assert.equal(evaluateRule("prompt/rest-error", withSource(source)), true);
+});
+
+test("error handling must use try/catch around the lifecycle and report failure", () => {
   const badSources = [
     program(completeLifecycle).source.replace(
-      "if (error instanceof RestError)",
-      "if (error instanceof Error)",
-    ),
-    program(completeLifecycle).source.replace(
       "console.error(error.statusCode, error.message);",
-      'console.error("request failed");',
+      'console.info("handled");',
     ),
-    program(completeLifecycle).source.replace("    throw error;", ""),
-    program(completeLifecycle).source.replace(
-      "async function main() {",
-      "async function main(RestError) {",
-    ),
+    program("    await unrelatedWork();").source,
   ];
   for (const source of badSources) {
     assert.equal(
@@ -626,7 +651,7 @@ test("exhaustive else and negated RestError catches are accepted", () => {
   }
 });
 
-test("all catches must preserve unknown failures", () => {
+test("unrelated catches do not invalidate lifecycle try/catch handling", () => {
   const swallowed = program(completeLifecycle).source + `
 try {
   await unrelatedWork();
@@ -635,7 +660,7 @@ try {
 }`;
   assert.equal(
     evaluateRule("prompt/rest-error", withSource(swallowed)),
-    false,
+    true,
   );
 
   const propagated = swallowed.replace(

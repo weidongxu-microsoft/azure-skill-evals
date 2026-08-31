@@ -19,14 +19,11 @@ import {
 
 const goldenPath = fileURLToPath(new URL("./golden", import.meta.url));
 const golden = loadSourceManifest(goldenPath);
-const behavioralRules = [
-  "prompt/key-vault-envelope-encryption",
-  "prompt/encrypted-blob-metadata",
-  "prompt/decrypt-path",
-  "prompt/managed-identity-configuration",
-  "prompt/rest-error-handling",
-  "prompt/connected-round-trip",
-];
+const baseline33374429826 = loadSourceManifest(
+  fileURLToPath(
+    new URL("./fixtures/baseline-33374429826", import.meta.url),
+  ),
+);
 
 function withDocuments(documents, packageJson = golden.packageJson) {
   return { ...golden, documents, sourceFiles: documents.map(({ path }) => path), packageJson };
@@ -45,14 +42,12 @@ function without(fragment) {
   );
 }
 
-function rejectsBehavioralRules(workspace, label = "") {
-  for (const rule of behavioralRules) {
-    assert.equal(
-      evaluateRule(rule, workspace),
-      false,
-      label ? `${label}: ${rule}` : rule,
-    );
-  }
+function rejectsConnectedRoundTrip(workspace, label = "") {
+  assert.equal(
+    evaluateRule("prompt/connected-round-trip", workspace),
+    false,
+    label || "prompt/connected-round-trip",
+  );
 }
 
 function changeDocument(path, transform) {
@@ -82,10 +77,18 @@ function changeDocuments(transforms) {
   );
 }
 
-function rejectsScenarioRules(workspace, label) {
-  for (const rule of ruleNames()) {
-    assert.equal(evaluateRule(rule, workspace), false, `${label}: ${rule}`);
-  }
+function changeBaselineDocument(path, transform) {
+  return withDocuments(
+    baseline33374429826.documents.map((document) =>
+      document.path === path
+        ? {
+            ...document,
+            source: transform(document.source.replaceAll("\r\n", "\n")),
+          }
+        : document,
+    ),
+    baseline33374429826.packageJson,
+  );
 }
 
 test("reference passes every encrypted uploader and shared TypeScript rule", () => {
@@ -105,6 +108,134 @@ test("reference passes every encrypted uploader and shared TypeScript rule", () 
   for (const rule of typeScriptCheckNames()) {
     assert.equal(evaluateTypeScriptCheck(rule, golden), true, rule);
   }
+});
+
+test("baseline run 33374429826 exact output passes every grader", () => {
+  for (const rule of ruleNames()) {
+    assert.equal(evaluateRule(rule, baseline33374429826), true, rule);
+  }
+  for (const check of typeScriptCheckNames()) {
+    assert.equal(
+      evaluateTypeScriptCheck(check, baseline33374429826),
+      true,
+      check,
+    );
+  }
+});
+
+test("baseline forms support injected KeyClient, combined wrap, download metadata, and managed identity", () => {
+  for (const rule of [
+    "prompt/key-vault-envelope-encryption",
+    "prompt/encrypted-blob-metadata",
+    "prompt/decrypt-path",
+    "prompt/managed-identity-configuration",
+    "prompt/connected-round-trip",
+  ]) {
+    assert.equal(evaluateRule(rule, baseline33374429826), true, rule);
+  }
+});
+
+test("baseline forms retain credential, key, metadata, and result provenance", () => {
+  const separateCredential = changeBaselineDocument("src/config.ts", (source) =>
+    source.replace(
+      "keyClient: new KeyClient(keyVaultUrl, credential)",
+      "keyClient: new KeyClient(keyVaultUrl, new ManagedIdentityCredential())",
+    )
+  );
+  assert.equal(
+    evaluateRule("prompt/managed-identity-configuration", separateCredential),
+    false,
+  );
+  assert.equal(
+    evaluateRule("prompt/connected-round-trip", separateCredential),
+    false,
+  );
+
+  const unprovenInjectedClient = changeBaselineDocument(
+    "src/keyManagement.ts",
+    (source) =>
+      source.replace(
+        "private readonly keyClient: KeyClient",
+        "private readonly keyClient: UnknownKeyClient",
+      ),
+  );
+  assert.equal(
+    evaluateRule(
+      "prompt/key-vault-envelope-encryption",
+      unprovenInjectedClient,
+    ),
+    false,
+  );
+
+  const fabricatedGeneratedKey = changeBaselineDocument(
+    "src/keyManagement.ts",
+    (source) =>
+      source.replace(
+        /dataKey,\n(\s*)wrappedKey:/,
+        "dataKey: Buffer.alloc(32),\n$1wrappedKey:",
+      ),
+  );
+  assert.equal(
+    evaluateRule(
+      "prompt/key-vault-envelope-encryption",
+      fabricatedGeneratedKey,
+    ),
+    false,
+  );
+
+  const fabricatedDownloadMetadata = changeBaselineDocument(
+    "src/encryptedBlobStorage.ts",
+    (source) =>
+      source.replace(
+        "metadata = response.metadata ?? {};",
+        "metadata = fabricatedMetadata;",
+      ),
+  );
+  assert.equal(
+    evaluateRule("prompt/decrypt-path", fabricatedDownloadMetadata),
+    false,
+  );
+});
+
+test("error handling must cover both reachable Azure services", () => {
+  const keyErrorsUnhandled = changeBaselineDocument(
+    "src/keyManagement.ts",
+    (source) => source.replaceAll("try {", "{"),
+  );
+  assert.equal(
+    evaluateRule("prompt/rest-error-handling", keyErrorsUnhandled),
+    false,
+  );
+
+  const blobErrorsUnhandled = changeBaselineDocument(
+    "src/encryptedBlobStorage.ts",
+    (source) => source.replaceAll("try {", "{"),
+  );
+  assert.equal(
+    evaluateRule("prompt/rest-error-handling", blobErrorsUnhandled),
+    false,
+  );
+});
+
+test("criteria remain independent when the demo round trip is disconnected", () => {
+  const disconnected = withDocuments(
+    baseline33374429826.documents.map((document) =>
+      document.path === "src/index.ts"
+        ? {
+            ...document,
+            source: `async function main(): Promise<void> {
+  console.info("configuration only");
+}
+await main();`,
+          }
+        : document,
+    ),
+    baseline33374429826.packageJson,
+  );
+  for (const rule of ruleNames().slice(0, -1)) {
+    assert.equal(evaluateRule(rule, disconnected), true, rule);
+  }
+  rejectsConnectedRoundTrip(disconnected);
 });
 
 test("reference pins the approved SDK and TypeScript versions", () => {
@@ -223,7 +354,7 @@ test("secrets, direct vault encryption, weak modes, and raw DEK persistence fail
   );
 });
 
-test("metadata, authentication restoration, and RestError handling are mandatory", () => {
+test("metadata and authentication restoration are mandatory", () => {
   assert.equal(
     evaluateRule("prompt/encrypted-blob-metadata", without("authTag: authenticationTag.toString")),
     false,
@@ -232,17 +363,12 @@ test("metadata, authentication restoration, and RestError handling are mandatory
     evaluateRule("prompt/decrypt-path", without("decipher.setAuthTag")),
     false,
   );
+});
+
+test("service error handling does not require RestError", () => {
   assert.equal(
-    evaluateRule(
-      "prompt/rest-error-handling",
-      withDocuments(
-        golden.documents.map((document) => ({
-          ...document,
-          source: document.source.replaceAll("error.statusCode", "error.code"),
-        })),
-      ),
-    ),
-    false,
+    evaluateRule("prompt/rest-error-handling", baseline33374429826),
+    true,
   );
 });
 
@@ -257,7 +383,7 @@ test("false branches and disconnected helpers do not count as an application", (
         : document,
     ),
   );
-  rejectsBehavioralRules(unreachable);
+  rejectsConnectedRoundTrip(unreachable);
 });
 
 test("constant-true early returns and unreachable operation decoys fail every behavioral rule", () => {
@@ -280,7 +406,7 @@ test("constant-true early returns and unreachable operation decoys fail every be
         : document,
     ),
   );
-  rejectsBehavioralRules(earlyReturn);
+  rejectsConnectedRoundTrip(earlyReturn);
 
   const disconnected = withDocuments(
     golden.documents.map((document) =>
@@ -297,7 +423,7 @@ test("constant-true early returns and unreachable operation decoys fail every be
         : document,
     ),
   );
-  rejectsBehavioralRules(disconnected);
+  rejectsConnectedRoundTrip(disconnected);
 });
 
 test("unreachable and path-incompatible cryptographic decoys cannot fill missing steps", () => {
@@ -721,7 +847,7 @@ test("operations only in a constant-true else branch are unreachable", () => {
         : document,
     ),
   );
-  rejectsBehavioralRules(unreachableElse);
+  rejectsConnectedRoundTrip(unreachableElse);
 });
 
 test("whole-program blockers reject early exits, invalid order, fabricated IDs, and fake outputs", () => {
@@ -1000,7 +1126,7 @@ test("whole-program blockers reject early exits, invalid order, fabricated IDs, 
     ["fabricated decrypted output", fabricatedDecryption],
     ["path-incompatible upload evidence", disconnectedUploadEvidence],
   ]) {
-    rejectsScenarioRules(workspace, label);
+    rejectsConnectedRoundTrip(workspace, label);
   }
 });
 
@@ -1312,7 +1438,7 @@ test("constant truthy early returns make the application work unreachable", () =
   if (shouldReturn) return;`,
     ],
   ]) {
-    rejectsBehavioralRules(blocker(setup), label);
+    rejectsConnectedRoundTrip(blocker(setup), label);
   }
 });
 

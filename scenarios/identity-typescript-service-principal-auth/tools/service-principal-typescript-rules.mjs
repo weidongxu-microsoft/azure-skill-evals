@@ -2306,9 +2306,28 @@ function usefulCredentialBranch(
   if (!error) return false;
   const escaped = escapeRegExp(error);
   const useful = (branch) =>
-    new RegExp(
-      `\\bconsole\\s*\\.\\s*(?:error|warn|log)\\s*\\([\\s\\S]{0,300}?\\b${escaped}(?:\\s*\\.\\s*(?:message|name|stack))?\\b`,
-    ).test(maskSource(branch, true));
+    ["error", "warn", "log", "info"]
+      .flatMap((method) => methodCalls(branch, "console", method))
+      .some((call) => {
+      const expression = expressionCode(call.arguments);
+      if (
+        new RegExp(
+          `\\b${escaped}(?:\\s*\\.\\s*(?:message|name|stack))?\\b`,
+        ).test(expression)
+      ) {
+        return true;
+      }
+      const diagnostic = call.arguments
+        .match(/(["'`])([\s\S]*?)\1/g)
+        ?.map((literal) => literal.slice(1, -1))
+        .join(" ") ?? "";
+      return (
+        /\b(?:auth(?:entication)?|credential)\w*\b/i.test(diagnostic) &&
+        /\b(?:check|configure|ensure|provide|set|update|verify)\w*\b/i.test(
+          diagnostic,
+        )
+      );
+      });
 
   return ifBlocks(body).some((block) => {
     const positive = credentialCondition(
