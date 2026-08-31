@@ -16,10 +16,14 @@ import {
 } from "./tools/storage-blob-manager-rules.mjs";
 
 const goldenPath = fileURLToPath(new URL("./golden", import.meta.url));
+const baselinePath = fileURLToPath(
+  new URL("./fixtures/baseline-33420505368", import.meta.url),
+);
 const checkScript = fileURLToPath(
   new URL("./tools/check-storage-blob-manager-python.mjs", import.meta.url),
 );
 const goldenWorkspace = loadStorageBlobManagerWorkspace(goldenPath);
+const baselineWorkspace = loadStorageBlobManagerWorkspace(baselinePath);
 const languageWorkspace = loadPythonWorkspace(goldenPath);
 const dependencies = goldenWorkspace.dependencies.replaceAll("\r\n", "\n");
 const languageChecks = [
@@ -57,6 +61,10 @@ function replaceDocument(path, from, to, baseDocuments = goldenWorkspace.documen
   return workspaceWithDocuments(documents);
 }
 
+function replaceBaselineDocument(path, from, to) {
+  return replaceDocument(path, from, to, baselineWorkspace.documents);
+}
+
 test("pinned golden passes every prompt and shared Python rule", () => {
   assert.deepEqual(ruleNames(), [
     "prompt/sdk-packages",
@@ -80,6 +88,155 @@ test("pinned golden passes every prompt and shared Python rule", () => {
   for (const check of languageChecks) {
     assert.equal(evaluatePythonCheck(check, languageWorkspace), true, check);
   }
+});
+
+test("baseline run 33420505368 exact four-file output retains only audited failures", () => {
+  assert.deepEqual(
+    baselineWorkspace.documents.map(({ path }) => path),
+    ["blob_service.py", "config.py", "main.py"],
+  );
+  const expected = {
+    "prompt/sdk-packages": true,
+    "prompt/secure-client-configuration": true,
+    "prompt/retry-and-http-logging": false,
+    "prompt/sync-service-operations": true,
+    "prompt/async-service-operations": true,
+    "prompt/streaming-upload-and-tags": true,
+    "prompt/lease-protected-overwrite": true,
+    "prompt/operation-timeouts": true,
+    "prompt/sdk-error-handling": true,
+    "prompt/demo-workflow": false,
+  };
+  for (const [rule, passed] of Object.entries(expected)) {
+    assert.equal(evaluateRule(rule, baselineWorkspace), passed, rule);
+  }
+});
+
+test("mode-appropriate async retry policy makes the baseline variant fully valid", () => {
+  let workspace = replaceBaselineDocument(
+    "config.py",
+    "from azure.core.pipeline.policies import RetryPolicy",
+    "from azure.core.pipeline.policies import AsyncRetryPolicy, RetryPolicy",
+  );
+  workspace = replaceDocument(
+    "config.py",
+    "\ndef create_blob_service_client(",
+    `
+def _async_retry_policy(settings: StorageSettings) -> AsyncRetryPolicy:
+    return AsyncRetryPolicy(
+        retry_total=settings.max_retries,
+        retry_connect=settings.max_retries,
+        retry_read=settings.max_retries,
+        retry_status=settings.max_retries,
+        retry_backoff_factor=settings.retry_delay,
+        retry_backoff_max=settings.retry_max_delay,
+    )
+
+
+def create_blob_service_client(`,
+    workspace.documents,
+  );
+  workspace = replaceDocument(
+    "config.py",
+    `client = AsyncBlobServiceClient(
+        account_url=settings.account_endpoint,
+        credential=credential,
+        retry_policy=_retry_policy(settings),`,
+    `client = AsyncBlobServiceClient(
+        account_url=settings.account_endpoint,
+        credential=credential,
+        retry_policy=_async_retry_policy(settings),`,
+    workspace.documents,
+  );
+  for (const rule of ruleNames()) {
+    assert.equal(evaluateRule(rule, workspace), true, rule);
+  }
+});
+
+test("sync retry in an async pipeline fails retry and demo but not service analysis", () => {
+  assert.equal(
+    evaluateRule("prompt/retry-and-http-logging", baselineWorkspace),
+    false,
+  );
+  assert.equal(
+    evaluateRule("prompt/async-service-operations", baselineWorkspace),
+    true,
+  );
+  assert.equal(evaluateRule("prompt/demo-workflow", baselineWorkspace), false);
+});
+
+test("secure clients and sync and async operation chains are independent", () => {
+  const insecure = replaceBaselineDocument(
+    "config.py",
+    "account_url=settings.account_endpoint,",
+    'account_url="https://fixed.blob.core.windows.net",',
+  );
+  assert.equal(
+    evaluateRule("prompt/secure-client-configuration", insecure),
+    false,
+  );
+  assert.equal(evaluateRule("prompt/sync-service-operations", insecure), true);
+  assert.equal(evaluateRule("prompt/async-service-operations", insecure), true);
+
+  const missingSyncDelete = replaceBaselineDocument(
+    "main.py",
+    'service.delete_blob(CONTAINER, BLOB_NAME, timeout=TIMEOUT),',
+    'service.list_blobs(CONTAINER, timeout=TIMEOUT),',
+  );
+  assert.equal(
+    evaluateRule("prompt/sync-service-operations", missingSyncDelete),
+    false,
+  );
+  assert.equal(
+    evaluateRule("prompt/async-service-operations", missingSyncDelete),
+    true,
+  );
+});
+
+test("dataclass, tuple, result, lease, and timeout provenance is structural", () => {
+  const noSettingsDataclass = replaceBaselineDocument(
+    "config.py",
+    "@dataclass(frozen=True)\nclass StorageSettings:",
+    "class StorageSettings:",
+  );
+  assert.equal(
+    evaluateRule("prompt/secure-client-configuration", noSettingsDataclass),
+    false,
+  );
+
+  const noTupleFactory = replaceBaselineDocument(
+    "config.py",
+    "    return client, credential",
+    "    return client",
+  );
+  assert.equal(
+    evaluateRule("prompt/sync-service-operations", noTupleFactory),
+    false,
+  );
+  assert.equal(
+    evaluateRule("prompt/async-service-operations", noTupleFactory),
+    true,
+  );
+
+  const droppedLeaseValue = replaceBaselineDocument(
+    "blob_service.py",
+    "                True, f\"Acquired lease for '{container}/{blob}'.\", lease",
+    "                True, f\"Acquired lease for '{container}/{blob}'.\"",
+  );
+  assert.equal(
+    evaluateRule("prompt/lease-protected-overwrite", droppedLeaseValue),
+    false,
+  );
+
+  const droppedTimeout = replaceBaselineDocument(
+    "blob_service.py",
+    'return {} if timeout is None else {"timeout": timeout}',
+    "return {}",
+  );
+  assert.equal(
+    evaluateRule("prompt/operation-timeouts", droppedTimeout),
+    false,
+  );
 });
 
 test("runtime dependency manifests accept standard active forms", () => {

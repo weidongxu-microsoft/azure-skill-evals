@@ -1,4 +1,13 @@
 import assert from "node:assert/strict";
+import { spawnSync } from "node:child_process";
+import {
+  copyFileSync,
+  mkdirSync,
+  readFileSync,
+  readdirSync,
+  rmSync,
+} from "node:fs";
+import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import test from "node:test";
 
@@ -18,6 +27,11 @@ const baselinePath = fileURLToPath(
   new URL("./fixtures/baseline-33403910898", import.meta.url),
 );
 const baseline33403910898 = loadPythonWorkspace(baselinePath);
+const baseline33420505368Path = fileURLToPath(
+  new URL("./fixtures/baseline-33420505368", import.meta.url),
+);
+const baseline33420505368 = loadPythonWorkspace(baseline33420505368Path);
+const scenarioPath = fileURLToPath(new URL(".", import.meta.url));
 
 test("Python App Configuration reference passes every prompt rule", () => {
   for (const rule of ruleNames()) {
@@ -39,6 +53,73 @@ test("baseline run 33403910898 exact output preserves its lifecycle failure", ()
     evaluatePythonCheck("language/client-lifecycle", baseline33403910898),
     false,
   );
+});
+
+test("baseline run 33420505368 exact output passes every prompt rule", () => {
+  for (const rule of ruleNames()) {
+    assert.equal(evaluateRule(rule, baseline33420505368), true, rule);
+  }
+});
+
+test("declared eval files stage every referenced analyzer", () => {
+  const evalSource = readFileSync(join(scenarioPath, "eval.yaml"), "utf8");
+  const rulesSource = readFileSync(
+    join(scenarioPath, "tools", "app-configuration-python-rules.mjs"),
+    "utf8",
+  );
+  const declarations = [
+    ...evalSource.matchAll(
+      /- src: ([^\r\n]+)\r?\n\s+dest: ([^\r\n]+)/g,
+    ),
+  ].map((match) => ({ src: match[1].trim(), dest: match[2].trim() }));
+  const analyzers = [
+    ...rulesSource.matchAll(/new URL\("\.\/([^"]+_analyzer\.py)"/g),
+  ].map((match) => match[1]);
+  for (const analyzer of analyzers) {
+    assert.ok(
+      declarations.some(({ dest }) => dest.endsWith(`/tools/${analyzer}`)),
+      analyzer,
+    );
+  }
+
+  const workspace = join(scenarioPath, ".declared-environment-fixture");
+  rmSync(workspace, { recursive: true, force: true });
+  try {
+    mkdirSync(workspace, { recursive: true });
+    for (const entry of readdirSync(baseline33420505368Path, {
+      withFileTypes: true,
+    })) {
+      if (entry.isFile()) {
+        copyFileSync(
+          join(baseline33420505368Path, entry.name),
+          join(workspace, entry.name),
+        );
+      }
+    }
+    for (const { src, dest } of declarations) {
+      const destination = join(workspace, dest);
+      mkdirSync(dirname(destination), { recursive: true });
+      copyFileSync(resolve(scenarioPath, src), destination);
+    }
+    const result = spawnSync(
+      "node",
+      [
+        join(
+          workspace,
+          ".vally",
+          "scenarios",
+          "app-configuration-python-config-values",
+          "tools",
+          "check-app-configuration-python.mjs",
+        ),
+        "prompt/get-list-settings",
+      ],
+      { cwd: workspace, encoding: "utf8", windowsHide: true },
+    );
+    assert.equal(result.status, 0, result.stderr);
+  } finally {
+    rmSync(workspace, { recursive: true, force: true });
+  }
 });
 
 test("disabled feature flag fails its prompt rule", () => {

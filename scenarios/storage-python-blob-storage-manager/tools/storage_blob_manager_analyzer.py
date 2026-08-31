@@ -38,6 +38,8 @@ class Function:
 @dataclass
 class ClassInfo:
     methods: dict[str, Function]
+    fields: list[tuple[str, ast.expr | None]]
+    dataclass: bool
 
 
 @dataclass
@@ -105,6 +107,10 @@ def unknown(flags: frozenset[str] = frozenset()) -> Value:
 
 def value_flags(value: Value, seen: set[int] | None = None) -> frozenset[str]:
     flags = value.flags
+    if value.kind == "union":
+        return flags | frozenset().union(
+            *(value_flags(item, seen) for item in value.data)
+        )
     if value.kind != "instance":
         return flags
     seen = seen or set()
@@ -138,7 +144,17 @@ def merge_values(values: list[Value]) -> Value:
     first = signature(values[0])
     if all(signature(value) == first for value in values[1:]):
         return values[0]
-    return unknown(frozenset().union(*(value_flags(value) for value in values)))
+    alternatives: list[Value] = []
+    for value in values:
+        candidates = value.data if value.kind == "union" else (value,)
+        for candidate in candidates:
+            if not any(signature(candidate) == signature(existing) for existing in alternatives):
+                alternatives.append(candidate)
+    return Value(
+        "union",
+        tuple(alternatives),
+        frozenset().union(*(value_flags(value) for value in values)),
+    )
 
 
 def merge_environments(
@@ -227,20 +243,34 @@ class Analyzer:
         async_chain = self.best_chain("async")
         sync_complete_chains = self.complete_chains("sync")
         async_complete_chains = self.complete_chains("async")
+        secure_sync_clients = self.secure_client_ids("sync")
+        secure_async_clients = self.secure_client_ids("async")
         secure_clients = (
             source_valid
             and not self.forbidden_auth
-            and self.chain_client_is_secure(sync_chain, "sync")
-            and self.chain_client_is_secure(async_chain, "async")
+            and bool(secure_sync_clients)
+            and bool(secure_async_clients)
         )
         retry_and_logging = (
-            secure_clients
+            source_valid
             and self.logging_configured
-            and self.chain_client_has_retry_and_logging(sync_chain)
-            and self.chain_client_has_retry_and_logging(async_chain)
+            and any(
+                self.client_has_retry_and_logging(identifier)
+                for identifier in self.valid_services["sync"]
+            )
+            and any(
+                self.client_has_retry_and_logging(identifier)
+                for identifier in self.valid_services["async"]
+            )
         )
-        sync_service = secure_clients and len(sync_chain) == 7
-        async_service = secure_clients and len(async_chain) == 7
+        sync_service = (
+            source_valid
+            and len(sync_chain) == 7
+        )
+        async_service = (
+            source_valid
+            and len(async_chain) == 7
+        )
         upload_tags = (
             sync_service
             and async_service
@@ -268,6 +298,8 @@ class Analyzer:
         demo = (
             sync_service
             and async_service
+            and self.client_has_retry_and_logging(sync_chain[0].service)
+            and self.client_has_retry_and_logging(async_chain[0].service)
             and self.has_ordered_demo_workflow(
                 sync_complete_chains,
                 async_complete_chains,
@@ -416,7 +448,11 @@ class Analyzer:
         chain: list[Operation],
     ) -> bool:
         if operation.kind == "upload-blob":
-            return operation.streamed and operation.overwrite is True and not operation.lease
+            return (
+                operation.streamed
+                and operation.overwrite in {False, True}
+                and not operation.lease
+            )
         if operation.kind == "save-download":
             return bool(chain) and operation.related == chain[index - 1].identifier
         if operation.kind == "acquire-lease":
@@ -441,10 +477,16 @@ class Analyzer:
             and account_url_from_environment(config.account_url_flags)
         )
 
-    def chain_client_has_retry_and_logging(self, chain: list[Operation]) -> bool:
-        if len(chain) != 7:
-            return False
-        config = self.client_configs.get(chain[0].service)
+    def secure_client_ids(self, mode: str) -> set[int]:
+        return {
+            identifier
+            for identifier, config in self.client_configs.items()
+            if config.mode == mode
+            and account_url_from_environment(config.account_url_flags)
+        }
+
+    def client_has_retry_and_logging(self, identifier: int) -> bool:
+        config = self.client_configs.get(identifier)
         return bool(config and config.logging_enabled and config.custom_retry)
 
     def chain_has_streaming_upload_and_tags(self, chain: list[Operation]) -> bool:
@@ -497,6 +539,7 @@ class Analyzer:
 
     def operation_has_sdk_handler(self, operation: Operation) -> bool:
         accepted = {
+            "azure.core.exceptions.AzureError",
             "azure.core.exceptions.HttpResponseError",
             "azure.core.exceptions.ResourceExistsError",
             "azure.core.exceptions.ResourceModifiedError",
@@ -511,6 +554,7 @@ class Analyzer:
 
     def operation_has_lease_handler(self, operation: Operation) -> bool:
         accepted = {
+            "azure.core.exceptions.AzureError",
             "azure.core.exceptions.ResourceExistsError",
             "azure.core.exceptions.ResourceModifiedError",
         }
@@ -653,6 +697,7 @@ class Analyzer:
             "Exception": Value("symbol", "builtins.Exception"),
             "BaseException": Value("symbol", "builtins.BaseException"),
             "int": Value("symbol", "builtins.int"),
+            "float": Value("symbol", "builtins.float"),
             "getattr": Value("symbol", "builtins.getattr"),
         }
 
@@ -662,11 +707,22 @@ class Analyzer:
         environment: dict[str, Value],
     ) -> ClassInfo:
         return ClassInfo(
-            {
+            methods={
                 statement.name: Function(statement, environment.copy())
                 for statement in node.body
                 if isinstance(statement, (ast.FunctionDef, ast.AsyncFunctionDef))
-            }
+            },
+            fields=[
+                (statement.target.id, statement.value)
+                for statement in node.body
+                if isinstance(statement, ast.AnnAssign)
+                and isinstance(statement.target, ast.Name)
+            ],
+            dataclass=any(
+                (dotted(decorator.func) if isinstance(decorator, ast.Call) else dotted(decorator))
+                in {"dataclass", "dataclasses.dataclass"}
+                for decorator in node.decorator_list
+            ),
         )
 
     def execute_block(
@@ -794,7 +850,7 @@ class Analyzer:
         lease_conflict = False
         for handler in statement.handlers:
             catches |= self.exception_names(handler.type, environment)
-            meaningful |= handler_is_meaningful(handler)
+            meaningful |= handler_is_meaningful(handler, environment)
             lease_conflict |= handler_mentions_lease_conflict(handler, environment)
         self.try_infos[identifier] = TryInfo(
             identifier,
@@ -897,15 +953,45 @@ class Analyzer:
                 return Value("symbol", f"{base.data}.{node.attr}")
             if base.kind == "local-module":
                 return base.data.get(node.attr, unknown())
+            if base.kind == "class":
+                function = base.data.methods.get(node.attr)
+                if function is not None and any(
+                    dotted(decorator) in {"classmethod", "builtins.classmethod"}
+                    for decorator in function.node.decorator_list
+                ):
+                    return Value("bound-function", (function, base))
             if base.kind == "instance":
                 member = base.data.members.get(node.attr)
                 if member is not None:
-                    return member
+                    return Value(
+                        member.kind,
+                        member.data,
+                        member.flags | base.flags,
+                    )
                 function = base.data.class_info.methods.get(node.attr)
                 if function is not None:
                     return Value("bound-function", (function, base))
+            if base.kind == "union":
+                return merge_values(
+                    [
+                        self.expression(
+                            ast.Attribute(
+                                value=ast.Name(id="__union_item", ctx=ast.Load()),
+                                attr=node.attr,
+                                ctx=ast.Load(),
+                            ),
+                            {**environment, "__union_item": item},
+                        )
+                        for item in base.data
+                    ]
+                )
+            if base.kind == "lease" and node.attr == "id":
+                return base
+            if base.kind == "blob-item" and node.attr == "name":
+                return Value("string", "blob-name")
             if base.kind in {
                 "blob",
+                "blob-item",
                 "container",
                 "download",
                 "file",
@@ -913,6 +999,8 @@ class Analyzer:
                 "logger",
                 "path",
                 "service",
+                "env",
+                "string",
             }:
                 return Value("bound-sdk", (base, node.attr))
             return unknown(value_flags(base))
@@ -936,13 +1024,52 @@ class Analyzer:
         if isinstance(node, ast.FormattedValue):
             return self.expression(node.value, environment)
         if isinstance(node, ast.Dict):
-            return Value("mapping")
+            mapping: dict[str, Value] = {}
+            for key, item in zip(node.keys, node.values, strict=True):
+                if isinstance(key, ast.Constant) and isinstance(key.value, str):
+                    mapping[key.value] = self.expression(item, environment)
+            return Value("mapping", mapping)
         if isinstance(node, (ast.List, ast.Tuple, ast.Set)):
             return Value("tuple", tuple(self.expression(item, environment) for item in node.elts))
+        if isinstance(node, ast.ListComp) and len(node.generators) == 1:
+            generator = node.generators[0]
+            iterable = self.expression(generator.iter, environment)
+            if iterable.kind == "blob-list":
+                items = [Value("blob-item")]
+            elif iterable.kind == "tuple":
+                items = list(iterable.data)
+            else:
+                items = [unknown(value_flags(iterable))]
+            results = []
+            for item in items:
+                nested = environment.copy()
+                self.assign(generator.target, item, nested)
+                if all(self.boolean(condition, nested) is not False for condition in generator.ifs):
+                    results.append(self.expression(node.elt, nested))
+            return Value("tuple", tuple(results))
         if isinstance(node, ast.IfExp):
+            condition = self.boolean(node.test, environment)
+            if condition is True:
+                return self.expression(node.body, environment)
+            if condition is False:
+                return self.expression(node.orelse, environment)
             return merge_values(
                 [self.expression(node.body, environment), self.expression(node.orelse, environment)]
             )
+        if isinstance(node, ast.BoolOp):
+            values: list[Value] = []
+            for item in node.values:
+                value = self.expression(item, environment)
+                values.append(value)
+                truth = abstract_truth(value)
+                if isinstance(node.op, ast.And) and truth is False:
+                    return value
+                if isinstance(node.op, ast.Or) and truth is True:
+                    return value
+            return values[-1] if values else unknown()
+        if isinstance(node, ast.Compare):
+            result = self.boolean(node, environment)
+            return Value("bool", result) if result is not None else unknown()
         if isinstance(node, ast.NamedExpr):
             value = self.expression(node.value, environment)
             self.assign(node.target, value, environment)
@@ -958,11 +1085,13 @@ class Analyzer:
     def call(self, node: ast.Call, environment: dict[str, Value]) -> Value:
         function = self.expression(node.func, environment)
         positional = [self.expression(argument, environment) for argument in node.args]
-        named = {
-            keyword.arg: self.expression(keyword.value, environment)
-            for keyword in node.keywords
-            if keyword.arg is not None
-        }
+        named: dict[str, Value] = {}
+        for keyword in node.keywords:
+            value = self.expression(keyword.value, environment)
+            if keyword.arg is not None:
+                named[keyword.arg] = value
+            elif value.kind == "mapping":
+                named.update(value.data)
         if function.kind == "function":
             return self.invoke(function.data, positional, named, environment)
         if function.kind == "bound-function":
@@ -973,6 +1102,17 @@ class Analyzer:
             initializer = function.data.methods.get("__init__")
             if initializer is not None:
                 self.invoke(initializer, [instance, *positional], named, environment)
+            elif function.data.dataclass:
+                for index, (field_name, default) in enumerate(function.data.fields):
+                    if field_name in named:
+                        instance.data.members[field_name] = named[field_name]
+                    elif index < len(positional):
+                        instance.data.members[field_name] = positional[index]
+                    elif default is not None:
+                        instance.data.members[field_name] = self.expression(
+                            default,
+                            environment,
+                        )
             return instance
         if function.kind == "bound-sdk":
             receiver, method = function.data
@@ -987,9 +1127,9 @@ class Analyzer:
             path = path_value(argument(positional, named, 0, "file"))
             mode = string_value(argument(positional, named, 1, "mode")) or "r"
             return Value("file", (path, mode))
-        if symbol == "builtins.int":
+        if symbol in {"builtins.int", "builtins.float"}:
             source = argument(positional, named, 0, "x")
-            return unknown(value_flags(source))
+            return Value("number", flags=value_flags(source))
         if symbol == "builtins.getattr":
             source = argument(positional, named, 1, "name")
             return unknown(value_flags(source))
@@ -1014,12 +1154,23 @@ class Analyzer:
         if symbol in {
             "azure.storage.blob.ExponentialRetry",
             "azure.storage.blob.aio.ExponentialRetry",
+            "azure.core.pipeline.policies.RetryPolicy",
+            "azure.core.pipeline.policies.AsyncRetryPolicy",
         }:
+            compatibility = (
+                "async"
+                if symbol in {
+                    "azure.storage.blob.aio.ExponentialRetry",
+                    "azure.core.pipeline.policies.AsyncRetryPolicy",
+                }
+                else "sync"
+            )
             return Value(
                 "retry-policy",
                 {
                     "mode": "exponential",
                     "custom": retry_policy_is_custom(node),
+                    "compatibility": compatibility,
                 },
             )
         if symbol in {
@@ -1044,8 +1195,6 @@ class Analyzer:
             credential = argument(positional, named, 1, "credential")
             if credential.kind != "credential" or credential.data != mode:
                 return unknown()
-            if not account_url_from_environment(value_flags(account_url)):
-                return unknown()
             self.client_counter += 1
             identifier = self.client_counter
             self.valid_services[mode].add(identifier)
@@ -1053,7 +1202,7 @@ class Analyzer:
                 mode=mode,
                 account_url_flags=value_flags(account_url),
                 logging_enabled=logging_is_enabled(named),
-                custom_retry=client_has_custom_retry(named),
+                custom_retry=client_has_custom_retry(named, mode),
             )
             return Value("service", (identifier, mode))
         if symbol in {
@@ -1064,7 +1213,14 @@ class Analyzer:
             if target.kind != "blob":
                 return unknown()
             service, mode = target.data
-            return Value("lease", Lease(service, mode))
+            lease_id = named.get("lease_id", unknown())
+            lease_ids = [
+                value
+                for value in alternatives(lease_id)
+                if value.kind == "lease"
+            ]
+            acquired = lease_ids[0].data.acquired if lease_ids else None
+            return Value("lease", Lease(service, mode, acquired))
         return unknown(frozenset().union(*(value_flags(value) for value in positional)))
 
     def sdk_method(
@@ -1074,6 +1230,20 @@ class Analyzer:
         positional: list[Value],
         named: dict[str, Value],
     ) -> Value:
+        if receiver.kind in {"env", "string"} and method in {
+            "strip",
+            "lstrip",
+            "rstrip",
+            "lower",
+            "upper",
+        }:
+            if receiver.kind == "string":
+                separator = string_value(positional[0]) if positional else None
+                result = getattr(receiver.data, method)(
+                    *(() if separator is None else (separator,))
+                )
+                return Value("string", result, receiver.flags)
+            return Value("env", receiver.data, receiver.flags)
         if receiver.kind == "path":
             if method == "open":
                 mode = string_value(argument(positional, named, 0, "mode")) or "r"
@@ -1157,6 +1327,8 @@ class Analyzer:
                 return Value("lease", Lease(service, mode, operation.identifier))
         if receiver.kind == "lease":
             lease: Lease = receiver.data
+            if method == "id":
+                return receiver
             if method == "acquire":
                 operation = self.record(
                     "acquire-lease",
@@ -1168,10 +1340,17 @@ class Analyzer:
                 return receiver
             if method in {"release", "break_lease"}:
                 return Value("none")
+        if receiver.kind == "blob-item" and method == "name":
+            return Value("string", "blob-name")
         if receiver.kind == "download":
             operation: Operation = receiver.data
             if method in {"readall", "content_as_bytes"}:
                 return Value("downloaded-bytes", operation)
+            if method == "chunks":
+                return Value(
+                    "tuple",
+                    (Value("downloaded-bytes", operation),),
+                )
             if method == "readinto":
                 destination = argument(positional, named, 0, "stream")
                 if writable_path(destination):
@@ -1213,21 +1392,29 @@ class Analyzer:
         named: dict[str, Value],
     ) -> Value:
         data = argument(positional, named, 0, "data")
-        overwrite = bool_value(named.get("overwrite", unknown()))
-        lease_value = named.get("lease", unknown())
-        lease = lease_value.kind == "lease" and lease_value.data.service == service
-        related = lease_value.data.acquired if lease else None
-        self.record(
-            "overwrite-blob" if lease else "upload-blob",
-            service,
-            mode,
-            related=related,
-            streamed=upload_is_streamed(data),
-            tags=has_meaningful_argument(named.get("tags", unknown())),
-            timeout=has_argument(named, 0, "timeout", positional),
-            overwrite=overwrite,
-            lease=lease,
-        )
+        overwrite_values = alternatives(named.get("overwrite", unknown()))
+        lease_values = alternatives(named.get("lease", unknown()))
+        for lease_value in lease_values:
+            lease = (
+                lease_value.kind == "lease"
+                and lease_value.data.service == service
+            )
+            related = lease_value.data.acquired if lease else None
+            candidate_overwrites = {
+                bool_value(value) for value in overwrite_values
+            }
+            for overwrite in candidate_overwrites:
+                self.record(
+                    "overwrite-blob" if lease else "upload-blob",
+                    service,
+                    mode,
+                    related=related,
+                    streamed=upload_is_streamed(data),
+                    tags=has_meaningful_argument(named.get("tags", unknown())),
+                    timeout=has_argument(named, 0, "timeout", positional),
+                    overwrite=overwrite,
+                    lease=lease,
+                )
         return Value("none")
 
     def invoke(
@@ -1252,13 +1439,33 @@ class Analyzer:
         parameters = (
             list(function.node.args.posonlyargs)
             + list(function.node.args.args)
-            + list(function.node.args.kwonlyargs)
         )
+        positional_defaults = {
+            parameter.arg: default
+            for parameter, default in zip(
+                parameters[-len(function.node.args.defaults) :],
+                function.node.args.defaults,
+                strict=True,
+            )
+        } if function.node.args.defaults else {}
         for index, parameter in enumerate(parameters):
             if index < len(positional):
                 environment[parameter.arg] = positional[index]
             elif parameter.arg in named:
                 environment[parameter.arg] = named[parameter.arg]
+            elif parameter.arg in positional_defaults:
+                environment[parameter.arg] = self.expression(
+                    positional_defaults[parameter.arg],
+                    environment,
+                )
+        for index, parameter in enumerate(function.node.args.kwonlyargs):
+            if parameter.arg in named:
+                environment[parameter.arg] = named[parameter.arg]
+            elif function.node.args.kw_defaults[index] is not None:
+                environment[parameter.arg] = self.expression(
+                    function.node.args.kw_defaults[index],
+                    environment,
+                )
         try:
             flow = self.execute_block(function.node.body, environment)
         finally:
@@ -1286,18 +1493,30 @@ class Analyzer:
         node: ast.expr,
         environment: dict[str, Value],
     ) -> bool | None:
-        value = self.expression(node, environment)
-        if value.kind == "bool":
-            return value.data
         if isinstance(node, ast.Compare) and len(node.ops) == len(node.comparators) == 1:
             left = self.expression(node.left, environment)
             right = self.expression(node.comparators[0], environment)
+            operator = node.ops[0]
+            if isinstance(operator, (ast.Is, ast.IsNot)) and (
+                left.kind == "none" or right.kind == "none"
+            ):
+                result = left.kind == right.kind == "none"
+                return not result if isinstance(operator, ast.IsNot) else result
             if left.kind == right.kind == "string":
-                if isinstance(node.ops[0], ast.Eq):
+                if isinstance(operator, ast.Eq):
                     return left.data == right.data
-                if isinstance(node.ops[0], ast.NotEq):
+                if isinstance(operator, ast.NotEq):
                     return left.data != right.data
-        return None
+            if left.kind in {"number", "literal"} and right.kind in {"number", "literal"}:
+                return None
+            return None
+        if isinstance(node, ast.UnaryOp) and isinstance(node.op, ast.Not):
+            value = self.boolean(node.operand, environment)
+            return None if value is None else not value
+        value = self.expression(node, environment)
+        if value.kind == "bool":
+            return value.data
+        return abstract_truth(value)
 
     def exception_names(
         self,
@@ -1355,6 +1574,10 @@ def argument(
     return positional[index] if index < len(positional) else unknown()
 
 
+def alternatives(value: Value) -> tuple[Value, ...]:
+    return value.data if value.kind == "union" else (value,)
+
+
 def string_value(value: Value) -> str | None:
     return value.data if value.kind == "string" else None
 
@@ -1369,6 +1592,38 @@ def path_value(value: Value) -> str | None:
 
 def bool_value(value: Value) -> bool | None:
     return value.data if value.kind == "bool" else None
+
+
+def abstract_truth(value: Value) -> bool | None:
+    if value.kind == "none":
+        return False
+    if value.kind == "bool":
+        return value.data
+    if value.kind in {
+        "blob",
+        "class",
+        "container",
+        "credential",
+        "download",
+        "file",
+        "instance",
+        "lease",
+        "logger",
+        "mapping",
+        "path",
+        "retry-policy",
+        "service",
+        "symbol",
+    }:
+        return True
+    if value.kind in {"string", "literal"}:
+        return bool(value.data)
+    if value.kind == "tuple":
+        return bool(value.data)
+    if value.kind == "union":
+        truths = {abstract_truth(item) for item in value.data}
+        return truths.pop() if len(truths) == 1 else None
+    return None
 
 
 def writable_path(value: Value) -> str | None:
@@ -1404,11 +1659,15 @@ def logging_is_enabled(named: dict[str, Value]) -> bool:
     return value.kind != "none"
 
 
-def client_has_custom_retry(named: dict[str, Value]) -> bool:
+def client_has_custom_retry(named: dict[str, Value], mode: str) -> bool:
     policy = named.get("retry_policy")
     if policy is not None and policy.kind == "retry-policy":
         details = policy.data
-        return bool(details.get("mode") == "exponential" and details.get("custom"))
+        return bool(
+            details.get("mode") == "exponential"
+            and details.get("custom")
+            and details.get("compatibility") == mode
+        )
     if "retry_total" not in named:
         return False
     if not any(
@@ -1476,8 +1735,35 @@ def operation_is_compatible_with_chains(
     return guards_compatible(selected, operation)
 
 
-def handler_is_meaningful(handler: ast.ExceptHandler) -> bool:
-    for node in ast.walk(ast.Module(body=handler.body, type_ignores=[])):
+def handler_nodes(
+    handler: ast.ExceptHandler,
+    environment: dict[str, Value],
+) -> list[ast.AST]:
+    nodes: list[ast.AST] = []
+    pending = [ast.Module(body=handler.body, type_ignores=[])]
+    visited: set[int] = set()
+    while pending:
+        tree = pending.pop()
+        nodes.extend(ast.walk(tree))
+        for node in ast.walk(tree):
+            if not isinstance(node, ast.Call) or not isinstance(node.func, ast.Name):
+                continue
+            value = environment.get(node.func.id)
+            if value is None or value.kind != "function":
+                continue
+            identity = id(value.data)
+            if identity in visited:
+                continue
+            visited.add(identity)
+            pending.append(value.data.node)
+    return nodes
+
+
+def handler_is_meaningful(
+    handler: ast.ExceptHandler,
+    environment: dict[str, Value],
+) -> bool:
+    for node in handler_nodes(handler, environment):
         if isinstance(node, ast.Raise):
             return True
         if isinstance(node, ast.Call):
@@ -1501,8 +1787,8 @@ def handler_mentions_lease_conflict(
         "azure.core.exceptions.ResourceModifiedError",
     }:
         return True
-    module = ast.Module(body=handler.body, type_ignores=[])
-    for node in ast.walk(module):
+    nodes = handler_nodes(handler, environment)
+    for node in nodes:
         if isinstance(node, ast.Compare):
             texts: set[str] = set()
             numbers: set[int] = set()
@@ -1525,6 +1811,22 @@ def handler_mentions_lease_conflict(
                 text.endswith(".error_code") for text in texts
             ):
                 return True
+    text_literals = {
+        node.value.lower()
+        for node in nodes
+        if isinstance(node, ast.Constant) and isinstance(node.value, str)
+    }
+    attribute_names = {
+        name
+        for node in nodes
+        if isinstance(node, ast.Attribute)
+        and (name := dotted(node)) is not None
+    }
+    if any("lease" in text for text in text_literals) and any(
+        name.endswith((".error_code", ".status_code"))
+        for name in attribute_names
+    ):
+        return True
     return False
 
 

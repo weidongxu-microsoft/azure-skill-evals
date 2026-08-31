@@ -71,7 +71,8 @@ class ClassInfo:
     module: str
     node: ast.ClassDef
     methods: dict[str, FunctionInfo]
-    fields: list[str]
+    fields: list[tuple[str, ast.expr | None]]
+    dataclass: bool
 
 
 @dataclass
@@ -126,6 +127,27 @@ def literal(value: Any) -> Value:
     return Value(kind="literal", data=value)
 
 
+def abstract_python_value(value: Value) -> Any:
+    if value.kind == "literal":
+        return value.data
+    if value.kind == "dict" and isinstance(value.data, dict):
+        converted = {
+            key: abstract_python_value(item)
+            for key, item in value.data.items()
+        }
+        return (
+            converted
+            if all(item is not _UNKNOWN_LITERAL for item in converted.values())
+            else _UNKNOWN_LITERAL
+        )
+    if value.kind in {"list", "tuple"}:
+        converted = tuple(abstract_python_value(item) for item in value.items)
+        if any(item is _UNKNOWN_LITERAL for item in converted):
+            return _UNKNOWN_LITERAL
+        return list(converted) if value.kind == "list" else converted
+    return _UNKNOWN_LITERAL
+
+
 def same_value_sequence(
     left: tuple[Value, ...],
     right: tuple[Value, ...],
@@ -157,6 +179,36 @@ def unique_abstract_values(values: tuple[Value, ...]) -> tuple[Value, ...]:
         if not any(same_abstract_value(value, existing) for existing in unique):
             unique.append(value)
     return tuple(unique)
+
+
+def merge_return_values(values: list[Value]) -> Value:
+    if not values:
+        return Value()
+    if len(values) == 1:
+        return values[0]
+    unique = unique_abstract_values(tuple(values))
+    if len(unique) == 1:
+        return unique[0]
+    valid_events = [
+        value
+        for value in unique
+        if value.kind == "event" and value.data.get("sample_valid")
+    ]
+    if valid_events and all(
+        (
+            value.data.get("schema"),
+            value.data.get("type"),
+            value.data.get("subject"),
+        )
+        == (
+            valid_events[0].data.get("schema"),
+            valid_events[0].data.get("type"),
+            valid_events[0].data.get("subject"),
+        )
+        for value in valid_events[1:]
+    ):
+        return valid_events[0]
+    return unknown(*unique)
 
 
 def iterable_value_items(value: Value) -> tuple[Value, ...] | None:
@@ -1035,6 +1087,18 @@ def tagged(value: Value, tag: str) -> Value:
         data=value.data,
         items=value.items,
         tags=frozenset(set(value.tags) | {tag}),
+        attrs=value.attrs,
+    )
+
+
+def with_tags(value: Value, tags: frozenset[str]) -> Value:
+    if not tags:
+        return value
+    return Value(
+        kind=value.kind,
+        data=value.data,
+        items=value.items,
+        tags=frozenset(set(value.tags) | set(tags)),
         attrs=value.attrs,
     )
 
@@ -2680,7 +2744,7 @@ class Analyzer:
                     module.functions[statement.name] = function
                 elif isinstance(statement, ast.ClassDef):
                     methods: dict[str, FunctionInfo] = {}
-                    fields: list[str] = []
+                    fields: list[tuple[str, ast.expr | None]] = []
                     class_key = f"{module.name}:{statement.name}"
                     for member in statement.body:
                         if isinstance(member, (ast.FunctionDef, ast.AsyncFunctionDef)):
@@ -2693,13 +2757,18 @@ class Analyzer:
                         elif isinstance(member, ast.AnnAssign) and isinstance(
                             member.target, ast.Name
                         ):
-                            fields.append(member.target.id)
+                            fields.append((member.target.id, member.value))
                     class_info = ClassInfo(
                         key=class_key,
                         module=module.name,
                         node=statement,
                         methods=methods,
                         fields=fields,
+                        dataclass=any(
+                            (dotted(decorator.func) if isinstance(decorator, ast.Call) else dotted(decorator))
+                            in {"dataclass", "dataclasses.dataclass"}
+                            for decorator in statement.decorator_list
+                        ),
                     )
                     module.classes[statement.name] = class_info
 
@@ -3040,16 +3109,35 @@ class Analyzer:
                 return Value(kind="local-module", data=nested)
             return Value(kind="local-shadow", data=f"{module.name}.{name}")
         if value.kind in {"module", "sdk"}:
-            return Value(kind="sdk", data=f"{value.data}.{name}")
+            origin = f"{value.data}.{name}"
+            system_event_names = {
+                "azure.eventgrid.SystemEventNames.StorageBlobCreated": (
+                    "Microsoft.Storage.BlobCreated"
+                ),
+                "azure.eventgrid.SystemEventNames.StorageBlobDeleted": (
+                    "Microsoft.Storage.BlobDeleted"
+                ),
+            }
+            if origin in system_event_names:
+                return literal(system_event_names[origin])
+            return Value(kind="sdk", data=origin)
         if value.kind == "instance":
             if name in value.attrs:
-                return value.attrs[name]
+                return with_tags(value.attrs[name], value.tags)
             class_info: ClassInfo = value.data
             if name in class_info.methods:
                 return Value(
                     kind="bound",
                     data=(class_info.methods[name], value),
                 )
+        if value.kind == "class":
+            class_info: ClassInfo = value.data
+            function = class_info.methods.get(name)
+            if function is not None and any(
+                dotted(decorator) in {"classmethod", "builtins.classmethod"}
+                for decorator in function.node.decorator_list
+            ):
+                return Value(kind="bound", data=(function, value))
         if value.kind == "event":
             if name in {"event_type", "type"}:
                 return Value(
@@ -3065,6 +3153,10 @@ class Analyzer:
                 )
             if name == "data":
                 return Value(kind="event-data", tags=frozenset({"event-data"}))
+            if name == "specversion":
+                return literal(
+                    "1.0" if value.data["schema"] == "cloud" else None
+                )
         if value.kind == "properties":
             blob_id = value.data
             if name == "size":
@@ -3095,6 +3187,8 @@ class Analyzer:
             "set",
             "tuple",
             "dict",
+            "regex",
+            "regex-match",
         }:
             return Value(kind="method", data=(value, name))
         return Value()
@@ -3115,6 +3209,8 @@ class Analyzer:
             if iterable.kind in ITERABLE_VALUE_KINDS
             else (unknown(iterable),)
         )
+        if iterable.tags:
+            items = tuple(with_tags(item, iterable.tags) for item in items)
         results: list[dict[str, Value]] = []
         for item in items:
             nested = dict(environment)
@@ -3293,14 +3389,24 @@ class Analyzer:
             return unknown(left, right)
         if isinstance(node, ast.BoolOp):
             values: list[Value] = []
+            uncertain = False
             for item in node.values:
                 value = self.eval_expr(item, environment, module)
                 values.append(value)
                 truth = value_truth(value)
-                if isinstance(node.op, ast.And) and truth is False:
+                if (
+                    isinstance(node.op, ast.And)
+                    and truth is False
+                    and not uncertain
+                ):
                     return value
-                if isinstance(node.op, ast.Or) and truth is True:
+                if (
+                    isinstance(node.op, ast.Or)
+                    and truth is True
+                    and not uncertain
+                ):
                     return value
+                uncertain = uncertain or truth is None
             if values and all(value_truth(value) is not None for value in values[:-1]):
                 return values[-1]
             return unknown(*values)
@@ -3629,12 +3735,19 @@ class Analyzer:
             initializer = class_info.methods.get("__init__")
             if initializer:
                 self.call_function(initializer, instance, args, kwargs)
-            else:
-                for index, field_name in enumerate(class_info.fields):
+            elif class_info.dataclass:
+                class_module = self.modules[class_info.module]
+                for index, (field_name, default) in enumerate(class_info.fields):
                     if field_name in kwargs:
                         instance.attrs[field_name] = kwargs[field_name]
                     elif index < len(args):
                         instance.attrs[field_name] = args[index]
+                    elif default is not None:
+                        instance.attrs[field_name] = self.eval_expr(
+                            default,
+                            dict(class_module.env),
+                            class_module,
+                        )
             return instance
         if function.kind == "builtin":
             if (
@@ -3727,6 +3840,39 @@ class Analyzer:
                         return literal(value.data["schema"] == "eventgrid")
                     if expected.data == "azure.core.messaging.CloudEvent":
                         return literal(value.data["schema"] == "cloud")
+                expected_values = (
+                    expected.items if expected.kind == "tuple" else (expected,)
+                )
+                matches: list[bool] = []
+                for candidate in expected_values:
+                    origin = str(candidate.data)
+                    if candidate.kind not in {"builtin", "sdk", "class"}:
+                        continue
+                    if origin in {"str", "builtins.str"}:
+                        matches.append(
+                            value.kind == "literal" and isinstance(value.data, str)
+                        )
+                    elif origin in {"bytes", "builtins.bytes"}:
+                        matches.append(
+                            value.kind == "literal" and isinstance(value.data, bytes)
+                        )
+                    elif origin in {"list", "builtins.list"}:
+                        matches.append(value.kind == "list")
+                    elif origin in {"tuple", "builtins.tuple"}:
+                        matches.append(value.kind == "tuple")
+                    elif origin in {"set", "builtins.set"}:
+                        matches.append(value.kind == "set")
+                    elif origin in {
+                        "dict",
+                        "builtins.dict",
+                        "collections.abc.Mapping",
+                        "typing.Mapping",
+                    }:
+                        matches.append(value.kind == "dict")
+                    elif candidate.kind == "class" and value.kind == "instance":
+                        matches.append(value.data is candidate.data)
+                if matches:
+                    return literal(any(matches))
                 return Value()
             return Value()
         if function.kind == "sdk":
@@ -4048,6 +4194,13 @@ class Analyzer:
                 data="async" if ".aio." in origin else "sync",
                 tags=frozenset({"default-credential"}),
             )
+        if origin in {"os.getenv", "os.environ.get"}:
+            name = abstract_python_value(args[0]) if args else _UNKNOWN_LITERAL
+            return (
+                Value(kind="env", data=name)
+                if isinstance(name, str)
+                else Value()
+            )
         if origin in {
             "azure.storage.blob.BlobServiceClient",
             "azure.storage.blob.aio.BlobServiceClient",
@@ -4126,9 +4279,11 @@ class Analyzer:
         if origin in {
             "azure.eventgrid.EventGridEvent.from_json",
             "azure.core.messaging.CloudEvent.from_json",
+            "azure.eventgrid.EventGridEvent.from_dict",
+            "azure.core.messaging.CloudEvent.from_dict",
         }:
             schema = "eventgrid" if "EventGridEvent" in origin else "cloud"
-            payload = args[0].data if args and args[0].kind == "literal" else None
+            payload = abstract_python_value(args[0]) if args else None
             event_type = None
             subject = None
             sample_valid = False
@@ -4138,15 +4293,19 @@ class Analyzer:
                     data = json.loads(text)
                 except (TypeError, ValueError):
                     data = {}
-                type_key = "eventType" if schema == "eventgrid" else "type"
-                if isinstance(data, dict):
-                    event_type = data.get(type_key)
-                    subject = data.get("subject")
-                    sample_valid = (
-                        valid_event_grid_sample(data)
-                        if schema == "eventgrid"
-                        else valid_cloud_event_sample(data)
-                    )
+            elif isinstance(payload, dict):
+                data = payload
+            else:
+                data = {}
+            type_key = "eventType" if schema == "eventgrid" else "type"
+            if isinstance(data, dict):
+                event_type = data.get(type_key)
+                subject = data.get("subject")
+                sample_valid = (
+                    valid_event_grid_sample(data)
+                    if schema == "eventgrid"
+                    else valid_cloud_event_sample(data)
+                )
             event_id = self.new_id()
             receiver_stack = tuple(self.stack)
             self.record(
@@ -4214,6 +4373,13 @@ class Analyzer:
             )
         if origin in {"logging.getLogger", "logging.Logger"}:
             return Value(kind="logger", data="logging.Logger-instance")
+        if origin == "re.compile" and args:
+            pattern = abstract_python_value(args[0])
+            if isinstance(pattern, (str, bytes)):
+                try:
+                    return Value(kind="regex", data=re.compile(pattern))
+                except re.error:
+                    return Value()
         if origin in {
             "logging.info",
             "logging.warn",
@@ -4508,6 +4674,22 @@ class Analyzer:
                     )
                 except (TypeError, ValueError):
                     return Value()
+        if receiver.kind == "regex" and name in {"match", "search", "fullmatch"}:
+            candidate = abstract_python_value(args[0]) if args else None
+            if isinstance(candidate, (str, bytes)):
+                result = getattr(receiver.data, name)(candidate)
+                return (
+                    Value(kind="regex-match", data=result)
+                    if result is not None
+                    else literal(None)
+                )
+            return Value()
+        if receiver.kind == "regex-match" and name == "group" and args:
+            group = abstract_python_value(args[0])
+            try:
+                return literal(receiver.data.group(group))
+            except (IndexError, TypeError):
+                return Value()
         if receiver.kind == "literal" and name == "join":
             if (
                 isinstance(receiver.data, str)
@@ -4720,8 +4902,22 @@ class Analyzer:
         return unknown(left, right)
 
     @staticmethod
-    def subject_result_matches(result: Value, subject: str) -> tuple[str, str] | None:
-        if result.kind not in {"list", "tuple"} or len(result.items) != 2:
+    def structured_result_items(result: Value) -> tuple[Value, ...] | None:
+        if result.kind in {"list", "tuple"}:
+            return result.items
+        if result.kind == "instance":
+            class_info: ClassInfo = result.data
+            values = tuple(
+                result.attrs.get(name, Value())
+                for name, _ in class_info.fields
+            )
+            return values if class_info.dataclass else None
+        return None
+
+    @classmethod
+    def subject_result_matches(cls, result: Value, subject: str) -> tuple[str, str] | None:
+        items = cls.structured_result_items(result)
+        if items is None or len(items) != 2:
             return None
         match = re.search(r"/containers/([^/]+)/blobs/(.+)", subject)
         if not match:
@@ -4729,7 +4925,7 @@ class Analyzer:
         expected = (unquote(match.group(1)), unquote(match.group(2)))
         actual = tuple(
             item.data if item.kind == "literal" and isinstance(item.data, str) else None
-            for item in result.items
+            for item in items
         )
         return actual if actual == expected else None
 
@@ -4787,21 +4983,24 @@ class Analyzer:
             kwargs,
         ):
             return result
-        return Value(
-            kind="tuple",
-            items=(
-                Value(
-                    kind="container",
-                    data=actual[0],
-                    tags=frozenset({"parsed-container"}),
-                ),
-                Value(
-                    kind="blob-name",
-                    data=actual[1],
-                    tags=frozenset({"parsed-blob-name"}),
-                ),
+        parsed = (
+            Value(
+                kind="container",
+                data=actual[0],
+                tags=frozenset({"parsed-container"}),
+            ),
+            Value(
+                kind="blob-name",
+                data=actual[1],
+                tags=frozenset({"parsed-blob-name"}),
             ),
         )
+        if result.kind == "instance":
+            class_info: ClassInfo = result.data
+            for (name, _), value in zip(class_info.fields, parsed, strict=True):
+                result.attrs[name] = value
+            return result
+        return Value(kind="tuple", items=parsed)
 
     def make_blob_client(
         self, service: dict[str, Any], container: Value, blob_name: Value
@@ -4952,7 +5151,7 @@ class Analyzer:
             returned=only == "return",
             broke=only == "break",
             continued=only == "continue",
-            value=unknown(*values) if values else Value(),
+            value=merge_return_values(values),
             outcomes=tuple(outcomes),
         )
 
@@ -5341,11 +5540,27 @@ class Analyzer:
                         return repeated_outcomes
                     nested = dict(outcome.environment)
                     self.assign(statement.target, items[item_index], nested, module)
+                    event = items[item_index]
+                    operation_start = len(self.operations)
                     body_result = self.exec_statements(
                         statement.body,
                         nested,
                         module,
                     )
+                    operation_end = len(self.operations)
+                    if event.kind == "event" and self.current_function is not None:
+                        self.record(
+                            "event-call",
+                            target=self.current_function.key,
+                            event_id=event.data["id"],
+                            schema=event.data["schema"],
+                            event_type=event.data.get("type"),
+                            sample_valid=event.data.get("sample_valid", False),
+                            receiver_stack=event.data.get("receiver_stack", ()),
+                            operation_start=operation_start,
+                            operation_end=operation_end,
+                            **{"async": self.current_function.is_async},
+                        )
                     collected: list[ExecOutcome] = []
                     for body_outcome in body_result.outcomes:
                         if body_outcome.control == "return":
@@ -6169,6 +6384,7 @@ class Analyzer:
         delimiters: set[str] = set()
         indexes: set[str] = set()
         regex = False
+        module = self.modules[function.module]
         for node in ast.walk(function.node):
             if not isinstance(node, ast.Call):
                 continue
@@ -6203,12 +6419,53 @@ class Analyzer:
                     and expression_is_derived(node.args[1])
                 ):
                     regex = True
+            if (
+                isinstance(node.func, ast.Attribute)
+                and node.func.attr in {"match", "search", "fullmatch"}
+                and node.args
+                and expression_is_derived(node.args[0])
+                and isinstance(node.func.value, ast.Name)
+            ):
+                pattern = module.env.get(node.func.value.id)
+                if (
+                    pattern is not None
+                    and pattern.kind == "regex"
+                    and "containers/" in str(pattern.data.pattern)
+                    and "blobs/" in str(pattern.data.pattern)
+                ):
+                    regex = True
+
+        def returns_structured_pair(node: ast.Return) -> bool:
+            if isinstance(node.value, (ast.Tuple, ast.List)):
+                return len(node.value.elts) == 2 and all(
+                    expression_is_derived(item) for item in node.value.elts
+                )
+            if not isinstance(node.value, ast.Call):
+                return False
+            target = (
+                module.env.get(node.value.func.id)
+                if isinstance(node.value.func, ast.Name)
+                else None
+            )
+            if (
+                target is None
+                or target.kind != "class"
+                or not target.data.dataclass
+                or len(target.data.fields) != 2
+            ):
+                return False
+            values = [
+                *node.value.args,
+                *(
+                    keyword.value
+                    for keyword in node.value.keywords
+                    if keyword.arg is not None
+                ),
+            ]
+            return len(values) == 2 and all(expression_is_derived(item) for item in values)
 
         returns_pair = any(
-            isinstance(node, ast.Return)
-            and isinstance(node.value, (ast.Tuple, ast.List))
-            and len(node.value.elts) == 2
-            and all(expression_is_derived(item) for item in node.value.elts)
+            isinstance(node, ast.Return) and returns_structured_pair(node)
             for node in ast.walk(function.node)
         )
         return returns_pair and (
@@ -6486,6 +6743,8 @@ class Analyzer:
             return node.value
         if isinstance(node, ast.Name):
             return environment.get(node.id)
+        if isinstance(node, ast.Attribute):
+            return environment.get(dotted(node) or "")
         if isinstance(node, ast.BinOp) and isinstance(node.op, ast.Add):
             left = cls.exact_string_value(node.left, environment)
             right = cls.exact_string_value(node.right, environment)
@@ -6512,9 +6771,66 @@ class Analyzer:
             for name, value in module.env.items()
             if value.kind == "literal" and isinstance(value.data, str)
         }
+        for name, value in module.env.items():
+            if (
+                value.kind == "sdk"
+                and value.data == "azure.eventgrid.SystemEventNames"
+            ):
+                initial[f"{name}.StorageBlobCreated"] = (
+                    "string",
+                    "Microsoft.Storage.BlobCreated",
+                )
+                initial[f"{name}.StorageBlobDeleted"] = (
+                    "string",
+                    "Microsoft.Storage.BlobDeleted",
+                )
         initial.update({name: other for name in function_local_bindings(function.node)})
         initial.update({parameter.arg: other for parameter in parameters})
         initial[parameters[0].arg] = ("event", None)
+
+        def local_function(node: ast.expr) -> FunctionInfo | None:
+            if not isinstance(node, ast.Name):
+                return None
+            value = module.env.get(node.id)
+            return value.data if value is not None and value.kind == "function" else None
+
+        def function_deserializes_events(
+            candidate: FunctionInfo,
+            seen: set[str] | None = None,
+        ) -> bool:
+            seen = set() if seen is None else seen
+            if candidate.key in seen:
+                return False
+            seen.add(candidate.key)
+            candidate_module = self.modules[candidate.module]
+            for child in ast.walk(candidate.node):
+                if not isinstance(child, ast.Call):
+                    continue
+                origin = self.imported_origin(candidate_module, child.func)
+                if origin in {
+                    "azure.eventgrid.EventGridEvent.from_json",
+                    "azure.eventgrid.EventGridEvent.from_dict",
+                    "azure.core.messaging.CloudEvent.from_json",
+                    "azure.core.messaging.CloudEvent.from_dict",
+                }:
+                    return True
+                nested = local_function(child.func)
+                if nested is not None and function_deserializes_events(nested, seen):
+                    return True
+            return False
+
+        def function_returns_event_type(candidate: FunctionInfo) -> bool:
+            candidate_parameters = self.parameter_nodes(candidate)
+            if not candidate_parameters:
+                return False
+            event_name = candidate_parameters[0].arg
+            return any(
+                isinstance(child, ast.Attribute)
+                and child.attr in {"event_type", "type"}
+                and isinstance(child.value, ast.Name)
+                and child.value.id == event_name
+                for child in ast.walk(candidate.node)
+            )
 
         def target_names(target: ast.expr) -> set[str]:
             if isinstance(target, ast.Name):
@@ -6560,17 +6876,25 @@ class Analyzer:
                     return ("string", str(left[1]) + str(right[1]))
                 return other
             if isinstance(node, ast.Call) and isinstance(node.func, ast.Name):
-                return (
-                    ("event-type", None)
+                if (
+                    node.func.id == "getattr"
+                    and len(node.args) >= 2
+                    and expression_state(node.args[0], environment)[0] == "event"
+                    and isinstance(node.args[1], ast.Constant)
+                    and node.args[1].value in {"event_type", "type"}
+                ):
+                    return ("event-type", None)
+                candidate = local_function(node.func)
+                if candidate is not None:
                     if (
-                        node.func.id == "getattr"
-                        and len(node.args) >= 2
+                        node.args
                         and expression_state(node.args[0], environment)[0] == "event"
-                        and isinstance(node.args[1], ast.Constant)
-                        and node.args[1].value in {"event_type", "type"}
-                    )
-                    else other
-                )
+                        and function_returns_event_type(candidate)
+                    ):
+                        return ("event-type", None)
+                    if function_deserializes_events(candidate):
+                        return ("event-list", None)
+                return other
             return other
 
         def assign_state(
@@ -6691,7 +7015,12 @@ class Analyzer:
                             return current, True
                         continue
                     many = dict(current)
-                    assign_state(statement.target, other, many)
+                    iter_state = expression_state(statement.iter, current)
+                    assign_state(
+                        statement.target,
+                        ("event", None) if iter_state[0] == "event-list" else other,
+                        many,
+                    )
                     many, many_terminated = process(statement.body, many)
                     if not many_terminated:
                         many, many_terminated = process(statement.orelse, many)
@@ -11754,9 +12083,9 @@ class Analyzer:
                 and name not in subject
             )
             or (
-                any(
-                    marker in annotation
-                    for marker in (
+                bool(
+                    set(re.findall(r"[a-z_][a-z0-9_]*", annotation))
+                    & {
                         "dict",
                         "mapping",
                         "list",
@@ -11765,7 +12094,7 @@ class Analyzer:
                         "iterable",
                         "sequence",
                         "collection",
-                    )
+                    }
                 )
                 and name not in subject
             )
@@ -11788,9 +12117,7 @@ class Analyzer:
             if not function or not self.public_function(function):
                 continue
             subject, data = self.parameter_roles(function)
-            if require_subject and (not subject or not data):
-                continue
-            if not require_subject and not data:
+            if not data:
                 continue
             data_connected = any(
                 f"input:{function.key}:{name}" in tags for name in data
@@ -11800,6 +12127,11 @@ class Analyzer:
             if not require_subject:
                 return True
             subject_tags = set(operation.get("subject_tags", ()))
+            if not subject:
+                return any(
+                    f"input:{function.key}:{name}" in subject_tags
+                    for name in data
+                )
             return any(
                 f"input:{function.key}:{name}" in subject_tags for name in subject
             )

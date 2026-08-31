@@ -126,6 +126,8 @@ stimuli:
           dest: .vally/scenarios/app-configuration-python-config-values/tools/check-app-configuration-python.mjs
         - src: tools/app-configuration-python-rules.mjs
           dest: .vally/scenarios/app-configuration-python-config-values/tools/app-configuration-python-rules.mjs
+        - src: tools/app_configuration_analyzer.py
+          dest: .vally/scenarios/app-configuration-python-config-values/tools/app_configuration_analyzer.py
         - src: ../../languages/python/check.mjs
           dest: .vally/languages/python/check.mjs
         - src: ../../languages/python/checks.mjs

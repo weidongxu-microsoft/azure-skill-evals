@@ -16,6 +16,9 @@ import {
 } from "./tools/blob-event-notifier-rules.mjs";
 
 const goldenPath = fileURLToPath(new URL("./golden", import.meta.url));
+const baselinePath = fileURLToPath(
+  new URL("./fixtures/baseline-33420505368", import.meta.url),
+);
 const checkScript = fileURLToPath(
   new URL("./tools/check-blob-event-notifier-python.mjs", import.meta.url),
 );
@@ -23,6 +26,7 @@ const analyzerScript = fileURLToPath(
   new URL("./tools/blob_event_notifier_analyzer.py", import.meta.url),
 );
 const goldenWorkspace = loadBlobEventNotifierWorkspace(goldenPath);
+const baselineWorkspace = loadBlobEventNotifierWorkspace(baselinePath);
 const languageWorkspace = loadPythonWorkspace(goldenPath);
 const dependencies = goldenWorkspace.dependencies.replaceAll("\r\n", "\n");
 const sourceRules = ruleNames().filter((name) => name !== "prompt/sdk-packages");
@@ -63,6 +67,22 @@ function replaceDocument(
           }
         : { ...document, source: document.source.replaceAll("\r\n", "\n") },
     ),
+  );
+}
+
+function replaceBaselineDocument(path, from, to) {
+  return replaceDocument(path, from, to, baselineWorkspace.documents);
+}
+
+function replaceAllDocument(path, from, to, baseDocuments) {
+  return workspaceWithDocuments(
+    baseDocuments.map((document) => ({
+      ...document,
+      source:
+        document.path === path
+          ? document.source.replaceAll("\r\n", "\n").replaceAll(from, to)
+          : document.source.replaceAll("\r\n", "\n"),
+    })),
   );
 }
 
@@ -108,6 +128,169 @@ test("pinned golden passes every prompt and shared Python rule", () => {
   for (const check of languageChecks) {
     assert.equal(evaluatePythonCheck(check, languageWorkspace), true, check);
   }
+});
+
+test("baseline run 33420505368 exact six-file output passes all valid criteria", () => {
+  assert.deepEqual(
+    baselineWorkspace.documents.map(({ path }) => path),
+    [
+      "blob_event_handler.py",
+      "configuration.py",
+      "event_publisher.py",
+      "event_receiver.py",
+      "main.py",
+    ],
+  );
+  for (const rule of ruleNames()) {
+    assert.equal(evaluateRule(rule, baselineWorkspace), true, rule);
+  }
+  const workspace = loadPythonWorkspace(baselinePath);
+  for (const check of languageChecks) {
+    assert.equal(evaluatePythonCheck(check, workspace), true, check);
+  }
+});
+
+test("receiver contract documents per-event SDK deserialization", () => {
+  const evalSource = readFileSync(
+    fileURLToPath(new URL("./eval.yaml", import.meta.url)),
+    "utf8",
+  );
+  assert.match(evalSource, /iterable of per-event JSON documents/);
+  assert.match(evalSource, /framework-decoded per-event mappings/);
+  assert.match(evalSource, /CloudEvent\.from_json.*from_dict/);
+  assert.match(evalSource, /EventGridEvent\.from_json.*from_dict/);
+  assert.match(evalSource, /do not manually parse or construct event objects/);
+});
+
+test("dataclass bundles and field renames preserve structural provenance", () => {
+  let renamedLocation = replaceBaselineDocument(
+    "blob_event_handler.py",
+    "    container: str\n    name: str",
+    "    bucket: str\n    object_key: str",
+  );
+  renamedLocation = replaceDocument(
+    "blob_event_handler.py",
+    "        container=unquote(match.group(\"container\")),\n        name=unquote(match.group(\"blob\")),",
+    "        bucket=unquote(match.group(\"container\")),\n        object_key=unquote(match.group(\"blob\")),",
+    renamedLocation.documents,
+  );
+  renamedLocation = replaceAllDocument(
+    "blob_event_handler.py",
+    "location.container",
+    "location.bucket",
+    renamedLocation.documents,
+  );
+  renamedLocation = replaceAllDocument(
+    "blob_event_handler.py",
+    "location.name",
+    "location.object_key",
+    renamedLocation.documents,
+  );
+  assert.equal(
+    evaluateRule("prompt/blob-subject-and-summary", renamedLocation),
+    true,
+  );
+
+  let renamedEvent = replaceBaselineDocument(
+    "event_publisher.py",
+    "    event_type: str\n    data: Any\n    subject: str\n    data_version: str = \"1.0\"",
+    "    kind: str\n    payload: Any\n    route: str\n    version: str = \"1.0\"",
+  );
+  renamedEvent = replaceAllDocument(
+    "event_publisher.py",
+    "self.subject",
+    "self.route",
+    renamedEvent.documents,
+  );
+  renamedEvent = replaceDocument(
+    "event_publisher.py",
+    "event_type=self.event_type,\n            data=self.data,\n            data_version=self.data_version,",
+    "event_type=self.kind,\n            data=self.payload,\n            data_version=self.version,",
+    renamedEvent.documents,
+  );
+  renamedEvent = replaceDocument(
+    "main.py",
+    "event_type=\"Contoso.Documents.DocumentProcessed\",\n        subject=\"/documents/invoices/processed\",\n        data=",
+    "kind=\"Contoso.Documents.DocumentProcessed\",\n        route=\"/documents/invoices/processed\",\n        payload=",
+    renamedEvent.documents,
+  );
+  assert.equal(
+    evaluateRule("prompt/custom-event-publishing", renamedEvent),
+    true,
+  );
+});
+
+test("framework-decoded mapping events pass through SDK from_dict helpers", () => {
+  const mappings = `
+EVENT_GRID_PAYLOADS = [
+    {
+        "id": "created",
+        "topic": "/subscriptions/demo",
+        "subject": "/blobServices/default/containers/docs/blobs/new.txt",
+        "eventType": "Microsoft.Storage.BlobCreated",
+        "eventTime": "2026-08-31T18:00:00Z",
+        "data": {},
+        "dataVersion": "",
+        "metadataVersion": "1",
+    },
+    {
+        "id": "deleted",
+        "topic": "/subscriptions/demo",
+        "subject": "/blobServices/default/containers/docs/blobs/old.txt",
+        "eventType": "Microsoft.Storage.BlobDeleted",
+        "eventTime": "2026-08-31T18:01:00Z",
+        "data": {},
+        "dataVersion": "",
+        "metadataVersion": "1",
+    },
+]
+CLOUD_EVENT_PAYLOADS = [
+    {
+        "specversion": "1.0",
+        "id": "cloud-created",
+        "source": "/subscriptions/demo",
+        "type": "Microsoft.Storage.BlobCreated",
+        "subject": "/blobServices/default/containers/docs/blobs/cloud-new.txt",
+        "data": {},
+    },
+    {
+        "specversion": "1.0",
+        "id": "cloud-deleted",
+        "source": "/subscriptions/demo",
+        "type": "Microsoft.Storage.BlobDeleted",
+        "subject": "/blobServices/default/containers/docs/blobs/cloud-old.txt",
+        "data": {},
+    },
+]
+
+`;
+  const workspace = replaceBaselineDocument(
+    "main.py",
+    "DOWNSTREAM_EVENTS = [",
+    `${mappings}DOWNSTREAM_EVENTS = [`,
+  );
+  assert.equal(
+    evaluateRule("prompt/sdk-event-deserialization", workspace),
+    true,
+  );
+  assert.equal(evaluateRule("prompt/event-routing", workspace), true);
+});
+
+test("insecure dataclass clients do not erase routing or summaries", () => {
+  const workspace = replaceBaselineDocument(
+    "configuration.py",
+    "        credential=credential,\n        ),",
+    "        credential=\"insecure-key\",\n        ),",
+  );
+  assert.equal(
+    evaluateRule("prompt/secure-client-configuration", workspace),
+    false,
+  );
+  assert.equal(evaluateRule("prompt/event-routing", workspace), true);
+  assert.equal(
+    evaluateRule("prompt/blob-subject-and-summary", workspace),
+    true,
+  );
 });
 
 test("runtime dependency manifests accept standard active forms", () => {
