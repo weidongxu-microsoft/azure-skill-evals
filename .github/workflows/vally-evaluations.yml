@@ -51,9 +51,9 @@ jobs:
     timeout-minutes: 360
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version: 22
 
@@ -65,15 +65,15 @@ jobs:
       - name: Install pnpm
         run: npm install --global pnpm@10.26.0 --registry=https://registry.npmjs.org/
 
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v7
         with:
           python-version: "3.12"
 
-      - uses: actions/setup-dotnet@v4
+      - uses: actions/setup-dotnet@v6
         with:
           dotnet-version: "8.0.x"
 
-      - uses: actions/setup-java@v4
+      - uses: actions/setup-java@v6
         with:
           distribution: temurin
           java-version: "17"
@@ -131,7 +131,7 @@ jobs:
 
       - name: Upload evaluation reports
         if: ${{ always() && inputs.dry_run == false }}
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: vally-reports-${{ github.run_id }}
           path: reports
