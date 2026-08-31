@@ -1197,7 +1197,10 @@ class Analyzer:
         self.scopes.append((function, function.node, function.key, copy.deepcopy(env)))
         outcomes = self._execute_block(function.node.body, [nested], function.key)
         segment = (
-            outcomes[0].flow[flow_start:]
+            max(
+                (outcome.flow[flow_start:] for outcome in outcomes),
+                key=lambda flow: (len(set(flow)), len(flow)),
+            )
             if outcomes
             else context.flow[flow_start:]
         )
@@ -1211,8 +1214,44 @@ class Analyzer:
                 if f"{mode}_read" in segment and f"{mode}_list" in segment:
                     for outcome in outcomes:
                         outcome.flow.append(f"{mode}_watch")
+        if self_value is not None and function.node.args.args:
+            self_name = function.node.args.args[0].arg
+            continuing_instances = [
+                outcome.env.get(self_name)
+                for outcome in outcomes
+                if not outcome.returned
+                and outcome.env.get(self_name, Value()).kind == "instance"
+            ]
+            if continuing_instances:
+                common_attributes = set.intersection(
+                    *(set(instance.attrs) for instance in continuing_instances)
+                )
+                merged_attributes = {}
+                for attribute in common_attributes:
+                    values = [
+                        instance.attrs[attribute]
+                        for instance in continuing_instances
+                    ]
+                    first = values[0]
+                    if all(
+                        value.kind == first.kind and value.data == first.data
+                        for value in values[1:]
+                    ):
+                        merged = copy.deepcopy(first)
+                        merged.deps = set().union(
+                            *(value.deps for value in values)
+                        )
+                        merged_attributes[attribute] = merged
+                self_value.attrs = merged_attributes
         if outcomes:
-            context.flow[:] = outcomes[0].flow
+            best_outcome = max(
+                outcomes,
+                key=lambda outcome: (
+                    len(set(outcome.flow[flow_start:])),
+                    len(outcome.flow[flow_start:]),
+                ),
+            )
+            context.flow[:] = best_outcome.flow
         self.active_calls.remove(active_key)
         returned = [outcome.return_value for outcome in outcomes if outcome.returned]
         if returned:

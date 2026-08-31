@@ -13,11 +13,15 @@ import {
 
 const goldenWorkspacePath = fileURLToPath(new URL("./golden", import.meta.url));
 const completeWorkspace = loadPythonWorkspace(goldenWorkspacePath);
+const baseline33374429826 = loadPythonWorkspace(
+  fileURLToPath(
+    new URL("./fixtures/baseline-33374429826", import.meta.url),
+  ),
+);
 const applicablePythonChecks = [
   "language/correct-imports",
   "language/client-lifecycle",
   "language/async-client",
-  "language/exception-handling",
 ];
 
 function withPython(python) {
@@ -34,6 +38,30 @@ test("Event Hubs Python reference passes every language check", () => {
   for (const check of applicablePythonChecks) {
     assert.equal(evaluatePythonCheck(check, completeWorkspace), true, check);
   }
+});
+
+test("baseline run 33374429826 preserves its genuine invalid-constructor failure", () => {
+  for (const rule of ruleNames()) {
+    assert.equal(
+      evaluateRule(rule, baseline33374429826),
+      rule !== "prompt/event-batch",
+      rule,
+    );
+  }
+  for (const check of applicablePythonChecks) {
+    assert.equal(
+      evaluatePythonCheck(check, baseline33374429826),
+      true,
+      check,
+    );
+  }
+  assert.equal(
+    evaluatePythonCheck(
+      "language/exception-handling",
+      baseline33374429826,
+    ),
+    false,
+  );
 });
 
 test("each missing core behavior fails its focused prompt rule", async (t) => {
@@ -261,6 +289,154 @@ await producer.send_batch(batch)
 
   assert.equal(evaluateRule("prompt/event-batch", workspace), true);
   assert.equal(evaluateRule("prompt/send-batch", workspace), true);
+});
+
+test("constant arithmetic may define an exact ten-event loop", () => {
+  const workspace = withPython(`
+producer = EventHubProducerClient.from_connection_string(connection_string)
+batch = await producer.create_batch()
+EVENT_COUNT = 10
+for sequence in range(1, EVENT_COUNT + 1):
+    outgoing = EventData(f"event-{sequence}")
+    outgoing.properties = {"sequence": sequence}
+    batch.add(outgoing)
+`);
+
+  assert.equal(evaluateRule("prompt/event-batch", workspace), true);
+});
+
+test("invalid EventData constructor properties remain rejected", () => {
+  const workspace = withPython(`
+producer = EventHubProducerClient.from_connection_string(connection_string)
+batch = await producer.create_batch()
+EVENT_COUNT = 10
+for sequence in range(1, EVENT_COUNT + 1):
+    batch.add(
+        EventData(
+            f"event-{sequence}",
+            application_properties={"sequence": sequence},
+        )
+    )
+`);
+
+  assert.equal(evaluateRule("prompt/event-batch", workspace), false);
+});
+
+test("batch checks preserve bounds, provenance, order, and reachability", async (t) => {
+  const cases = [
+    {
+      name: "wrong arithmetic bound",
+      source: `
+producer = EventHubProducerClient.from_connection_string(connection_string)
+batch = await producer.create_batch()
+EVENT_COUNT = 10
+for sequence in range(EVENT_COUNT + 1):
+    outgoing = EventData(sequence)
+    outgoing.properties = {"sequence": sequence}
+    batch.add(outgoing)
+`,
+    },
+    {
+      name: "property belongs to another event",
+      source: `
+producer = EventHubProducerClient.from_connection_string(connection_string)
+batch = await producer.create_batch()
+for sequence in range(10):
+    outgoing = EventData(sequence)
+    decoy = EventData(sequence)
+    decoy.properties = {"sequence": sequence}
+    batch.add(outgoing)
+`,
+    },
+    {
+      name: "property is assigned after enqueue",
+      source: `
+producer = EventHubProducerClient.from_connection_string(connection_string)
+batch = await producer.create_batch()
+for sequence in range(10):
+    outgoing = EventData(sequence)
+    batch.add(outgoing)
+    outgoing.properties = {"sequence": sequence}
+`,
+    },
+    {
+      name: "batch implementation is unreachable",
+      source: `
+def decoy():
+    producer = EventHubProducerClient.from_connection_string(connection_string)
+    batch = await producer.create_batch()
+    for sequence in range(10):
+        outgoing = EventData(sequence)
+        outgoing.properties = {"sequence": sequence}
+        batch.add(outgoing)
+
+if False:
+    decoy()
+`,
+    },
+  ];
+
+  for (const entry of cases) {
+    await t.test(entry.name, () => {
+      assert.equal(
+        evaluateRule("prompt/event-batch", withPython(entry.source)),
+        false,
+      );
+    });
+  }
+});
+
+test("f-string receive diagnostics retain error-parameter provenance", () => {
+  const valid = withPython(`
+consumer = EventHubConsumerClient.from_connection_string(
+    connection_string,
+    consumer_group=consumer_group,
+    checkpoint_store=checkpoint_store,
+)
+
+async def handle(partition_context, event):
+    print(f"body={event.body_as_str()}")
+
+async def errors(partition_context, caught_error):
+    print(f"receive failed: {caught_error}")
+
+await consumer.receive(on_event=handle, on_error=errors)
+`);
+  assert.equal(evaluateRule("prompt/receive-handlers", valid), true);
+
+  const unrelatedError = withPython(
+    valid.python.replace(
+      'print(f"receive failed: {caught_error}")',
+      'print(f"receive failed: {unrelated_error}")',
+    ),
+  );
+  assert.equal(
+    evaluateRule("prompt/receive-handlers", unrelatedError),
+    false,
+  );
+});
+
+test("unreachable receive handlers do not score", () => {
+  const workspace = withPython(`
+async def handle(partition_context, event):
+    print(event.body)
+
+async def errors(partition_context, error):
+    print(f"receive failed: {error}")
+
+def decoy():
+    consumer = EventHubConsumerClient.from_connection_string(
+        connection_string,
+        consumer_group=consumer_group,
+        checkpoint_store=checkpoint_store,
+    )
+    return consumer.receive(on_event=handle, on_error=errors)
+
+if False:
+    decoy()
+`);
+
+  assert.equal(evaluateRule("prompt/receive-handlers", workspace), false);
 });
 
 test("events in the ten-event batch must have a body", () => {

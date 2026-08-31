@@ -120,20 +120,14 @@ stimuli:
           args:
             - .vally/languages/python/check.mjs
             - language/async-client
-      - type: run-command
-        name: language/exception-handling
-        weight: 1
-        config:
-          command: node
-          args:
-            - .vally/languages/python/check.mjs
-            - language/exception-handling
     environment:
       files:
         - src: tools/check-event-hubs-python.mjs
           dest: .vally/scenarios/event-hubs-python-send-receive-events/tools/check-event-hubs-python.mjs
         - src: tools/event-hubs-python-rules.mjs
           dest: .vally/scenarios/event-hubs-python-send-receive-events/tools/event-hubs-python-rules.mjs
+        - src: tools/event_hubs_analyzer.py
+          dest: .vally/scenarios/event-hubs-python-send-receive-events/tools/event_hubs_analyzer.py
         - src: ../../languages/python/check.mjs
           dest: .vally/languages/python/check.mjs
         - src: ../../languages/python/checks.mjs

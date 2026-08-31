@@ -16,6 +16,11 @@ import {
 const goldenPath = fileURLToPath(new URL("./golden", import.meta.url));
 const goldenWorkspace = loadFeatureFlagsWorkspace(goldenPath);
 const languageWorkspace = loadPythonWorkspace(goldenPath);
+const baselinePath = fileURLToPath(
+  new URL("./fixtures/baseline-33374429826", import.meta.url),
+);
+const baseline33374429826 = loadFeatureFlagsWorkspace(baselinePath);
+const baselineLanguage33374429826 = loadPythonWorkspace(baselinePath);
 const evalSpec = readFileSync(
   fileURLToPath(new URL("./eval.yaml", import.meta.url)),
   "utf8",
@@ -89,6 +94,81 @@ test("golden passes every prompt rule and shared Python check", () => {
   for (const check of languageChecks) {
     assert.equal(evaluatePythonCheck(check, languageWorkspace), true, check);
   }
+});
+
+test("baseline run 33374429826 exact output passes every configured grader", () => {
+  for (const rule of ruleNames()) {
+    assert.equal(evaluateRule(rule, baseline33374429826), true, rule);
+  }
+  for (const check of languageChecks) {
+    assert.equal(
+      evaluatePythonCheck(check, baselineLanguage33374429826),
+      true,
+      check,
+    );
+  }
+});
+
+test("instance-backed sentinel state remains connected to refreshes", () => {
+  assert.equal(
+    evaluateRule("prompt/sentinel-refresh", baseline33374429826),
+    true,
+  );
+
+  const disconnectedState = {
+    ...baseline33374429826,
+    documents: baseline33374429826.documents.map((document) => ({
+      ...document,
+      source:
+        document.path === "configuration_watcher.py"
+          ? document.source.replaceAll(
+              "cached = self._sentinel_settings.get(key)",
+              "cached = {}.get(key)",
+            )
+          : document.source,
+    })),
+  };
+  assert.equal(
+    evaluateRule("prompt/sentinel-refresh", disconnectedState),
+    false,
+  );
+});
+
+test("wrapper calls preserve the complete sync-then-async demo flow", () => {
+  assert.equal(
+    evaluateRule(
+      "prompt/connected-sync-then-async-demo",
+      baseline33374429826,
+    ),
+    true,
+  );
+});
+
+test("sentinel refresh must occur after and inside the change guard", () => {
+  const reordered = {
+    ...baseline33374429826,
+    documents: baseline33374429826.documents.map((document) => ({
+      ...document,
+      source:
+        document.path === "configuration_watcher.py"
+          ? document.source.replace(
+              `                    if (
+                        not refreshed
+                        and cached is not None
+                        and cached.value != setting.value
+                    ):
+                        configuration.refresh_all()`,
+              `                    configuration.refresh_all()
+                    if (
+                        not refreshed
+                        and cached is not None
+                        and cached.value != setting.value
+                    ):`,
+            )
+          : document.source,
+    })),
+  };
+  assert.equal(evaluateRule("prompt/sentinel-refresh", reordered), false);
 });
 
 test("pins are exact and comments cannot provide them", () => {

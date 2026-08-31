@@ -1,3 +1,28 @@
+import { spawnSync } from "node:child_process";
+import { fileURLToPath } from "node:url";
+
+const analyzerPath = fileURLToPath(
+  new URL("./event_hubs_analyzer.py", import.meta.url),
+);
+const semanticCache = new WeakMap();
+
+function semanticAnalysis(workspace) {
+  if (semanticCache.has(workspace)) return semanticCache.get(workspace);
+  const result = spawnSync("python", [analyzerPath], {
+    encoding: "utf8",
+    input: JSON.stringify({ source: workspace.python ?? "" }),
+    windowsHide: true,
+  });
+  if (result.status !== 0) {
+    throw new Error(
+      `Event Hubs analysis failed: ${result.stderr || result.stdout}`,
+    );
+  }
+  const analysis = JSON.parse(result.stdout);
+  semanticCache.set(workspace, analysis);
+  return analysis;
+}
+
 function escapeRegularExpression(value) {
   return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
@@ -233,38 +258,6 @@ function collectBatchConstructions(source, producerVariables) {
   return batches;
 }
 
-function integerConstants(source) {
-  const constants = new Map();
-  for (const match of source.matchAll(/^\s*([A-Z_]\w*)\s*=\s*(-?\d+)\s*$/gm)) {
-    constants.set(match[1], Number(match[2]));
-  }
-  return constants;
-}
-
-function resolveInteger(value, constants) {
-  const cleaned = value.trim();
-  if (/^-?\d+$/.test(cleaned)) {
-    return Number(cleaned);
-  }
-  return constants.get(cleaned);
-}
-
-function rangeLength(rangeArguments, constants) {
-  const values = splitArguments(rangeArguments).map((value) =>
-    resolveInteger(value, constants),
-  );
-  if (values.some((value) => value === undefined) || values.length === 0) {
-    return undefined;
-  }
-
-  const [start, stop, step] =
-    values.length === 1 ? [0, values[0], 1] : [values[0], values[1], values[2] ?? 1];
-  if (step === 0) {
-    return undefined;
-  }
-  return Math.max(0, Math.ceil((stop - start) / step));
-}
-
 function indentedBlocks(source, headerPattern) {
   const lines = source.split(/\r?\n/);
   const blocks = [];
@@ -287,58 +280,6 @@ function indentedBlocks(source, headerPattern) {
     blocks.push({ body: lines.slice(index + 1, end).join("\n"), match });
   }
   return blocks;
-}
-
-function hasTenEventBatch(source, batches) {
-  const constants = integerConstants(source);
-  const eventSymbols = symbolNames(source, "EventData")
-    .map(escapeRegularExpression)
-    .join("|");
-
-  for (const { body, match } of indentedBlocks(
-    source,
-    /^(\s*)for\s+(\w+)\s+in\s+range\s*\(([^)]*)\)\s*:\s*$/,
-  )) {
-    if (rangeLength(match[3], constants) !== 10) {
-      continue;
-    }
-
-    for (const batch of batches) {
-      const eventPattern = new RegExp(
-        `\\b(\\w+)\\s*=\\s*(?:${eventSymbols})\\s*\\(`,
-        "g",
-      );
-      for (const eventMatch of body.matchAll(eventPattern)) {
-        const eventVariable = eventMatch[1];
-        const openingIndex =
-          eventMatch.index + eventMatch[0].lastIndexOf("(");
-        const closingIndex = findClosingParenthesis(body, openingIndex);
-        if (
-          closingIndex === -1 ||
-          !body.slice(openingIndex + 1, closingIndex).trim()
-        ) {
-          continue;
-        }
-        const propertyPattern = new RegExp(
-          `\\b${escapeRegularExpression(eventVariable)}\\s*\\.\\s*properties\\s*(?:=|\\[|\\.\\s*update\\s*\\()`,
-        );
-        const addPattern = new RegExp(
-          `\\b${escapeRegularExpression(batch.variable)}\\s*\\.\\s*add\\s*\\(\\s*${escapeRegularExpression(eventVariable)}\\b`,
-        );
-        if (propertyPattern.test(body) && addPattern.test(body)) {
-          return true;
-        }
-      }
-
-      const inlinePattern = new RegExp(
-        `\\b${escapeRegularExpression(batch.variable)}\\s*\\.\\s*add\\s*\\(\\s*(?:${eventSymbols})\\s*\\((?!\\s*\\))[^)]*\\b(?:properties|application_properties)\\s*=`,
-      );
-      if (inlinePattern.test(body)) {
-        return true;
-      }
-    }
-  }
-  return false;
 }
 
 function functionDetails(source, reference) {
@@ -409,40 +350,6 @@ function eventReferences(details, isBatch) {
   return references;
 }
 
-function handlerPrintsBody(source, expression, isBatch) {
-  const details = callbackDetails(source, expression);
-  const references = eventReferences(details, isBatch);
-  if (!details || references.length === 0) {
-    return false;
-  }
-
-  const eventReference = `(?:${references.join("|")})`;
-  const direct = new RegExp(
-    `\\bprint\\s*\\([\\s\\S]{0,400}?\\b${eventReference}\\s*\\.\\s*body(?:_as_str)?\\b`,
-  ).test(details.body);
-  const assigned = new RegExp(
-    `\\b(\\w+)\\s*=\\s*${eventReference}\\s*\\.\\s*body(?:_as_str)?\\b[^\\n]*[\\s\\S]{0,400}?\\bprint\\s*\\(\\s*\\1\\b`,
-  ).test(details.body);
-  return direct || assigned;
-}
-
-function handlerPrintsError(source, expression) {
-  if (!expression) {
-    return false;
-  }
-  if (/\blambda\b[\s\S]*:\s*print\s*\(/.test(expression)) {
-    return true;
-  }
-  const details = functionDetails(source, expression);
-  if (!details || details.parameters.length < 2) {
-    return false;
-  }
-  const errorParameter = details.parameters.at(-1);
-  return new RegExp(
-    `\\bprint\\s*\\([\\s\\S]{0,300}?\\b${escapeRegularExpression(errorParameter)}\\b`,
-  ).test(details.body);
-}
-
 function handlerUpdatesCheckpoint(source, expression, isBatch) {
   const details = callbackDetails(source, expression);
   if (!details || details.parameters.length < 2) {
@@ -504,10 +411,8 @@ const rules = {
     ),
   "prompt/producer-client": (workspace) =>
     createContext(workspace).producers.length > 0,
-  "prompt/event-batch": (workspace) => {
-    const context = createContext(workspace);
-    return hasTenEventBatch(context.source, context.batches);
-  },
+  "prompt/event-batch": (workspace) =>
+    semanticAnalysis(workspace).event_batch,
   "prompt/send-batch": (workspace) => {
     const context = createContext(workspace);
     return context.batches.some((batch) =>
@@ -545,20 +450,8 @@ const rules = {
       );
     });
   },
-  "prompt/receive-handlers": (workspace) => {
-    const context = createContext(workspace);
-    return context.receiveCalls.some((call) => {
-      const handlers = receiveHandlerArguments(call);
-      return (
-        handlerPrintsBody(
-          context.source,
-          handlers.event,
-          call.method === "receive_batch",
-        ) &&
-        handlerPrintsError(context.source, handlers.error)
-      );
-    });
-  },
+  "prompt/receive-handlers": (workspace) =>
+    semanticAnalysis(workspace).receive_handlers,
   "prompt/update-checkpoint": (workspace) => {
     const context = createContext(workspace);
     return context.receiveCalls.some((call) =>
