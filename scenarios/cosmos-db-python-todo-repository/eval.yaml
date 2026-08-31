@@ -1,0 +1,116 @@
+name: cosmos-db-python-todo-repository
+description: Compare Azure tooling for a production-oriented Cosmos DB Python repository
+version: "1.0"
+type: capability
+scoring:
+  weights: {}
+  threshold: 1
+defaults:
+  runs: 1
+  timeout: 30m
+  model: gpt-5.6-sol
+  judge_model: gpt-5.6-sol
+stimuli:
+  - name: cosmos-db-dp-python-todo-repository
+    prompt: |-
+      Create a Python project that implements a ToDo item CRUD repository backed by Azure Cosmos DB (NoSQL API).
+
+      **Write the code to files (use file-write tools, do not reply with code blocks).**
+
+      The project needs:
+
+      - A **model** (shared by both implementations) for a ToDo item with fields for id, title, description, completed status, created timestamp, and category (where category is the partition key). Use a dictionary or a dataclass.
+
+      - A **synchronous repository module** that performs CRUD operations against Cosmos DB. It should support create, read, update, delete, and a query-by-category method. Each operation should log the request charge (RU cost consumed) from the response headers. The update operation should prevent lost updates — if another process modified the item since it was last read, the update should fail with a clear conflict error rather than silently overwriting the other process's changes. The query method should use safe, parameterized queries and must handle large result sets properly — paginate through results page by page rather than loading everything into memory at once, and log progress as each page is retrieved.
+
+      - An **asynchronous repository module** that provides the same CRUD operations using the `azure.cosmos.aio` async client. The query method should iterate through pages asynchronously.
+
+      - A **configuration/factory module** that connects to the Cosmos DB account using its endpoint from an environment variable. Authentication must use `DefaultAzureCredential` (no master keys). It should create the database and container if they don't already exist, setting a default TTL (time-to-live) of 90 days on the container and configuring the indexing policy to exclude the `description` field from indexing (since it's never queried on).
+
+      - A **main script** that demos both implementations: runs the full CRUD cycle using the sync repository first (including paginated query output showing page-by-page results), then runs the same operations using the async repository.
+
+      Include a `requirements.txt` that pins `azure-cosmos` to `4.16.0` and `azure-identity` to `1.25.3`.
+    tags:
+      service: cosmos-db
+      plane: data-plane
+      language: python
+      category: crud
+    graders:
+      - type: run-command
+        name: prompt/sdk-pins
+        weight: 1
+        config: { command: node, args: [.vally/scenarios/cosmos-db-python-todo-repository/tools/check-todo-repository-python.mjs, prompt/sdk-pins] }
+      - type: run-command
+        name: prompt/todo-model
+        weight: 1
+        config: { command: node, args: [.vally/scenarios/cosmos-db-python-todo-repository/tools/check-todo-repository-python.mjs, prompt/todo-model] }
+      - type: run-command
+        name: prompt/secure-container-factory
+        weight: 1
+        config: { command: node, args: [.vally/scenarios/cosmos-db-python-todo-repository/tools/check-todo-repository-python.mjs, prompt/secure-container-factory] }
+      - type: run-command
+        name: prompt/sync-crud-request-charges
+        weight: 1
+        config: { command: node, args: [.vally/scenarios/cosmos-db-python-todo-repository/tools/check-todo-repository-python.mjs, prompt/sync-crud-request-charges] }
+      - type: run-command
+        name: prompt/async-crud-request-charges
+        weight: 1
+        config: { command: node, args: [.vally/scenarios/cosmos-db-python-todo-repository/tools/check-todo-repository-python.mjs, prompt/async-crud-request-charges] }
+      - type: run-command
+        name: prompt/etag-conflict-handling
+        weight: 1
+        config: { command: node, args: [.vally/scenarios/cosmos-db-python-todo-repository/tools/check-todo-repository-python.mjs, prompt/etag-conflict-handling] }
+      - type: run-command
+        name: prompt/sync-parameterized-pagination
+        weight: 1
+        config: { command: node, args: [.vally/scenarios/cosmos-db-python-todo-repository/tools/check-todo-repository-python.mjs, prompt/sync-parameterized-pagination] }
+      - type: run-command
+        name: prompt/async-parameterized-pagination
+        weight: 1
+        config: { command: node, args: [.vally/scenarios/cosmos-db-python-todo-repository/tools/check-todo-repository-python.mjs, prompt/async-parameterized-pagination] }
+      - type: run-command
+        name: prompt/connected-sync-then-async-demo
+        weight: 1
+        config: { command: node, args: [.vally/scenarios/cosmos-db-python-todo-repository/tools/check-todo-repository-python.mjs, prompt/connected-sync-then-async-demo] }
+      - type: run-command
+        name: language/correct-imports
+        weight: 1
+        config: { command: node, args: [.vally/languages/python/check.mjs, language/correct-imports] }
+      - type: run-command
+        name: language/default-azure-credential
+        weight: 1
+        config: { command: node, args: [.vally/languages/python/check.mjs, language/default-azure-credential] }
+      - type: run-command
+        name: language/client-lifecycle
+        weight: 1
+        config: { command: node, args: [.vally/languages/python/check.mjs, language/client-lifecycle] }
+      - type: run-command
+        name: language/async-client
+        weight: 1
+        config: { command: node, args: [.vally/languages/python/check.mjs, language/async-client] }
+      - type: run-command
+        name: language/exception-handling
+        weight: 1
+        config: { command: node, args: [.vally/languages/python/check.mjs, language/exception-handling] }
+    environment:
+      files:
+        - src: tools/check-todo-repository-python.mjs
+          dest: .vally/scenarios/cosmos-db-python-todo-repository/tools/check-todo-repository-python.mjs
+        - src: tools/todo-repository-rules.mjs
+          dest: .vally/scenarios/cosmos-db-python-todo-repository/tools/todo-repository-rules.mjs
+        - src: tools/todo_repository_analyzer.py
+          dest: .vally/scenarios/cosmos-db-python-todo-repository/tools/todo_repository_analyzer.py
+        - src: ../../languages/python/check.mjs
+          dest: .vally/languages/python/check.mjs
+        - src: ../../languages/python/checks.mjs
+          dest: .vally/languages/python/checks.mjs
+artifacts:
+  include:
+    - "**/*.py"
+    - "**/requirements*.txt"
+    - "**/pyproject.toml"
+    - "**/setup.py"
+  exclude:
+    - "**/.vally/**"
+    - "**/.venv/**"
+    - "**/__pycache__/**"

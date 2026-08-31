@@ -47,7 +47,8 @@ foreach ($goldenRoot in $goldenRoots) {
 
     $package = Join-Path $goldenRoot "package.json"
     if (Test-Path $package -PathType Leaf) {
-        pnpm --dir $goldenRoot install --frozen-lockfile --ignore-scripts
+        pnpm --dir $goldenRoot install --frozen-lockfile --ignore-scripts `
+            --registry=https://pkgs.dev.azure.com/azure-sdk/public/_packaging/azure-sdk-for-js/npm/registry/
         if ($LASTEXITCODE -ne 0) {
             throw "TypeScript golden application dependency restore failed: $goldenRoot"
         }

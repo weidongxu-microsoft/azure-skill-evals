@@ -1,0 +1,101 @@
+name: key-vault-java-secret-config
+description: Compare Azure tooling for a Java Key Vault-backed configuration provider
+version: "1.0"
+type: capability
+scoring:
+  weights: {}
+  threshold: 1
+defaults:
+  runs: 1
+  timeout: 30m
+  model: gpt-5.6-sol
+  judge_model: gpt-5.6-sol
+stimuli:
+  - name: key-vault-dp-java-secret-config
+    prompt: |-
+      Create a Java 17 Maven project that implements an application configuration provider backed by Azure Key Vault.
+
+      Write the code to files. Do not reply with code blocks.
+
+      Implement synchronous and asynchronous providers using SecretClient and SecretAsyncClient. Each provider must get the latest secret or a requested version, return a caller-provided default when the secret is not found, and expose SecretProperties.getExpiresOn(). Add in-memory caches that bulk-load required keys, read cached values, refresh one key on demand, and automatically refresh secrets whose expiry is inside a configurable warning window.
+
+      Build both clients from an environment-provided vault URL with one DefaultAzureCredential and no embedded credentials. Add sync and async rotation helpers that call beginDeleteSecret, wait for the returned SyncPoller or PollerFlux to complete, purge the completed deletion so the soft-deleted name can be reused, and only then create the replacement value with an expiry date.
+
+      Main must demonstrate the connected sync flow first and the connected async flow second: bulk load, cached reads, one-key refresh, near-expiry warning/refresh, and rotation.
+
+      Include active Maven runtime dependencies
+      com.azure:azure-identity:1.18.5 and
+      com.azure:azure-security-keyvault-secrets:4.11.2.
+    tags:
+      service: key-vault
+      plane: data-plane
+      language: java
+      category: crud
+    graders:
+      - type: run-command
+        name: prompt/sdk-dependencies
+        weight: 1
+        config: { command: node, args: [.vally/scenarios/key-vault-java-secret-config/tools/check-secret-config-java.mjs, prompt/sdk-dependencies] }
+      - type: run-command
+        name: prompt/managed-identity-configuration
+        weight: 1
+        config: { command: node, args: [.vally/scenarios/key-vault-java-secret-config/tools/check-secret-config-java.mjs, prompt/managed-identity-configuration] }
+      - type: run-command
+        name: prompt/sync-provider
+        weight: 1
+        config: { command: node, args: [.vally/scenarios/key-vault-java-secret-config/tools/check-secret-config-java.mjs, prompt/sync-provider] }
+      - type: run-command
+        name: prompt/async-provider
+        weight: 1
+        config: { command: node, args: [.vally/scenarios/key-vault-java-secret-config/tools/check-secret-config-java.mjs, prompt/async-provider] }
+      - type: run-command
+        name: prompt/expiry-aware-cache
+        weight: 1
+        config: { command: node, args: [.vally/scenarios/key-vault-java-secret-config/tools/check-secret-config-java.mjs, prompt/expiry-aware-cache] }
+      - type: run-command
+        name: prompt/sync-safe-rotation
+        weight: 1
+        config: { command: node, args: [.vally/scenarios/key-vault-java-secret-config/tools/check-secret-config-java.mjs, prompt/sync-safe-rotation] }
+      - type: run-command
+        name: prompt/async-safe-rotation
+        weight: 1
+        config: { command: node, args: [.vally/scenarios/key-vault-java-secret-config/tools/check-secret-config-java.mjs, prompt/async-safe-rotation] }
+      - type: run-command
+        name: prompt/connected-demo
+        weight: 1
+        config: { command: node, args: [.vally/scenarios/key-vault-java-secret-config/tools/check-secret-config-java.mjs, prompt/connected-demo] }
+      - type: run-command
+        name: language/build-manifest
+        weight: 1
+        config: { command: node, args: [.vally/languages/java/check.mjs, language/build-manifest] }
+      - type: run-command
+        name: language/current-azure-dependencies
+        weight: 1
+        config: { command: node, args: [.vally/languages/java/check.mjs, language/current-azure-dependencies] }
+      - type: run-command
+        name: language/current-imports
+        weight: 1
+        config: { command: node, args: [.vally/languages/java/check.mjs, language/current-imports] }
+      - type: run-command
+        name: language/client-builder
+        weight: 1
+        config: { command: node, args: [.vally/languages/java/check.mjs, language/client-builder] }
+    environment:
+      files:
+        - src: tools/check-secret-config-java.mjs
+          dest: .vally/scenarios/key-vault-java-secret-config/tools/check-secret-config-java.mjs
+        - src: tools/secret-config-java-rules.mjs
+          dest: .vally/scenarios/key-vault-java-secret-config/tools/secret-config-java-rules.mjs
+        - src: ../../languages/java/check.mjs
+          dest: .vally/languages/java/check.mjs
+        - src: ../../languages/java/checks.mjs
+          dest: .vally/languages/java/checks.mjs
+artifacts:
+  include:
+    - "**/*.java"
+    - "**/pom.xml"
+    - "**/build.gradle"
+    - "**/build.gradle.kts"
+  exclude:
+    - "**/.vally/**"
+    - "**/target/**"

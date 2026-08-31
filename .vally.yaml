@@ -4,6 +4,14 @@ paths:
   results: reports/
 
 suites:
+  cosmos-db-dotnet-pagination-query-items:
+    description: Cosmos DB pagination evaluation for .NET
+    evals:
+      - scenarios/cosmos-db-dotnet-pagination-query-items/eval.yaml
+  cosmos-db-dotnet-error-handling:
+    description: Cosmos DB error-handling evaluation for .NET
+    evals:
+      - scenarios/cosmos-db-dotnet-error-handling/eval.yaml
   cosmos-crud:
     description: Cosmos DB CRUD evaluation across four languages
     evals:
@@ -11,6 +19,11 @@ suites:
       - scenarios/cosmos-db-dotnet-crud/eval.yaml
       - scenarios/cosmos-db-java-crud/eval.yaml
       - scenarios/cosmos-db-typescript-crud/eval.yaml
+  cosmos-db-todo-repository:
+    description: Cosmos DB ToDo repository evaluation across Python and Java
+    evals:
+      - scenarios/cosmos-db-python-todo-repository/eval.yaml
+      - scenarios/cosmos-db-java-todo-repository/eval.yaml
   app-configuration-config-values:
     description: App Configuration values evaluation across four languages
     evals:
@@ -18,6 +31,11 @@ suites:
       - scenarios/app-configuration-dotnet-config-values/eval.yaml
       - scenarios/app-configuration-java-config-values/eval.yaml
       - scenarios/app-configuration-typescript-config-values/eval.yaml
+  app-configuration-feature-flags:
+    description: App Configuration feature flags evaluation across Python and Java
+    evals:
+      - scenarios/app-configuration-python-feature-flags/eval.yaml
+      - scenarios/app-configuration-java-feature-flags/eval.yaml
   event-hubs-send-receive-events:
     description: Event Hubs send and receive evaluation across four languages
     evals:
@@ -32,6 +50,24 @@ suites:
       - scenarios/key-vault-dotnet-crud-secrets/eval.yaml
       - scenarios/key-vault-java-crud-secrets/eval.yaml
       - scenarios/key-vault-typescript-crud-secrets/eval.yaml
+  key-vault-secret-config:
+    description: Key Vault-backed configuration provider evaluation across Python, Java, and TypeScript
+    evals:
+      - scenarios/key-vault-python-secret-config/eval.yaml
+      - scenarios/key-vault-java-secret-config/eval.yaml
+      - scenarios/key-vault-typescript-secret-config/eval.yaml
+  key-vault-dotnet-error-handling:
+    description: Key Vault error-handling evaluation for .NET
+    evals:
+      - scenarios/key-vault-dotnet-error-handling/eval.yaml
+  key-vault-dotnet-pagination-list-secrets:
+    description: Key Vault secret pagination evaluation for .NET
+    evals:
+      - scenarios/key-vault-dotnet-pagination-list-secrets/eval.yaml
+  key-vault-dotnet-polling-create-vault:
+    description: Key Vault management-plane polling evaluation for .NET
+    evals:
+      - scenarios/key-vault-dotnet-polling-create-vault/eval.yaml
   identity-default-azure-credential:
     description: DefaultAzureCredential evaluation across four languages
     evals:
@@ -46,6 +82,11 @@ suites:
       - scenarios/identity-dotnet-managed-identity-auth/eval.yaml
       - scenarios/identity-java-managed-identity-auth/eval.yaml
       - scenarios/identity-typescript-managed-identity-auth/eval.yaml
+  identity-credential-chain:
+    description: Environment-specific credential chain evaluation across Python and Java
+    evals:
+      - scenarios/identity-python-credential-chain/eval.yaml
+      - scenarios/identity-java-credential-chain/eval.yaml
   identity-service-principal-auth:
     description: Service principal authentication evaluation across four languages
     evals:
@@ -67,6 +108,11 @@ suites:
       - scenarios/service-bus-dotnet-send-receive-messages/eval.yaml
       - scenarios/service-bus-java-send-receive-messages/eval.yaml
       - scenarios/service-bus-typescript-send-receive-messages/eval.yaml
+  service-bus-order-processor:
+    description: Service Bus order processor evaluation across Python and Java
+    evals:
+      - scenarios/service-bus-python-order-processor/eval.yaml
+      - scenarios/service-bus-java-order-processor/eval.yaml
   storage-account-mgmt:
     description: Storage account management evaluation across four languages
     evals:
@@ -74,6 +120,26 @@ suites:
       - scenarios/storage-dotnet-account-mgmt/eval.yaml
       - scenarios/storage-java-account-mgmt/eval.yaml
       - scenarios/storage-typescript-account-mgmt/eval.yaml
+  storage-dotnet-authentication:
+    description: Blob Storage authentication evaluation for .NET
+    evals:
+      - scenarios/storage-dotnet-authentication/eval.yaml
+  storage-dotnet-batch-blob-operations:
+    description: Blob Storage batch operations evaluation for .NET
+    evals:
+      - scenarios/storage-dotnet-batch-blob-operations/eval.yaml
+  storage-dotnet-error-handling:
+    description: Blob Storage error-handling evaluation for .NET
+    evals:
+      - scenarios/storage-dotnet-error-handling/eval.yaml
+  storage-dotnet-retry-configuration:
+    description: Blob Storage retry configuration evaluation for .NET
+    evals:
+      - scenarios/storage-dotnet-retry-configuration/eval.yaml
+  storage-dotnet-polling-create-account:
+    description: Storage account creation polling evaluation for .NET
+    evals:
+      - scenarios/storage-dotnet-polling-create-account/eval.yaml
   storage-blob-storage-manager:
     description: Blob Storage manager evaluation across available Hyoka languages
     evals:
@@ -86,3 +152,14 @@ suites:
       - scenarios/storage-python-crud-blobs/eval.yaml
       - scenarios/storage-java-crud-blobs/eval.yaml
       - scenarios/storage-typescript-crud-blobs/eval.yaml
+  storage-encrypted-uploader:
+    description: Encrypted Blob uploader evaluation across Python, Java, and TypeScript
+    evals:
+      - scenarios/storage-python-encrypted-uploader/eval.yaml
+      - scenarios/storage-java-encrypted-uploader/eval.yaml
+      - scenarios/storage-typescript-encrypted-uploader/eval.yaml
+  storage-blob-event-notifier:
+    description: Blob event notifier evaluation across Python and Java
+    evals:
+      - scenarios/storage-python-blob-event-notifier/eval.yaml
+      - scenarios/storage-java-blob-event-notifier/eval.yaml

@@ -1,0 +1,133 @@
+name: service-bus-java-order-processor
+description: Compare Azure tooling for a production-style Service Bus Java order processor
+version: "1.0"
+type: capability
+scoring:
+  weights: {}
+  threshold: 1
+defaults:
+  runs: 1
+  timeout: 30m
+  model: gpt-5.6-sol
+  judge_model: gpt-5.6-sol
+stimuli:
+  - name: service-bus-dp-java-order-processor
+    prompt: |-
+      Create a complete, runnable Java 17 Maven project that implements an order processing system using Azure Service Bus.
+
+      Write the code to files. Do not reply with code blocks.
+
+      1. Use com.azure:azure-messaging-servicebus:7.17.20, com.azure:azure-identity:1.18.5, and com.fasterxml.jackson.core:jackson-databind:2.20.0. Read the fully qualified Service Bus namespace and queue name from environment variables, authenticate with managed identity, and do not hard-code credentials.
+      2. Define an Order model with order ID, customer name, product, quantity, total price, and a pending/processing/completed/failed status. Support JSON serialization and deserialization.
+      3. Implement synchronous and asynchronous senders. Each must send one order and efficiently send multiple orders with ServiceBusMessageBatch. Check tryAddMessage and, when an order does not fit, send the current batch and retry that order in a new batch. Set correlation ID to the order ID and session ID to the customer name.
+      4. Mark orders above a documented price threshold as high priority and schedule them approximately 30 seconds in the future with scheduleMessage or setScheduledEnqueueTime.
+      5. Implement a session-aware ServiceBusProcessorClient with processMessage and processError handlers plus an asynchronous session receiver. Deserialize and process each received order, complete that same message only after success, and explicitly dead-letter deserialization or non-transient processing failures with a useful reason. Abandon transient ServiceBusException failures so Service Bus can retry them.
+      6. Read the queue's SubQueue.DEAD_LETTER_QUEUE, inspect and deserialize failed orders, republish valid orders through the matching sender, and complete the same dead-letter message only after republishing succeeds.
+      7. The processor error handler must log entity path, error source, and exception details, and distinguish transient from non-transient failures with isTransient or getReason.
+      8. A Main class must run a connected synchronous send/process/dead-letter-reprocess cycle first, then run and await the equivalent asynchronous cycle. Reliably close every client, sender, processor, and receiver.
+
+      Use SERVICE_BUS_FULLY_QUALIFIED_NAMESPACE and SERVICE_BUS_QUEUE_NAME.
+    tags:
+      service: service-bus
+      plane: data-plane
+      language: java
+      category: streaming
+    graders:
+      - type: run-command
+        name: prompt/sdk-dependencies
+        weight: 1
+        config:
+          command: node
+          args: [.vally/scenarios/service-bus-java-order-processor/tools/check-order-processor-java.mjs, prompt/sdk-dependencies]
+      - type: run-command
+        name: prompt/order-model
+        weight: 1
+        config:
+          command: node
+          args: [.vally/scenarios/service-bus-java-order-processor/tools/check-order-processor-java.mjs, prompt/order-model]
+      - type: run-command
+        name: prompt/sync-sender
+        weight: 1
+        config:
+          command: node
+          args: [.vally/scenarios/service-bus-java-order-processor/tools/check-order-processor-java.mjs, prompt/sync-sender]
+      - type: run-command
+        name: prompt/async-sender
+        weight: 1
+        config:
+          command: node
+          args: [.vally/scenarios/service-bus-java-order-processor/tools/check-order-processor-java.mjs, prompt/async-sender]
+      - type: run-command
+        name: prompt/sync-processing-settlement
+        weight: 1
+        config:
+          command: node
+          args: [.vally/scenarios/service-bus-java-order-processor/tools/check-order-processor-java.mjs, prompt/sync-processing-settlement]
+      - type: run-command
+        name: prompt/async-processing-settlement
+        weight: 1
+        config:
+          command: node
+          args: [.vally/scenarios/service-bus-java-order-processor/tools/check-order-processor-java.mjs, prompt/async-processing-settlement]
+      - type: run-command
+        name: prompt/dead-letter-reprocessing
+        weight: 1
+        config:
+          command: node
+          args: [.vally/scenarios/service-bus-java-order-processor/tools/check-order-processor-java.mjs, prompt/dead-letter-reprocessing]
+      - type: run-command
+        name: prompt/error-classification
+        weight: 1
+        config:
+          command: node
+          args: [.vally/scenarios/service-bus-java-order-processor/tools/check-order-processor-java.mjs, prompt/error-classification]
+      - type: run-command
+        name: prompt/connected-demo
+        weight: 1
+        config:
+          command: node
+          args: [.vally/scenarios/service-bus-java-order-processor/tools/check-order-processor-java.mjs, prompt/connected-demo]
+      - type: run-command
+        name: language/build-manifest
+        weight: 1
+        config:
+          command: node
+          args: [.vally/languages/java/check.mjs, language/build-manifest]
+      - type: run-command
+        name: language/current-azure-dependencies
+        weight: 1
+        config:
+          command: node
+          args: [.vally/languages/java/check.mjs, language/current-azure-dependencies]
+      - type: run-command
+        name: language/current-imports
+        weight: 1
+        config:
+          command: node
+          args: [.vally/languages/java/check.mjs, language/current-imports]
+      - type: run-command
+        name: language/client-builder
+        weight: 1
+        config:
+          command: node
+          args: [.vally/languages/java/check.mjs, language/client-builder]
+    environment:
+      files:
+        - src: tools/check-order-processor-java.mjs
+          dest: .vally/scenarios/service-bus-java-order-processor/tools/check-order-processor-java.mjs
+        - src: tools/order-processor-java-rules.mjs
+          dest: .vally/scenarios/service-bus-java-order-processor/tools/order-processor-java-rules.mjs
+        - src: ../../languages/java/check.mjs
+          dest: .vally/languages/java/check.mjs
+        - src: ../../languages/java/checks.mjs
+          dest: .vally/languages/java/checks.mjs
+artifacts:
+  include:
+    - "**/*.java"
+    - "**/pom.xml"
+    - "**/build.gradle"
+    - "**/build.gradle.kts"
+    - "**/README.md"
+  exclude:
+    - "**/.vally/**"
+    - "**/target/**"

@@ -7,11 +7,13 @@ evals:
   - ../../scenarios/identity-typescript-managed-identity-auth/eval.yaml
   - ../../scenarios/identity-typescript-service-principal-auth/eval.yaml
   - ../../scenarios/key-vault-typescript-crud-secrets/eval.yaml
+  - ../../scenarios/key-vault-typescript-secret-config/eval.yaml
   - ../../scenarios/resource-manager-typescript-resource-group-crud/eval.yaml
   - ../../scenarios/service-bus-typescript-send-receive-messages/eval.yaml
   - ../../scenarios/storage-typescript-account-mgmt/eval.yaml
   - ../../scenarios/storage-typescript-crud-blobs/eval.yaml
   - ../../scenarios/storage-typescript-blob-storage-manager/eval.yaml
+  - ../../scenarios/storage-typescript-encrypted-uploader/eval.yaml
 vary:
   - /environment/skills
   - /environment/mcpServers

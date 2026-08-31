@@ -1,0 +1,117 @@
+name: identity-java-credential-chain
+description: Compare Azure tooling for environment-specific Java credential chains
+version: "1.0"
+type: capability
+scoring:
+  weights: {}
+  threshold: 1
+defaults:
+  runs: 1
+  timeout: 30m
+  model: gpt-5.6-sol
+  judge_model: gpt-5.6-sol
+stimuli:
+  - name: identity-dp-java-credential-chain
+    prompt: |-
+      Create a complete, runnable Java 17 Maven project that builds Azure credential chains for local development, CI, and production.
+
+      Write the code to files. Do not reply with code blocks.
+
+      1. Auto-detect CI from CI, TF_BUILD, BUILD_SOURCESDIRECTORY, or AZURE_PIPELINE_WORKSPACE; detect production from IDENTITY_ENDPOINT or MSI_ENDPOINT; otherwise select development.
+      2. Use ChainedTokenCredentialBuilder and addLast for every environment. The development chain must include AzureCliCredential. The CI chain must use EnvironmentCredential or AzurePipelinesCredential and must not use DefaultAzureCredential. The production chain must add ManagedIdentityCredential first and WorkloadIdentityCredential second, supporting both system-assigned identity and a user-assigned client ID from AZURE_CLIENT_ID.
+      3. Test the selected TokenCredential synchronously and asynchronously against https://management.azure.com/.default. Enable CAE with TokenRequestContext.setCaeEnabled(true), print AccessToken.getExpiresAt(), and report ClientAuthenticationException details.
+      4. The asynchronous test must preserve the reactive Mono returned by TokenCredential.getToken rather than replacing it with a fake result.
+      5. A Main class must print the detected environment and selected strategy, run the synchronous test, then run and await the asynchronous test.
+
+      Include a complete pom.xml with exact dependency versions. Do not hard-code credentials.
+    tags:
+      service: identity
+      plane: data-plane
+      language: java
+      category: authentication
+    graders:
+      - type: run-command
+        name: prompt/identity-package
+        weight: 1
+        config:
+          command: node
+          args: [.vally/scenarios/identity-java-credential-chain/tools/check-credential-chain-java.mjs, prompt/identity-package]
+      - type: run-command
+        name: prompt/environment-detection
+        weight: 1
+        config:
+          command: node
+          args: [.vally/scenarios/identity-java-credential-chain/tools/check-credential-chain-java.mjs, prompt/environment-detection]
+      - type: run-command
+        name: prompt/dev-credential-chain
+        weight: 1
+        config:
+          command: node
+          args: [.vally/scenarios/identity-java-credential-chain/tools/check-credential-chain-java.mjs, prompt/dev-credential-chain]
+      - type: run-command
+        name: prompt/ci-credential-chain
+        weight: 1
+        config:
+          command: node
+          args: [.vally/scenarios/identity-java-credential-chain/tools/check-credential-chain-java.mjs, prompt/ci-credential-chain]
+      - type: run-command
+        name: prompt/production-credential-chain
+        weight: 1
+        config:
+          command: node
+          args: [.vally/scenarios/identity-java-credential-chain/tools/check-credential-chain-java.mjs, prompt/production-credential-chain]
+      - type: run-command
+        name: prompt/cae-token-tests
+        weight: 1
+        config:
+          command: node
+          args: [.vally/scenarios/identity-java-credential-chain/tools/check-credential-chain-java.mjs, prompt/cae-token-tests]
+      - type: run-command
+        name: prompt/auth-failure-details
+        weight: 1
+        config:
+          command: node
+          args: [.vally/scenarios/identity-java-credential-chain/tools/check-credential-chain-java.mjs, prompt/auth-failure-details]
+      - type: run-command
+        name: prompt/application-flow
+        weight: 1
+        config:
+          command: node
+          args: [.vally/scenarios/identity-java-credential-chain/tools/check-credential-chain-java.mjs, prompt/application-flow]
+      - type: run-command
+        name: language/build-manifest
+        weight: 1
+        config:
+          command: node
+          args: [.vally/languages/java/check.mjs, language/build-manifest]
+      - type: run-command
+        name: language/current-azure-dependencies
+        weight: 1
+        config:
+          command: node
+          args: [.vally/languages/java/check.mjs, language/current-azure-dependencies]
+      - type: run-command
+        name: language/current-imports
+        weight: 1
+        config:
+          command: node
+          args: [.vally/languages/java/check.mjs, language/current-imports]
+    environment:
+      files:
+        - src: tools/check-credential-chain-java.mjs
+          dest: .vally/scenarios/identity-java-credential-chain/tools/check-credential-chain-java.mjs
+        - src: tools/credential-chain-java-rules.mjs
+          dest: .vally/scenarios/identity-java-credential-chain/tools/credential-chain-java-rules.mjs
+        - src: ../../languages/java/check.mjs
+          dest: .vally/languages/java/check.mjs
+        - src: ../../languages/java/checks.mjs
+          dest: .vally/languages/java/checks.mjs
+artifacts:
+  include:
+    - "**/*.java"
+    - "**/pom.xml"
+    - "**/build.gradle"
+    - "**/build.gradle.kts"
+  exclude:
+    - "**/.vally/**"
+    - "**/target/**"

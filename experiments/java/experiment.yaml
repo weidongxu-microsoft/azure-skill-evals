@@ -1,17 +1,24 @@
 name: java-three-way
 evals:
   - ../../scenarios/cosmos-db-java-crud/eval.yaml
+  - ../../scenarios/cosmos-db-java-todo-repository/eval.yaml
   - ../../scenarios/app-configuration-java-config-values/eval.yaml
+  - ../../scenarios/app-configuration-java-feature-flags/eval.yaml
   - ../../scenarios/event-hubs-java-send-receive-events/eval.yaml
   - ../../scenarios/identity-java-default-azure-credential/eval.yaml
+  - ../../scenarios/identity-java-credential-chain/eval.yaml
   - ../../scenarios/identity-java-managed-identity-auth/eval.yaml
   - ../../scenarios/identity-java-service-principal-auth/eval.yaml
   - ../../scenarios/key-vault-java-crud-secrets/eval.yaml
+  - ../../scenarios/key-vault-java-secret-config/eval.yaml
   - ../../scenarios/resource-manager-java-resource-group-crud/eval.yaml
   - ../../scenarios/service-bus-java-send-receive-messages/eval.yaml
+  - ../../scenarios/service-bus-java-order-processor/eval.yaml
   - ../../scenarios/storage-java-account-mgmt/eval.yaml
   - ../../scenarios/storage-java-crud-blobs/eval.yaml
   - ../../scenarios/storage-java-blob-storage-manager/eval.yaml
+  - ../../scenarios/storage-java-blob-event-notifier/eval.yaml
+  - ../../scenarios/storage-java-encrypted-uploader/eval.yaml
 vary:
   - /environment/skills
   - /environment/mcpServers

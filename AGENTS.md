@@ -104,10 +104,9 @@ existing Vally workspace files on hosted Linux runners while shell access
 still succeeds. Update both `package.json` and `dependencies.lock.json` when
 testing a newer version.
 
-Do not use mutable branch references or `@latest` in evaluations. On PCs
-within the Microsoft corporate network, use the approved npm registry
-configured in `.npmrc` and do not use the public npm registry. GitHub Actions
-runners are outside that environment and may use the public npm registry.
+Do not use mutable branch references or `@latest` in evaluations. For local
+npm or pnpm installs, pass the approved Azure SDK registry explicitly. GitHub
+Actions uses the public npm registry.
 
 ## Grading rules
 

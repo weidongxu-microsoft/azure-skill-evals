@@ -1,0 +1,25 @@
+{
+  "name": "storage-encrypted-uploader-reference",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "tsc",
+    "lint": "tsc --noEmit",
+    "start": "node dist/main.js"
+  },
+  "dependencies": {
+    "@azure/core-rest-pipeline": "1.25.0",
+    "@azure/identity": "4.13.2",
+    "@azure/keyvault-keys": "4.10.2",
+    "@azure/storage-blob": "12.33.0"
+  },
+  "devDependencies": {
+    "@types/node": "26.2.0",
+    "typescript": "5.9.2"
+  },
+  "engines": {
+    "node": ">=22"
+  },
+  "packageManager": "pnpm@10.26.0"
+}

@@ -40,7 +40,7 @@ test("intersects tag clauses", () => {
   });
 
   assert.deepEqual(groups.map(({ language }) => language), ["python"]);
-  assert.equal(groups[0].filters.length, 3);
+  assert.equal(groups[0].filters.length, 4);
 });
 
 test("accepts comma-separated values within a tag", () => {

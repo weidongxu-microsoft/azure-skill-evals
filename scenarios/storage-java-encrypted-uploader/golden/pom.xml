@@ -1,0 +1,15 @@
+<project xmlns="http://maven.apache.org/POM/4.0.0">
+  <modelVersion>4.0.0</modelVersion>
+  <groupId>com.example</groupId>
+  <artifactId>storage-encrypted-uploader</artifactId>
+  <version>1.0.0</version>
+  <properties>
+    <maven.compiler.release>17</maven.compiler.release>
+    <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+  </properties>
+  <dependencies>
+    <dependency><groupId>com.azure</groupId><artifactId>azure-identity</artifactId><version>1.18.5</version></dependency>
+    <dependency><groupId>com.azure</groupId><artifactId>azure-storage-blob</artifactId><version>12.35.1</version></dependency>
+    <dependency><groupId>com.azure</groupId><artifactId>azure-security-keyvault-keys</artifactId><version>4.11.2</version></dependency>
+  </dependencies>
+</project>

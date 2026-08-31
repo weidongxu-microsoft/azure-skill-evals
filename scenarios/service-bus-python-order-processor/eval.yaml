@@ -1,0 +1,142 @@
+name: service-bus-python-order-processor
+description: Compare Azure tooling for a production-style Service Bus Python order processor
+version: "1.0"
+type: capability
+scoring:
+  weights: {}
+  threshold: 1
+defaults:
+  runs: 1
+  timeout: 30m
+  model: gpt-5.6-sol
+  judge_model: gpt-5.6-sol
+stimuli:
+  - name: service-bus-dp-python-order-processor
+    prompt: |-
+      Create a complete, runnable Python project that implements an order processing system using Azure Service Bus.
+
+      Write the code to files. Do not reply with code blocks.
+
+      1. Use azure-servicebus==7.14.3 and azure-identity==1.25.3. Read the fully qualified Service Bus namespace and queue name from environment variables, authenticate with DefaultAzureCredential, and do not hard-code credentials.
+      2. Define an Order model with order ID, customer name, product, quantity, total price, and a pending/processing/completed/failed status. Support JSON serialization and deserialization.
+      3. Implement synchronous and azure.servicebus.aio asynchronous senders. Each must send one order and efficiently send multiple orders with ServiceBusMessageBatch. Check add_message and, when an order does not fit, send the current batch and retry that order in a new batch. Set correlation_id to the order ID and session_id to the customer name.
+      4. Mark orders above a documented price threshold as high priority and schedule them approximately 30 seconds in the future with scheduled_enqueue_time_utc or schedule_messages.
+      5. Implement synchronous and asynchronous session-aware processors. Deserialize and process each received order, complete that same message only after success, and explicitly dead-letter deserialization or non-transient processing failures with a useful reason. Abandon transient ServiceBusError failures so Service Bus can retry them.
+      6. Read the queue's dead-letter subqueue, inspect and deserialize failed orders, republish valid orders through the matching sender, and complete the same dead-letter message only after republishing succeeds.
+      7. Log ServiceBusError details, including the entity name, and distinguish transient from non-transient failures.
+      8. A main program must run a connected synchronous send/process/dead-letter-reprocess cycle first, then run and await the equivalent asynchronous cycle. Reliably close every credential, client, sender, and receiver with with or async with.
+
+      Use SERVICE_BUS_FULLY_QUALIFIED_NAMESPACE and SERVICE_BUS_QUEUE_NAME.
+    tags:
+      service: service-bus
+      plane: data-plane
+      language: python
+      category: streaming
+    graders:
+      - type: run-command
+        name: prompt/sdk-dependencies
+        weight: 1
+        config:
+          command: node
+          args: [.vally/scenarios/service-bus-python-order-processor/tools/check-order-processor-python.mjs, prompt/sdk-dependencies]
+      - type: run-command
+        name: prompt/order-model
+        weight: 1
+        config:
+          command: node
+          args: [.vally/scenarios/service-bus-python-order-processor/tools/check-order-processor-python.mjs, prompt/order-model]
+      - type: run-command
+        name: prompt/sync-sender
+        weight: 1
+        config:
+          command: node
+          args: [.vally/scenarios/service-bus-python-order-processor/tools/check-order-processor-python.mjs, prompt/sync-sender]
+      - type: run-command
+        name: prompt/async-sender
+        weight: 1
+        config:
+          command: node
+          args: [.vally/scenarios/service-bus-python-order-processor/tools/check-order-processor-python.mjs, prompt/async-sender]
+      - type: run-command
+        name: prompt/sync-processing-settlement
+        weight: 1
+        config:
+          command: node
+          args: [.vally/scenarios/service-bus-python-order-processor/tools/check-order-processor-python.mjs, prompt/sync-processing-settlement]
+      - type: run-command
+        name: prompt/async-processing-settlement
+        weight: 1
+        config:
+          command: node
+          args: [.vally/scenarios/service-bus-python-order-processor/tools/check-order-processor-python.mjs, prompt/async-processing-settlement]
+      - type: run-command
+        name: prompt/dead-letter-reprocessing
+        weight: 1
+        config:
+          command: node
+          args: [.vally/scenarios/service-bus-python-order-processor/tools/check-order-processor-python.mjs, prompt/dead-letter-reprocessing]
+      - type: run-command
+        name: prompt/error-classification
+        weight: 1
+        config:
+          command: node
+          args: [.vally/scenarios/service-bus-python-order-processor/tools/check-order-processor-python.mjs, prompt/error-classification]
+      - type: run-command
+        name: prompt/connected-demo
+        weight: 1
+        config:
+          command: node
+          args: [.vally/scenarios/service-bus-python-order-processor/tools/check-order-processor-python.mjs, prompt/connected-demo]
+      - type: run-command
+        name: language/correct-imports
+        weight: 1
+        config:
+          command: node
+          args: [.vally/languages/python/check.mjs, language/correct-imports]
+      - type: run-command
+        name: language/default-azure-credential
+        weight: 1
+        config:
+          command: node
+          args: [.vally/languages/python/check.mjs, language/default-azure-credential]
+      - type: run-command
+        name: language/client-lifecycle
+        weight: 1
+        config:
+          command: node
+          args: [.vally/languages/python/check.mjs, language/client-lifecycle]
+      - type: run-command
+        name: language/async-client
+        weight: 1
+        config:
+          command: node
+          args: [.vally/languages/python/check.mjs, language/async-client]
+      - type: run-command
+        name: language/exception-handling
+        weight: 1
+        config:
+          command: node
+          args: [.vally/languages/python/check.mjs, language/exception-handling]
+    environment:
+      files:
+        - src: tools/check-order-processor-python.mjs
+          dest: .vally/scenarios/service-bus-python-order-processor/tools/check-order-processor-python.mjs
+        - src: tools/order-processor-python-rules.mjs
+          dest: .vally/scenarios/service-bus-python-order-processor/tools/order-processor-python-rules.mjs
+        - src: tools/order_processor_analyzer.py
+          dest: .vally/scenarios/service-bus-python-order-processor/tools/order_processor_analyzer.py
+        - src: ../../languages/python/check.mjs
+          dest: .vally/languages/python/check.mjs
+        - src: ../../languages/python/checks.mjs
+          dest: .vally/languages/python/checks.mjs
+artifacts:
+  include:
+    - "**/*.py"
+    - "**/requirements*.txt"
+    - "**/pyproject.toml"
+    - "**/setup.py"
+    - "**/README.md"
+  exclude:
+    - "**/.vally/**"
+    - "**/.venv/**"
+    - "**/__pycache__/**"
