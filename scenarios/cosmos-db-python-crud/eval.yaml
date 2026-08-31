@@ -89,14 +89,6 @@ stimuli:
             - .vally/languages/python/check.mjs
             - language/correct-imports
       - type: run-command
-        name: language/default-azure-credential
-        weight: 1
-        config:
-          command: node
-          args:
-            - .vally/languages/python/check.mjs
-            - language/default-azure-credential
-      - type: run-command
         name: language/client-lifecycle
         weight: 1
         config:
