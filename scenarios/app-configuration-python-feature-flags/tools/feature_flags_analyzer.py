@@ -389,6 +389,10 @@ class Analyzer:
             ("azure.identity.aio", "DefaultAzureCredential"): "async_cred_ctor",
             ("azure.core", "MatchConditions"): "match_conditions",
             ("azure.core.exceptions", "HttpResponseError"): "http_error",
+            (
+                "azure.core.exceptions",
+                "ResourceNotModifiedError",
+            ): "http_not_modified",
         }
         if (module, name) in exact:
             if self.local_azure_shadow:
@@ -426,6 +430,10 @@ class Analyzer:
                     "bound_method",
                     (class_info.methods[attribute].key, base),
                 )
+        if base.kind == "thread" and attribute == "start":
+            return Value("thread_start", base)
+        if base.kind == "event" and attribute == "wait":
+            return Value("event_wait", base)
         if (
             base.kind in {"setting", "cached_setting", "union"}
             and attribute == "etag"
@@ -444,6 +452,12 @@ class Analyzer:
             return Value("if_modified", "IfModified")
         if base.kind == "module":
             return Value("module_attribute", (base.data, attribute))
+        if base.deps:
+            return Value(
+                "derived",
+                attribute,
+                deps=set(base.deps),
+            )
         return Value()
 
     @staticmethod
@@ -504,14 +518,22 @@ class Analyzer:
         context: Context,
         scope: str,
     ) -> tuple[list[Value], dict[str, Value]]:
-        return (
-            [self._eval_expression(arg, context, scope) for arg in node.args],
-            {
-                keyword.arg: self._eval_expression(keyword.value, context, scope)
-                for keyword in node.keywords
-                if keyword.arg
-            },
-        )
+        positional = [
+            self._eval_expression(arg, context, scope) for arg in node.args
+        ]
+        named: dict[str, Value] = {}
+        for keyword in node.keywords:
+            value = self._eval_expression(keyword.value, context, scope)
+            if keyword.arg:
+                named[keyword.arg] = value
+            elif value.kind == "dict":
+                named.update(
+                    {
+                        name: copy.deepcopy(item)
+                        for name, item in value.attrs.items()
+                    }
+                )
+        return positional, named
 
     def _bind(
         self,
@@ -601,8 +623,26 @@ class Analyzer:
         if isinstance(target, ast.Name):
             env[target.id] = value
         elif isinstance(target, (ast.Tuple, ast.List)):
-            for element in target.elts:
-                self._assign(element, Value(), env)
+            items = (
+                value.data
+                if value.kind == "sequence" and isinstance(value.data, list)
+                else []
+            )
+            for index, element in enumerate(target.elts):
+                self._assign(
+                    element,
+                    copy.deepcopy(items[index])
+                    if index < len(items)
+                    else Value(deps=set(value.deps)),
+                    env,
+                )
+        elif isinstance(target, ast.Subscript):
+            base = self._eval_value(target.value, env)
+            if base.kind in {"dict", "cache"}:
+                base.deps.update(value.deps)
+                key = literal(target.slice, env)
+                if isinstance(key, str):
+                    base.attrs[key] = copy.deepcopy(value)
         elif isinstance(target, ast.Attribute):
             base = self._eval_value(target.value, env)
             if base.kind == "instance":
@@ -757,6 +797,28 @@ class Analyzer:
                     context,
                     instance,
                 )
+            fields = [
+                child
+                for child in class_info.node.body
+                if isinstance(child, ast.AnnAssign)
+                and isinstance(child.target, ast.Name)
+            ]
+            for index, field_node in enumerate(fields):
+                field_name = field_node.target.id
+                if index < len(positional):
+                    field_value = copy.deepcopy(positional[index])
+                elif field_name in named:
+                    field_value = copy.deepcopy(named[field_name])
+                elif field_node.value is not None:
+                    field_value = self._eval_expression(
+                        field_node.value,
+                        context,
+                        scope,
+                    )
+                else:
+                    field_value = Value()
+                instance.attrs[field_name] = field_value
+                instance.deps.update(field_value.deps)
             if any(value.kind.endswith("_client") for value in positional + list(named.values())):
                 modes = {
                     value.kind.removesuffix("_client")
@@ -770,6 +832,37 @@ class Analyzer:
                     if modes:
                         instance.attrs["__modes__"] = copy.deepcopy(modes)
             return instance
+        if callee.kind == "thread_start":
+            thread = callee.data
+            target = thread.attrs.get("target")
+            if target is not None and target.kind == "bound_method":
+                function_key, instance = target.data
+                return self._execute_function(
+                    self.functions[function_key],
+                    [],
+                    {},
+                    context,
+                    instance,
+                )
+            if target is not None and target.kind == "function":
+                return self._execute_function(
+                    self.functions[str(target.data)],
+                    [],
+                    {},
+                    context,
+                )
+            return Value()
+        if callee.kind == "event_wait":
+            dependencies = set().union(*(value.deps for value in positional), set())
+            self.sleep_calls.append(
+                {
+                    "scope": scope,
+                    "node": node,
+                    "deps": dependencies,
+                    "async": False,
+                }
+            )
+            return Value()
         if callee.kind == "function":
             function_key = str(callee.data)
             self.function_calls.append(
@@ -870,11 +963,46 @@ class Analyzer:
                     }
                 )
                 return Value()
+            if base.kind == "dict" and node.func.attr == "update":
+                for value in positional:
+                    if value.kind == "dict":
+                        base.attrs.update(
+                            {
+                                name: copy.deepcopy(item)
+                                for name, item in value.attrs.items()
+                            }
+                        )
+                base.attrs.update(
+                    {
+                        name: copy.deepcopy(value)
+                        for name, value in named.items()
+                    }
+                )
+                base.deps.update(
+                    set().union(
+                        *(value.deps for value in [*positional, *named.values()]),
+                        set(),
+                    )
+                )
+                return Value()
         if (
             isinstance(node.func, ast.Attribute)
             and node.func.attr in {"getenv", "get"}
-            and isinstance(node.func.value, ast.Name)
-            and env.get(node.func.value.id, Value()).data == "os"
+            and (
+                (
+                    isinstance(node.func.value, ast.Name)
+                    and env.get(node.func.value.id, Value()).data == "os"
+                )
+                or (
+                    isinstance(node.func.value, ast.Attribute)
+                    and node.func.value.attr == "environ"
+                    and self._eval_value(
+                        node.func.value.value,
+                        env,
+                    ).data
+                    == "os"
+                )
+            )
         ):
             return Value(
                 "endpoint",
@@ -886,9 +1014,18 @@ class Analyzer:
             and node.func.attr == "loads"
             and self._eval_value(node.func.value, env).data == "json"
             and positional
-            and positional[0].kind == "setting_value"
+            and positional[0].kind in {"setting_value", "union"}
+            and any(
+                dependency.startswith(("sdk:", "cache:"))
+                for dependency in positional[0].deps
+            )
         ):
-            modes = {str(positional[0].data)} & {"sync", "async"}
+            modes = {
+                call["mode"]
+                for call in self.calls
+                if call.get("kind") == "sdk"
+                and call.get("id") in positional[0].deps
+            }
             for mode in modes:
                 context.flow.append(f"{mode}_feature")
             self.calls.append(
@@ -953,6 +1090,7 @@ class Analyzer:
             "float",
             "int",
             "list",
+            "round",
             "set",
             "tuple",
         }:
@@ -965,6 +1103,15 @@ class Analyzer:
                 else "number"
             )
             return Value(kind, deps=dependencies)
+        if callee.kind == "imported" and str(callee.data).endswith(".Thread"):
+            target = named.get("target", Value())
+            return Value(
+                "thread",
+                attrs={"target": copy.deepcopy(target)},
+                deps=set(target.deps),
+            )
+        if callee.kind == "imported" and str(callee.data).endswith(".Event"):
+            return Value("event")
         if callee.kind == "imported" and callee.data in {
             "time.sleep",
             "asyncio.sleep",
@@ -993,6 +1140,28 @@ class Analyzer:
             return self._eval_expression(node.value, context, scope)
         if isinstance(node, ast.Call):
             return self._eval_call(node, context, scope)
+        if isinstance(node, ast.JoinedStr):
+            dependencies: set[str] = set()
+            pieces: list[str] = []
+            dynamic = False
+            for item in node.values:
+                if isinstance(item, ast.Constant):
+                    pieces.append(str(item.value))
+                elif isinstance(item, ast.FormattedValue):
+                    value = self._eval_expression(item.value, context, scope)
+                    dependencies.update(value.deps)
+                    if value.data is None:
+                        dynamic = True
+                    else:
+                        pieces.append(str(value.data))
+            data = "".join(pieces)
+            if data.startswith(".appconfig.featureflag/"):
+                return Value("feature_key", data, deps=dependencies)
+            return Value(
+                "unknown" if dynamic else "literal",
+                None if dynamic else data,
+                deps=dependencies,
+            )
         if isinstance(node, ast.Attribute):
             base = self._eval_expression(node.value, context, scope)
             return self._attribute_value(base, node.attr)
@@ -1073,11 +1242,29 @@ class Analyzer:
             test = self._eval_expression(node.test, context, scope)
             body = self._eval_expression(node.body, context, scope)
             alternate = self._eval_expression(node.orelse, context, scope)
+            if body.kind in {"payload", "payload_item"} or alternate.kind in {
+                "payload",
+                "payload_item",
+            }:
+                return Value(
+                    "payload_item",
+                    deps={*test.deps, *body.deps, *alternate.deps},
+                )
             return Value(
                 "union",
                 deps={*test.deps, *body.deps, *alternate.deps},
             )
-        if isinstance(node, (ast.Dict, ast.DictComp)):
+        if isinstance(node, ast.Dict):
+            attrs: dict[str, Value] = {}
+            dependencies: set[str] = set()
+            for key_node, value_node in zip(node.keys, node.values):
+                item = self._eval_expression(value_node, context, scope)
+                dependencies.update(item.deps)
+                key = literal(key_node, context.env) if key_node is not None else None
+                if isinstance(key, str):
+                    attrs[key] = item
+            return Value("dict", attrs=attrs, deps=dependencies)
+        if isinstance(node, ast.DictComp):
             dependencies = self._expression_dependencies(node, context.env)
             for child in ast.walk(node):
                 if child is not node and isinstance(child, ast.Call):
@@ -1085,15 +1272,23 @@ class Analyzer:
                         self._eval_call(child, context, scope).deps
                     )
             return Value("dict", deps=dependencies)
+        if isinstance(node, (ast.List, ast.Tuple)):
+            items = [
+                self._eval_expression(element, context, scope)
+                for element in node.elts
+            ]
+            return Value(
+                "sequence",
+                items,
+                deps=set().union(*(item.deps for item in items), set()),
+            )
         if isinstance(
             node,
             (
                 ast.GeneratorExp,
-                ast.List,
                 ast.ListComp,
                 ast.Set,
                 ast.SetComp,
-                ast.Tuple,
             ),
         ):
             dependencies = self._expression_dependencies(node, context.env)
@@ -1143,15 +1338,17 @@ class Analyzer:
         sleeps: list[dict[str, Any]],
         if_events: list[dict[str, Any]],
     ) -> bool:
+        closure = self._scope_closure(function.key)
         has_loop = any(
             isinstance(node, (ast.For, ast.AsyncFor, ast.While))
-            for node in ast.walk(function.node)
+            for key in closure
+            for node in ast.walk(self.functions[key].node)
         )
         has_change = any(
-            event["scope"] == function.key
+            event["scope"] in closure
             and self._condition_has_connected_change(
                 event["node"].test,
-                function.key,
+                event["scope"],
             )
             for event in if_events
         )
@@ -1253,7 +1450,18 @@ class Analyzer:
             )
             context.flow[:] = best_outcome.flow
         self.active_calls.remove(active_key)
-        returned = [outcome.return_value for outcome in outcomes if outcome.returned]
+        returned = [
+            outcome.return_value
+            for outcome in outcomes
+            if outcome.returned
+        ]
+        concrete_returns = [
+            value
+            for value in returned
+            if value.kind != "unknown" or value.deps
+        ]
+        if concrete_returns:
+            returned = concrete_returns
         if returned:
             self.function_returns.setdefault(function.key, []).extend(
                 copy.deepcopy(returned)
@@ -1264,7 +1472,29 @@ class Analyzer:
                 value.kind == first.kind and value.data == first.data
                 for value in returned[1:]
             ):
-                return Value(first.kind, first.data, deps=dependencies)
+                merged = copy.deepcopy(first)
+                merged.deps = dependencies
+                common_attributes = set.intersection(
+                    *(set(value.attrs) for value in returned)
+                )
+                merged.attrs = {}
+                for attribute in common_attributes:
+                    values = [value.attrs[attribute] for value in returned]
+                    first_attribute = values[0]
+                    attribute_dependencies = set().union(
+                        *(value.deps for value in values)
+                    )
+                    if all(
+                        value.kind == first_attribute.kind
+                        and value.data == first_attribute.data
+                        for value in values[1:]
+                    ):
+                        item = copy.deepcopy(first_attribute)
+                        item.deps = attribute_dependencies
+                    else:
+                        item = Value("union", deps=attribute_dependencies)
+                    merged.attrs[attribute] = item
+                return merged
             return Value("union", deps=dependencies)
         return Value()
 
@@ -1538,8 +1768,21 @@ class Analyzer:
         if handler.type is None:
             return False
         if isinstance(handler.type, ast.Name):
-            return env.get(handler.type.id, Value()).kind == "http_error"
+            return env.get(handler.type.id, Value()).kind in {
+                "http_error",
+                "http_not_modified",
+            }
         return False
+
+    @staticmethod
+    def _handler_is_not_modified(
+        handler: ast.ExceptHandler,
+        env: dict[str, Value],
+    ) -> bool:
+        return (
+            isinstance(handler.type, ast.Name)
+            and env.get(handler.type.id, Value()).kind == "http_not_modified"
+        )
 
     @staticmethod
     def _node_within(node: ast.AST, ancestor: ast.AST) -> bool:
@@ -1714,7 +1957,7 @@ class Analyzer:
             event["scope"] == scope
             and event["node"] is node
             and event["value"].kind
-            in {"cached_setting", "setting", "union"}
+            in {"cached_setting", "setting", "setting_value", "union"}
             and any(
                 dependency.startswith("cache:")
                 for dependency in event["deps"]
@@ -1768,16 +2011,60 @@ class Analyzer:
                 500,
                 call["scope"],
             )
+            specialized = self._handler_is_not_modified(
+                handler,
+                call["env"],
+            )
             if (
                 unchanged
-                and all(
-                    action == "return"
-                    and node is not None
-                    and self._return_is_cached(node, call["scope"])
-                    for action, node in unchanged
+                and (
+                    (
+                        specialized
+                        and any(
+                            action == "return"
+                            and node is not None
+                            and self._return_is_cached(
+                                node,
+                                call["scope"],
+                            )
+                            for action, node in unchanged
+                        )
+                        and all(
+                            action == "raise"
+                            or (
+                                action == "return"
+                                and node is not None
+                                and self._return_is_cached(
+                                    node,
+                                    call["scope"],
+                                )
+                            )
+                            for action, node in unchanged
+                        )
+                    )
+                    or (
+                        not specialized
+                        and all(
+                            action == "return"
+                            and node is not None
+                            and self._return_is_cached(
+                                node,
+                                call["scope"],
+                            )
+                            for action, node in unchanged
+                        )
+                    )
                 )
-                and failures
-                and all(action == "raise" for action, _node in failures)
+                and (
+                    specialized
+                    or (
+                        failures
+                        and all(
+                            action == "raise"
+                            for action, _node in failures
+                        )
+                    )
+                )
             ):
                 valid_handler = True
                 break
@@ -1802,7 +2089,8 @@ class Analyzer:
         changed_is_returned = any(
             event["scope"] == call["scope"]
             and call["id"] in event["deps"]
-            and event["value"].kind in {"setting", "union"}
+            and event["value"].kind
+            in {"setting", "setting_value", "union"}
             and not any(
                 self._node_within(event["node"], handler)
                 for handler in handler_nodes
@@ -1838,8 +2126,10 @@ class Analyzer:
             ):
                 continue
             key = self._value(call, "key", 0)
-            if isinstance(key.data, str) and key.data.startswith(
-                ".appconfig.featureflag/"
+            if (
+                key.kind in {"literal", "feature_key"}
+                and isinstance(key.data, str)
+                and key.data.startswith(".appconfig.featureflag/")
             ):
                 feature_calls.append(call)
         return feature_calls
@@ -2139,6 +2429,26 @@ class Analyzer:
             None,
         )
         marker = f"field:enabled:{call_id}"
+        connected_returns = [
+            event
+            for event in self.return_events
+            if marker in event["deps"]
+        ]
+        if (
+            any(
+                event["value"].kind == "literal"
+                and event["value"].data is False
+                for event in connected_returns
+            )
+            and any(
+                not (
+                    event["value"].kind == "literal"
+                    and event["value"].data is False
+                )
+                for event in connected_returns
+            )
+        ):
+            return True
         if feature_scope is None or not any(
             event["scope"] == feature_scope
             and marker in event["deps"]
@@ -2304,21 +2614,31 @@ class Analyzer:
         for feature_call in self._feature_calls():
             call_id = feature_call["id"]
             key = self._value(feature_call, "key", 0)
-            flag_dependencies = self._scope_parameter_dependencies(
-                feature_call["scope"],
-                key.deps,
-            )
+            flag_dependencies = {
+                dependency
+                for dependency in key.deps
+                if dependency.startswith("param:")
+            }
+            flag_scopes = {
+                dependency.rsplit(":", 1)[0]
+                for dependency in flag_dependencies
+            }
             enabled_marker = f"field:enabled:{call_id}"
             for hash_call in hashes:
                 hash_id = hash_call["id"]
-                feature_parameters = self._scope_parameter_dependencies(
-                    feature_call["scope"],
-                    hash_call["input_deps"],
-                )
+                feature_parameters = {
+                    dependency
+                    for dependency in hash_call["input_deps"]
+                    if dependency.startswith("param:")
+                }
                 hash_flag_dependencies = (
                     feature_parameters & flag_dependencies
                 )
-                user_dependencies = feature_parameters - flag_dependencies
+                user_dependencies = {
+                    dependency
+                    for dependency in feature_parameters - flag_dependencies
+                    if dependency.rsplit(":", 1)[0] in flag_scopes
+                }
                 if not hash_flag_dependencies or not user_dependencies:
                     continue
                 relevant_returns = [
@@ -2331,7 +2651,7 @@ class Analyzer:
                 ]
                 has_bucket = any(
                     hash_id in event["deps"]
-                    and event["modulus"] == 100
+                    and event["modulus"] in {100, 10_000}
                     for event in self.modulo_events
                 )
                 has_threshold = any(
@@ -2339,6 +2659,29 @@ class Analyzer:
                     and any(
                         isinstance(operator, (ast.Lt, ast.LtE))
                         for operator in event["node"].ops
+                    )
+                    and (
+                        any(
+                            isinstance(child, ast.Call)
+                            and isinstance(child.func, ast.Name)
+                            and child.func.id == "round"
+                            and child.args
+                            and isinstance(child.args[0], ast.BinOp)
+                            and isinstance(child.args[0].op, ast.Mult)
+                            and 100
+                            in {
+                                literal(child.args[0].left, {}),
+                                literal(child.args[0].right, {}),
+                            }
+                            for child in ast.walk(event["node"])
+                        )
+                        if has_bucket
+                        and any(
+                            matching["modulus"] == 10_000
+                            and hash_id in matching["deps"]
+                            for matching in self.modulo_events
+                        )
+                        else True
                     )
                     for event in self.comparison_events
                 )
@@ -2473,6 +2816,86 @@ class Analyzer:
                     result[list_call["mode"]].update(
                         {scope, event["scope"]}
                     )
+        for function in self.functions.values():
+            if function.key not in self.reachable:
+                continue
+            cache_names: dict[str, str] = {}
+            for node in ast.walk(function.node):
+                if not isinstance(node, (ast.Assign, ast.AnnAssign)):
+                    continue
+                targets = (
+                    node.targets
+                    if isinstance(node, ast.Assign)
+                    else [node.target]
+                )
+                value = node.value
+                if value is None:
+                    continue
+                source = value
+                if isinstance(value, ast.Call) and value.args:
+                    source = value.args[0]
+                if not (
+                    isinstance(source, ast.Attribute)
+                    and isinstance(source.value, ast.Name)
+                    and source.value.id == "self"
+                ):
+                    continue
+                for target in targets:
+                    if isinstance(target, ast.Name):
+                        cache_names[target.id] = source.attr
+
+            covered: dict[str, set[str]] = {"get": set(), "list": set()}
+            mode = (
+                "async"
+                if isinstance(function.node, ast.AsyncFunctionDef)
+                else "sync"
+            )
+            for loop in (
+                node
+                for node in ast.walk(function.node)
+                if isinstance(node, (ast.For, ast.AsyncFor))
+            ):
+                cache_attribute = None
+                if isinstance(loop.iter, ast.Name):
+                    cache_attribute = cache_names.get(loop.iter.id)
+                elif (
+                    isinstance(loop.iter, ast.Attribute)
+                    and isinstance(loop.iter.value, ast.Name)
+                    and loop.iter.value.id == "self"
+                ):
+                    cache_attribute = loop.iter.attr
+                if cache_attribute is None:
+                    continue
+                for call in self.function_calls:
+                    if call["caller"] != function.key or not any(
+                        self._node_within(call["node"], statement)
+                        for statement in loop.body
+                    ):
+                        continue
+                    invocation = call["node"]
+                    forced = any(
+                        keyword.arg == "force"
+                        and literal(keyword.value, {}) is True
+                        for keyword in invocation.keywords
+                    )
+                    if not forced:
+                        continue
+                    closure = self._scope_closure(call["callee"])
+                    methods = {
+                        sdk_call["method"]
+                        for sdk_call in self.calls
+                        if sdk_call.get("kind") == "sdk"
+                        and sdk_call["scope"] in closure
+                        and sdk_call["mode"] == mode
+                    }
+                    if "get_configuration_setting" in methods:
+                        covered["get"].add(cache_attribute)
+                    if "list_configuration_settings" in methods:
+                        covered["list"].add(cache_attribute)
+            if covered["get"] and covered["list"] and (
+                covered["get"] != covered["list"]
+            ):
+                result[mode].add(function.key)
         return result
 
     def _condition_has_connected_change(
@@ -2482,6 +2905,20 @@ class Analyzer:
         visited: set[str] | None = None,
     ) -> bool:
         if self._condition_has_change(node):
+            return True
+        if any(
+            event["scope"] == scope
+            and event["node"].test is node
+            and any(
+                dependency.startswith("sdk:")
+                for dependency in event["deps"]
+            )
+            and any(
+                dependency.startswith("cache:")
+                for dependency in event["deps"]
+            )
+            for event in self.if_events
+        ):
             return True
         visited = visited or set()
         for call in self.function_calls:
@@ -2558,7 +2995,6 @@ class Analyzer:
                 else "sync"
             )
             closure = self._scope_closure(function.key)
-            parameter_prefix = f"param:{function.key}:"
             sleeps = [
                 event
                 for event in self.sleep_calls
@@ -2578,27 +3014,21 @@ class Analyzer:
                 dependency
                 for event in sleeps
                 for dependency in event["deps"]
-                if dependency.startswith(parameter_prefix)
+                if dependency.startswith("param:")
             }
             poll_parameters = {
                 dependency
                 for call in polls
                 for dependency in self._value(call, "key", 0).deps
-                if dependency.startswith(parameter_prefix)
-            }
-            loop_parameters = {
-                dependency
-                for event in loops
-                for dependency in event["deps"]
-                if dependency.startswith(parameter_prefix)
+                if dependency.startswith("param:")
             }
             changes = [
                 event
                 for event in self.if_events
-                if event["scope"] == function.key
+                if event["scope"] in closure
                 and self._condition_has_connected_change(
                     event["node"].test,
-                    function.key,
+                    event["scope"],
                 )
                 and self._if_triggers_refresh(
                     event,
@@ -2624,7 +3054,6 @@ class Analyzer:
                 loops
                 and sleep_parameters
                 and poll_parameters
-                and loop_parameters
                 and sleep_parameters != poll_parameters
                 and connected_change
             ):

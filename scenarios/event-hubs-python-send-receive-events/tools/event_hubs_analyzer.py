@@ -470,6 +470,14 @@ def has_receive_handlers(
     functions: dict[str, ast.FunctionDef | ast.AsyncFunctionDef],
 ) -> bool:
     for _scope, statements in scopes:
+        lexical_functions = dict(functions)
+        lexical_functions.update(
+            {
+                statement.name: statement
+                for statement in live_statements(statements)
+                if isinstance(statement, (ast.FunctionDef, ast.AsyncFunctionDef))
+            }
+        )
         consumers: set[str] = set()
         for statement in live_statements(statements):
             name, value = assignment(statement)
@@ -498,10 +506,10 @@ def has_receive_handlers(
                 )
                 error_expression = keyword_or_position(invocation, "on_error", 1)
                 if handler_prints_body(
-                    callback_node(event_expression, functions),
+                    callback_node(event_expression, lexical_functions),
                     method == "receive_batch",
                 ) and handler_prints_error(
-                    callback_node(error_expression, functions)
+                    callback_node(error_expression, lexical_functions)
                 ):
                     return True
     return False

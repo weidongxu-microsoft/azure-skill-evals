@@ -18,6 +18,11 @@ const baseline33374429826 = loadPythonWorkspace(
     new URL("./fixtures/baseline-33374429826", import.meta.url),
   ),
 );
+const baseline33403910898 = loadPythonWorkspace(
+  fileURLToPath(
+    new URL("./fixtures/baseline-33403910898", import.meta.url),
+  ),
+);
 const applicablePythonChecks = [
   "language/correct-imports",
   "language/client-lifecycle",
@@ -62,6 +67,15 @@ test("baseline run 33374429826 preserves its genuine invalid-constructor failure
     ),
     false,
   );
+});
+
+test("baseline run 33403910898 exact output passes every configured grader", () => {
+  for (const rule of ruleNames()) {
+    assert.equal(evaluateRule(rule, baseline33403910898), true, rule);
+  }
+  for (const check of applicablePythonChecks) {
+    assert.equal(evaluatePythonCheck(check, baseline33403910898), true, check);
+  }
 });
 
 test("each missing core behavior fails its focused prompt rule", async (t) => {
@@ -437,6 +451,89 @@ if False:
 `);
 
   assert.equal(evaluateRule("prompt/receive-handlers", workspace), false);
+});
+
+test("nested receive callbacks must be reachable and passed in their lexical scope", async (t) => {
+  const cases = [
+    {
+      name: "unreachable nested receive",
+      source: `
+async def run():
+    async def on_event(partition_context, event):
+        print(event.body)
+    async def on_error(partition_context, error):
+        print(error)
+    consumer = EventHubConsumerClient.from_connection_string(
+        connection_string,
+        consumer_group=consumer_group,
+        checkpoint_store=checkpoint_store,
+    )
+    await consumer.receive(on_event=on_event, on_error=on_error)
+`,
+    },
+    {
+      name: "lexical callback shadowing",
+      source: `
+async def on_event(partition_context, event):
+    print(event.body)
+async def on_error(partition_context, error):
+    print(error)
+async def run():
+    async def on_event(partition_context, event):
+        print("not the body")
+    consumer = EventHubConsumerClient.from_connection_string(
+        connection_string,
+        consumer_group=consumer_group,
+        checkpoint_store=checkpoint_store,
+    )
+    await consumer.receive(on_event=on_event, on_error=on_error)
+await run()
+`,
+    },
+    {
+      name: "unrelated nested error value",
+      source: `
+async def run():
+    async def on_event(partition_context, event):
+        print(event.body)
+    async def on_error(partition_context, error):
+        print(unrelated_error)
+    consumer = EventHubConsumerClient.from_connection_string(
+        connection_string,
+        consumer_group=consumer_group,
+        checkpoint_store=checkpoint_store,
+    )
+    await consumer.receive(on_event=on_event, on_error=on_error)
+await run()
+`,
+    },
+    {
+      name: "handlers not passed to receive",
+      source: `
+async def run():
+    async def on_event(partition_context, event):
+        print(event.body)
+    async def on_error(partition_context, error):
+        print(error)
+    consumer = EventHubConsumerClient.from_connection_string(
+        connection_string,
+        consumer_group=consumer_group,
+        checkpoint_store=checkpoint_store,
+    )
+    await consumer.receive()
+await run()
+`,
+    },
+  ];
+
+  for (const entry of cases) {
+    await t.test(entry.name, () => {
+      assert.equal(
+        evaluateRule("prompt/receive-handlers", withPython(entry.source)),
+        false,
+      );
+    });
+  }
 });
 
 test("events in the ten-event batch must have a body", () => {

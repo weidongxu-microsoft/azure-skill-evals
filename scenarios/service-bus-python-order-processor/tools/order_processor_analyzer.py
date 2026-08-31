@@ -62,17 +62,46 @@ def calls_in(node: ast.AST) -> set[str]:
     }
 
 
+def integer_value(node: ast.AST, constants: dict[str, int]) -> int | None:
+    if isinstance(node, ast.Constant) and isinstance(node.value, int):
+        return node.value
+    if isinstance(node, ast.Name):
+        return constants.get(node.id)
+    if isinstance(node, ast.UnaryOp):
+        value = integer_value(node.operand, constants)
+        if value is None:
+            return None
+        if isinstance(node.op, ast.UAdd):
+            return value
+        if isinstance(node.op, ast.USub):
+            return -value
+    if isinstance(node, ast.BinOp):
+        left = integer_value(node.left, constants)
+        right = integer_value(node.right, constants)
+        if left is None or right is None:
+            return None
+        if isinstance(node.op, ast.Add):
+            return left + right
+        if isinstance(node.op, ast.Sub):
+            return left - right
+        if isinstance(node.op, ast.Mult):
+            return left * right
+    return None
+
+
 @dataclass
 class Function:
     name: str
     node: ast.FunctionDef | ast.AsyncFunctionDef
     asynchronous: bool
+    owner: str | None = None
 
 
 class Program:
     def __init__(self, documents: list[dict[str, str]]) -> None:
         self.valid = True
         self.modules: list[ast.Module] = []
+        self.constants: dict[str, int] = {}
         self.functions: list[Function] = []
         self.classes: list[ast.ClassDef] = []
         for document in documents:
@@ -82,19 +111,52 @@ class Program:
                 self.valid = False
                 continue
             self.modules.append(module)
-            for node in ast.walk(module):
+            for statement in module.body:
+                if (
+                    isinstance(statement, (ast.Assign, ast.AnnAssign))
+                    and statement.value is not None
+                ):
+                    targets = (
+                        statement.targets
+                        if isinstance(statement, ast.Assign)
+                        else [statement.target]
+                    )
+                    value = integer_value(statement.value, self.constants)
+                    if value is not None:
+                        for target in targets:
+                            if isinstance(target, ast.Name):
+                                self.constants[target.id] = value
+            for node in module.body:
                 if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
                     self.functions.append(
-                        Function(node.name, node, isinstance(node, ast.AsyncFunctionDef))
+                        Function(
+                            node.name,
+                            node,
+                            isinstance(node, ast.AsyncFunctionDef),
+                        )
                     )
                 elif isinstance(node, ast.ClassDef):
                     self.classes.append(node)
+                    for method in node.body:
+                        if isinstance(
+                            method,
+                            (ast.FunctionDef, ast.AsyncFunctionDef),
+                        ):
+                            self.functions.append(
+                                Function(
+                                    method.name,
+                                    method,
+                                    isinstance(method, ast.AsyncFunctionDef),
+                                    node.name,
+                                )
+                            )
 
         self.by_name: dict[str, list[Function]] = {}
         for function in self.functions:
             self.by_name.setdefault(function.name, []).append(function)
         self.roots = self._roots()
         self.reachable = self._reachable()
+        self.instantiated_classes = self._instantiated_classes()
         self.reachable_code = "\n".join(
             ast.unparse(active_node(function.node)) for function in self.reachable
         )
@@ -138,6 +200,39 @@ class Program:
             for name in calls_in(function.node):
                 pending.extend(self.by_name.get(name, []))
         return found
+
+    def _instantiated_classes(self) -> set[str]:
+        class_names = {class_node.name for class_node in self.classes}
+        connected: set[str] = set()
+        changed = True
+        while changed:
+            changed = False
+            candidate_functions = [
+                *self.reachable,
+                *[
+                    function
+                    for function in self.functions
+                    if function.owner in connected
+                ],
+            ]
+            for function in candidate_functions:
+                for node in ast.walk(active_node(function.node)):
+                    if not isinstance(node, ast.Call):
+                        continue
+                    name = call_name(node)
+                    if name in class_names and name not in connected:
+                        connected.add(name)
+                        changed = True
+        return connected
+
+    def implemented_methods(self, asynchronous: bool) -> list[Function]:
+        return [
+            function
+            for function in self.functions
+            if function.asynchronous == asynchronous
+            and function.owner in self.instantiated_classes
+            and not function.name.startswith("_")
+        ]
 
     def closure(self, function: Function) -> list[Function]:
         pending = [function]
@@ -225,42 +320,185 @@ def order_model(program: Program) -> bool:
     return False
 
 
-def message_metadata(code: str) -> bool:
-    normalized = code.replace(" ", "")
-    correlation = bool(
-        re.search(r"correlation_id\s*=\s*[^,\n)]*order[_\.]?id", code, re.IGNORECASE)
-        or re.search(r"\.correlation_id\s*=\s*[^,\n]*order[_\.]?id", code, re.IGNORECASE)
-        or re.search(
-            r"['\"]correlation_id['\"]\s*:\s*[^,\n}]*order\.order_id",
-            code,
-            re.IGNORECASE,
-        )
-    )
-    session = bool(
-        re.search(r"session_id\s*=\s*[^,\n)]*customer[_\.]?name", code, re.IGNORECASE)
-        or re.search(r"\.session_id\s*=\s*[^,\n]*customer[_\.]?name", code, re.IGNORECASE)
-        or re.search(
-            r"['\"]session_id['\"]\s*:\s*[^,\n}]*order\.customer_name",
-            code,
-            re.IGNORECASE,
-        )
-    )
-    scheduled = (
-        "scheduled_enqueue_time_utc" in code
-        or "schedule_messages" in code
-    ) and bool(re.search(r"(?:seconds\s*=\s*30|timedelta\s*\(\s*[^)]*30)", code))
-    priority = "high" in code.lower() and bool(
-        re.search(r"total_price\s*(?:>|>=)|(?:>|>=)\s*[^:\n]*total_price", code)
-    )
-    return correlation and session and scheduled and priority and "ServiceBusMessage" in normalized
+def assigned_expressions(node: ast.AST) -> dict[str, ast.AST]:
+    result: dict[str, ast.AST] = {}
+    for candidate in ast.walk(node):
+        if isinstance(candidate, ast.Assign) and len(candidate.targets) == 1:
+            if isinstance(candidate.targets[0], ast.Name):
+                result[candidate.targets[0].id] = candidate.value
+        elif (
+            isinstance(candidate, ast.AnnAssign)
+            and isinstance(candidate.target, ast.Name)
+            and candidate.value is not None
+        ):
+            result[candidate.target.id] = candidate.value
+    return result
+
+
+def resolved_nodes(
+    node: ast.AST,
+    assignments: dict[str, ast.AST],
+    visited: set[str] | None = None,
+) -> list[ast.AST]:
+    visited = visited or set()
+    result = [node]
+    for child in ast.walk(node):
+        if (
+            isinstance(child, ast.Name)
+            and child.id in assignments
+            and child.id not in visited
+        ):
+            result.extend(
+                resolved_nodes(
+                    assignments[child.id],
+                    assignments,
+                    {*visited, child.id},
+                )
+            )
+    return result
+
+
+def attribute_root(node: ast.AST, attribute: str) -> str | None:
+    if (
+        isinstance(node, ast.Attribute)
+        and node.attr == attribute
+        and isinstance(node.value, ast.Name)
+    ):
+        return node.value.id
+    return None
+
+
+def message_metadata(program: Program, function: Function) -> bool:
+    for candidate in program.closure(function):
+        active = active_node(candidate.node)
+        assignments = assigned_expressions(active)
+        for invocation in (
+            node
+            for node in ast.walk(active)
+            if isinstance(node, ast.Call)
+            and call_name(node) == "ServiceBusMessage"
+        ):
+            keywords = {
+                keyword.arg: keyword.value
+                for keyword in invocation.keywords
+                if keyword.arg
+            }
+            expanded = [
+                keyword.value
+                for keyword in invocation.keywords
+                if keyword.arg is None
+                and isinstance(keyword.value, ast.Name)
+                and isinstance(assignments.get(keyword.value.id), ast.Dict)
+            ]
+            if expanded:
+                argument_dict = assignments[expanded[0].id]
+                assert isinstance(argument_dict, ast.Dict)
+                keywords.update(
+                    {
+                        key.value: value
+                        for key, value in zip(
+                            argument_dict.keys,
+                            argument_dict.values,
+                        )
+                        if isinstance(key, ast.Constant)
+                        and isinstance(key.value, str)
+                    }
+                )
+            correlation = attribute_root(
+                keywords.get("correlation_id", ast.Constant(None)),
+                "order_id",
+            )
+            session = attribute_root(
+                keywords.get("session_id", ast.Constant(None)),
+                "customer_name",
+            )
+            if correlation is None or correlation != session:
+                continue
+
+            scheduled = keywords.get("scheduled_enqueue_time_utc")
+            properties = keywords.get("application_properties")
+            if properties is None:
+                continue
+            scheduled_nodes = (
+                resolved_nodes(scheduled, assignments)
+                if scheduled is not None
+                else [
+                    assignment.value
+                    for assignment in ast.walk(active)
+                    if isinstance(assignment, ast.Assign)
+                    and len(assignment.targets) == 1
+                    and isinstance(assignment.targets[0], ast.Subscript)
+                    and isinstance(assignment.targets[0].value, ast.Name)
+                    and expanded
+                    and assignment.targets[0].value.id
+                    == expanded[0].id
+                    and isinstance(
+                        assignment.targets[0].slice,
+                        ast.Constant,
+                    )
+                    and assignment.targets[0].slice.value
+                    == "scheduled_enqueue_time_utc"
+                ]
+            )
+            property_nodes = resolved_nodes(properties, assignments)
+            has_delay = any(
+                isinstance(node, ast.Call)
+                and call_name(node) == "timedelta"
+                and any(
+                    keyword.arg == "seconds"
+                    and integer_value(keyword.value, program.constants) == 30
+                    for keyword in node.keywords
+                )
+                for resolved in scheduled_nodes
+                for node in ast.walk(resolved)
+            )
+            has_high_priority = any(
+                isinstance(node, ast.Constant)
+                and isinstance(node.value, str)
+                and node.value.lower() == "high"
+                for resolved in property_nodes
+                for node in ast.walk(resolved)
+            ) or any(
+                isinstance(assignment, ast.Assign)
+                and len(assignment.targets) == 1
+                and isinstance(assignment.targets[0], ast.Subscript)
+                and isinstance(assignment.targets[0].value, ast.Name)
+                and isinstance(properties, ast.Name)
+                and assignment.targets[0].value.id == properties.id
+                and isinstance(assignment.value, ast.Constant)
+                and assignment.value.value == "high"
+                for assignment in ast.walk(active)
+            )
+            depends_on_total = any(
+                isinstance(node, ast.Attribute)
+                and node.attr == "total_price"
+                and isinstance(node.value, ast.Name)
+                and node.value.id == correlation
+                for resolved in property_nodes
+                for node in ast.walk(resolved)
+            ) or any(
+                isinstance(node, ast.Attribute)
+                and node.attr == "total_price"
+                and isinstance(node.value, ast.Name)
+                and node.value.id == correlation
+                for node in ast.walk(active)
+            )
+            if has_delay and has_high_priority and depends_on_total:
+                return True
+    return False
 
 
 def sender_rule(program: Program, asynchronous: bool) -> bool:
-    candidates = [
-        function
-        for function in program.reachable
-        if function.asynchronous == asynchronous
-    ]
+    candidates = list(
+        {
+            id(function.node): function
+            for function in [
+                *program.reachable,
+                *program.implemented_methods(asynchronous),
+            ]
+            if function.asynchronous == asynchronous
+        }.values()
+    )
     single = False
     batch = False
     for function in candidates:
@@ -270,7 +508,7 @@ def sender_rule(program: Program, asynchronous: bool) -> bool:
             "get_queue_sender" in code
             and "send_messages" in code
             and "ServiceBusMessage" in code
-            and message_metadata(code)
+            and message_metadata(program, function)
         ):
             awaited = not asynchronous or bool(
                 re.search(r"\bawait\s+[^\n]*send_messages\s*\(", code)
@@ -334,34 +572,245 @@ def sender_rule(program: Program, asynchronous: bool) -> bool:
     return single and batch and "with " in program.reachable_code
 
 
-def receiver_loop(code: str, asynchronous: bool) -> bool:
-    loop = re.search(
-        r"(?:async\s+)?for\s+(\w+)\s+in\s+[^:\n]*:(?P<body>[\s\S]+)",
-        code,
-    )
-    if not loop:
+TRANSIENT_EXCEPTIONS = {
+    "ServiceBusCommunicationError",
+    "ServiceBusConnectionError",
+    "ServiceBusServerBusyError",
+}
+
+
+def function_parameters(function: Function) -> list[str]:
+    return [
+        argument.arg
+        for argument in [
+            *function.node.args.posonlyargs,
+            *function.node.args.args,
+            *function.node.args.kwonlyargs,
+        ]
+        if argument.arg != "self"
+    ]
+
+
+def transient_expression(
+    node: ast.AST,
+    exception_name: str,
+    program: Program,
+    visited: set[int] | None = None,
+) -> bool:
+    visited = visited or set()
+    if (
+        isinstance(node, ast.Attribute)
+        and node.attr == "is_transient"
+        and isinstance(node.value, ast.Name)
+        and node.value.id == exception_name
+    ):
+        return True
+    if isinstance(node, (ast.BoolOp, ast.UnaryOp)):
+        return any(
+            transient_expression(child, exception_name, program, visited)
+            for child in ast.iter_child_nodes(node)
+        )
+    if not isinstance(node, ast.Call):
         return False
-    message = loop.group(1)
-    body = loop.group("body")
-    prefix = r"\bawait\s+" if asynchronous else ""
-    complete = re.search(
-        rf"{prefix}\w+\.complete_message\s*\(\s*{re.escape(message)}\s*\)", body
-    )
-    dead_letter = re.search(
-        rf"{prefix}\w+\.dead_letter_message\s*\(\s*{re.escape(message)}\s*,[\s\S]*?\breason\s*=",
-        body,
-    )
-    abandon = re.search(
-        rf"{prefix}\w+\.abandon_message\s*\(\s*{re.escape(message)}\s*\)", body
-    )
-    deserialize = "from_json" in body or "json.loads" in body
-    ordered = bool(
-        complete
-        and dead_letter
-        and body.find("from_json") >= 0
-        and body.find("from_json") < complete.start()
-    )
-    return deserialize and ordered and bool(abandon)
+    name = call_name(node)
+    if (
+        name == "getattr"
+        and len(node.args) >= 3
+        and isinstance(node.args[0], ast.Name)
+        and node.args[0].id == exception_name
+        and isinstance(node.args[1], ast.Constant)
+        and node.args[1].value == "is_transient"
+        and isinstance(node.args[2], ast.Constant)
+        and node.args[2].value is False
+    ):
+        return True
+    if (
+        name == "isinstance"
+        and len(node.args) == 2
+        and isinstance(node.args[0], ast.Name)
+        and node.args[0].id == exception_name
+        and any(
+            isinstance(child, ast.Name)
+            and child.id in TRANSIENT_EXCEPTIONS
+            for child in ast.walk(node.args[1])
+        )
+    ):
+        return True
+    if name == "bool" and len(node.args) == 1:
+        return transient_expression(node.args[0], exception_name, program, visited)
+    for helper in program.by_name.get(name, []):
+        marker = id(helper.node)
+        parameters = function_parameters(helper)
+        if marker in visited or not parameters or not node.args:
+            continue
+        if not (
+            isinstance(node.args[0], ast.Name)
+            and node.args[0].id == exception_name
+        ):
+            continue
+        if any(
+            transient_expression(
+                returned.value,
+                parameters[0],
+                program,
+                {*visited, marker},
+            )
+            for returned in ast.walk(active_node(helper.node))
+            if isinstance(returned, ast.Return)
+            and returned.value is not None
+        ):
+            return True
+    return False
+
+
+def has_transient_classification(program: Program, function: Function) -> bool:
+    for handler in (
+        node
+        for node in ast.walk(active_node(function.node))
+        if isinstance(node, ast.ExceptHandler)
+        and node.name
+        and isinstance(node.type, ast.Name)
+        and node.type.id == "ServiceBusError"
+    ):
+        if any(
+            transient_expression(test.test, handler.name, program)
+            for test in ast.walk(handler)
+            if isinstance(test, ast.If)
+        ):
+            return True
+    return False
+
+
+def expression_uses_message(
+    node: ast.AST,
+    message_name: str,
+    program: Program,
+    visited: set[int] | None = None,
+) -> bool:
+    visited = visited or set()
+    if isinstance(node, ast.Name):
+        return node.id == message_name
+    if (
+        isinstance(node, ast.Attribute)
+        and isinstance(node.value, ast.Name)
+        and node.value.id == message_name
+        and node.attr == "body"
+    ):
+        return True
+    if not isinstance(node, ast.Call):
+        return any(
+            expression_uses_message(child, message_name, program, visited)
+            for child in ast.iter_child_nodes(node)
+        )
+    name = call_name(node)
+    if name in {"str", "bytes"} and node.args:
+        return expression_uses_message(node.args[0], message_name, program, visited)
+    for helper in program.by_name.get(name, []):
+        marker = id(helper.node)
+        parameters = function_parameters(helper)
+        if marker in visited or not parameters or not node.args:
+            continue
+        if not expression_uses_message(
+            node.args[0],
+            message_name,
+            program,
+            visited,
+        ):
+            continue
+        if any(
+            isinstance(child, ast.Attribute)
+            and isinstance(child.value, ast.Name)
+            and child.value.id == parameters[0]
+            and child.attr == "body"
+            for child in ast.walk(active_node(helper.node))
+        ):
+            return True
+    return False
+
+
+def loop_deserialization(
+    loop: ast.For | ast.AsyncFor,
+    program: Program,
+) -> tuple[str, int] | None:
+    if not isinstance(loop.target, ast.Name):
+        return None
+    message_name = loop.target.id
+    for node in ast.walk(ast.Module(body=loop.body, type_ignores=[])):
+        if not isinstance(node, ast.Call) or call_name(node) not in {
+            "from_json",
+            "loads",
+        }:
+            continue
+        if node.args and expression_uses_message(node.args[0], message_name, program):
+            return message_name, node.lineno
+    return None
+
+
+def matching_settlement_calls(
+    loop: ast.For | ast.AsyncFor,
+    message_name: str,
+    asynchronous: bool,
+) -> dict[str, list[ast.Call]]:
+    body = ast.Module(body=loop.body, type_ignores=[])
+    awaited = {
+        id(node.value)
+        for node in ast.walk(body)
+        if isinstance(node, ast.Await)
+        and isinstance(node.value, ast.Call)
+    }
+    result: dict[str, list[ast.Call]] = {
+        "complete_message": [],
+        "dead_letter_message": [],
+        "abandon_message": [],
+    }
+    for node in ast.walk(body):
+        if (
+            not isinstance(node, ast.Call)
+            or call_name(node) not in result
+            or not node.args
+            or not isinstance(node.args[0], ast.Name)
+            or node.args[0].id != message_name
+            or (asynchronous and id(node) not in awaited)
+        ):
+            continue
+        if call_name(node) == "dead_letter_message" and not any(
+            keyword.arg == "reason" for keyword in node.keywords
+        ):
+            continue
+        result[call_name(node)].append(node)
+    return result
+
+
+def receiver_loop(
+    function: Function,
+    program: Program,
+    asynchronous: bool,
+) -> bool:
+    for loop in (
+        node
+        for node in ast.walk(active_node(function.node))
+        if isinstance(node, (ast.For, ast.AsyncFor))
+    ):
+        deserialization = loop_deserialization(loop, program)
+        if deserialization is None:
+            continue
+        message_name, deserialize_line = deserialization
+        settlements = matching_settlement_calls(
+            loop,
+            message_name,
+            asynchronous,
+        )
+        if (
+            settlements["complete_message"]
+            and settlements["dead_letter_message"]
+            and settlements["abandon_message"]
+            and all(
+                call.lineno > deserialize_line
+                for call in settlements["complete_message"]
+            )
+        ):
+            return True
+    return False
 
 
 def processing_rule(program: Program, asynchronous: bool) -> bool:
@@ -375,8 +824,8 @@ def processing_rule(program: Program, asynchronous: bool) -> bool:
             and "session_id" in code
             and "receive_messages" in code
             and "ServiceBusError" in code
-            and ".is_transient" in code
-            and receiver_loop(own, asynchronous)
+            and has_transient_classification(program, function)
+            and receiver_loop(function, program, asynchronous)
         ):
             if asynchronous:
                 return "async with" in own and "await" in own
@@ -395,47 +844,106 @@ def reprocess_function(program: Program, asynchronous: bool) -> bool:
             or "from_json" not in own
         ):
             continue
-        loop = re.search(
-            r"(?:async\s+)?for\s+(\w+)\s+in\s+[^:\n]*:(?P<body>[\s\S]+)",
-            own,
-        )
-        if not loop:
-            continue
-        message = loop.group(1)
-        body = loop.group("body")
-        order_match = re.search(
-            rf"\b(\w+)\s*=\s*(?:\w+\.)?from_json\s*\(\s*(?:str\s*\(\s*)?{message}",
-            body,
-        )
-        if not order_match:
-            continue
-        order = order_match.group(1)
-        await_prefix = r"await\s+" if asynchronous else ""
-        send = re.search(
-            rf"{await_prefix}\w+\.(?:send|publish)\w*\s*\(\s*{order}\s*\)",
-            body,
-        )
-        complete = re.search(
-            rf"{await_prefix}\w+\.complete_message\s*\(\s*{message}\s*\)",
-            body,
-        )
-        if send and complete and send.start() < complete.start():
-            return True
+        for loop in (
+            node
+            for node in ast.walk(active_node(function.node))
+            if isinstance(node, (ast.For, ast.AsyncFor))
+        ):
+            deserialization = loop_deserialization(loop, program)
+            if deserialization is None:
+                continue
+            message_name, _deserialize_line = deserialization
+            order_names = {
+                target.id
+                for assignment in ast.walk(ast.Module(body=loop.body, type_ignores=[]))
+                if isinstance(assignment, (ast.Assign, ast.AnnAssign))
+                and assignment.value is not None
+                and isinstance(assignment.value, ast.Call)
+                and call_name(assignment.value) in {"from_json", "loads"}
+                and assignment.value.args
+                and expression_uses_message(
+                    assignment.value.args[0],
+                    message_name,
+                    program,
+                )
+                for target in (
+                    assignment.targets
+                    if isinstance(assignment, ast.Assign)
+                    else [assignment.target]
+                )
+                if isinstance(target, ast.Name)
+            }
+            if not order_names:
+                continue
+            body = ast.Module(body=loop.body, type_ignores=[])
+            awaited = {
+                id(node.value)
+                for node in ast.walk(body)
+                if isinstance(node, ast.Await)
+                and isinstance(node.value, ast.Call)
+            }
+            sends = [
+                node
+                for node in ast.walk(body)
+                if isinstance(node, ast.Call)
+                and re.search(r"(?:send|publish)", call_name(node), re.IGNORECASE)
+                and node.args
+                and isinstance(node.args[0], ast.Name)
+                and node.args[0].id in order_names
+                and (not asynchronous or id(node) in awaited)
+            ]
+            completes = matching_settlement_calls(
+                loop,
+                message_name,
+                asynchronous,
+            )["complete_message"]
+            if any(
+                send.lineno < complete.lineno
+                for send in sends
+                for complete in completes
+            ):
+                return True
     return False
 
 
 def error_classification(program: Program) -> bool:
+    classifiers = []
     for function in program.reachable:
+        parameters = function_parameters(function)
+        if not parameters:
+            continue
         code = ast.unparse(active_node(function.node))
         if (
-            "ServiceBusError" in code
-            and ".is_transient" in code
-            and re.search(r"(?:entity|queue)", code, re.IGNORECASE)
+            re.search(r"(?:entity|queue)", code, re.IGNORECASE)
             and re.search(r"(?:logging|logger|print)\.", code, re.IGNORECASE)
-            and re.search(r"(?:error|exception)", code, re.IGNORECASE)
+            and re.search(r"(?:error|exception|exc)", code, re.IGNORECASE)
+            and any(
+                transient_expression(
+                    child,
+                    parameter,
+                    program,
+                )
+                for parameter in parameters
+                for child in ast.walk(active_node(function.node))
+            )
         ):
             return True
-    return False
+        if any(
+            transient_expression(node.value, parameters[0], program)
+            for node in ast.walk(active_node(function.node))
+            if isinstance(node, ast.Return) and node.value is not None
+        ):
+            classifiers.append(function.name)
+    if not classifiers:
+        return False
+    return any(
+        re.search(r"(?:entity|queue)", code, re.IGNORECASE)
+        and re.search(r"(?:logging|logger|print)\.", code, re.IGNORECASE)
+        and re.search(r"(?:error|exception|exc)", code, re.IGNORECASE)
+        and any(name in calls_in(function.node) for name in classifiers)
+        for function in program.reachable
+        for code in [ast.unparse(active_node(function.node))]
+    )
 
 
 def connected_demo(program: Program, state: dict[str, bool]) -> bool:
@@ -448,37 +956,48 @@ def connected_demo(program: Program, state: dict[str, bool]) -> bool:
         if function.asynchronous and re.search(r"(?:run|main)", function.name, re.IGNORECASE)
     ]
     def feature_name(asynchronous: bool, kind: str) -> str | None:
-        for function in program.reachable:
+        candidates = [
+            *program.implemented_methods(asynchronous),
+            *program.reachable,
+        ]
+        for function in candidates:
             if function.asynchronous != asynchronous:
                 continue
-            own = ast.unparse(active_node(function.node))
-            if kind == "single" and "send_messages" in own and "create_message_batch" not in own:
+            code = program.code_for(function)
+            if (
+                kind == "single"
+                and "send_messages" in code
+                and "create_message_batch" not in code
+                and "DEAD_LETTER" not in code
+            ):
                 return function.name
-            if kind == "batch" and "create_message_batch" in own:
+            if kind == "batch" and "create_message_batch" in code:
                 return function.name
             if (
                 kind == "process"
-                and "get_queue_receiver" in own
-                and "DEAD_LETTER" not in own
-                and "complete_message" in own
+                and "get_queue_receiver" in code
+                and "DEAD_LETTER" not in code
+                and "complete_message" in code
             ):
                 return function.name
-            if kind == "reprocess" and "DEAD_LETTER" in own:
+            if kind == "reprocess" and "DEAD_LETTER" in code:
                 return function.name
         return None
 
-    sync_names = [feature_name(False, kind) for kind in (
-        "single", "batch", "process", "reprocess"
-    )]
-    async_names = [feature_name(True, kind) for kind in (
-        "single", "batch", "process", "reprocess"
-    )]
+    sync_names = [
+        feature_name(False, kind)
+        for kind in ("single", "process", "reprocess")
+    ]
+    async_names = [
+        feature_name(True, kind)
+        for kind in ("single", "process", "reprocess")
+    ]
     if any(name is None for name in sync_names + async_names):
         return False
     for main in mains:
         code = ast.unparse(active_node(main.node))
         sync_calls = [code.find(f".{name}(") for name in sync_names]
-        if (
+        direct_ready = not (
             "SERVICE_BUS_FULLY_QUALIFIED_NAMESPACE" not in code
             or "SERVICE_BUS_QUEUE_NAME" not in code
             or "DefaultAzureCredential" not in code
@@ -488,19 +1007,100 @@ def connected_demo(program: Program, state: dict[str, bool]) -> bool:
             or sync_calls != sorted(sync_calls)
             or "asyncio.run" not in code
             or code.find("asyncio.run") < sync_calls[-1]
+        )
+        if direct_ready:
+            for async_run in async_runs:
+                async_code = ast.unparse(active_node(async_run.node))
+                async_calls = [
+                    async_code.find(f".{name}(") for name in async_names
+                ]
+                if (
+                    "AsyncServiceBusClient" in program.all_code
+                    and "async with" in async_code
+                    and all(position >= 0 for position in async_calls)
+                    and async_calls == sorted(async_calls)
+                    and async_code.count("await ") >= 4
+                ):
+                    return True
+
+        active_main = active_node(main.node)
+        assignments = assigned_expressions(active_main)
+        for async_call in (
+            node
+            for node in ast.walk(active_main)
+            if isinstance(node, ast.Call)
+            and call_name(node) == "run"
+            and node.args
+            and isinstance(node.args[0], ast.Call)
         ):
-            continue
-        for async_run in async_runs:
-            async_code = ast.unparse(active_node(async_run.node))
-            async_calls = [async_code.find(f".{name}(") for name in async_names]
-            if (
-                "AsyncServiceBusClient" in program.all_code
-                and "async with" in async_code
-                and all(position >= 0 for position in async_calls)
-                and async_calls == sorted(async_calls)
-                and async_code.count("await ") >= 4
+            wrapped_async = async_call.args[0]
+            async_targets = [
+                function
+                for function in program.by_name.get(
+                    call_name(wrapped_async),
+                    [],
+                )
+                if function.asynchronous
+            ]
+            if not async_targets:
+                continue
+            for sync_call in (
+                node
+                for node in ast.walk(active_main)
+                if isinstance(node, ast.Call)
+                and node.lineno < async_call.lineno
+                and call_name(node) != "run"
             ):
-                return True
+                sync_targets = [
+                    function
+                    for function in program.by_name.get(
+                        call_name(sync_call),
+                        [],
+                    )
+                    if not function.asynchronous
+                    and function.owner is None
+                ]
+                if not sync_targets:
+                    continue
+                shared_arguments = {
+                    argument.id
+                    for argument in sync_call.args
+                    if isinstance(argument, ast.Name)
+                } & {
+                    argument.id
+                    for argument in wrapped_async.args
+                    if isinstance(argument, ast.Name)
+                }
+                configured = any(
+                    name in assignments
+                    and isinstance(assignments[name], ast.Call)
+                    for name in shared_arguments
+                )
+                if not configured:
+                    continue
+                for sync_target in sync_targets:
+                    sync_code = ast.unparse(active_node(sync_target.node))
+                    sync_positions = [
+                        sync_code.find(f".{name}(")
+                        for name in sync_names
+                    ]
+                    if (
+                        any(position < 0 for position in sync_positions)
+                        or sync_positions != sorted(sync_positions)
+                    ):
+                        continue
+                    for async_target in async_targets:
+                        async_code = ast.unparse(active_node(async_target.node))
+                        async_positions = [
+                            async_code.find(f".{name}(")
+                            for name in async_names
+                        ]
+                        if (
+                            all(position >= 0 for position in async_positions)
+                            and async_positions == sorted(async_positions)
+                            and async_code.count("await ") >= 3
+                        ):
+                            return True
     return False
 
 

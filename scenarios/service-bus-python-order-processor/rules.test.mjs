@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { readdirSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import test from "node:test";
 
@@ -15,6 +16,10 @@ import {
 
 const goldenPath = fileURLToPath(new URL("./golden", import.meta.url));
 const golden = loadWorkspace(goldenPath);
+const baselinePath = fileURLToPath(
+  new URL("./fixtures/baseline-33403910898", import.meta.url),
+);
+const baseline33403910898 = loadWorkspace(baselinePath);
 
 function change(from, to) {
   return {
@@ -35,6 +40,25 @@ test("the pinned golden passes every scenario and shared Python check", () => {
   for (const rule of pythonCheckNames()) {
     assert.equal(evaluatePythonCheck(rule, shared), true, rule);
   }
+});
+
+test("baseline run 33403910898 exact ten-file output passes disputed criteria", () => {
+  const disputed = [
+    "prompt/sync-sender",
+    "prompt/async-sender",
+    "prompt/sync-processing-settlement",
+    "prompt/async-processing-settlement",
+    "prompt/dead-letter-reprocessing",
+    "prompt/error-classification",
+    "prompt/connected-demo",
+  ];
+  for (const rule of disputed) {
+    assert.equal(evaluateRule(rule, baseline33403910898), true, rule);
+  }
+  assert.equal(
+    readdirSync(baselinePath).filter((name) => name !== "__pycache__").length,
+    10,
+  );
 });
 
 test("both exact active Python pins are required", () => {
@@ -158,4 +182,130 @@ test("equivalent class, method, and helper names are accepted", () => {
   for (const rule of ruleNames()) {
     assert.equal(evaluateRule(rule, renamed), true, rule);
   }
+});
+
+test("reachable sender classes expose implemented public batch methods", () => {
+  assert.equal(
+    evaluateRule("prompt/sync-sender", baseline33403910898),
+    true,
+  );
+  assert.equal(
+    evaluateRule("prompt/async-sender", baseline33403910898),
+    true,
+  );
+
+  const disconnected = {
+    ...baseline33403910898,
+    documents: baseline33403910898.documents.map((document) => ({
+      ...document,
+      source:
+        document.path === "main.py"
+          ? document.source
+              .replace("sender = OrderSender(config)", "sender = object()")
+              .replace(
+                "sender = AsyncOrderSender(config)",
+                "sender = object()",
+              )
+          : document.source,
+    })),
+  };
+  assert.equal(evaluateRule("prompt/sync-sender", disconnected), false);
+  assert.equal(evaluateRule("prompt/async-sender", disconnected), false);
+});
+
+test("transient classification preserves exception provenance", () => {
+  const knownClasses = {
+    ...baseline33403910898,
+    documents: baseline33403910898.documents.map((document) => ({
+      ...document,
+      source:
+        document.path === "service_bus_common.py"
+          ? document.source.replace(
+              `    return bool(
+        getattr(exc, "is_transient", False)
+        or isinstance(exc, (ServiceBusCommunicationError, ServiceBusConnectionError))
+    )`,
+              `    return isinstance(
+        exc,
+        (ServiceBusCommunicationError, ServiceBusConnectionError),
+    )`,
+            )
+          : document.source,
+    })),
+  };
+  assert.equal(
+    evaluateRule("prompt/error-classification", knownClasses),
+    true,
+  );
+
+  for (const [from, to] of [
+    ['getattr(exc, "is_transient", False)', 'getattr(other, "is_transient", False)'],
+    ['getattr(exc, "is_transient", False)', 'getattr(exc, "retryable", False)'],
+    ['getattr(exc, "is_transient", False)', "True"],
+  ]) {
+    const invalid = {
+      ...baseline33403910898,
+      documents: baseline33403910898.documents.map((document) => ({
+        ...document,
+        source:
+          document.path === "service_bus_common.py"
+            ? document.source
+                .replace(from, to)
+                .replace(
+                  "or isinstance(exc, (ServiceBusCommunicationError, ServiceBusConnectionError))",
+                  "",
+                )
+            : document.source,
+      })),
+    };
+    assert.equal(
+      evaluateRule("prompt/error-classification", invalid),
+      false,
+    );
+  }
+});
+
+test("message body helpers retain the current loop message provenance", () => {
+  const wrongMessage = {
+    ...baseline33403910898,
+    documents: baseline33403910898.documents.map((document) => ({
+      ...document,
+      source:
+        document.path === "processors.py"
+          ? document.source.replaceAll(
+              "message_body_as_bytes(message)",
+              "message_body_as_bytes(other_message)",
+            )
+          : document.source,
+    })),
+  };
+  assert.equal(
+    evaluateRule("prompt/sync-processing-settlement", wrongMessage),
+    false,
+  );
+  assert.equal(
+    evaluateRule("prompt/async-processing-settlement", wrongMessage),
+    false,
+  );
+});
+
+test("connected demo follows configuration factories and wrappers", () => {
+  assert.equal(
+    evaluateRule("prompt/connected-demo", baseline33403910898),
+    true,
+  );
+  const disconnected = {
+    ...baseline33403910898,
+    documents: baseline33403910898.documents.map((document) => ({
+      ...document,
+      source:
+        document.path === "main.py"
+          ? document.source.replace(
+              "asyncio.run(run_asynchronous_cycle(config))",
+              "asyncio.run(run_asynchronous_cycle(other_config))",
+            )
+          : document.source,
+    })),
+  };
+  assert.equal(evaluateRule("prompt/connected-demo", disconnected), false);
 });

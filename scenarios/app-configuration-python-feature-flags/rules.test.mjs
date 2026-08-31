@@ -21,6 +21,15 @@ const baselinePath = fileURLToPath(
 );
 const baseline33374429826 = loadFeatureFlagsWorkspace(baselinePath);
 const baselineLanguage33374429826 = loadPythonWorkspace(baselinePath);
+const baseline33403910898Path = fileURLToPath(
+  new URL("./fixtures/baseline-33403910898", import.meta.url),
+);
+const baseline33403910898 = loadFeatureFlagsWorkspace(
+  baseline33403910898Path,
+);
+const baselineLanguage33403910898 = loadPythonWorkspace(
+  baseline33403910898Path,
+);
 const evalSpec = readFileSync(
   fileURLToPath(new URL("./eval.yaml", import.meta.url)),
   "utf8",
@@ -107,6 +116,167 @@ test("baseline run 33374429826 exact output passes every configured grader", () 
       check,
     );
   }
+});
+
+test("baseline run 33403910898 exact output passes every configured grader", () => {
+  for (const rule of ruleNames()) {
+    assert.equal(evaluateRule(rule, baseline33403910898), true, rule);
+  }
+  for (const check of languageChecks) {
+    assert.equal(
+      evaluatePythonCheck(check, baselineLanguage33403910898),
+      true,
+      check,
+    );
+  }
+});
+
+test("service-owned clients retain endpoint and credential provenance", () => {
+  const wrongEndpoint = replaceAllDocument(
+    "configuration_service.py",
+    "AzureAppConfigurationClient(endpoint, credential)",
+    "AzureAppConfigurationClient(label, credential)",
+    baseline33403910898,
+  );
+  assert.equal(
+    evaluateRule("prompt/secure-sync-async-clients", wrongEndpoint),
+    false,
+  );
+
+  const wrongCredential = replaceAllDocument(
+    "configuration_service.py",
+    "AsyncAzureAppConfigurationClient(endpoint, credential)",
+    "AsyncAzureAppConfigurationClient(endpoint, unrelated)",
+    baseline33403910898,
+  );
+  assert.equal(
+    evaluateRule("prompt/secure-sync-async-clients", wrongCredential),
+    false,
+  );
+});
+
+test("cached object ETags preserve specialized 304 and None results", () => {
+  const wrong304 = replaceAllDocument(
+    "configuration_service.py",
+    "return cached.value",
+    "return unrelated.value",
+    baseline33403910898,
+  );
+  assert.equal(
+    evaluateRule("prompt/etag-conditional-cache", wrong304),
+    false,
+  );
+
+  const wrongEtag = replaceAllDocument(
+    "configuration_service.py",
+    "etag=cached.etag",
+    "etag=unrelated.etag",
+    baseline33403910898,
+  );
+  assert.equal(
+    evaluateRule("prompt/etag-conditional-cache", wrongEtag),
+    false,
+  );
+});
+
+test("ten-thousand-bucket rollout requires the equivalent scaled threshold", () => {
+  const wrongBuckets = replaceAllDocument(
+    "feature_flags.py",
+    "% 10_000",
+    "% 9_999",
+    baseline33403910898,
+  );
+  assert.equal(
+    evaluateRule("prompt/deterministic-percentage-rollout", wrongBuckets),
+    false,
+  );
+
+  const wrongThreshold = replaceAllDocument(
+    "feature_flags.py",
+    "round(percentage * 100)",
+    "round(percentage)",
+    baseline33403910898,
+  );
+  assert.equal(
+    evaluateRule(
+      "prompt/deterministic-percentage-rollout",
+      wrongThreshold,
+    ),
+    false,
+  );
+
+  const userOnly = replaceAllDocument(
+    "feature_flags.py",
+    'f"{flag_name}:{user_id}"',
+    "user_id",
+    baseline33403910898,
+  );
+  assert.equal(
+    evaluateRule("prompt/deterministic-percentage-rollout", userOnly),
+    false,
+  );
+});
+
+test("thread and task targets must reach watcher polling", () => {
+  const wrongThreadTarget = replaceAllDocument(
+    "config_watcher.py",
+    "Thread(target=self._run,",
+    "Thread(target=lambda: None,",
+    baseline33403910898,
+  );
+  assert.equal(
+    evaluateRule("prompt/sentinel-refresh", wrongThreadTarget),
+    false,
+  );
+
+  const wrongTaskTarget = replaceAllDocument(
+    "config_watcher.py",
+    "asyncio.create_task(self._run(),",
+    "asyncio.create_task(asyncio.sleep(0),",
+    baseline33403910898,
+  );
+  assert.equal(
+    evaluateRule("prompt/sentinel-refresh", wrongTaskTarget),
+    false,
+  );
+});
+
+test("refresh must exhaust cached settings and prefix queries", () => {
+  const sentinelOnly = replaceAllDocument(
+    "configuration_service.py",
+    `        for prefix, label in prefix_keys:
+            self.list_settings(prefix, label, force=True)`,
+    "        return None",
+    baseline33403910898,
+  );
+  assert.equal(
+    evaluateRule("prompt/sentinel-refresh", sentinelOnly),
+    false,
+  );
+
+  const nonForced = replaceAllDocument(
+    "configuration_service.py",
+    "self.list_settings(prefix, label, force=True)",
+    "self.list_settings(prefix, label)",
+    baseline33403910898,
+  );
+  assert.equal(evaluateRule("prompt/sentinel-refresh", nonForced), false);
+});
+
+test("demo evidence propagates through service evaluator and watcher wrappers", () => {
+  const disconnectedEvaluator = replaceAllDocument(
+    "main.py",
+    "enabled = evaluator.is_enabled(flag_name, user_id, label)",
+    "enabled = True",
+    baseline33403910898,
+  );
+  assert.equal(
+    evaluateRule(
+      "prompt/connected-sync-then-async-demo",
+      disconnectedEvaluator,
+    ),
+    false,
+  );
 });
 
 test("instance-backed sentinel state remains connected to refreshes", () => {

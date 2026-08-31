@@ -1,3 +1,28 @@
+import { spawnSync } from "node:child_process";
+import { fileURLToPath } from "node:url";
+
+const analyzerPath = fileURLToPath(
+  new URL("./app_configuration_analyzer.py", import.meta.url),
+);
+const analysisCache = new WeakMap();
+
+function analyze(workspace) {
+  if (analysisCache.has(workspace)) return analysisCache.get(workspace);
+  const result = spawnSync("python", [analyzerPath], {
+    encoding: "utf8",
+    input: JSON.stringify({ source: workspace.python ?? "" }),
+    windowsHide: true,
+  });
+  if (result.status !== 0) {
+    throw new Error(
+      `App Configuration analysis failed: ${result.stderr || result.stdout}`,
+    );
+  }
+  const analysis = JSON.parse(result.stdout);
+  analysisCache.set(workspace, analysis);
+  return analysis;
+}
+
 const rules = {
   "prompt/app-configuration-package": ({ dependencies }) =>
     /\bazure-appconfiguration\b/i.test(dependencies),
@@ -11,14 +36,8 @@ const rules = {
     /["']24["']/.test(python),
   "prompt/production-label": ({ python }) =>
     /\blabel\s*=\s*["']Production["']/.test(python),
-  "prompt/get-list-settings": ({ python }) =>
-    /\.get_configuration_setting\s*\(/.test(python) &&
-    /\.list_configuration_settings\s*\([\s\S]{0,300}?key_filter\s*=\s*["']app:Settings:\*["']/.test(
-      python,
-    ) &&
-    /\b(\w+)\s*=\s*\w+\.get_configuration_setting\s*\([\s\S]{0,240}?\bprint\s*\(\s*\1\.value\b/.test(
-      python,
-    ),
+  "prompt/get-list-settings": (workspace) =>
+    analyze(workspace).get_list_settings,
   "prompt/enabled-feature-flag": ({ python }) =>
     /\.set_configuration_setting\s*\([\s\S]{0,320}?\bFeatureFlagConfigurationSetting\s*\([\s\S]{0,240}?feature_id\s*=\s*["']BetaFeature["'][\s\S]{0,160}?enabled\s*=\s*True/.test(
       python,
