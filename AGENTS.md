@@ -95,8 +95,9 @@ The `packages` object is currently a central version record only:
 - Pin Azure MCP independently in each experiment's MCP declaration.
 - Keep those declarations synchronized with `dependencies.lock.json`.
 
-Do not use mutable branch references or `@latest` in evaluations. The approved
-npm registry is configured in `.npmrc`; do not use the public npm registry.
+Do not use mutable branch references or `@latest` in evaluations. For local
+npm or pnpm installs, pass the approved Azure SDK registry explicitly. GitHub
+Actions uses the public npm registry.
 
 ## Grading rules
 
