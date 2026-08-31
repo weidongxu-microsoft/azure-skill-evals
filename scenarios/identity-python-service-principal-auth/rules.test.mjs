@@ -50,6 +50,50 @@ except ClientAuthenticationError as error:
     print(error, file=sys.stderr)
 `;
 
+const fullRunRegressionSource = `
+import os
+
+from azure.core.exceptions import ClientAuthenticationError
+from azure.identity import ClientSecretCredential
+from azure.keyvault.secrets import SecretClient
+
+
+def required_environment_variable(name: str) -> str:
+    value = os.environ.get(name)
+    if not value:
+        raise RuntimeError(f"Required environment variable {name} is not set.")
+    return value
+
+
+def main() -> None:
+    tenant_id = required_environment_variable("AZURE_TENANT_ID")
+    client_id = required_environment_variable("AZURE_CLIENT_ID")
+    client_secret = required_environment_variable("AZURE_CLIENT_SECRET")
+    vault_url = required_environment_variable("AZURE_KEY_VAULT_URL")
+    secret_name = required_environment_variable("AZURE_KEY_VAULT_SECRET_NAME")
+
+    credential = ClientSecretCredential(
+        tenant_id=tenant_id,
+        client_id=client_id,
+        client_secret=client_secret,
+    )
+    client = SecretClient(vault_url=vault_url, credential=credential)
+
+    try:
+        secret = client.get_secret(secret_name)
+    except ClientAuthenticationError as error:
+        raise SystemExit(
+            "Azure authentication failed. Verify the service principal "
+            "credentials and its Key Vault access."
+        ) from error
+
+    print(secret.value)
+
+
+if __name__ == "__main__":
+    main()
+`;
+
 test("real pinned golden passes all six equally weighted rules", () => {
   assert.deepEqual(ruleNames(), [
     "prompt/identity-packages",
@@ -61,6 +105,13 @@ test("real pinned golden passes all six equally weighted rules", () => {
   ]);
   for (const rule of ruleNames()) {
     assert.equal(evaluateRule(rule, goldenWorkspace), true, rule);
+  }
+});
+
+test("full-suite run 33358499457 output passes all rules", () => {
+  const generated = workspace(fullRunRegressionSource);
+  for (const rule of ruleNames()) {
+    assert.equal(evaluateRule(rule, generated), true, rule);
   }
 });
 

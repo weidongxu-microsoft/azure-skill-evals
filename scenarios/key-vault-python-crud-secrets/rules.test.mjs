@@ -77,6 +77,67 @@ async def main():
 await main()
 `;
 
+const fullRunRegressionSource = `
+import os
+
+from azure.core.exceptions import ResourceNotFoundError
+from azure.identity import DefaultAzureCredential
+from azure.keyvault.secrets import SecretClient
+
+
+SECRET_NAME = "my-secret"
+
+
+def require_vault_url() -> str:
+    vault_url = os.environ.get("AZURE_KEY_VAULT_URL")
+    if not vault_url:
+        raise RuntimeError(
+            "Set AZURE_KEY_VAULT_URL to the Key Vault URL, "
+            "for example https://my-vault.vault.azure.net."
+        )
+    return vault_url
+
+
+def main() -> None:
+    credential = DefaultAzureCredential()
+    client = SecretClient(vault_url=require_vault_url(), credential=credential)
+
+    try:
+        client.set_secret(SECRET_NAME, "my-secret-value")
+
+        try:
+            retrieved_secret = client.get_secret(SECRET_NAME)
+        except ResourceNotFoundError as error:
+            raise RuntimeError(
+                f"Secret {SECRET_NAME!r} was not found immediately after creation."
+            ) from error
+        print(retrieved_secret.value)
+
+        client.set_secret(SECRET_NAME, "updated-value")
+
+        try:
+            deletion_poller = client.begin_delete_secret(SECRET_NAME)
+            deletion_poller.result()
+        except ResourceNotFoundError as error:
+            raise RuntimeError(
+                f"Secret {SECRET_NAME!r} could not be deleted because it was not found."
+            ) from error
+
+        try:
+            client.purge_deleted_secret(SECRET_NAME)
+        except ResourceNotFoundError as error:
+            raise RuntimeError(
+                f"Deleted secret {SECRET_NAME!r} was not available to purge."
+            ) from error
+    finally:
+        client.close()
+        credential.close()
+
+
+if __name__ == "__main__":
+    main()
+`;
+
 test("pinned golden passes exactly eight equally weighted rules", () => {
   assert.deepEqual(ruleNames(), [
     "prompt/key-vault-packages",
@@ -90,6 +151,13 @@ test("pinned golden passes exactly eight equally weighted rules", () => {
   ]);
   for (const rule of ruleNames()) {
     assert.equal(evaluateRule(rule, goldenWorkspace), true, rule);
+  }
+});
+
+test("full-suite run 33358499457 output passes all rules", () => {
+  const generated = workspace(fullRunRegressionSource);
+  for (const rule of ruleNames()) {
+    assert.equal(evaluateRule(rule, generated), true, rule);
   }
 });
 
