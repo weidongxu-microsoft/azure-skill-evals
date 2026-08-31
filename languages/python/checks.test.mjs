@@ -54,6 +54,48 @@ client.get_account_information()
   );
 });
 
+test("async Azure clients may use explicitly awaited cleanup", () => {
+  const workspace = {
+    pythonFiles: ["app.py"],
+    dependencies: "",
+    python: `
+from azure.storage.blob.aio import BlobServiceClient
+
+async def main():
+    client = BlobServiceClient("https://example.blob.core.windows.net")
+    try:
+        await client.get_account_information()
+    finally:
+        await client.close()
+`,
+  };
+
+  assert.equal(evaluatePythonCheck("language/async-client", workspace), true);
+  assert.equal(
+    evaluatePythonCheck("language/client-lifecycle", workspace),
+    true,
+  );
+});
+
+test("async Azure client cleanup must be awaited", () => {
+  const workspace = {
+    pythonFiles: ["app.py"],
+    dependencies: "",
+    python: `
+from azure.storage.blob.aio import BlobServiceClient
+
+async def main():
+    client = BlobServiceClient("https://example.blob.core.windows.net")
+    try:
+        await client.get_account_information()
+    finally:
+        client.close()
+`,
+  };
+
+  assert.equal(evaluatePythonCheck("language/async-client", workspace), false);
+});
+
 test("key authentication does not satisfy the credential check", () => {
   const workspace = {
     pythonFiles: ["app.py"],
@@ -70,4 +112,3 @@ client = CosmosClient("https://example.documents.azure.com", "secret")
     false,
   );
 });
-

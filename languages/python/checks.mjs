@@ -39,9 +39,12 @@ const checks = {
   "language/async-client": ({ python }) => {
     const usesAsyncAzureClient =
       /(?:from|import)\s+azure\.[^\n]*\.aio(?:\s|\.|$)/.test(python);
+    const closesAsyncClient =
+      /\bawait\s+(?:[A-Za-z_]\w*\.)+close\s*\(\s*\)/.test(python);
     return (
       !usesAsyncAzureClient ||
-      (/\bawait\b/.test(python) && /\basync\s+with\b/.test(python))
+      (/\bawait\b/.test(python) &&
+        (/\basync\s+with\b/.test(python) || closesAsyncClient))
     );
   },
   "language/exception-handling": ({ python }) =>
