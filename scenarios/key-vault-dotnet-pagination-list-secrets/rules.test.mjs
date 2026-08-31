@@ -16,6 +16,11 @@ import {
 const goldenRoot = fileURLToPath(new URL("./golden", import.meta.url));
 const completeWorkspace = loadWorkspace(goldenRoot);
 const sharedWorkspace = loadDotnetWorkspace(goldenRoot);
+const baselineRoot = fileURLToPath(
+  new URL("./fixtures/baseline-33374429826", import.meta.url),
+);
+const baseline33374429826 = loadWorkspace(baselineRoot);
+const baselineShared33374429826 = loadDotnetWorkspace(baselineRoot);
 
 function workspace(source, project = completeWorkspace.project) {
   return {
@@ -52,6 +57,19 @@ test("golden passes eight prompt rules and every shared .NET check", () => {
   }
   for (const check of dotnetCheckNames()) {
     assert.equal(evaluateDotnetCheck(check, sharedWorkspace), true, check);
+  }
+});
+
+test("baseline run 33374429826 exact output passes every grader", () => {
+  for (const rule of ruleNames()) {
+    assert.equal(evaluateRule(rule, baseline33374429826), true, rule);
+  }
+  for (const check of dotnetCheckNames()) {
+    assert.equal(
+      evaluateDotnetCheck(check, baselineShared33374429826),
+      true,
+      check,
+    );
   }
 });
 
@@ -234,6 +252,114 @@ static void Show(SecretProperties item)
   for (const rule of ruleNames()) {
     assert.equal(evaluateRule(rule, workspace(source)), true, rule);
   }
+});
+
+test("separate protected pagination paths and diagnostic helpers pass", () => {
+  const source = `
+using Azure;
+using Azure.Identity;
+using Azure.Security.KeyVault.Secrets;
+
+var client = new SecretClient(
+    new Uri("https://example.vault.azure.net"),
+    new DefaultAzureCredential());
+try
+{
+    await foreach (var secret in client.GetPropertiesOfSecretsAsync())
+    {
+        Show(secret);
+    }
+}
+catch (RequestFailedException failure)
+{
+    ReportFailure(failure);
+}
+try
+{
+    await foreach (var page in client.GetPropertiesOfSecretsAsync().AsPages(null, 50))
+    {
+        foreach (var secret in page.Values)
+        {
+            Show(secret);
+        }
+    }
+}
+catch (RequestFailedException failure)
+{
+    ReportFailure(failure);
+}
+try
+{
+    foreach (var secret in client.GetPropertiesOfSecrets())
+    {
+        Show(secret);
+    }
+}
+catch (RequestFailedException failure)
+{
+    ReportFailure(failure);
+}
+
+static void Show(SecretProperties secret)
+{
+    string state = secret.Enabled == false ? "disabled" : "enabled";
+    Console.WriteLine(
+        $"{secret.Name} {secret.ContentType} {secret.Enabled} {secret.CreatedOn} {state}");
+}
+
+static void ReportFailure(RequestFailedException failure)
+{
+    Console.Error.WriteLine(
+        $"Status={failure.Status}; Code={failure.ErrorCode}; Message={failure.Message}");
+}`;
+  for (const rule of ruleNames()) {
+    assert.equal(evaluateRule(rule, workspace(source)), true, rule);
+  }
+});
+
+test("detached and partially protected pagination paths fail", () => {
+  const source = `
+using Azure;
+using Azure.Identity;
+using Azure.Security.KeyVault.Secrets;
+var client = new SecretClient(
+    new Uri("https://example.vault.azure.net"),
+    new DefaultAzureCredential());
+try
+{
+    await foreach (var secret in client.GetPropertiesOfSecretsAsync())
+    {
+        Console.WriteLine(secret.Name);
+    }
+}
+catch (RequestFailedException failure)
+{
+    Console.Error.WriteLine($"{failure.Status}: {failure.Message}");
+}
+await foreach (var page in client.GetPropertiesOfSecretsAsync().AsPages(null, 50))
+{
+    foreach (var secret in page.Values)
+    {
+        Console.WriteLine(secret.Name);
+    }
+}
+foreach (var secret in client.GetPropertiesOfSecrets())
+{
+    Console.WriteLine(secret.Name);
+}`;
+  assert.equal(
+    evaluateRule("prompt/pagination-error-handling", workspace(source)),
+    false,
+  );
+
+  const detached = source.replace(
+    "try\n{",
+    "if (true)\n{",
+  );
+  assert.equal(
+    evaluateRule("prompt/pagination-error-handling", workspace(detached)),
+    false,
+  );
 });
 
 test("comments, strings, local SDK fakes, and unreachable helpers fail", () => {

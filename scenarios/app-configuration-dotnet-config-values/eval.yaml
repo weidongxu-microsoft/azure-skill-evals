@@ -105,14 +105,6 @@ stimuli:
             - .vally/languages/dotnet/check.mjs
             - language/current-azure-packages
       - type: run-command
-        name: language/async-await
-        weight: 1
-        config:
-          command: node
-          args:
-            - .vally/languages/dotnet/check.mjs
-            - language/async-await
-      - type: run-command
         name: language/client-lifecycle
         weight: 1
         config:

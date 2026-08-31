@@ -10,6 +10,11 @@ import {
 
 const goldenRoot = fileURLToPath(new URL("./golden", import.meta.url));
 const completeWorkspace = loadWorkspace(goldenRoot);
+const baseline33374429826 = loadWorkspace(
+  fileURLToPath(
+    new URL("./fixtures/baseline-33374429826", import.meta.url),
+  ),
+);
 
 function workspace(source, project = completeWorkspace.project) {
   return { ...completeWorkspace, project, source };
@@ -90,6 +95,12 @@ test("golden passes exactly the nine-criterion contract", () => {
   assert.equal(ruleNames().length, 9);
   for (const rule of ruleNames()) {
     assert.equal(evaluateRule(rule, completeWorkspace), true, rule);
+  }
+});
+
+test("baseline run 33374429826 exact output passes every grader", () => {
+  for (const rule of ruleNames()) {
+    assert.equal(evaluateRule(rule, baseline33374429826), true, rule);
   }
 });
 
@@ -455,6 +466,44 @@ catch (Azure.RequestFailedException failure)
   }
 });
 
+test("non-empty location fallback and explicit AzureLocation are accepted", () => {
+  const source = handled(
+    lifecycle
+      .replace(
+        "new ResourceGroupData(location)",
+        "new ResourceGroupData(new AzureLocation(location))",
+      ),
+  ).replace(
+    `string location =
+    Environment.GetEnvironmentVariable("AZURE_LOCATION") ?? "eastus";`,
+    `string location =
+    Environment.GetEnvironmentVariable("AZURE_LOCATION") is { Length: > 0 } configured
+        ? configured
+        : "eastus";`,
+  );
+
+  assert.equal(
+    evaluateRule("prompt/create-resource-group", workspace(source)),
+    true,
+  );
+});
+
+test("interpolated updated tag output remains connected", () => {
+  const source = handled(
+    lifecycle.replace(
+      `var applied = updated.Data.Tags["environment"];
+Console.WriteLine(applied);`,
+      `Console.WriteLine(
+    $"Applied tag: {updated.Data.Tags["environment"]}");`,
+    ),
+  );
+
+  assert.equal(
+    evaluateRule("prompt/update-resource-group", workspace(source)),
+    true,
+  );
+});
+
 test("unqualified SDK symbols reject missing imports and local fakes", () => {
   const missingImports = handled()
     .replace("using Azure.Identity;", "")
@@ -568,6 +617,26 @@ catch (RequestFailedException failure)`,
       "prompt/request-failed-error",
       workspace(reportedButSwallowed),
     ),
+    false,
+  );
+
+  const reportedAndFailed = handled().replace(
+    "catch (RequestFailedException failure)",
+    `catch (InvalidOperationException exception)
+{
+    Console.Error.WriteLine($"Configuration failed: {exception}");
+    return 1;
+}
+catch (RequestFailedException failure)`,
+  );
+  assert.equal(
+    evaluateRule("prompt/request-failed-error", workspace(reportedAndFailed)),
+    true,
+  );
+
+  const successfulExit = reportedAndFailed.replace("return 1;", "return 0;");
+  assert.equal(
+    evaluateRule("prompt/request-failed-error", workspace(successfulExit)),
     false,
   );
 });

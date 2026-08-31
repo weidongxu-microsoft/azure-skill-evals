@@ -803,6 +803,58 @@ function triStateCondition(condition, environment) {
   return index === tokens.length ? value : null;
 }
 
+function bindAbsoluteUriTryCreate(
+  condition,
+  environment,
+  state,
+  context,
+) {
+  const expression = stripOuterParentheses(
+    condition.replace(/^\s*!\s*/, ""),
+  );
+  const invocation =
+    /^((?:global::)?[\w.:]+)\s*\.\s*TryCreate\s*\(([\s\S]*)\)$/.exec(
+      expression,
+    );
+  if (
+    !invocation ||
+    canonicalType(invocation[1], state.types) !== "Uri"
+  ) {
+    return;
+  }
+  const argumentsList = splitArguments(invocation[2]);
+  if (
+    argumentsList.length < 3 ||
+    !/\bUriKind\s*\.\s*Absolute\b/.test(argumentsList[1])
+  ) {
+    return;
+  }
+  const output =
+    /^\s*out\s+(?:(?:var|(?:global::)?[\w.:<>?]+)\s+)?(\w+)\s*$/.exec(
+      argumentsList[2],
+    );
+  const input = evaluateExpression(
+    argumentsList[0],
+    null,
+    environment,
+    state,
+    context,
+  );
+  const validInput =
+    input?.kind === "string" &&
+    (
+      input.value?.startsWith("env:") ||
+      /^https?:\/\//i.test(input.value ?? "")
+    );
+  if (output && validInput) {
+    environment.declare(output[1], {
+      kind: "uri",
+      absolute: true,
+      source: input.value,
+    });
+  }
+}
+
 function constantCondition(condition, environment) {
   return triStateCondition(condition, environment);
 }
@@ -1385,14 +1437,36 @@ function evaluateExpression(
   }
 
   const environmentRead =
-    /(?:System\s*\.\s*)?Environment\s*\.\s*GetEnvironmentVariable\s*\(/.test(
+    /^(?:System\s*\.\s*)?Environment\s*\.\s*GetEnvironmentVariable\s*\(([\s\S]*)\)$/.exec(
       value,
     );
-  if (environmentRead) return { kind: "string", value: null };
+  if (environmentRead) {
+    const variable = stringIdentity(
+      evaluateExpression(
+        environmentRead[1],
+        null,
+        environment,
+        state,
+        context,
+      ),
+    );
+    return {
+      kind: "string",
+      value: variable ? `env:${variable}` : null,
+    };
+  }
   return unknown(canonicalType(expectedType, state.types) ?? expectedType);
 }
 
 function recordOutput(expression, environment, state, context) {
+  for (const [marker, literal] of state.literals) {
+    if (!expression.includes(marker) || !literal?.interpolation) continue;
+    for (const part of literal.interpolation) {
+      if (part.kind === "expression") {
+        recordOutput(part.expression, environment, state, context);
+      }
+    }
+  }
   const direct = evaluateExpression(
     expression,
     null,
@@ -1718,6 +1792,18 @@ function executeRegion(source, baseOffset, environment, state, inherited = {}) {
           }
           if (pendingTry) pendingTry.catchIndex += 1;
         } else if (ifCondition !== null) {
+          bindAbsoluteUriTryCreate(
+            ifCondition,
+            environment,
+            state,
+            {
+              branchScope: inherited.branchScope,
+              loop: inherited.loop,
+              origin: baseOffset + start,
+              path: currentPath,
+              site: inherited.site ?? baseOffset + start,
+            },
+          );
           const condition = constantCondition(ifCondition, environment);
           const branch = {
             condition,
@@ -1852,6 +1938,18 @@ function executeRegion(source, baseOffset, environment, state, inherited = {}) {
       const leading = statement.search(/\S/);
       const origin = baseOffset + start + Math.max(0, leading);
       if (singleIf !== null) {
+        bindAbsoluteUriTryCreate(
+          singleIf,
+          environment,
+          state,
+          {
+            branchScope: inherited.branchScope,
+            loop: inherited.loop,
+            origin,
+            path: currentPath,
+            site: inherited.site ?? origin,
+          },
+        );
         const close = matchingDelimiter(statement, statement.indexOf("("), "(", ")");
         const consequent = statement.slice(close + 1);
         const condition = constantCondition(singleIf, environment);
@@ -2805,11 +2903,17 @@ function isProjectItem(document, referenceIndex) {
   );
 }
 
-function exactPackage(references, name, version) {
+function compatiblePackage(references, name, major) {
   return references.some(
-    (reference) =>
-      reference.include?.toLowerCase() === name.toLowerCase() &&
-      [version, `[${version}]`].includes(reference.version),
+    (reference) => {
+      if (reference.include?.toLowerCase() !== name.toLowerCase()) {
+        return false;
+      }
+      const version = /^\[?(\d+)\.\d+\.\d+(?:\.\d+)?\]?$/.exec(
+        reference.version ?? "",
+      );
+      return version !== null && Number(version[1]) === major;
+    },
   );
 }
 
@@ -3021,12 +3125,11 @@ function hasRequiredManifest(project) {
   return projectDocuments(project).some((document) => {
     return evaluateMsbuildDocument(document).some(
       ({ properties, references }) =>
-        hasNet8Target(properties) &&
-        exactPackage(references, "Azure.Identity", "1.21.0") &&
-        exactPackage(
+        compatiblePackage(references, "Azure.Identity", 1) &&
+        compatiblePackage(
           references,
           "Azure.Security.KeyVault.Secrets",
-          "4.11.0",
+          4,
         ),
     );
   });

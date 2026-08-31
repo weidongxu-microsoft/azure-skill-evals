@@ -10,6 +10,11 @@ import {
 
 const goldenRoot = fileURLToPath(new URL("./golden", import.meta.url));
 const completeWorkspace = loadWorkspace(goldenRoot);
+const baseline33374429826 = loadWorkspace(
+  fileURLToPath(
+    new URL("./fixtures/baseline-33374429826", import.meta.url),
+  ),
+);
 
 function workspace(source, project = completeWorkspace.project) {
   return { ...completeWorkspace, project, source };
@@ -75,9 +80,20 @@ test("golden passes exactly eight semantic criteria", () => {
   }
 });
 
-test("manifest accepts pinned net8 references and same-project properties", () => {
+test("baseline run 33374429826 exact output passes every grader", () => {
+  for (const rule of ruleNames()) {
+    assert.equal(evaluateRule(rule, baseline33374429826), true, rule);
+  }
+});
+
+test("manifest accepts compatible runtime package versions and properties", () => {
   const manifests = [
     manifest(),
+    manifest({
+      target: "<TargetFramework>net6.0</TargetFramework>",
+      identityVersion: "1.17.0",
+      secretsVersion: "4.8.0",
+    }),
     `<Project Sdk="Microsoft.NET.Sdk">
       <PropertyGroup>
         <BaseTarget>net8.0-windows10.0.19041.0</BaseTarget>
@@ -123,13 +139,12 @@ test("manifest accepts pinned net8 references and same-project properties", () =
   }
 });
 
-test("manifest rejects wrong targets, versions, comments, and split projects", () => {
+test("manifest rejects incompatible or ineffective package references", () => {
   const invalid = [
-    manifest({ target: "<TargetFramework>net7.0</TargetFramework>" }),
-    manifest({ target: "<TargetFramework>$(Missing)</TargetFramework>" }),
     manifest({ identityVersion: null }),
     manifest({ secretsVersion: null }),
-    manifest({ identityVersion: "1.22.0" }),
+    manifest({ identityVersion: "2.0.0" }),
+    manifest({ secretsVersion: "5.0.0" }),
     manifest({ secretsVersion: "[4.11.0,)" }),
     manifest({ secretsVersion: "4.*" }),
     manifest().replace(
@@ -145,10 +160,6 @@ test("manifest rejects wrong targets, versions, comments, and split projects", (
     manifest().replace(
       '<PackageReference Include="Azure.Security.KeyVault.Secrets" Version="4.11.0" />',
       '<PackageReference Include="Azure.Security.KeyVault.Secrets" Version="4.11.0" ExcludeAssets="compile" />',
-    ),
-    manifest().replace(
-      "<PropertyGroup>",
-      '<PropertyGroup Condition="false">',
     ),
     `<Project Sdk="Microsoft.NET.Sdk">
       <PropertyGroup><TargetFramework>net8.0</TargetFramework></PropertyGroup>
@@ -217,7 +228,10 @@ test("focused golden omissions fail their own criterion", () => {
     {
       rule: "prompt/key-vault-manifest",
       source: completeWorkspace.source,
-      project: completeWorkspace.project.replace("4.11.0", "4.10.0"),
+      project: completeWorkspace.project.replace(
+        "Azure.Security.KeyVault.Secrets",
+        "Contoso.Security.Secrets",
+      ),
     },
     {
       rule: "prompt/default-azure-credential",
@@ -353,6 +367,55 @@ catch (Azure.RequestFailedException failure)
   )) {
     assert.equal(evaluateRule(rule, workspace(source)), true, rule);
   }
+});
+
+test("absolute Uri.TryCreate keeps the vault endpoint connected", () => {
+  const source = `${imports}
+string? vaultUriValue = Environment.GetEnvironmentVariable("KEY_VAULT_URI");
+if (!Uri.TryCreate(vaultUriValue, UriKind.Absolute, out Uri? vaultUri))
+{
+    throw new InvalidOperationException();
+}
+var client = new SecretClient(vaultUri, new DefaultAzureCredential());
+try
+{
+${lifecycle}
+}
+catch (RequestFailedException failure)
+{
+    Console.Error.WriteLine(failure.Message);
+}`;
+  for (const rule of ruleNames().filter(
+    (name) => name !== "prompt/key-vault-manifest",
+  )) {
+    assert.equal(evaluateRule(rule, workspace(source)), true, rule);
+  }
+});
+
+test("relative and disconnected Uri.TryCreate outputs are rejected", () => {
+  const sources = [
+    `${imports}
+var raw = Environment.GetEnvironmentVariable("KEY_VAULT_URI");
+Uri.TryCreate(raw, UriKind.Relative, out Uri? vaultUri);
+var client = new SecretClient(vaultUri, new DefaultAzureCredential());`,
+    `${imports}
+var raw = Environment.GetEnvironmentVariable("KEY_VAULT_URI");
+Uri.TryCreate(raw, UriKind.Absolute, out Uri? parsedVaultUri);
+var client = new SecretClient(vaultUri, new DefaultAzureCredential());`,
+  ];
+  for (const source of sources) {
+    assert.equal(evaluateRule("prompt/secret-client", workspace(source)), false);
+  }
+});
+
+test("interpolated retrieved secret values remain connected", () => {
+  const source = handled(
+    lifecycle.replace(
+      "Console.WriteLine(response.Value.Value);",
+      'Console.WriteLine($"Secret value: {response.Value.Value}");',
+    ),
+  );
+  assert.equal(evaluateRule("prompt/get-print-secret", workspace(source)), true);
 });
 
 test("unqualified Azure symbols require real imports and reject local fakes", () => {

@@ -130,10 +130,41 @@ function literalAwareCode(source) {
     const contentStart = index + 1;
     let value = "";
     let closeIndex = -1;
+    let interpolationDepth = 0;
     for (let cursor = contentStart; cursor < source.length; cursor += 1) {
       if (verbatim && source[cursor] === '"' && source[cursor + 1] === '"') {
         value += '"';
         cursor += 1;
+      } else if (
+        interpolated &&
+        source[cursor] === "{" &&
+        source[cursor + 1] !== "{"
+      ) {
+        interpolationDepth += 1;
+        value += source[cursor];
+      } else if (
+        interpolated &&
+        source[cursor] === "}" &&
+        source[cursor + 1] !== "}" &&
+        interpolationDepth > 0
+      ) {
+        interpolationDepth -= 1;
+        value += source[cursor];
+      } else if (
+        interpolated &&
+        interpolationDepth > 0 &&
+        source[cursor] === '"'
+      ) {
+        value += source[cursor];
+        for (cursor += 1; cursor < source.length; cursor += 1) {
+          value += source[cursor];
+          if (source[cursor] === "\\") {
+            cursor += 1;
+            value += source[cursor] ?? "";
+          } else if (source[cursor] === '"') {
+            break;
+          }
+        }
       } else if (!verbatim && source[cursor] === "\\") {
         const escaped = source[cursor + 1] ?? "";
         value +=
@@ -1345,6 +1376,41 @@ function evaluateExpression(
 
   const ternary = topLevelCsharpTernary(value);
   if (ternary) {
+    const nonEmptyEnvironment =
+      /^([\s\S]+)\s+is\s*\{\s*Length\s*:\s*>\s*0\s*\}\s+(\w+)\s*$/.exec(
+        ternary.condition.trim(),
+      );
+    if (
+      nonEmptyEnvironment &&
+      stripOuterParentheses(ternary.consequent).trim() ===
+        nonEmptyEnvironment[2]
+    ) {
+      const configured = evaluateExpression(
+        nonEmptyEnvironment[1],
+        expectedType,
+        environment,
+        state,
+        context,
+      );
+      const fallback = evaluateExpression(
+        ternary.alternate,
+        expectedType,
+        environment,
+        state,
+        context,
+      );
+      if (
+        configured?.kind === "string" &&
+        configured.value?.startsWith("env:") &&
+        fallback?.kind === "string"
+      ) {
+        return {
+          kind: "string",
+          value: configured.value,
+          fallback: fallback.value,
+        };
+      }
+    }
     const condition = constantCondition(ternary.condition, environment);
     if (condition === true) {
       return evaluateExpression(
@@ -1534,6 +1600,18 @@ function evaluateExpression(
       };
       state.clientFound = true;
       return client;
+    }
+    if (type === "AzureLocation") {
+      const location = created.arguments[0]
+        ? evaluateExpression(
+            created.arguments[0],
+            null,
+            environment,
+            state,
+            context,
+          )
+        : null;
+      return location?.kind === "string" ? location : unknown("AzureLocation");
     }
     if (type === "ResourceGroupData") {
       const ordered = orderedArguments(created.arguments, ["location"]);
@@ -2018,7 +2096,11 @@ function executeRegion(source, baseOffset, environment, state, inherited = {}) {
       const prefix = source.slice(start, index).trim();
       const initializer =
         /=/.test(prefix) &&
-        (/\bnew\b/.test(prefix) || /\bwith\s*$/.test(prefix));
+        (
+          /\bnew\b/.test(prefix) ||
+          /\bwith\s*$/.test(prefix) ||
+          /\bis\s*$/.test(prefix)
+        );
       if (initializer) {
         if (!finishIf()) return { normal: false, value: null };
         index = close;
@@ -3294,6 +3376,22 @@ function usefulRequestCatch(caught, analysis) {
   );
 }
 
+function reportsCaughtExceptionAndTerminates(caught) {
+  if (!caught.caughtName) return false;
+  const name = escapeRegExp(caught.caughtName);
+  const reports = new RegExp(
+    String.raw`\b(?:(?:System\s*\.\s*)?Console\s*\.\s*(?:Error\s*\.\s*|Out\s*\.\s*)?(?:Write|WriteLine)|(?:System\s*\.\s*Diagnostics\s*\.\s*)?(?:Debug|Trace)\s*\.\s*(?:Write|WriteLine|Trace\w*)|\w+(?:\s*\.\s*\w+)*\s*\.\s*Log(?:Trace|Debug|Information|Warning|Error|Critical)?)\s*\([^;]*\b${name}\b`,
+  ).test(caught.body);
+  if (!reports) return false;
+  const terminating = caught.body
+    .replace(/\breturn\s+[1-9]\d*\s*;/g, "throw;")
+    .replace(
+      /\bEnvironment\s*\.\s*Exit\s*\(\s*[1-9]\d*\s*\)\s*;/g,
+      "throw;",
+    );
+  return csharpHandlerAlwaysCausal(terminating, caught.caughtName);
+}
+
 function attachedCatches(code, blockEnd) {
   const catches = [];
   let index = blockEnd;
@@ -3345,7 +3443,8 @@ function hasRequestFailedHandling(analysis) {
     (caught) =>
       !reachableCatches.has(caught.start) ||
       protectedCatches.has(caught.start) ||
-      csharpHandlerAlwaysCausal(caught.body, caught.caughtName),
+      csharpHandlerAlwaysCausal(caught.body, caught.caughtName) ||
+      reportsCaughtExceptionAndTerminates(caught),
   );
 }
 

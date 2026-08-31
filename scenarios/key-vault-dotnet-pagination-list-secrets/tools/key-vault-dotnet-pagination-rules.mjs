@@ -833,21 +833,41 @@ function catchesAfter(source, tryClose) {
   return catches;
 }
 
-function usefulCatch(caught) {
-  const variable = escapeRegExp(caught.variable);
+function usefulCatch(caught, methods) {
+  const expanded = expandInvocations(caught.body, methods);
+  const aliases = new Set([caught.variable]);
+  let changed = true;
+  while (changed) {
+    changed = false;
+    for (const match of expanded.matchAll(
+      /\b(?:var|[\w.:<>?[\]]+)\s+(\w+)\s*=\s*(\w+)\s*;/g,
+    )) {
+      if (aliases.has(match[2]) && !aliases.has(match[1])) {
+        aliases.add(match[1]);
+        changed = true;
+      }
+    }
+  }
   return (
-    new RegExp(String.raw`\b${variable}\s*\.\s*Status\b`).test(caught.body) &&
-    new RegExp(
-      String.raw`\b${variable}\s*\.\s*(?:ErrorCode|Message)\b`,
-    ).test(caught.body) &&
+    [...aliases].some((name) =>
+      new RegExp(
+        String.raw`\b${escapeRegExp(name)}\s*\.\s*Status\b`,
+      ).test(expanded)
+    ) &&
+    [...aliases].some((name) =>
+      new RegExp(
+        String.raw`\b${escapeRegExp(name)}\s*\.\s*(?:ErrorCode|Message)\b`,
+      ).test(expanded)
+    ) &&
     (
-      consoleArguments(caught.body).length > 0 ||
-      /\bthrow\b/.test(caught.body)
+      consoleArguments(expanded).length > 0 ||
+      /\bthrow\b/.test(expanded)
     )
   );
 }
 
 function paginationIsHandled(source, methods, clients) {
+  const protectedKinds = new Set();
   for (const match of source.matchAll(/\btry\s*\{/g)) {
     const open = match.index + match[0].lastIndexOf("{");
     const close = matchingDelimiter(source, open, "{", "}");
@@ -856,14 +876,13 @@ function paginationIsHandled(source, methods, clients) {
     const kinds = new Set(
       analyzeFlows(expanded, methods, clients).map(({ kind }) => kind),
     );
-    if (
-      ["async-items", "async-pages", "sync"].every((kind) => kinds.has(kind)) &&
-      catchesAfter(source, close).some(usefulCatch)
-    ) {
-      return true;
+    if (catchesAfter(source, close).some((caught) => usefulCatch(caught, methods))) {
+      for (const kind of kinds) protectedKinds.add(kind);
     }
   }
-  return false;
+  return ["async-items", "async-pages", "sync"].every((kind) =>
+    protectedKinds.has(kind)
+  );
 }
 
 function analyzeProject(project) {

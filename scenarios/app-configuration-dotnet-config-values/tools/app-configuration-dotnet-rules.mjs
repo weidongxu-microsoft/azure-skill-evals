@@ -2,7 +2,9 @@ const rules = {
   "prompt/app-configuration-package": ({ project }) =>
     /<PackageReference\s+Include="Azure\.Data\.AppConfiguration"/.test(project),
   "prompt/configuration-client": ({ source }) =>
-    /\bnew\s+ConfigurationClient\s*\(/.test(source),
+    /\b(?:new\s+ConfigurationClient|ConfigurationClient\s+\w+\s*=\s*new)\s*\(/.test(
+      source,
+    ),
   "prompt/set-settings": ({ source }) =>
     /\.SetConfigurationSetting(?:Async)?\s*\(/.test(source) &&
     /["']app:Settings:FontSize["']/.test(source) &&
@@ -21,6 +23,9 @@ const rules = {
     (/\b(?:var|FeatureFlagConfigurationSetting)\s+(\w+)\s*=\s*new\s+FeatureFlagConfigurationSetting\s*\([\s\S]{0,160}?["']BetaFeature["'][\s\S]{0,120}?(?:isEnabled\s*:\s*)?true[\s\S]{0,240}?\.SetConfigurationSetting(?:Async)?\s*\(\s*\1\s*\)/.test(
       source,
     ) ||
+      /\bFeatureFlagConfigurationSetting\s+(\w+)\s*=\s*new\s*\([\s\S]{0,160}?["']BetaFeature["'][\s\S]{0,120}?(?:isEnabled\s*:\s*)?true[\s\S]{0,240}?\.SetConfigurationSetting(?:Async)?\s*\(\s*\1\s*\)/.test(
+        source,
+      ) ||
       /\.SetConfigurationSetting(?:Async)?\s*\(\s*new\s+FeatureFlagConfigurationSetting\s*\([\s\S]{0,160}?["']BetaFeature["'][\s\S]{0,120}?(?:isEnabled\s*:\s*)?true/.test(
         source,
       )),

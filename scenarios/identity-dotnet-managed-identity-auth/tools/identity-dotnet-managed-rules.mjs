@@ -292,6 +292,47 @@ function environmentValue(expression, state) {
   return { kind: "unknown" };
 }
 
+function bindAbsoluteUriTryCreate(condition, state) {
+  let expression = condition.trim();
+  if (/^if\b/.test(expression)) {
+    const open = expression.indexOf("(");
+    const close = open >= 0
+      ? matchingDelimiter(expression, open, "(", ")")
+      : -1;
+    if (close < 0) return;
+    expression = expression.slice(open + 1, close).trim();
+  }
+  const match =
+    /\b((?:global::)?[\w.:]+)\s*\.\s*TryCreate\s*\(([\s\S]*)\)\s*\)?\s*$/.exec(
+      stripOuterParentheses(expression.replace(/^\s*!\s*/, "")),
+    );
+  if (
+    !match ||
+    canonicalType(match[1], state.aliases) !== "Uri"
+  ) {
+    return;
+  }
+  const argumentsList = splitArguments(match[2]);
+  if (
+    argumentsList.length < 3 ||
+    !/\bUriKind\s*\.\s*Absolute\b/.test(argumentsList[1])
+  ) {
+    return;
+  }
+  const output =
+    /^\s*out\s+(?:(?:var|(?:global::)?[\w.:<>?]+)\s+)?(\w+)\s*$/.exec(
+      argumentsList[2],
+    );
+  const endpoint = evaluateExpression(argumentsList[0], null, state);
+  if (
+    !output ||
+    !["endpoint", "endpoint-value"].includes(endpoint?.kind)
+  ) {
+    return;
+  }
+  bindValue(state, output[1], { kind: "endpoint" }, true, false);
+}
+
 function constructor(expression, expectedType, aliases) {
   const value = stripOuterParentheses(expression);
   const match = /^\s*new\s*([\w:.]+)?\s*(\(|\{)/.exec(value);
@@ -777,6 +818,7 @@ function analyze(source) {
         initializerBraces += 1;
         statement += character;
       } else {
+        bindAbsoluteUriTryCreate(statement, state);
         statement = "";
         state.scopes.push(new Map());
       }

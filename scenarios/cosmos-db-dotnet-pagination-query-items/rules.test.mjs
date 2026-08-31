@@ -16,6 +16,11 @@ import {
 const goldenRoot = fileURLToPath(new URL("./golden", import.meta.url));
 const completeWorkspace = loadWorkspace(goldenRoot);
 const sharedWorkspace = loadDotnetWorkspace(goldenRoot);
+const baselineRoot = fileURLToPath(
+  new URL("./fixtures/baseline-33374429826", import.meta.url),
+);
+const baseline33374429826 = loadWorkspace(baselineRoot);
+const baselineShared33374429826 = loadDotnetWorkspace(baselineRoot);
 
 function workspace(source, project = completeWorkspace.project) {
   return {
@@ -34,6 +39,19 @@ test("golden passes six prompt rules and every shared .NET check", () => {
   }
   for (const check of dotnetCheckNames()) {
     assert.equal(evaluateDotnetCheck(check, sharedWorkspace), true, check);
+  }
+});
+
+test("baseline run 33374429826 exact output passes every grader", () => {
+  for (const rule of ruleNames()) {
+    assert.equal(evaluateRule(rule, baseline33374429826), true, rule);
+  }
+  for (const check of dotnetCheckNames()) {
+    assert.equal(
+      evaluateDotnetCheck(check, baselineShared33374429826),
+      true,
+      check,
+    );
   }
 });
 
@@ -157,6 +175,51 @@ query.WithParameter("@kind", "electronics");`,
 
   assert.equal(evaluateRule("prompt/category-query", workspace(source)), true);
   assert.equal(evaluateRule("prompt/feed-pagination", workspace(source)), true);
+});
+
+test("continuation tokens returned by reachable argument parsers are accepted", () => {
+  const source = completeWorkspace.source.replace(
+    `string? resumeToken =
+    Environment.GetEnvironmentVariable("COSMOS_CONTINUATION_TOKEN");`,
+    `string? resumeToken = ParseContinuationToken(args);
+
+static string? ParseContinuationToken(string[] arguments)
+{
+    if (arguments.Length == 0)
+    {
+        return null;
+    }
+    return arguments[0];
+}`,
+  );
+
+  assert.equal(
+    evaluateRule("prompt/continuation-resume", workspace(source)),
+    true,
+  );
+});
+
+test("hard-coded and disconnected helper tokens remain rejected", () => {
+  const variants = [
+    completeWorkspace.source.replace(
+      "string? resumeToken = args.Length > 0 ? args[0] : null;",
+      `string? resumeToken = ParseContinuationToken(args);
+static string? ParseContinuationToken(string[] arguments) => "fixed-token";`,
+    ),
+    completeWorkspace.source.replace(
+      "string? resumeToken = args.Length > 0 ? args[0] : null;",
+      `string[] unrelated = ["fixed-token"];
+string? resumeToken = ParseContinuationToken(unrelated);
+static string? ParseContinuationToken(string[] arguments) => arguments[0];`,
+    ),
+  ];
+
+  for (const source of variants) {
+    assert.equal(
+      evaluateRule("prompt/continuation-resume", workspace(source)),
+      false,
+    );
+  }
 });
 
 test("comments, strings, fake SDK types, and unreachable helpers fail", () => {

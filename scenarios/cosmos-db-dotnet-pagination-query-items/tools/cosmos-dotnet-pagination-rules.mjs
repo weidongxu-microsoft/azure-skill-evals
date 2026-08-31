@@ -117,17 +117,48 @@ function literalAwareCode(source) {
     const contentStart = index + 1;
     let value = "";
     let closeIndex = -1;
+    let interpolationDepth = 0;
     for (let cursor = contentStart; cursor < source.length; cursor += 1) {
       if (verbatim && source[cursor] === '"' && source[cursor + 1] === '"') {
         value += '"';
         cursor += 1;
+      } else if (
+        interpolated &&
+        source[cursor] === "{" &&
+        source[cursor + 1] !== "{"
+      ) {
+        interpolationDepth += 1;
+        value += source[cursor];
+      } else if (
+        interpolated &&
+        source[cursor] === "}" &&
+        source[cursor + 1] !== "}" &&
+        interpolationDepth > 0
+      ) {
+        interpolationDepth -= 1;
+        value += source[cursor];
+      } else if (
+        interpolated &&
+        interpolationDepth > 0 &&
+        source[cursor] === '"'
+      ) {
+        value += source[cursor];
+        for (cursor += 1; cursor < source.length; cursor += 1) {
+          value += source[cursor];
+          if (source[cursor] === "\\") {
+            cursor += 1;
+            value += source[cursor] ?? "";
+          } else if (source[cursor] === '"') {
+            break;
+          }
+        }
       } else if (!verbatim && source[cursor] === "\\") {
         const escaped = source[cursor + 1] ?? "";
         value +=
           { n: "\n", r: "\r", t: "\t", "\\": "\\", '"': '"' }[escaped] ??
           escaped;
         cursor += 1;
-      } else if (source[cursor] === '"') {
+      } else if (source[cursor] === '"' && interpolationDepth === 0) {
         closeIndex = cursor;
         break;
       } else {
@@ -251,7 +282,7 @@ function typeDeclarations(source) {
 function methodDeclarations(source) {
   const methods = [];
   const pattern =
-    /\b((?:(?:public|private|protected|internal|static|async|virtual|sealed|new|unsafe)\s+)*)((?:(?:(?:global::)?System\.Threading\.Tasks\.)?Task(?:\s*<[^>{}]+>)?|ValueTask(?:\s*<[^>{}]+>)?|void|int|string|bool|double|[A-Z]\w*(?:\s*<[^>{}]+>)?))\s+(\w+)\s*\(([^;{}]*)\)\s*\{/g;
+    /\b((?:(?:public|private|protected|internal|static|async|virtual|sealed|new|unsafe)\s+)*)((?:(?:(?:global::)?System\.Threading\.Tasks\.)?Task(?:\s*<[^>{}]+>)?|ValueTask(?:\s*<[^>{}]+>)?|void|int|string\??|bool|double|[A-Z]\w*(?:\s*<[^>{}]+>)?))\s+(\w+)\s*\(([^;{}]*)\)\s*\{/g;
 
   for (const match of source.matchAll(pattern)) {
     const open = source.indexOf("{", match.index);
@@ -915,8 +946,35 @@ function aliasesForProperty(source, object, property) {
   return aliases;
 }
 
-function externalTokenBindings(source) {
-  const tokens = new Set();
+function helperReturnsExternalToken(
+  method,
+  argumentsSource,
+  externalTokens,
+) {
+  const externalParameters = new Set();
+  method.parameters.forEach((parameter, index) => {
+    if (
+      argumentsSource[index] &&
+      expressionUsesBinding(argumentsSource[index], externalTokens)
+    ) {
+      externalParameters.add(parameter);
+    }
+  });
+  if (externalParameters.size === 0) return false;
+
+  const returns = [...method.body.matchAll(/\breturn\s+([^;]+);/g)]
+    .map((match) => match[1].trim())
+    .filter((expression) => !/^(?:null|default(?:\s*\(\s*\))?)$/i.test(expression));
+  return (
+    returns.length > 0 &&
+    returns.every((expression) =>
+      expressionUsesBinding(expression, externalParameters)
+    )
+  );
+}
+
+function externalTokenBindings(source, methods) {
+  const tokens = new Set(["args"]);
   for (const match of source.matchAll(
     /\b(?:var|string\??)\s+(\w+)\s*=\s*([^;]+);/g,
   )) {
@@ -928,7 +986,27 @@ function externalTokenBindings(source) {
       tokens.add(match[1]);
     }
   }
-  addAliases(source, [tokens]);
+  let changed = true;
+  while (changed) {
+    const before = tokens.size;
+    addAliases(source, [tokens]);
+    for (const match of source.matchAll(
+      /\b(?:var|string\??)\s+(\w+)\s*=\s*(\w+)\s*\(([^;]*)\)\s*;/g,
+    )) {
+      const argumentsSource = splitArguments(match[3]);
+      if (
+        methods.some(
+          (method) =>
+            method.name === match[2] &&
+            methodAccepts(method, argumentsSource) &&
+            helperReturnsExternalToken(method, argumentsSource, tokens),
+        )
+      ) {
+        tokens.add(match[1]);
+      }
+    }
+    changed = tokens.size !== before;
+  }
   return tokens;
 }
 
@@ -1068,7 +1146,10 @@ function analyzeProject(project) {
     literalAware.literals,
   );
   const options = analyzeOptions(reachable.source);
-  const externalTokens = externalTokenBindings(reachable.source);
+  const externalTokens = externalTokenBindings(
+    reachable.source,
+    reachable.methods,
+  );
   const workflows = iteratorBindings(
     reachable.source,
     resources,

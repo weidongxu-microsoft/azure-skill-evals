@@ -16,6 +16,11 @@ import {
 const goldenRoot = fileURLToPath(new URL("./golden", import.meta.url));
 const completeWorkspace = loadWorkspace(goldenRoot);
 const sharedWorkspace = loadDotnetWorkspace(goldenRoot);
+const baselineRoot = fileURLToPath(
+  new URL("./fixtures/baseline-33374429826", import.meta.url),
+);
+const baseline33374429826 = loadWorkspace(baselineRoot);
+const baselineShared33374429826 = loadDotnetWorkspace(baselineRoot);
 
 function workspace(source, project = completeWorkspace.project) {
   return {
@@ -52,6 +57,19 @@ test("golden passes nine prompt rules and every shared .NET check", () => {
   }
   for (const check of dotnetCheckNames()) {
     assert.equal(evaluateDotnetCheck(check, sharedWorkspace), true, check);
+  }
+});
+
+test("baseline run 33374429826 exact output passes every grader", () => {
+  for (const rule of ruleNames()) {
+    assert.equal(evaluateRule(rule, baseline33374429826), true, rule);
+  }
+  for (const check of dotnetCheckNames()) {
+    assert.equal(
+      evaluateDotnetCheck(check, baselineShared33374429826),
+      true,
+      check,
+    );
   }
 });
 
@@ -367,6 +385,97 @@ test("diagnostic text on incompatible status paths cannot be combined", () => {
       "prompt/soft-delete-purge-protection",
       workspace(splitPurge),
     ),
+    false,
+  );
+});
+
+test("deleted-secret enumeration with an exact name comparison diagnoses 404", () => {
+  const source = completeWorkspace.source.replace(
+    `Response<DeletedSecret> deleted =
+                await client.GetDeletedSecretAsync(secretName);
+            Console.WriteLine(
+                $"The active secret was not found, but '{deleted.Value.Name}' " +
+                "is soft-deleted and recoverable.");`,
+    `DeletedSecret? match = null;
+            await foreach (DeletedSecret deleted in client.GetDeletedSecretsAsync())
+            {
+                if (string.Equals(
+                    deleted.Name,
+                    secretName,
+                    StringComparison.OrdinalIgnoreCase))
+                {
+                    match = deleted;
+                    break;
+                }
+            }
+            if (match is null)
+            {
+                Console.WriteLine(
+                    $"'{secretName}' is absent from active and deleted secrets.");
+                return;
+            }
+            Console.WriteLine(
+                $"'{match.Name}' is soft-deleted and recoverable.");`,
+  );
+
+  assert.equal(
+    evaluateRule("prompt/not-found-vs-deleted", workspace(source)),
+    true,
+  );
+});
+
+test("deleted-secret enumeration rejects detached and wrong-name evidence", () => {
+  const valid = completeWorkspace.source.replace(
+    /Response<DeletedSecret> deleted =\s*await client\.GetDeletedSecretAsync\(secretName\);\s*Console\.Error\.WriteLine\(\s*\$"Secret '\{deleted\.Value\.Name\}' is soft-deleted and recoverable\."\);/,
+    `await foreach (DeletedSecret deleted in client.GetDeletedSecretsAsync())
+            {
+                if (string.Equals(deleted.Name, secretName, StringComparison.Ordinal))
+                {
+                    Console.WriteLine("soft-deleted and recoverable");
+                }
+            }
+            Console.WriteLine("absent from deleted secrets");`,
+  );
+  const invalid = [
+    valid.replace("deleted.Name, secretName", "deleted.Name, otherName"),
+    valid.replace(
+      "client.GetDeletedSecretsAsync()",
+      "otherClient.GetDeletedSecretsAsync()",
+    ),
+  ];
+  invalid.forEach((source, index) => {
+    assert.equal(
+      evaluateRule("prompt/not-found-vs-deleted", workspace(source)),
+      false,
+      String(index),
+    );
+  });
+});
+
+test("reachable purge-protection predicates in catch filters are accepted", () => {
+  const source = completeWorkspace.source.replace(
+    "when (failure.Status is 403 or 409)",
+    "when (IsPurgeProtectionFailure(failure))",
+  ) + `
+static bool IsPurgeProtectionFailure(RequestFailedException failure)
+{
+    if (failure.Status is not (403 or 409))
+    {
+        return false;
+    }
+    return failure.Message.Contains("purge protection");
+}`;
+  assert.equal(
+    evaluateRule("prompt/soft-delete-purge-protection", workspace(source)),
+    true,
+  );
+
+  const detached = source.replace(
+    "IsPurgeProtectionFailure(failure)",
+    "IsPurgeProtectionFailure(otherFailure)",
+  );
+  assert.equal(
+    evaluateRule("prompt/soft-delete-purge-protection", workspace(detached)),
     false,
   );
 });

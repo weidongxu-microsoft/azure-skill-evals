@@ -16,6 +16,7 @@ const sdkTypeNamespaces = new Map([
 const sdkTypes = [...sdkTypeNamespaces.keys()];
 const operationNames = [
   "GetDeletedSecretAsync",
+  "GetDeletedSecretsAsync",
   "GetSecretAsync",
   "PurgeDeletedSecretAsync",
   "RecoverDeletedSecretAsync",
@@ -821,12 +822,16 @@ function operationsIn(source, bindings) {
   const operation = operationNames.join("|");
   for (const match of source.matchAll(
     new RegExp(
-      String.raw`\b(?:var|[\w.:<>?[\]]+)\s+(\w+)\s*=\s*await\s+(\w+)\s*\.\s*(${operation})(?:\s*<[^;{}()]+>)?\s*\(`,
+      String.raw`\b(?:var|[\w.:<>?[\]]+)\s+(\w+)\s*=\s*\(*\s*await\s+(\w+)\s*\.\s*(${operation})(?:\s*<[^;{}()]+>)?\s*\(`,
       "g",
     ),
   )) {
     if (bindings.clients.has(match[2])) {
+      const open = source.indexOf("(", match.index);
+      const close = matchingDelimiter(source, open, "(", ")");
       operations.push({
+        arguments:
+          close >= 0 ? splitArguments(source.slice(open + 1, close)) : [],
         method: match[3],
         receiver: match[2],
         response: match[1],
@@ -840,9 +845,29 @@ function operationsIn(source, bindings) {
     ),
   )) {
     if (bindings.clients.has(match[1])) {
+      const open = source.indexOf("(", match.index);
+      const close = matchingDelimiter(source, open, "(", ")");
       operations.push({
+        arguments:
+          close >= 0 ? splitArguments(source.slice(open + 1, close)) : [],
         method: match[2],
         receiver: match[1],
+        response: null,
+      });
+    }
+  }
+  for (const match of source.matchAll(
+    new RegExp(
+      String.raw`\bawait\s+foreach\s*\(\s*(?:SdkDeletedSecret|var)\s+(\w+)\s+in\s+(\w+)\s*\.\s*GetDeletedSecretsAsync\s*\(`,
+      "g",
+    ),
+  )) {
+    if (bindings.clients.has(match[2])) {
+      operations.push({
+        arguments: [],
+        item: match[1],
+        method: "GetDeletedSecretsAsync",
+        receiver: match[2],
         response: null,
       });
     }
@@ -1006,10 +1031,42 @@ function statusRegionForName(caught, status, failureName) {
   return null;
 }
 
-function statusRegion(caught, status) {
+function statusRegion(caught, status, methods = []) {
   for (const name of failureNames(caught)) {
     const region = statusRegionForName(caught, status, name);
     if (region !== null) return region;
+  }
+  if (caught.filter) {
+    for (const method of methods) {
+      if (!caught.name) continue;
+      const invocation = new RegExp(
+        String.raw`\b${escapeRegExp(method.name)}\s*\(\s*${escapeRegExp(caught.name)}\s*\)`,
+      );
+      if (!invocation.test(caught.filter)) continue;
+      const parameter = method.parameters[0];
+      if (!parameter) continue;
+      if (
+        new RegExp(
+          String.raw`\b${escapeRegExp(parameter)}\s*\.\s*Status\b[\s\S]*?${statusTokens[status]}|${statusTokens[status]}[\s\S]*?\b${escapeRegExp(parameter)}\s*\.\s*Status\b`,
+        ).test(withoutDeadCode(method.body))
+      ) {
+        return `${method.body}\n${caught.body}`;
+      }
+    }
+    const expandedFilter = expandInvocations(caught.filter, methods);
+    const linked = {
+      ...caught,
+      body: expandedFilter,
+    };
+    if (
+      failureNames(linked).some((name) =>
+        new RegExp(
+          String.raw`\b${escapeRegExp(name)}\s*\.\s*Status\b[\s\S]*?${statusTokens[status]}|${statusTokens[status]}[\s\S]*?\b${escapeRegExp(name)}\s*\.\s*Status\b`,
+        ).test(expandedFilter)
+      )
+    ) {
+      return `${expandedFilter}\n${caught.body}`;
+    }
   }
   return null;
 }
@@ -1169,22 +1226,58 @@ function hasThrottleHandling(workflow, literals) {
 
 function hasNotFoundDiagnosis(workflow, literals) {
   if (!workflowHasOperation(workflow, "GetSecretAsync")) return false;
-  const originalReceivers = new Set(
-    workflow.operations
-      .filter(({ method }) => method === "GetSecretAsync")
-      .map(({ receiver }) => receiver),
+  const originalGets = workflow.operations.filter(
+    ({ method }) => method === "GetSecretAsync",
+  );
+  const originalReceivers = new Set(originalGets.map(({ receiver }) => receiver));
+  const originalNames = new Set(
+    originalGets
+      .map(({ arguments: args }) => args?.[0]?.replace(/\s+/g, ""))
+      .filter(Boolean),
   );
   for (const caught of workflow.catches) {
     const region = statusRegion(caught, 404);
     if (!meaningfulStatusRegion(region)) continue;
     const expanded = expandInvocations(region, workflow.methods);
+    for (const enumeration of expanded.matchAll(
+      /\bawait\s+foreach\s*\(\s*(?:SdkDeletedSecret|var)\s+(\w+)\s+in\s+(\w+)\s*\.\s*GetDeletedSecretsAsync\s*\(/g,
+    )) {
+      if (!originalReceivers.has(enumeration[2])) continue;
+      const item = escapeRegExp(enumeration[1]);
+      const exactName = [...originalNames].some((name) => {
+        const escapedName = escapeRegExp(name);
+        return (
+          new RegExp(
+            String.raw`\bstring\s*\.\s*Equals\s*\(\s*${item}\s*\.\s*Name\s*,\s*${escapedName}\s*,\s*StringComparison\s*\.\s*Ordinal(?:IgnoreCase)?\s*\)`,
+          ).test(expanded) ||
+          new RegExp(
+            String.raw`(?:\b${item}\s*\.\s*Name\s*==\s*${escapedName}\b|\b${escapedName}\s*==\s*${item}\s*\.\s*Name\b)`,
+          ).test(expanded)
+        );
+      });
+      if (
+        exactName &&
+        outputHasTerms(
+          expanded,
+          literals,
+          /\b(?:soft[- ]?deleted|deleted)\b/,
+        ) &&
+        outputHasTerms(
+          expanded,
+          literals,
+          /\b(?:absent|not found|does not exist|never existed|missing)\b/,
+        )
+      ) {
+        return true;
+      }
+    }
     const nested = collectWorkflows(
       expanded,
       workflow.bindings,
       workflow.methods,
     );
     for (const candidate of nested) {
-      const deletedLookup = candidate.operations.some(
+      const deletedLookup = candidate.operations.find(
         ({ method, receiver }) =>
           method === "GetDeletedSecretAsync" &&
           originalReceivers.has(receiver),
@@ -1207,6 +1300,40 @@ function hasNotFoundDiagnosis(workflow, literals) {
         );
       });
       if (missing) return true;
+
+      const deletedEnumeration = candidate.operations.find(
+        ({ method, receiver }) =>
+          method === "GetDeletedSecretsAsync" &&
+          originalReceivers.has(receiver),
+      );
+      if (!deletedEnumeration?.item || originalNames.size === 0) continue;
+      const item = escapeRegExp(deletedEnumeration.item);
+      const exactName = [...originalNames].some((name) => {
+        const escapedName = escapeRegExp(name);
+        return (
+          new RegExp(
+            String.raw`\bstring\s*\.\s*Equals\s*\(\s*${item}\s*\.\s*Name\s*,\s*${escapedName}\s*,\s*StringComparison\s*\.\s*Ordinal(?:IgnoreCase)?\s*\)`,
+          ).test(candidate.tryBody) ||
+          new RegExp(
+            String.raw`(?:\b${item}\s*\.\s*Name\s*==\s*${escapedName}\b|\b${escapedName}\s*==\s*${item}\s*\.\s*Name\b)`,
+          ).test(candidate.tryBody)
+        );
+      });
+      if (
+        exactName &&
+        outputHasTerms(
+          candidate.tryBody,
+          literals,
+          /\b(?:soft[- ]?deleted|deleted)\b/,
+        ) &&
+        outputHasTerms(
+          candidate.tryBody,
+          literals,
+          /\b(?:absent|not found|does not exist|never existed|missing)\b/,
+        )
+      ) {
+        return true;
+      }
     }
   }
   return false;
@@ -1233,9 +1360,36 @@ function hasSoftDeleteAndPurgeProtection(analysis) {
     if (!workflowHasOperation(workflow, "PurgeDeletedSecretAsync")) {
       return false;
     }
-    return workflow.catches.some((caught) =>
-      [403, 409].some((status) => {
-        const region = statusRegion(caught, status);
+    return workflow.catches.some((caught) => {
+      const helperPredicate = workflow.methods.some((method) => {
+        if (!caught.name || method.parameters.length === 0) return false;
+        const call = new RegExp(
+          String.raw`\b${escapeRegExp(method.name)}\s*\(\s*${escapeRegExp(caught.name)}\s*\)`,
+        );
+        if (!call.test(caught.filter)) return false;
+        const parameter = escapeRegExp(method.parameters[0]);
+        const body = withoutDeadCode(method.body);
+        return (
+          new RegExp(
+            String.raw`\b${parameter}\s*\.\s*Status\b`,
+          ).test(body) &&
+          /\b403\b/.test(body) &&
+          /\b409\b/.test(body) &&
+          /\breturn\b/.test(body)
+        );
+      });
+      if (
+        helperPredicate &&
+        outputHasTerms(
+          caught.body,
+          analysis.literals,
+          /\bpurge protection\b/,
+        )
+      ) {
+        return true;
+      }
+      return [403, 409].some((status) => {
+        const region = statusRegion(caught, status, workflow.methods);
         const expanded = region && expandInvocations(
           region,
           workflow.methods,
@@ -1248,8 +1402,8 @@ function hasSoftDeleteAndPurgeProtection(analysis) {
             /\bpurge protection\b/,
           )
         );
-      })
-    );
+      });
+    });
   });
   return softDeletedName && purgeProtection;
 }

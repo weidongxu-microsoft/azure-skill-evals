@@ -10,6 +10,11 @@ import {
 
 const goldenRoot = fileURLToPath(new URL("./golden", import.meta.url));
 const completeWorkspace = loadDotnetWorkspace(goldenRoot);
+const baseline33374429826 = loadDotnetWorkspace(
+  fileURLToPath(
+    new URL("./fixtures/baseline-33374429826", import.meta.url),
+  ),
+);
 const sourceRules = ruleNames().filter(
   (name) => name !== "prompt/identity-packages",
 );
@@ -40,6 +45,12 @@ function projectManifest({
 test("managed identity golden passes every criterion", () => {
   for (const rule of ruleNames()) {
     assert.equal(evaluateRule(rule, completeWorkspace), true, rule);
+  }
+});
+
+test("baseline run 33374429826 exact output passes every grader", () => {
+  for (const rule of ruleNames()) {
+    assert.equal(evaluateRule(rule, baseline33374429826), true, rule);
   }
 });
 
@@ -551,6 +562,64 @@ var client = new BlobServiceClient(new Uri(endpoint), credential);`;
     evaluateRule("prompt/credential-client-association", workspace(source)),
     true,
   );
+});
+
+test("absolute Uri.TryCreate out variables preserve endpoint provenance", () => {
+  const source = `
+using Azure.Identity;
+using Azure.Storage.Blobs;
+
+var endpointValue = Environment.GetEnvironmentVariable(
+    "AZURE_STORAGE_BLOB_ENDPOINT");
+if (!Uri.TryCreate(endpointValue, UriKind.Absolute, out Uri? endpoint))
+{
+    throw new InvalidOperationException();
+}
+var credential = new ManagedIdentityCredential();
+var client = new BlobServiceClient(endpoint, credential);
+try
+{
+    var response = await client.GetAccountInfoAsync();
+    Console.WriteLine(response.Value.AccountKind);
+    Console.WriteLine(response.Value.SkuName);
+}
+catch (CredentialUnavailableException unavailable)
+{
+    Console.Error.WriteLine(unavailable.Message);
+}`;
+
+  for (const rule of [
+    "prompt/credential-client-association",
+    "prompt/authenticated-operation",
+    "prompt/credential-unavailable-error",
+  ]) {
+    assert.equal(evaluateRule(rule, workspace(source)), true, rule);
+  }
+});
+
+test("relative and disconnected Uri.TryCreate outputs are rejected", () => {
+  const prefix = `
+using Azure.Identity;
+using Azure.Storage.Blobs;
+var endpointValue = Environment.GetEnvironmentVariable(
+    "AZURE_STORAGE_BLOB_ENDPOINT");
+var credential = new ManagedIdentityCredential();
+`;
+  const invalid = [
+    `${prefix}
+Uri.TryCreate(endpointValue, UriKind.Relative, out Uri? endpoint);
+var client = new BlobServiceClient(endpoint, credential);`,
+    `${prefix}
+Uri.TryCreate(endpointValue, UriKind.Absolute, out Uri? parsedEndpoint);
+var client = new BlobServiceClient(endpoint, credential);`,
+  ];
+
+  for (const source of invalid) {
+    assert.equal(
+      evaluateRule("prompt/credential-client-association", workspace(source)),
+      false,
+    );
+  }
 });
 
 test("managed identity exclusion follows boolean bindings and source order", () => {
