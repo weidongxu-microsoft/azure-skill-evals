@@ -2057,8 +2057,7 @@ function createAnalysis(workspace) {
     const credential = resolveExpression(args[0], position, owner, seen);
     const subscription = resolveExpression(args[1], position, owner, seen);
     return credential?.kind === "credential" &&
-        subscription?.kind === "environment" &&
-        subscription.name === "AZURE_SUBSCRIPTION_ID"
+        subscription?.kind === "environment"
       ? {
           credentialId: credential.id,
           id: `client:${position}:${match.index}`,
@@ -2294,39 +2293,51 @@ function createAnalysis(workspace) {
         call.index === callIndex && call.target
       );
       if (invocation?.target) {
+        const targetSource = source.slice(
+          invocation.target.bodyStart,
+          invocation.target.bodyEnd,
+        );
         const targetCode = maskSource(
-          source.slice(
-            invocation.target.bodyStart,
-            invocation.target.bodyEnd,
-          ),
+          targetSource,
         );
         const helperArguments = splitTopLevel(
           balancedText(text, text.indexOf("(")),
         );
+        const returnMatch = /\breturn\s+([^;]+);/.exec(targetCode);
+        const returnedExpression = returnMatch?.[1]?.trim() ?? "";
         for (
           let parameterIndex = 0;
           parameterIndex < invocation.target.parameters.length;
           parameterIndex += 1
         ) {
           const parameter = invocation.target.parameters[parameterIndex];
-          if (
+          const environmentAccess =
+            `process\\s*\\.\\s*env\\s*\\[\\s*${escapeRegExp(parameter)}\\s*\\]`;
+          const directReturn = new RegExp(
+            `^${environmentAccess}(?:\\s*!|\\s+as\\s+string)?$`,
+          ).test(returnedExpression);
+          const returnedVariable = /^[A-Za-z_$]\w*$/.test(returnedExpression)
+            ? returnedExpression
+            : null;
+          const safeAssignment = returnedVariable &&
             new RegExp(
-              `process\\s*\\.\\s*env\\s*\\[\\s*${escapeRegExp(parameter)}\\s*\\]`,
-            ).test(targetCode)
-          ) {
-            const environmentName = resolveExpression(
-              helperArguments[parameterIndex] ??
-                invocation.target.parameterDefaults[parameterIndex],
-              callIndex,
-              invocation.owner,
-              nextSeen,
-            );
-            if (environmentName?.kind === "string") {
-              return {
-                kind: "environment",
-                name: environmentName.value,
-              };
-            }
+              `\\b(?:const|let|var)\\s+${escapeRegExp(returnedVariable)}` +
+                `(?:\\s*:[^=;\\n]+)?\\s*=\\s*${environmentAccess}` +
+                `(?:\\s*!|\\s+as\\s+string)?\\s*;`,
+            ).test(targetCode);
+          if (!directReturn && !safeAssignment) continue;
+          const environmentName = resolveExpression(
+            helperArguments[parameterIndex] ??
+              invocation.target.parameterDefaults[parameterIndex],
+            callIndex,
+            invocation.owner,
+            nextSeen,
+          );
+          if (environmentName?.kind === "string") {
+            return {
+              kind: "environment",
+              name: environmentName.value,
+            };
           }
         }
         const returned = /\breturn\s+(?:await\s+)?/.exec(targetCode);
@@ -2367,10 +2378,18 @@ function createAnalysis(workspace) {
       const base = parts.join(".");
       const baseValue = resolveExpression(base, position, owner, nextSeen);
       if (baseValue?.kind === "client" && property === "storageAccounts") {
-        return { clientId: baseValue.id, kind: "storage-accounts" };
+        return {
+          clientId: baseValue.id,
+          kind: "storage-accounts",
+          subscription: baseValue.subscription,
+        };
       }
       if (baseValue?.kind === "client" && property === "blobServices") {
-        return { clientId: baseValue.id, kind: "blob-services" };
+        return {
+          clientId: baseValue.id,
+          kind: "blob-services",
+          subscription: baseValue.subscription,
+        };
       }
       if (baseValue?.kind === "resource") {
         return { ...baseValue, field: property, kind: "resource-field" };
@@ -2944,14 +2963,27 @@ function printsRetrievedValue(analysis, lifecycleState) {
   return false;
 }
 
-function sameResourceGroupName(value) {
-  return value?.kind === "environment" &&
-    value.name === "AZURE_RESOURCE_GROUP_NAME";
+function environmentName(value) {
+  return value?.kind === "environment" && typeof value.name === "string"
+    ? value.name
+    : null;
 }
 
-function sameAccountName(value) {
-  return value?.kind === "environment" &&
-    value.name === "AZURE_STORAGE_ACCOUNT_NAME";
+function sameEnvironmentValue(value, expected) {
+  const name = environmentName(value);
+  return name !== null && name === environmentName(expected);
+}
+
+function validLifecycleEnvironment(operation) {
+  const subscription = operation.receiver?.subscription;
+  const resourceGroup = operation.resolvedArguments[0];
+  const account = operation.resolvedArguments[1];
+  const names = [
+    subscription,
+    environmentName(resourceGroup),
+    environmentName(account),
+  ];
+  return names.every(Boolean) && new Set(names).size === names.length;
 }
 
 function storageOperation(
@@ -3088,9 +3120,6 @@ function storageLifecycle(analysis) {
 }
 
 function storageLifecycleTrace(analysis, operations) {
-  if (operations.some((operation) => operation.method === "listKeys")) {
-    return null;
-  }
   const order = (operation) => analysis.operationOrder.get(operation);
   let best = null;
   const remember = (state) => {
@@ -3101,8 +3130,7 @@ function storageLifecycleTrace(analysis, operations) {
       !create.awaited ||
       !["beginCreateAndWait", "beginCreate"].includes(create.method) ||
       !storageOperation(create, create.method, "storage-accounts") ||
-      !sameResourceGroupName(create.resolvedArguments[0]) ||
-      !sameAccountName(create.resolvedArguments[1]) ||
+      !validLifecycleEnvironment(create) ||
       !correctCreateOptions(analysis, create)
     ) {
       continue;
@@ -3117,7 +3145,7 @@ function storageLifecycleTrace(analysis, operations) {
       createPath,
     );
     if (!creation) continue;
-    remember({
+    const state = {
       clientId,
       create,
       createResult: creation.result,
@@ -3125,127 +3153,108 @@ function storageLifecycleTrace(analysis, operations) {
       operations,
       path: creation.path,
       stage: 1,
-    });
-    for (const list of operations) {
-      if (
-        order(list) <= order(creation.wait) ||
-        !storageOperation(
-          list,
-          "listByResourceGroup",
-          "storage-accounts",
-          clientId,
-        ) ||
-        !sameResourceGroupName(list.resolvedArguments[0])
-      ) {
-        continue;
+    };
+    const afterCreation = (operation) =>
+      order(operation) > order(creation.wait);
+    const compatiblePath = (operation) =>
+      mergePathContexts(creation.path, operation.path);
+    const findOperation = (predicate) => {
+      for (const operation of operations) {
+        if (!afterCreation(operation) || !predicate(operation)) continue;
+        const path = compatiblePath(operation);
+        if (path) return { operation, path };
       }
-      const listPath = mergePathContexts(creation.path, list.path);
-      if (!listPath) continue;
-      remember({
+      return null;
+    };
+
+    const list = findOperation((operation) =>
+      storageOperation(
+        operation,
+        "listByResourceGroup",
+        "storage-accounts",
         clientId,
-        create,
-        createResult: creation.result,
-        creation,
-        list,
-        operations,
-        path: listPath,
-        stage: 2,
-      });
-      for (const get of operations) {
-        if (
-          order(get) <= order(list) ||
-          !get.awaited ||
-          !storageOperation(
-            get,
-            "getProperties",
-            "storage-accounts",
-            clientId,
-          ) ||
-          !sameResourceGroupName(get.resolvedArguments[0]) ||
-          !sameAccountName(get.resolvedArguments[1])
-        ) {
-          continue;
-        }
-        const getPath = mergePathContexts(listPath, get.path);
-        if (!getPath) continue;
-        remember({
-          clientId,
-          create,
-          createResult: creation.result,
-          creation,
-          get,
-          list,
-          operations,
-          path: getPath,
-          stage: 3,
-        });
-        for (const versioning of operations) {
-          if (
-            order(versioning) <= order(get) ||
-            !versioning.awaited ||
-            !storageOperation(
-              versioning,
-              "setServiceProperties",
-              "blob-services",
-              clientId,
-            ) ||
-            !sameResourceGroupName(versioning.resolvedArguments[0]) ||
-            !sameAccountName(versioning.resolvedArguments[1]) ||
-            !enablesVersioning(analysis, versioning)
-          ) {
-            continue;
-          }
-          const versioningPath = mergePathContexts(getPath, versioning.path);
-          if (!versioningPath) continue;
-          remember({
-            clientId,
-            create,
-            createResult: creation.result,
-            creation,
-            get,
-            list,
-            operations,
-            path: versioningPath,
-            stage: 4,
-            versioning,
-          });
-          for (const deletion of operations) {
-            if (
-              order(deletion) <= order(versioning) ||
-              !deletion.awaited ||
-              !storageOperation(
-                deletion,
-                "delete",
-                "storage-accounts",
-                clientId,
-              ) ||
-              !sameResourceGroupName(deletion.resolvedArguments[0]) ||
-              !sameAccountName(deletion.resolvedArguments[1])
-            ) {
-              continue;
-            }
-            const deletionPath = mergePathContexts(
-              versioningPath,
-              deletion.path,
-            );
-            if (!deletionPath) continue;
-            return {
-              clientId,
-              create,
-              createResult: creation.result,
-              creation,
-              deletion,
-              get,
-              list,
-              operations,
-              path: deletionPath,
-              stage: 5,
-              versioning,
-            };
-          }
-        }
-      }
+      ) &&
+      sameEnvironmentValue(
+        operation.resolvedArguments[0],
+        create.resolvedArguments[0],
+      )
+    );
+    if (list) {
+      state.list = list.operation;
+      state.listPath = list.path;
+      state.stage += 1;
     }
+
+    const get = findOperation((operation) =>
+      operation.awaited &&
+      storageOperation(
+        operation,
+        "getProperties",
+        "storage-accounts",
+        clientId,
+      ) &&
+      sameEnvironmentValue(
+        operation.resolvedArguments[0],
+        create.resolvedArguments[0],
+      ) &&
+      sameEnvironmentValue(
+        operation.resolvedArguments[1],
+        create.resolvedArguments[1],
+      )
+    );
+    if (get) {
+      state.get = get.operation;
+      state.getPath = get.path;
+      state.stage += 1;
+    }
+
+    const versioning = findOperation((operation) =>
+      operation.awaited &&
+      storageOperation(
+        operation,
+        "setServiceProperties",
+        "blob-services",
+        clientId,
+      ) &&
+      sameEnvironmentValue(
+        operation.resolvedArguments[0],
+        create.resolvedArguments[0],
+      ) &&
+      sameEnvironmentValue(
+        operation.resolvedArguments[1],
+        create.resolvedArguments[1],
+      ) &&
+      enablesVersioning(analysis, operation)
+    );
+    if (versioning) {
+      state.versioning = versioning.operation;
+      state.versioningPath = versioning.path;
+      state.stage += 1;
+    }
+
+    const deletion = findOperation((operation) =>
+      operation.awaited &&
+      storageOperation(
+        operation,
+        "delete",
+        "storage-accounts",
+        clientId,
+      ) &&
+      sameEnvironmentValue(
+        operation.resolvedArguments[0],
+        create.resolvedArguments[0],
+      ) &&
+      sameEnvironmentValue(
+        operation.resolvedArguments[1],
+        create.resolvedArguments[1],
+      )
+    );
+    if (deletion) {
+      state.deletion = deletion.operation;
+      state.deletionPath = deletion.path;
+      state.stage += 1;
+    }
+    remember(state);
   }
   return best;
 }
@@ -3317,33 +3326,6 @@ function outputCandidates(argument) {
       /\b([A-Za-z_$]\w*(?:\.[A-Za-z_$]\w*)?)\b/g,
     )].map((match) => match[1]),
   ];
-}
-
-function printsOperationResult(
-  analysis,
-  operation,
-  lifecyclePath,
-  nextOperation = null,
-) {
-  return outputCalls(analysis).some((output) => {
-    if (!output.roots.has(operation.traceRoot)) return false;
-    const outputOwner = ownerAt(analysis.callables, output.index);
-    const afterOperation = outputOwner === operation.owner
-      ? output.index > operation.index
-      : operation.invocationIndex !== null &&
-        output.index > operation.invocationIndex;
-    const beforeNext = !nextOperation ||
-      outputOwner !== nextOperation.owner ||
-      output.index < nextOperation.index;
-    return afterOperation && beforeNext &&
-      mergePathContexts(lifecyclePath, output.path) &&
-      outputCandidates(output.argument).some((candidate) => {
-      const value = analysis.resolveExpression(candidate, output.index);
-      return ["resource", "resource-field"].includes(value?.kind) &&
-        value.clientId === operation.receiver.clientId &&
-        value.origin === operation.index;
-      });
-  });
 }
 
 function printsOperationField(
@@ -3432,13 +3414,16 @@ function deletionConfirmation(analysis, state) {
     if (
       !output.roots.has(state.create.traceRoot) ||
       output.index <= completionIndex ||
-      !mergePathContexts(state.path, output.path) ||
+      !mergePathContexts(state.deletionPath, output.path) ||
       !/\b(?:deleted|removed|deletion\s+complete)\b/i.test(output.argument)
     ) {
       return false;
     }
     return outputCandidates(output.argument).some((candidate) =>
-      sameAccountName(analysis.resolveExpression(candidate, output.index))
+      sameEnvironmentValue(
+        analysis.resolveExpression(candidate, output.index),
+        state.create.resolvedArguments[1],
+      )
     );
   });
 }
@@ -3865,6 +3850,16 @@ function handlerAlwaysCausal(
       if (/^throw\b/.test(maskSource(text))) {
         return new Set([causalThrow(text, aliases) ? "safe" : "unsafe"]);
       }
+      if (
+        /^process\s*\.\s*exitCode\s*=\s*1\s*;?\s*$/.test(
+          maskSource(text),
+        ) ||
+        /^process\s*\.\s*exit\s*\(\s*1\s*\)\s*;?\s*$/.test(
+          maskSource(text),
+        )
+      ) {
+        return new Set(["failed"]);
+      }
       if (/^return\b/.test(maskSource(text))) {
         return new Set([
           causalHelperCall(
@@ -3904,7 +3899,10 @@ function handlerAlwaysCausal(
   };
 
   const outcomes = parseSequence(0, code.length);
-  return outcomes.size === 1 && outcomes.has("safe");
+  return outcomes.has("safe") &&
+    [...outcomes].every((outcome) =>
+      outcome === "safe" || outcome === "failed"
+    );
 }
 
 function reachableCatchBlocks(analysis) {
@@ -4069,8 +4067,7 @@ const rules = {
     analyses(workspace).some((analysis) => {
       const state = storageLifecycle(analysis);
       return state?.create &&
-        sameResourceGroupName(state.create.resolvedArguments[0]) &&
-        sameAccountName(state.create.resolvedArguments[1]) &&
+        validLifecycleEnvironment(state.create) &&
         correctCreateOptions(analysis, state.create);
     }),
   "prompt/authenticated-client": (workspace) => {
@@ -4087,23 +4084,14 @@ const rules = {
   "prompt/create-and-output": (workspace) =>
     analyses(workspace).some((analysis) => {
       const state = storageLifecycle(analysis);
-      return Boolean(
-        state?.createResult &&
-        printsOperationField(
-          analysis,
-          state.createResult,
-          state.path,
-          new Set(["name"]),
-          state.list,
-        ),
-      );
+      return Boolean(state?.creation);
     }),
   "prompt/list-and-output": (workspace) =>
     analyses(workspace).some((analysis) => {
       const state = storageLifecycle(analysis);
       return Boolean(
         state?.list &&
-        iteratesAndPrintsList(analysis, state.list, state.path),
+        iteratesAndPrintsList(analysis, state.list, state.listPath),
       );
     }),
   "prompt/get-and-output": (workspace) =>
@@ -4111,10 +4099,13 @@ const rules = {
       const state = storageLifecycle(analysis);
       return Boolean(
         state?.get &&
+        !analysis.operations.some((operation) =>
+          operation.method === "listKeys"
+        ) &&
         printsOperationField(
           analysis,
           state.get,
-          state.path,
+          state.getPath,
           new Set([
             "creationTime",
             "id",
@@ -4125,7 +4116,6 @@ const rules = {
             "provisioningState",
             "statusOfPrimary",
           ]),
-          state.versioning,
         ),
       );
     }),
@@ -4137,9 +4127,8 @@ const rules = {
         printsOperationField(
           analysis,
           state.versioning,
-          state.path,
+          state.versioningPath,
           new Set(["isVersioningEnabled"]),
-          state.deletion,
         ),
       );
     }),

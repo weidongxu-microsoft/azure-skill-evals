@@ -25,6 +25,9 @@ import {
 
 const goldenPath = fileURLToPath(new URL("./golden", import.meta.url));
 const golden = loadSourceManifest(goldenPath);
+const baseline = loadSourceManifest(
+  fileURLToPath(new URL("./fixtures/baseline-33403910898", import.meta.url)),
+);
 const scenarioPath = dirname(fileURLToPath(import.meta.url));
 let workspaceNumber = 0;
 
@@ -179,6 +182,15 @@ test("reference has exactly nine passing prompt criteria", () => {
 test("reference passes reusable TypeScript checks", () => {
   for (const check of typeScriptCheckNames()) {
     assert.equal(evaluateTypeScriptCheck(check, golden), true, check);
+  }
+});
+
+test("baseline 33403910898 workspace passes every grader", () => {
+  for (const rule of ruleNames()) {
+    assert.equal(evaluateRule(rule, baseline), true, rule);
+  }
+  for (const check of typeScriptCheckNames()) {
+    assert.equal(evaluateTypeScriptCheck(check, baseline), true, check);
   }
 });
 
@@ -477,26 +489,59 @@ test("type-only and shadowed constructors do not authenticate clients", () => {
   );
 });
 
-test("environment values and client mutations are followed", () => {
-  const wrongValues = [
-    ["AZURE_SUBSCRIPTION_ID", "SUBSCRIPTION_ID", "prompt/authenticated-client"],
-    ["AZURE_RESOURCE_GROUP_NAME", "RESOURCE_GROUP", "prompt/environment"],
-    ["AZURE_STORAGE_ACCOUNT_NAME", "STORAGE_ACCOUNT", "prompt/environment"],
-    ['const location = "eastus";', 'const location = "westus";', "prompt/environment"],
-  ];
-  for (const [from, to, rule] of wrongValues) {
-    assert.equal(
-      evaluateRule(rule, withSource(program().source.replace(from, to))),
-      false,
-      `${from} -> ${to}`,
-    );
+test("environment roles accept arbitrary names and reject unsafe values", () => {
+  const alternateNames = program().source
+    .replaceAll("AZURE_SUBSCRIPTION_ID", "TENANT_SUBSCRIPTION")
+    .replaceAll("AZURE_RESOURCE_GROUP_NAME", "DEPLOYMENT_GROUP")
+    .replaceAll("AZURE_STORAGE_ACCOUNT_NAME", "LIFECYCLE_ACCOUNT");
+  for (const rule of ruleNames()) {
+    assert.equal(evaluateRule(rule, withSource(alternateNames)), true, rule);
   }
+
+  for (const source of [
+    program().source.replace(
+      "const subscriptionId = process.env.AZURE_SUBSCRIPTION_ID!;",
+      'const subscriptionId = "00000000-0000-0000-0000-000000000000";',
+    ),
+    program().source.replace(
+      "const resourceGroupName = process.env.AZURE_RESOURCE_GROUP_NAME!;",
+      'const resourceGroupName = process.env.DEPLOYMENT_GROUP || "fallback";',
+    ),
+    program().source.replace(
+      "const accountName = process.env.AZURE_STORAGE_ACCOUNT_NAME!;",
+      'const accountName = "hardcodedaccount";',
+    ),
+    program().source
+      .replace(
+        "async function main() {",
+        `function unsafeEnvironment(name: string) {
+  return process.env[name] || "fallback";
+}
+async function main() {`,
+      )
+      .replace(
+        "process.env.AZURE_RESOURCE_GROUP_NAME!",
+        'unsafeEnvironment("DEPLOYMENT_GROUP")',
+      ),
+  ]) {
+    assert.equal(evaluateRule("prompt/environment", withSource(source)), false);
+  }
+
   const mutation = program().source.replace(
     "const accountName = process.env.AZURE_STORAGE_ACCOUNT_NAME!;",
     "let accountName = process.env.AZURE_STORAGE_ACCOUNT_NAME!;\n" +
       '  accountName = "different";',
   );
   assert.equal(evaluateRule("prompt/environment", withSource(mutation)), false);
+
+  const wrongLocation = program().source.replace(
+    'const location = "eastus";',
+    'const location = "westus";',
+  );
+  assert.equal(
+    evaluateRule("prompt/environment", withSource(wrongLocation)),
+    false,
+  );
 });
 
 test("creation requires exact options and forbids access tiers", () => {
@@ -569,11 +614,6 @@ test("creation supports exact explicit pollUntilDone completion", () => {
 test("outputs must be observed from exact SDK results", () => {
   const mutations = [
     [
-      'console.log("Created:", created.name);',
-      'console.log("Created:", accountName);',
-      "prompt/create-and-output",
-    ],
-    [
       'console.log("Location:", properties.primaryLocation);',
       'console.log("Location:", "eastus");',
       "prompt/get-and-output",
@@ -591,6 +631,25 @@ test("outputs must be observed from exact SDK results", () => {
       rule,
     );
   }
+});
+
+test("creation requires completion but not creation-result output", () => {
+  const withoutOutput = program().source.replace(
+    '    console.log("Created:", created.name);\n',
+    "",
+  );
+  assert.equal(
+    evaluateRule("prompt/create-and-output", withSource(withoutOutput)),
+    true,
+  );
+  const unrelatedOutput = withoutOutput.replace(
+    "    for await (",
+    '    console.log("Created:", accountName);\n    for await (',
+  );
+  assert.equal(
+    evaluateRule("prompt/create-and-output", withSource(unrelatedOutput)),
+    true,
+  );
 });
 
 test("list uses async iteration in the same group and prints each name", () => {
@@ -723,6 +782,79 @@ test("delete awaits the same account before a real confirmation", () => {
   );
 });
 
+test("lifecycle criteria are isolated after a valid creation", () => {
+  const listOutputFailure = program().source.replace(
+    'console.log("Account:", account.name);',
+    'console.log("Account:", "hardcoded");',
+  );
+  assert.equal(
+    evaluateRule("prompt/list-and-output", withSource(listOutputFailure)),
+    false,
+  );
+  for (const rule of [
+    "prompt/get-and-output",
+    "prompt/versioning-and-output",
+    "prompt/delete-and-confirm",
+  ]) {
+    assert.equal(evaluateRule(rule, withSource(listOutputFailure)), true, rule);
+  }
+
+  const wrongGetAccount = program().source
+    .replace(
+      'const location = "eastus";',
+      'const otherAccount = process.env.OTHER_ACCOUNT!;\n  const location = "eastus";',
+    )
+    .replace(
+      "resourceGroupName,\n      accountName,\n    );\n    console.log(\"Location:\", properties.primaryLocation);",
+      "resourceGroupName,\n      otherAccount,\n    );\n    console.log(\"Location:\", properties.primaryLocation);",
+    );
+  assert.equal(
+    evaluateRule("prompt/get-and-output", withSource(wrongGetAccount)),
+    false,
+  );
+  for (const rule of [
+    "prompt/environment",
+    "prompt/create-and-output",
+    "prompt/list-and-output",
+    "prompt/versioning-and-output",
+    "prompt/delete-and-confirm",
+  ]) {
+    assert.equal(evaluateRule(rule, withSource(wrongGetAccount)), true, rule);
+  }
+
+  const disabledVersioning = program().source.replace(
+    "{ isVersioningEnabled: true }",
+    "{ isVersioningEnabled: false }",
+  );
+  assert.equal(
+    evaluateRule("prompt/versioning-and-output", withSource(disabledVersioning)),
+    false,
+  );
+  assert.equal(
+    evaluateRule("prompt/delete-and-confirm", withSource(disabledVersioning)),
+    true,
+  );
+});
+
+test("listKeys invalidates only the properties criterion", () => {
+  const source = program().source.replace(
+    "const properties = await client.storageAccounts.getProperties(",
+    "const keys = await client.storageAccounts.listKeys(" +
+      "resourceGroupName, accountName);\n" +
+      "    console.log(keys.keys);\n" +
+      "    const properties = await client.storageAccounts.getProperties(",
+  );
+  assert.equal(evaluateRule("prompt/get-and-output", withSource(source)), false);
+  for (const rule of [
+    "prompt/create-and-output",
+    "prompt/list-and-output",
+    "prompt/versioning-and-output",
+    "prompt/delete-and-confirm",
+  ]) {
+    assert.equal(evaluateRule(rule, withSource(source)), true, rule);
+  }
+});
+
 test("unreachable and disconnected lifecycle fakes do not count", () => {
   for (const body of [
     `    if (false) {\n${lifecycle}\n    }`,
@@ -848,6 +980,75 @@ test("error handling narrows meaningfully and preserves unknown failures", () =>
     ),
   ];
   for (const source of bad) {
+    assert.equal(
+      evaluateRule("prompt/error-handling", withSource(source)),
+      false,
+      source,
+    );
+  }
+});
+
+test("known Azure failures may terminate nonzero with an unknown fallback", () => {
+  for (const termination of [
+    "process.exitCode = 1;",
+    "process.exit(1);",
+  ]) {
+    const source = program().source.replace(
+      `if (error instanceof RestError) {
+      console.error(error.statusCode, error.message);
+    }
+    throw error;`,
+      `if (error instanceof RestError) {
+      console.error(error.statusCode, error.message);
+      ${termination}
+    } else {
+      throw error;
+    }`,
+    );
+    assert.equal(
+      evaluateRule("prompt/error-handling", withSource(source)),
+      true,
+      termination,
+    );
+  }
+
+  const causal = program().source.replace(
+    "    throw error;",
+    '    throw new Error("Storage lifecycle failed", { cause: error });',
+  );
+  assert.equal(
+    evaluateRule("prompt/error-handling", withSource(causal)),
+    true,
+  );
+});
+
+test("error handling rejects swallowed, generic, and successful failures", () => {
+  for (const source of [
+    program().source.replace("    throw error;", ""),
+    program().source
+      .replace(
+        "console.error(error.statusCode, error.message);",
+        'console.error("Azure request failed");',
+      ),
+    program().source.replace(
+      "    throw error;",
+      "    process.exitCode = 0;",
+    ),
+    program().source.replace(
+      "    throw error;",
+      "    process.exit(0);",
+    ),
+    program().source.replace(
+      `if (error instanceof RestError) {
+      console.error(error.statusCode, error.message);
+    }
+    throw error;`,
+      `if (error instanceof RestError) {
+      console.error(error.statusCode, error.message);
+      process.exitCode = 1;
+    }`,
+    ),
+  ]) {
     assert.equal(
       evaluateRule("prompt/error-handling", withSource(source)),
       false,
