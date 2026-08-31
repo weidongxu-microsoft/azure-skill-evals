@@ -668,6 +668,31 @@ function latestAssignment(context, name, position) {
   return latest;
 }
 
+function nullableResourceAt(resolver, context, expression, position) {
+  const name = unwrap(expression);
+  if (!/^[A-Za-z_$]\w*$/.test(name)) return null;
+  const latest = latestAssignment(context, name, position);
+  if (!latest || !/^(?:undefined|null)$/.test(unwrap(latest.expression))) {
+    return null;
+  }
+  const previous = latestAssignment(context, name, latest.index);
+  if (!previous) return null;
+  const resource = resolver.resolve(
+    previous.expression,
+    context,
+    previous.start,
+  );
+  return [
+    "client",
+    "sender",
+    "receiver",
+    "processor",
+    "subscription",
+  ].includes(resource?.kind)
+    ? { clearedAt: latest.index, resource }
+    : null;
+}
+
 function classOrObjectMember(context, member) {
   if (!member.startsWith("this.")) return null;
   const field = member.slice(5);
@@ -1021,9 +1046,54 @@ function enclosingLoop(module, position) {
 
 function loopCount(header) {
   const classic = header.match(
-    /^(?:let|var)\s+([A-Za-z_$]\w*)\s*=\s*(\d+)\s*;\s*\1\s*<\s*(\d+)\s*;\s*(?:\1\+\+|\+\+\1|\1\s*\+=\s*1)$/,
+    /^(?:let|var)\s+([A-Za-z_$]\w*)\s*=\s*(-?\d+)\s*;\s*([\s\S]+?)\s*;\s*([\s\S]+)$/,
   );
-  if (classic) return Number(classic[3]) - Number(classic[2]);
+  if (classic) {
+    const variable = classic[1];
+    let value = Number(classic[2]);
+    const escaped = escapeRegExp(variable);
+    const condition = classic[3].match(
+      new RegExp(
+        `^(?:${escaped}\\s*(<=|<|>=|>)\\s*(-?\\d+)|` +
+          `(-?\\d+)\\s*(<=|<|>=|>)\\s*${escaped})$`,
+      ),
+    );
+    const increment = classic[4].match(
+      new RegExp(
+        `^(?:${escaped}\\+\\+|\\+\\+${escaped}|${escaped}\\s*\\+=\\s*1)$`,
+      ),
+    )
+      ? 1
+      : classic[4].match(
+          new RegExp(
+            `^(?:${escaped}--|--${escaped}|${escaped}\\s*-=\\s*1)$`,
+          ),
+        )
+        ? -1
+        : null;
+    if (condition && increment !== null) {
+      const leftVariable = condition[1] !== undefined;
+      const operator = leftVariable ? condition[1] : condition[4];
+      const bound = Number(leftVariable ? condition[2] : condition[3]);
+      const compare = (left, right, comparison) => {
+        if (comparison === "<") return left < right;
+        if (comparison === "<=") return left <= right;
+        if (comparison === ">") return left > right;
+        return left >= right;
+      };
+      let count = 0;
+      while (
+        leftVariable
+          ? compare(value, bound, operator)
+          : compare(bound, value, operator)
+      ) {
+        count += 1;
+        value += increment;
+        if (count > 10_000) return null;
+      }
+      return count;
+    }
+  }
   const arrayFrom = header.match(
     /\bof\s+Array\.from\s*\(\s*\{\s*length\s*:\s*(\d+)\s*\}/,
   );
@@ -1078,6 +1148,22 @@ function buildAnalysis(workspace) {
       if (parts.length < 2) continue;
       const method = parts.pop();
       const receiverExpression = parts.join(".");
+      let receiver = resolver.resolve(
+        receiverExpression,
+        context,
+        call.index,
+      );
+      let receiverClearedAt = null;
+      if (!receiver && method === "close") {
+        const nullable = nullableResourceAt(
+          resolver,
+          context,
+          receiverExpression,
+          call.index,
+        );
+        receiver = nullable?.resource ?? null;
+        receiverClearedAt = nullable?.clearedAt ?? null;
+      }
       operations.push({
         ...call,
         argumentValues: call.arguments.map((argument) =>
@@ -1086,7 +1172,8 @@ function buildAnalysis(workspace) {
         context,
         method,
         order: order++,
-        receiver: resolver.resolve(receiverExpression, context, call.index),
+        receiver,
+        receiverClearedAt,
       });
     }
   }
@@ -1671,11 +1758,17 @@ function resolveHandler(analysis, operation, expression, property) {
   if (!arrow) return null;
   const opening = propertyValue.indexOf("{", arrow.index);
   const body = balancedText(propertyValue, opening, "{", "}");
+  const propertyOffset = operation.module.source.indexOf(
+    propertyValue,
+    operation.index,
+  );
+  if (propertyOffset === -1) return null;
   return {
     bodyEnd: body.length,
+    bodyOffset: propertyOffset + opening + 1,
     bodySource: body,
     bodyStart: 0,
-    module: { source: body },
+    module: operation.module,
     parameters: splitTopLevel(arrow[1] ?? arrow[2] ?? "").map((parameter) =>
       parameter.match(/^([A-Za-z_$]\w*)/)?.[1]
     ).filter(Boolean),
@@ -1722,20 +1815,23 @@ function handlerProcessesMessage(analysis, handler, subscribe) {
   if (!complete) {
     return false;
   }
-  if (handler.bodySource) {
-    return /^(?:processor|receiver|this\.processor)$/.test(complete[1]);
-  }
   const context = analysis.traceState.traces.find(
     (candidate) =>
       candidate.owner === handler &&
       candidate.root === subscribe.context.root,
   );
   const value = context
-    ? analysis.resolver.resolve(complete[1], context, handler.bodyStart)
+    ? analysis.resolver.resolve(
+        complete[1],
+        context,
+        handler.bodyOffset ?? handler.bodyStart,
+      )
     : analysis.resolver.resolve(
         complete[1],
         subscribe.context,
-        subscribe.index,
+        handler.bodyOffset === undefined
+          ? subscribe.index
+          : handler.bodyOffset + complete.index,
       );
   return value?.id === subscribe.receiver.id;
 }
@@ -1784,21 +1880,21 @@ function processorHandlers(analysis) {
     if (
       !messageHandler ||
       !errorHandler ||
-      !subscribeDisablesAutoComplete(subscribe) ||
+      subscribeEnablesAutoComplete(subscribe) ||
       !handlerProcessesMessage(analysis, messageHandler, subscribe) ||
       !handlerReportsError(errorHandler)
     ) {
       continue;
     }
 
-    function subscribeDisablesAutoComplete(subscribe) {
+    function subscribeEnablesAutoComplete(subscribe) {
       return unwrap(
         objectPropertyAt(
           subscribe,
           subscribe.arguments[1] ?? "",
           "autoCompleteMessages",
         ) ?? "",
-      ) === "false";
+      ) === "true";
     }
     const subscriptionName = declarationForCall(subscribe);
     if (!subscriptionName) continue;
@@ -2000,6 +2096,19 @@ function positionInsideAllSettled(module, position) {
   return false;
 }
 
+function positionInsideGuardedCleanup(module, position) {
+  const code = maskSource(module.source);
+  for (const match of code.matchAll(/\btry\s*\{/g)) {
+    const opening = match.index + match[0].lastIndexOf("{");
+    const closing = matchingClosing(code, opening, "{", "}");
+    if (!(opening < position && position < closing)) continue;
+    let cursor = closing + 1;
+    while (/\s/.test(code[cursor] ?? "")) cursor += 1;
+    if (code.slice(cursor, cursor + 5) === "catch") return true;
+  }
+  return false;
+}
+
 function insideFinally(operation, analysis) {
   if (positionInsideFinally(operation.module, operation.index)) return true;
   let context = operation.context;
@@ -2079,6 +2188,16 @@ function lifecycleValid(analysis) {
   const clients = [...resources.values()].filter(
     (resource) => resource.kind === "client",
   );
+  const safelyCleared = (operation) =>
+    operation.receiverClearedAt === null ||
+    analysis.operations.some(
+      (prior) =>
+        prior.method === "close" &&
+        prior.receiver?.id === operation.receiver?.id &&
+        prior.order < operation.order &&
+        prior.index < operation.receiverClearedAt &&
+        prior.awaited,
+    );
   const closes = analysis.operations.filter(
     (operation) =>
       operation.method === "close" &&
@@ -2086,7 +2205,8 @@ function lifecycleValid(analysis) {
         operation.awaited ||
         positionInsideAllSettled(operation.module, operation.index)
       ) &&
-      insideFinally(operation, analysis),
+      insideFinally(operation, analysis) &&
+      safelyCleared(operation),
   );
   if (clients.length === 0) return false;
   const closeGroups = new Map();
@@ -2097,7 +2217,9 @@ function lifecycleValid(analysis) {
   }
   for (const group of closeGroups.values()) {
     const sequential = group.filter(
-      (close) => !positionInsideAllSettled(close.module, close.index),
+      (close) =>
+        !positionInsideAllSettled(close.module, close.index) &&
+        !positionInsideGuardedCleanup(close.module, close.index),
     );
     for (let index = 0; index < sequential.length; index += 1) {
       const left = sequential[index];

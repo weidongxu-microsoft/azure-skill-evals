@@ -15,6 +15,11 @@ import {
 
 const goldenPath = fileURLToPath(new URL("./golden", import.meta.url));
 const golden = loadTypeScriptWorkspace(goldenPath);
+const baseline = loadTypeScriptWorkspace(
+  fileURLToPath(
+    new URL("./fixtures/baseline-33420505368", import.meta.url),
+  ),
+);
 
 function withSource(source, packageJson = golden.packageJson) {
   return { ...golden, packageJson, source };
@@ -380,5 +385,72 @@ await main();
   const workspace = withSource(source);
   for (const rule of ruleNames()) {
     assert.equal(evaluateRule(rule, workspace), true, rule);
+  }
+});
+
+test("audited baseline Storage workspace passes every rule", () => {
+  for (const rule of ruleNames()) {
+    assert.equal(evaluateRule(rule, baseline), true, rule);
+  }
+});
+
+test("inline stream accumulation must derive output from the download", () => {
+  const cases = [
+    baseline.source.replaceAll(
+      "downloadResponse.readableStreamBody",
+      "unrelated.readableStreamBody",
+    ),
+    baseline.source.replace(
+      'console.log(Buffer.concat(chunks).toString("utf8"));',
+      'console.log("Hello Azure!");',
+    ),
+    baseline.source.replace(
+      "const downloadResponse = await blockBlobClient.download();",
+      "const downloadResponse = blockBlobClient.download();",
+    ),
+    baseline.source.replace(
+      "chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));",
+      "chunks.push(Buffer.from('Hello Azure!'));",
+    ),
+  ];
+  for (const source of cases) {
+    assert.equal(
+      evaluateRule(
+        "prompt/download-and-output",
+        withSource(source, baseline.packageJson),
+      ),
+      false,
+    );
+  }
+});
+
+test("reachable promise rejection handler requires genuine RestError details", () => {
+  const cases = [
+    baseline.source.replace(
+      'import { RestError } from "@azure/core-rest-pipeline";',
+      'import { RestError } from "fake-pipeline";',
+    ),
+    baseline.source.replace(
+      'import { RestError } from "@azure/core-rest-pipeline";',
+      'import type { RestError } from "@azure/core-rest-pipeline";',
+    ),
+    baseline.source.replace(
+      "error instanceof RestError",
+      "error instanceof Error",
+    ),
+    baseline.source.replaceAll("error.statusCode", "status"),
+    baseline.source.replace(
+      "main().catch((error: unknown) => {",
+      "Promise.resolve().catch((error: unknown) => {",
+    ),
+    baseline.source
+      .replaceAll("error.message", '"request failed"')
+      .replaceAll("error.code", "undefined"),
+  ];
+  for (const source of cases) {
+    assert.equal(
+      evaluateRule("prompt/rest-error", withSource(source, baseline.packageJson)),
+      false,
+    );
   }
 });

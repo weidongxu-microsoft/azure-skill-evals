@@ -875,7 +875,7 @@ function validListAndOutput(context) {
       "}",
     );
     if (closing === -1) continue;
-    const body = context.application.code.slice(opening + 1, closing);
+    const body = context.application.source.slice(opening + 1, closing);
     if (
       new RegExp(
         `\\bconsole\\.(?:log|info)\\s*\\([\\s\\S]{0,240}?\\b${escapeRegExp(match[1])}\\s*\\.\\s*name\\b`,
@@ -913,6 +913,64 @@ function helperConsumesStream(context, call, responseName) {
   ) && /\b(?:toString|text)\s*\(/.test(body);
 }
 
+function inlineConsumesStream(context, event) {
+  const response = escapeRegExp(event.result);
+  const code = context.application.code;
+  const source = context.application.source;
+  const streamNames = new Set([`${event.result}.readableStreamBody`]);
+  const aliasPattern = new RegExp(
+    `\\b(?:const|let|var)\\s+([A-Za-z_$]\\w*)[^=;\\n]*=\\s*` +
+      `${response}\\s*\\.\\s*readableStreamBody\\s*;`,
+    "g",
+  );
+  for (const alias of code.matchAll(aliasPattern)) {
+    if (event.index < alias.index) streamNames.add(alias[1]);
+  }
+  for (const stream of streamNames) {
+    const loopPattern = new RegExp(
+      `\\bfor\\s+await\\s*\\(\\s*(?:const|let|var)\\s+` +
+        `([A-Za-z_$]\\w*)\\s+of\\s+${escapeRegExp(stream)}\\s*\\)\\s*\\{`,
+      "g",
+    );
+    for (const loop of code.matchAll(loopPattern)) {
+      if (loop.index < event.index) continue;
+      const opening = loop.index + loop[0].lastIndexOf("{");
+      const closing = matchingClosing(code, opening, "{", "}");
+      if (closing === -1) continue;
+      const chunk = loop[1];
+      const prefix = code.slice(event.end ?? event.index, loop.index);
+      const arrays = [...prefix.matchAll(
+        /\b(?:const|let|var)\s+([A-Za-z_$]\w*)(?:\s*:[^=;\n]+)?\s*=\s*\[\s*\]\s*;/g,
+      )];
+      for (const array of arrays) {
+        const chunks = array[1];
+        const body = source.slice(opening + 1, closing);
+        if (
+          !new RegExp(
+            `\\b${escapeRegExp(chunks)}\\s*\\.\\s*push\\s*\\(` +
+              `[\\s\\S]{0,240}\\b${escapeRegExp(chunk)}\\b`,
+          ).test(maskSource(body, false))
+        ) {
+          continue;
+        }
+        const tail = source.slice(closing + 1);
+        if (
+          new RegExp(
+            `\\bconsole\\s*\\.\\s*(?:log|info)\\s*\\(` +
+              `[\\s\\S]{0,240}?Buffer\\s*\\.\\s*concat\\s*\\(\\s*` +
+              `${escapeRegExp(chunks)}\\s*\\)\\s*\\.\\s*toString\\s*\\(` +
+              `\\s*(?:["']utf-?8["'])?\\s*\\)`,
+            "i",
+          ).test(maskSource(tail, false))
+        ) {
+          return true;
+        }
+      }
+    }
+  }
+  return false;
+}
+
 function validDownloadAndOutput(context, events) {
   const blobs = exactNamed(context.blobs, context.blobNames, "greeting.txt");
   for (const event of eventsFor(
@@ -940,6 +998,7 @@ function validDownloadAndOutput(context, events) {
       continue;
     }
     if (!event.result) continue;
+    if (inlineConsumesStream(context, event)) return true;
     for (const call of context.calls) {
       if (
         call.result &&
@@ -963,6 +1022,41 @@ function validDownloadAndOutput(context, events) {
   return false;
 }
 
+function validRestErrorBody(body, error, reference) {
+  const code = maskSource(body, false);
+  const escaped = escapeRegExp(error);
+  const branchPattern = new RegExp(
+    `\\bif\\s*\\(\\s*${escaped}\\s+instanceof\\s+${reference}\\s*\\)\\s*\\{`,
+    "g",
+  );
+  for (const match of code.matchAll(branchPattern)) {
+    const opening = match.index + match[0].lastIndexOf("{");
+    const closing = matchingClosing(code, opening, "{", "}");
+    if (closing === -1) continue;
+    const branch = code.slice(opening + 1, closing);
+    if (!new RegExp(`\\b${escaped}\\s*\\.\\s*statusCode\\b`).test(branch)) {
+      continue;
+    }
+    const reports = [...branch.matchAll(
+      /\bconsole\s*\.\s*(?:error|warn|log)\s*\(([\s\S]{0,500}?)\)\s*;/g,
+    )];
+    if (
+      reports.some((report) => {
+        const argumentsText = report[1];
+        return new RegExp(
+          `\\b${escaped}\\s*\\.\\s*(?:message|code)\\b`,
+        ).test(argumentsText) ||
+          new RegExp(
+            `(?:^|,)\\s*${escaped}\\s*(?:,|$)`,
+          ).test(argumentsText);
+      })
+    ) {
+      return true;
+    }
+  }
+  return false;
+}
+
 function validRestError(context) {
   if (context.imports.RestError.length === 0) return false;
   const reference = referencePattern(context.imports.RestError);
@@ -977,15 +1071,37 @@ function validRestError(context) {
     );
     if (closing === -1) continue;
     const body = context.application.code.slice(opening + 1, closing);
-    const error = escapeRegExp(match[1]);
-    if (
-      new RegExp(`\\b${error}\\s+instanceof\\s+${reference}\\b`).test(body) &&
-      new RegExp(`\\b${error}\\s*\\.\\s*statusCode\\b`).test(body) &&
-      new RegExp(
-        `\\bconsole\\.(?:error|warn|log)\\s*\\([\\s\\S]{0,240}?\\b${error}\\b`,
-      ).test(body)
-    ) {
+    if (validRestErrorBody(body, match[1], reference)) {
       return true;
+    }
+  }
+  for (const definition of context.application.definitions) {
+    const pattern = new RegExp(
+      `\\b${escapeRegExp(definition.name)}\\s*\\([^)]*\\)\\s*` +
+        `\\.\\s*catch\\s*\\(`,
+      "g",
+    );
+    for (const match of context.application.code.matchAll(pattern)) {
+      if (
+        definition.start <= match.index &&
+        match.index <= definition.bodyEnd
+      ) {
+        continue;
+      }
+      const opening = context.application.code.indexOf(
+        "(",
+        match.index + match[0].lastIndexOf("catch"),
+      );
+      const handler = balancedText(context.application.source, opening);
+      const arrow = handler.match(
+        /^\s*(?:async\s*)?(?:\(\s*([A-Za-z_$]\w*)(?:\s*:[^)]*)?\)|([A-Za-z_$]\w*))\s*=>\s*\{/,
+      );
+      if (!arrow) continue;
+      const bodyOpening = handler.indexOf("{", arrow.index);
+      const body = balancedText(handler, bodyOpening, "{", "}");
+      if (validRestErrorBody(body, arrow[1] ?? arrow[2], reference)) {
+        return true;
+      }
     }
   }
   return false;

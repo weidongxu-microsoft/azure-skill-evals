@@ -18,6 +18,11 @@ import {
 
 const goldenPath = fileURLToPath(new URL("./golden", import.meta.url));
 const golden = loadSourceManifest(goldenPath);
+const baseline = loadSourceManifest(
+  fileURLToPath(
+    new URL("./fixtures/baseline-33420505368", import.meta.url),
+  ),
+);
 
 function withSource(source, packageJson = golden.packageJson) {
   const documents = source.trim()
@@ -907,4 +912,127 @@ await main();`,
   for (const rule of ruleNames()) {
     assert.equal(evaluateRule(rule, withSource(source)), true, rule);
   }
+});
+
+test("audited baseline Service Bus workspace passes affected criteria", () => {
+  for (const rule of [
+    "prompt/queue-batch",
+    "prompt/processor-handlers",
+    "prompt/client-lifecycle",
+  ]) {
+    assert.equal(evaluateRule(rule, baseline), true, rule);
+  }
+});
+
+test("batch loop cardinality accepts equivalent exact-five loops", () => {
+  const forms = [
+    "for (let index = 0; index < 5; index += 1)",
+    "for (let index = 1; index <= 5; index++)",
+    "for (let index = 5; index >= 1; index -= 1)",
+    "for (let index = 5; 1 <= index; --index)",
+  ];
+  for (const form of forms) {
+    const source = baseline.source.replace(
+      "for (let index = 1; index <= 5; index += 1)",
+      form,
+    );
+    assert.equal(
+      evaluateRule("prompt/queue-batch", withSource(source)),
+      true,
+      form,
+    );
+  }
+  for (const bound of ["index <= 4", "index <= 6"]) {
+    assert.equal(
+      evaluateRule(
+        "prompt/queue-batch",
+        withSource(baseline.source.replace("index <= 5", bound)),
+      ),
+      false,
+      bound,
+    );
+  }
+});
+
+test("batch loops still require a fresh message on every iteration", () => {
+  const source = baseline.source
+    .replace(
+      "for (let index = 1; index <= 5; index += 1) {",
+      `const message: ServiceBusMessage = {
+      body: "reused",
+      contentType: "text/plain",
+    };
+    for (let index = 1; index <= 5; index += 1) {`,
+    )
+    .replace(
+      /      const message: ServiceBusMessage = \{[\s\S]*?      \};\r?\n\r?\n      if \(!batch/,
+      "      if (!batch",
+    );
+  assert.equal(evaluateRule("prompt/queue-batch", withSource(source)), false);
+});
+
+test("processor completion receiver is resolved by dataflow", () => {
+  assert.equal(
+    evaluateRule("prompt/processor-handlers", baseline),
+    true,
+  );
+  const wrongReceiver = baseline.source.replace(
+    "await activeQueueProcessingReceiver.completeMessage(message);",
+    "await queueReceiver.completeMessage(message);",
+  );
+  assert.equal(
+    evaluateRule("prompt/processor-handlers", withSource(wrongReceiver)),
+    false,
+  );
+  const explicitAutoComplete = baseline.source.replace(
+    /    \}\);\r?\n\r?\n    await delay/,
+    "    }, { autoCompleteMessages: true });\n\n    await delay",
+  );
+  assert.equal(
+    evaluateRule("prompt/processor-handlers", withSource(explicitAutoComplete)),
+    false,
+  );
+});
+
+test("nullable lifecycle identities clear only after awaited close", () => {
+  const cases = [
+    baseline.source.replace(
+      /await activeQueueProcessingReceiver\.close\(\);\r?\n    queueProcessingReceiver = undefined;/,
+      "queueProcessingReceiver = undefined;\n    await activeQueueProcessingReceiver.close();",
+    ),
+    baseline.source.replace(
+      "await activeQueueProcessingReceiver.close();",
+      "activeQueueProcessingReceiver.close();",
+    ),
+    baseline.source.replace(
+      /await activeQueueProcessingReceiver\.close\(\);\r?\n    queueProcessingReceiver = undefined;/,
+      "const closing = Promise.resolve();\n    queueProcessingReceiver = undefined;\n    await closing;",
+    ),
+    baseline.source.replace(
+      /await queueSubscription\.close\(\);\r?\n    queueSubscription = undefined;/,
+      "queueSubscription = undefined;\n    await queueSubscription?.close();",
+    ),
+  ];
+  for (const source of cases) {
+    assert.equal(
+      evaluateRule("prompt/client-lifecycle", withSource(source)),
+      false,
+    );
+  }
+});
+
+test("finally fallback closes resources not closed on the main path", () => {
+  const source = baseline.source
+    .replace(
+      /    await queueSubscription\.close\(\);\r?\n    queueSubscription = undefined;\r?\n/,
+      "",
+    )
+    .replace(
+      /    await activeQueueProcessingReceiver\.close\(\);\r?\n    queueProcessingReceiver = undefined;\r?\n/,
+      "",
+    );
+  assert.equal(
+    evaluateRule("prompt/client-lifecycle", withSource(source)),
+    true,
+  );
 });
