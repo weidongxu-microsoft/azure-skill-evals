@@ -12,7 +12,7 @@ graders across three environments:
 ## Run the evaluations
 
 ```powershell
-pnpm install
+pnpm install --registry=https://pkgs.dev.azure.com/azure-sdk/public/_packaging/azure-sdk-for-js/npm/registry/
 python -m pip install -r requirements-dev.txt
 pnpm bootstrap
 pnpm lint:evals
@@ -40,10 +40,9 @@ service=identity;language=python,typescript
 ```
 
 Choose one environment variant or `all`. Dry-run is enabled by default so the
-resolved plans can be reviewed before running agents. Configure the
-`AZURE_ARTIFACTS_TOKEN` repository secret with a raw Azure DevOps token that
-has read access to the approved npm feed. Copilot requests use the workflow's
-built-in `GITHUB_TOKEN`.
+resolved plans can be reviewed before running agents. GitHub Actions installs
+packages from public npm. Copilot requests use the workflow's built-in
+`GITHUB_TOKEN`.
 
 The same selector can be checked locally without running Vally:
 

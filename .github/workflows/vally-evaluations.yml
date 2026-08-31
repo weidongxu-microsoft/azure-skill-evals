@@ -78,7 +78,7 @@ jobs:
         run: |
           pnpm install --no-frozen-lockfile
           python -m pip install -r requirements-dev.txt
-          npm install --global @github/copilot@1.0.81-6
+          npm install --global @github/copilot@1.0.82
 
       - name: Bootstrap pinned skill repositories
         shell: pwsh
