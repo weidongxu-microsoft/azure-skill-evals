@@ -155,7 +155,10 @@ test("pinned golden passes exactly eight equally weighted rules", () => {
 });
 
 test("full-suite run 33358499457 output passes all rules", () => {
-  const generated = workspace(fullRunRegressionSource);
+  const generated = workspace(
+    fullRunRegressionSource,
+    "azure-identity\nazure-keyvault-secrets\n",
+  );
   for (const rule of ruleNames()) {
     assert.equal(evaluateRule(rule, generated), true, rule);
   }
