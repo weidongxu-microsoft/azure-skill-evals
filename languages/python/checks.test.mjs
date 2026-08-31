@@ -112,3 +112,79 @@ client = CosmosClient("https://example.documents.azure.com", "secret")
     false,
   );
 });
+
+test("qualified and aliased Azure SDK forms pass AST checks", () => {
+  const workspace = {
+    pythonFiles: ["app.py"],
+    dependencies: "",
+    python: `
+import azure.identity as identity
+from azure.cosmos import exceptions as cosmos_exceptions
+
+credential = identity.DefaultAzureCredential()
+try:
+    run()
+except cosmos_exceptions.CosmosHttpResponseError:
+    raise
+`,
+  };
+
+  assert.equal(evaluatePythonCheck("language/correct-imports", workspace), true);
+  assert.equal(
+    evaluatePythonCheck("language/default-azure-credential", workspace),
+    true,
+  );
+  assert.equal(
+    evaluatePythonCheck("language/exception-handling", workspace),
+    true,
+  );
+});
+
+test("direct aliases pass AST checks", () => {
+  const workspace = {
+    pythonFiles: ["app.py"],
+    dependencies: "",
+    python: `
+from azure.core.exceptions import HttpResponseError as AzureFailure
+from azure.identity import DefaultAzureCredential as Credential
+
+credential = Credential()
+try:
+    run()
+except AzureFailure:
+    raise
+`,
+  };
+
+  assert.equal(
+    evaluatePythonCheck("language/default-azure-credential", workspace),
+    true,
+  );
+  assert.equal(
+    evaluatePythonCheck("language/exception-handling", workspace),
+    true,
+  );
+});
+
+test("comments and strings do not satisfy AST checks", () => {
+  const workspace = {
+    pythonFiles: ["app.py"],
+    dependencies: "",
+    python: `
+# from azure.identity import DefaultAzureCredential
+example = """
+from azure.core.exceptions import HttpResponseError
+except HttpResponseError:
+    pass
+"""
+`,
+  };
+
+  for (const check of [
+    "language/correct-imports",
+    "language/default-azure-credential",
+    "language/exception-handling",
+  ]) {
+    assert.equal(evaluatePythonCheck(check, workspace), false, check);
+  }
+});
