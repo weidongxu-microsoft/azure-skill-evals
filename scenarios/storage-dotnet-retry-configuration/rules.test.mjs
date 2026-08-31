@@ -35,6 +35,13 @@ function workspace(source, project = completeWorkspace.project) {
   };
 }
 
+function sourceForms(source) {
+  return [
+    ["LF", source.replace(/\r?\n/g, "\n")],
+    ["CRLF", source.replace(/\r?\n/g, "\r\n")],
+  ];
+}
+
 function manifest({
   target = "net8.0",
   identity = "1.21.0",
@@ -181,30 +188,30 @@ test("focused golden omissions fail their own criteria", () => {
 });
 
 test("equivalent assignments, timespans, aliases, and upload helpers pass", () => {
-  const source = completeWorkspace.source
-    .replace(
-      /var clientOptions = new BlobClientOptions\r?\n\{[\s\S]*?\r?\n\};/,
-      `BlobClientOptions clientOptions = new();
+  for (const [lineEnding, original] of sourceForms(completeWorkspace.source)) {
+    const eol = lineEnding === "LF" ? "\n" : "\r\n";
+    const source = original
+      .replace(
+        /var clientOptions = new BlobClientOptions\r?\n\{[\s\S]*?\r?\n\};/,
+        `BlobClientOptions clientOptions = new();
 clientOptions.Retry.Mode = RetryMode.Exponential;
 clientOptions.Retry.MaxRetries = 5;
 clientOptions.Retry.Delay = TimeSpan.FromMilliseconds(1000);
 clientOptions.Retry.MaxDelay = TimeSpan.FromMilliseconds(16000);
-clientOptions.Retry.NetworkTimeout = TimeSpan.FromMinutes(0.5);`,
-    )
-    .replace(
-      "TimeSpan.FromMinutes(2)",
-      "TimeSpan.FromSeconds(120)",
-    )
-    .replace(
-      `await blobClient.UploadAsync(
-                content,
-                overwrite: true,
-                cancellationToken: operationTimeout.Token);`,
-      "await UploadBlobAsync(blobClient, content, operationTimeout.Token);",
-    )
-    .replace(
-      "static class RetryClassification",
-      `static async Task UploadBlobAsync(
+clientOptions.Retry.NetworkTimeout = TimeSpan.FromMinutes(0.5);`
+          .replace(/\r?\n/g, eol),
+      )
+      .replace(
+        "TimeSpan.FromMinutes(2)",
+        "TimeSpan.FromSeconds(120)",
+      )
+      .replace(
+        /await blobClient\.UploadAsync\(\r?\n\s+content,\r?\n\s+overwrite: true,\r?\n\s+cancellationToken: operationTimeout\.Token\);/,
+        "await UploadBlobAsync(blobClient, content, operationTimeout.Token);",
+      )
+      .replace(
+        "static class RetryClassification",
+        `static async Task UploadBlobAsync(
     BlobClient client,
     Stream content,
     CancellationToken cancellationToken)
@@ -215,11 +222,22 @@ clientOptions.Retry.NetworkTimeout = TimeSpan.FromMinutes(0.5);`,
         cancellationToken: cancellationToken);
 }
 
-static class RetryClassification`,
-    );
+static class RetryClassification`.replace(/\r?\n/g, eol),
+      );
 
-  for (const rule of ruleNames()) {
-    assert.equal(evaluateRule(rule, workspace(source)), true, rule);
+    assert.notEqual(source, original, `${lineEnding}: mutation`);
+    assert.equal(
+      source.includes("await UploadBlobAsync("),
+      true,
+      `${lineEnding}: upload helper`,
+    );
+    for (const rule of ruleNames()) {
+      assert.equal(
+        evaluateRule(rule, workspace(source)),
+        true,
+        `${lineEnding}:${rule}`,
+      );
+    }
   }
 });
 
@@ -402,19 +420,27 @@ static class RetryClassification`,
 
 test("all prompt-specified retry, timeout, and breaker values are exact", () => {
   const invalid = [
-    ["prompt/configured-upload-client", "RetryMode.Exponential", "RetryMode.Fixed"],
-    ["prompt/configured-upload-client", "TimeSpan.FromSeconds(1)", "TimeSpan.FromSeconds(2)"],
-    ["prompt/configured-upload-client", "TimeSpan.FromSeconds(16)", "TimeSpan.FromSeconds(15)"],
-    ["prompt/configured-upload-client", "TimeSpan.FromSeconds(30)", "TimeSpan.FromSeconds(31)"],
-    ["prompt/operation-timeout", "TimeSpan.FromMinutes(2)", "TimeSpan.FromSeconds(119)"],
-    ["prompt/circuit-breaker", "BreakDuration =\r\n        TimeSpan.FromSeconds(30)", "BreakDuration =\r\n        TimeSpan.FromSeconds(29)"],
+    ["prompt/configured-upload-client", /RetryMode\.Exponential/, "RetryMode.Fixed"],
+    ["prompt/configured-upload-client", /TimeSpan\.FromSeconds\(1\)/, "TimeSpan.FromSeconds(2)"],
+    ["prompt/configured-upload-client", /TimeSpan\.FromSeconds\(16\)/, "TimeSpan.FromSeconds(15)"],
+    ["prompt/configured-upload-client", /TimeSpan\.FromSeconds\(30\)/, "TimeSpan.FromSeconds(31)"],
+    ["prompt/operation-timeout", /TimeSpan\.FromMinutes\(2\)/, "TimeSpan.FromSeconds(119)"],
+    [
+      "prompt/circuit-breaker",
+      /(BreakDuration\s*=\s*)TimeSpan\.FromSeconds\(30\)/,
+      "$1TimeSpan.FromSeconds(29)",
+    ],
   ];
-  for (const [rule, before, after] of invalid) {
-    assert.equal(
-      evaluateRule(rule, workspace(completeWorkspace.source.replace(before, after))),
-      false,
-      `${rule}: ${after}`,
-    );
+  for (const [lineEnding, source] of sourceForms(completeWorkspace.source)) {
+    for (const [rule, before, after] of invalid) {
+      const mutated = source.replace(before, after);
+      assert.notEqual(mutated, source, `${lineEnding}:${rule}: mutation`);
+      assert.equal(
+        evaluateRule(rule, workspace(mutated)),
+        false,
+        `${lineEnding}:${rule}: ${after}`,
+      );
+    }
   }
 });
 

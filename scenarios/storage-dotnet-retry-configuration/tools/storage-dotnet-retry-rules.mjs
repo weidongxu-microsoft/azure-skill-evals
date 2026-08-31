@@ -1227,9 +1227,10 @@ function hasCircuitBreaker(workflow, source, methods) {
       const close = matchingDelimiter(workflow.tryBody, open, "(", ")");
       if (close < 0) continue;
       const callBody = workflow.tryBody.slice(open + 1, close);
+      const expandedCallBody = expandInvocations(callBody, methods);
       if (
         !workflow.operations.some((operation) =>
-          callBody.includes(
+          expandedCallBody.includes(
             workflow.tryBody.slice(operation.start, operation.end),
           )
         )

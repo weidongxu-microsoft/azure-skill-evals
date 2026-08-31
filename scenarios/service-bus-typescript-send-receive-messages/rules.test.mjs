@@ -32,6 +32,13 @@ function withSource(source, packageJson = golden.packageJson) {
   };
 }
 
+function sourceForms(source) {
+  return [
+    ["LF", source.replace(/\r?\n/g, "\n")],
+    ["CRLF", source.replace(/\r?\n/g, "\r\n")],
+  ];
+}
+
 test("reference has exactly nine passing prompt criteria", () => {
   assert.deepEqual(ruleNames(), [
     "prompt/packages",
@@ -213,11 +220,19 @@ test("five explicit fresh additions are accepted", () => {
     const added${index} = batch.tryAddMessage(message${index});
     if (!added${index}) throw new Error("batch full");`,
   ).join("\n");
-  const source = golden.source.replace(
-    /    for \(let index = 0; index < 5; index \+= 1\) \{[\s\S]*?\n    \}\n    await queueSender\.sendMessages\(batch\);/,
-    `${additions}\n    await queueSender.sendMessages(batch);`,
-  );
-  assert.equal(evaluateRule("prompt/queue-batch", withSource(source)), true);
+  for (const [lineEnding, original] of sourceForms(golden.source)) {
+    const source = original.replace(
+      /    for \(let index = 0; index < 5; index \+= 1\) \{[\s\S]*?\r?\n    \}\r?\n    await queueSender\.sendMessages\(batch\);/,
+      `${additions}\n    await queueSender.sendMessages(batch);`
+        .replace(/\r?\n/g, lineEnding === "LF" ? "\n" : "\r\n"),
+    );
+    assert.notEqual(source, original, `${lineEnding}: mutation`);
+    assert.equal(
+      evaluateRule("prompt/queue-batch", withSource(source)),
+      true,
+      lineEnding,
+    );
+  }
 });
 
 test("five explicit additions reject one reused message object", () => {

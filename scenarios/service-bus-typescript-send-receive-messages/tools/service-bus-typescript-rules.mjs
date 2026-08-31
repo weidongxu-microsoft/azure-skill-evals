@@ -1309,8 +1309,10 @@ function controlFlowInfo(module, start, end) {
     if (conditionClose < 0) continue;
     let opening = conditionClose + 1;
     while (/\s/.test(code[opening] ?? "")) opening += 1;
-    if (code[opening] !== "{") continue;
-    const closing = matchingClosing(code, opening, "{", "}");
+    const braced = code[opening] === "{";
+    const closing = braced
+      ? matchingClosing(code, opening, "{", "}")
+      : expressionEnd(code, opening);
     if (closing < 0) continue;
     const branch = {
       conditionEnd: conditionClose,
@@ -1319,7 +1321,7 @@ function controlFlowInfo(module, start, end) {
       falseStart: -1,
       id: match.index,
       trueEnd: closing,
-      trueStart: opening + 1,
+      trueStart: braced ? opening + 1 : opening,
     };
     let cursor = closing + 1;
     while (/\s/.test(code[cursor] ?? "")) cursor += 1;
@@ -1329,6 +1331,9 @@ function controlFlowInfo(module, start, end) {
       if (code[cursor] === "{") {
         branch.falseStart = cursor + 1;
         branch.falseEnd = matchingClosing(code, cursor, "{", "}");
+      } else {
+        branch.falseStart = cursor;
+        branch.falseEnd = expressionEnd(code, cursor);
       }
     }
     branches.push(branch);

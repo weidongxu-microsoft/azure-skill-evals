@@ -20,6 +20,13 @@ function workspace(source, project = completeWorkspace.project) {
   return { ...completeWorkspace, project, source };
 }
 
+function sourceForms(source) {
+  return [
+    ["LF", source.replace(/\r?\n/g, "\n")],
+    ["CRLF", source.replace(/\r?\n/g, "\r\n")],
+  ];
+}
+
 function manifest({
   target = "net8.0",
   identity = "1.21.0",
@@ -163,73 +170,81 @@ test("source manifest rejects inactive, wrong, floating, and split pins", () => 
 });
 
 test("focused golden omissions fail their own criterion", () => {
-  const cases = [
+  const cases = (source) => [
     [
       "prompt/credential-arm-client",
-      completeWorkspace.source.replace(
+      source.replace(
         "new DefaultAzureCredential()",
         "otherCredential",
       ),
     ],
     [
       "prompt/default-subscription-groups",
-      completeWorkspace.source.replace(
+      source.replace(
         "subscription.GetResourceGroups()",
         "otherSubscription.GetResourceGroups()",
       ),
     ],
     [
       "prompt/create-resource-group",
-      completeWorkspace.source.replace(
-        "WaitUntil.Completed,\r\n            resourceGroupName",
-        "WaitUntil.Started,\r\n            resourceGroupName",
+      source.replace(
+        /WaitUntil\.Completed,(\r?\n\s+resourceGroupName)/,
+        "WaitUntil.Started,$1",
       ),
     ],
     [
       "prompt/create-resource-group",
-      completeWorkspace.source.replace(
+      source.replace(
         'Environment.GetEnvironmentVariable("AZURE_LOCATION") ?? "eastus"',
         'Environment.GetEnvironmentVariable("AZURE_LOCATION") ?? "westus"',
       ),
     ],
     [
       "prompt/list-resource-groups",
-      completeWorkspace.source.replace(
+      source.replace(
         'Console.WriteLine($"Resource group: {item.Data.Name}");',
         'Console.WriteLine("resource group");',
       ),
     ],
     [
       "prompt/get-resource-group",
-      completeWorkspace.source.replace(
+      source.replace(
         "resourceGroup.Data.Name",
         "created.Data.Name",
       ),
     ],
     [
       "prompt/update-resource-group",
-      completeWorkspace.source.replace(
+      source.replace(
         '"development"',
         '"production"',
       ),
     ],
     [
       "prompt/delete-resource-group",
-      completeWorkspace.source.replace(
-        "WaitUntil.Completed);\r\n    Console.WriteLine($\"Deleted",
-        "WaitUntil.Started);\r\n    Console.WriteLine($\"Deleted",
+      source.replace(
+        /WaitUntil\.Completed\);(\r?\n\s+Console\.WriteLine\(\$"Deleted)/,
+        "WaitUntil.Started);$1",
       ),
     ],
     [
       "prompt/request-failed-error",
-      completeWorkspace.source.replace(
+      source.replace(
         "catch (RequestFailedException exception)",
         "catch (Exception exception)",
       ),
     ],
   ];
-  for (const [rule, source] of cases) {
-    assert.equal(evaluateRule(rule, workspace(source)), false, rule);
+
+  for (const [lineEnding, source] of sourceForms(completeWorkspace.source)) {
+    for (const [rule, mutated] of cases(source)) {
+      assert.notEqual(mutated, source, `${lineEnding}:${rule}: mutation`);
+      assert.equal(
+        evaluateRule(rule, workspace(mutated)),
+        false,
+        `${lineEnding}:${rule}`,
+      );
+    }
   }
 });
 
