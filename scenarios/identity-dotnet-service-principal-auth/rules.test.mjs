@@ -10,6 +10,11 @@ import {
 
 const goldenRoot = fileURLToPath(new URL("./golden", import.meta.url));
 const completeWorkspace = loadDotnetWorkspace(goldenRoot);
+const baseline33403910898 = loadDotnetWorkspace(
+  fileURLToPath(
+    new URL("./fixtures/baseline-33403910898", import.meta.url),
+  ),
+);
 const sourceRules = ruleNames().filter(
   (name) => name !== "prompt/identity-packages",
 );
@@ -50,6 +55,125 @@ test("service principal golden passes all six criteria", () => {
   for (const rule of ruleNames()) {
     assert.equal(evaluateRule(rule, completeWorkspace), true, rule);
   }
+});
+
+test("baseline run 33403910898 exact output passes every criterion", () => {
+  for (const rule of ruleNames()) {
+    assert.equal(evaluateRule(rule, baseline33403910898), true, rule);
+  }
+});
+
+test("environment accessor helpers are summarized by dataflow", () => {
+  const accessor = `
+using Azure.Identity;
+using Azure.Storage.Blobs;
+
+static string ReadRequired(string key)
+{
+    string? candidate = Environment.GetEnvironmentVariable(key);
+    if (string.IsNullOrWhiteSpace(candidate))
+    {
+        throw new InvalidOperationException(key);
+    }
+    return candidate;
+}
+var tenantId = ReadRequired("AZURE_TENANT_ID");
+var clientId = ReadRequired("AZURE_CLIENT_ID");
+var clientSecret = ReadRequired("AZURE_CLIENT_SECRET");
+var endpoint = ReadRequired("AZURE_STORAGE_BLOB_ENDPOINT");`;
+  const source = `${accessor}
+var credential =
+    new ClientSecretCredential(tenantId, clientId, clientSecret);
+var client = new BlobServiceClient(new Uri(endpoint), credential);
+try
+{
+    var result = await client.GetAccountInfoAsync();
+    Console.WriteLine(result.Value.AccountKind);
+    Console.WriteLine(result.Value.SkuName);
+}
+catch (AuthenticationFailedException failed)
+{
+    Console.Error.WriteLine(failed.Message);
+}`;
+  for (const rule of sourceRules) {
+    assert.equal(evaluateRule(rule, workspace(source)), true, rule);
+  }
+});
+
+test("environment accessor helpers reject invalid provenance and secret output", () => {
+  const application = (helper, calls) => `${helper}
+${calls}
+var credential =
+    new ClientSecretCredential(tenantId, clientId, clientSecret);
+var client = new BlobServiceClient(new Uri(endpoint), credential);`;
+  const calls = `
+var tenantId = ReadRequired("AZURE_TENANT_ID");
+var clientId = ReadRequired("AZURE_CLIENT_ID");
+var clientSecret = ReadRequired("AZURE_CLIENT_SECRET");
+var endpoint = ReadRequired("AZURE_STORAGE_BLOB_ENDPOINT");`;
+  const invalidHelpers = [
+    `static string ReadRequired(string key)
+      => Environment.GetEnvironmentVariable("AZURE_CLIENT_SECRET")!;`,
+    `static string ReadRequired(string key)
+      => Environment.GetEnvironmentVariable(key) ?? "fallback";`,
+    `static string ReadRequired(string key)
+    {
+        var value = Environment.GetEnvironmentVariable(key);
+        Console.WriteLine(value);
+        return value!;
+    }`,
+  ];
+  for (const helper of invalidHelpers) {
+    assert.equal(
+      evaluateRule(
+        "prompt/environment-secret-management",
+        workspace(application(helper, calls)),
+      ),
+      false,
+      helper,
+    );
+  }
+
+  const helper = `static string ReadRequired(string key)
+  => Environment.GetEnvironmentVariable(key)
+      ?? throw new InvalidOperationException(key);`;
+  const wrongKey = calls.replace(
+    '"AZURE_CLIENT_SECRET"',
+    '"OTHER_CLIENT_SECRET"',
+  );
+  assert.equal(
+    evaluateRule(
+      "prompt/environment-secret-management",
+      workspace(application(helper, wrongKey)),
+    ),
+    false,
+  );
+
+  assert.equal(
+    evaluateRule(
+      "prompt/environment-secret-management",
+      workspace(`${application(helper, calls)}
+Console.WriteLine(clientSecret);`),
+    ),
+    false,
+  );
+
+  const swapped = calls
+    .replace(
+      'var tenantId = ReadRequired("AZURE_TENANT_ID");',
+      'var tenantId = ReadRequired("AZURE_CLIENT_ID");',
+    )
+    .replace(
+      'var clientId = ReadRequired("AZURE_CLIENT_ID");',
+      'var clientId = ReadRequired("AZURE_TENANT_ID");',
+    );
+  assert.equal(
+    evaluateRule(
+      "prompt/client-secret-credential",
+      workspace(application(helper, swapped)),
+    ),
+    false,
+  );
 });
 
 test("package grading accepts compatible active manifest forms", () => {

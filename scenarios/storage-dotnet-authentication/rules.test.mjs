@@ -22,6 +22,11 @@ import {
 const goldenPath = fileURLToPath(new URL("./golden", import.meta.url));
 const scenarioPath = fileURLToPath(new URL(".", import.meta.url));
 const completeWorkspace = loadWorkspace(goldenPath);
+const baseline33403910898 = loadWorkspace(
+  fileURLToPath(
+    new URL("./fixtures/baseline-33403910898", import.meta.url),
+  ),
+);
 
 function manifest({
   target = "net8.0",
@@ -64,6 +69,199 @@ test("storage authentication golden passes all checks", () => {
   for (const check of dotnetCheckNames()) {
     assert.equal(evaluateDotnetCheck(check, completeWorkspace), true, check);
   }
+});
+
+test("baseline run 33403910898 exact output passes every configured check", () => {
+  for (const rule of ruleNames()) {
+    assert.equal(evaluateRule(rule, baseline33403910898), true, rule);
+  }
+  for (const check of dotnetCheckNames()) {
+    assert.equal(evaluateDotnetCheck(check, baseline33403910898), true, check);
+  }
+});
+
+test("nullable settings, const keys, and nullable TryCreate outputs pass", () => {
+  const variants = [
+    `
+string? setting = Environment.GetEnvironmentVariable("AZURE_STORAGE_BLOB_ENDPOINT");
+var endpoint = new Uri(setting!, UriKind.Absolute);`,
+    `
+const string EndpointKey = "AZURE_STORAGE_BLOB_ENDPOINT";
+string setting = Environment.GetEnvironmentVariable(EndpointKey)!;
+var endpoint = new Uri(setting, UriKind.Absolute);`,
+    `
+const string EndpointKey = "AZURE_STORAGE_BLOB_ENDPOINT";
+string? setting = Environment.GetEnvironmentVariable(EndpointKey);
+if (!Uri.TryCreate(setting, UriKind.Absolute, out Uri? endpoint))
+{
+    return;
+}`,
+  ];
+  for (const setup of variants) {
+    const source = `
+using Azure.Identity;
+using Azure.Storage.Blobs;
+${setup}
+var credential = new DefaultAzureCredential();
+var client = new BlobServiceClient(endpoint, credential);
+try
+{
+    var response = await client.GetAccountInfoAsync();
+    Console.WriteLine(response.Value.AccountKind);
+}
+catch (CredentialUnavailableException unavailable)
+{
+    Console.Error.WriteLine(unavailable.Message);
+}
+catch (AuthenticationFailedException failed)
+{
+    Console.Error.WriteLine(failed.Message);
+}`;
+    for (const rule of ruleNames().filter(
+      (name) => name !== "prompt/storage-packages",
+    )) {
+      assert.equal(
+        evaluateRule(rule, { ...completeWorkspace, source }),
+        true,
+        `${rule}\n${setup}`,
+      );
+    }
+  }
+});
+
+test("account endpoint evidence is independent of credential association", () => {
+  const source = `
+using Azure.Storage.Blobs;
+
+string? setting = Environment.GetEnvironmentVariable("AZURE_STORAGE_BLOB_ENDPOINT");
+if (!Uri.TryCreate(setting, UriKind.Absolute, out Uri? endpoint))
+{
+    return;
+}
+var client = new BlobServiceClient(endpoint);
+`;
+  assert.equal(
+    evaluateRule("prompt/account-endpoint", { ...completeWorkspace, source }),
+    true,
+  );
+  assert.equal(
+    evaluateRule("prompt/credential-client-association", {
+      ...completeWorkspace,
+      source,
+    }),
+    false,
+  );
+});
+
+test("endpoint and operation dataflow rejects adversarial variants", () => {
+  const workflow = (setup, client, operation = "await client.GetAccountInfoAsync()") => `
+${setup}
+var credential = new DefaultAzureCredential();
+${client}
+try
+{
+    var response = ${operation};
+    Console.WriteLine(response.Value.AccountKind);
+}
+catch (CredentialUnavailableException unavailable)
+{
+    Console.Error.WriteLine(unavailable.Message);
+}
+catch (AuthenticationFailedException failed)
+{
+    Console.Error.WriteLine(failed.Message);
+}`;
+  const endpointNegatives = [
+    workflow(
+      `string? setting = Environment.GetEnvironmentVariable("OTHER_ENDPOINT");
+var endpoint = new Uri(setting!, UriKind.Absolute);`,
+      "var client = new BlobServiceClient(endpoint, credential);",
+    ),
+    workflow(
+      `string EndpointKey = "AZURE_STORAGE_BLOB_ENDPOINT";
+string? setting = Environment.GetEnvironmentVariable(EndpointKey);
+var endpoint = new Uri(setting!, UriKind.Absolute);`,
+      "var client = new BlobServiceClient(endpoint, credential);",
+    ),
+    workflow(
+      `string? setting = Environment.GetEnvironmentVariable("AZURE_STORAGE_BLOB_ENDPOINT");
+var endpoint = new Uri(setting!, UriKind.Relative);`,
+      "var client = new BlobServiceClient(endpoint, credential);",
+    ),
+    workflow(
+      `string? setting = Environment.GetEnvironmentVariable("AZURE_STORAGE_BLOB_ENDPOINT");
+string? other = Environment.GetEnvironmentVariable("OTHER_ENDPOINT");
+Uri.TryCreate(other, UriKind.Absolute, out Uri? endpoint);`,
+      "var client = new BlobServiceClient(endpoint, credential);",
+    ),
+  ];
+  for (const source of endpointNegatives) {
+    assert.equal(
+      evaluateRule("prompt/account-endpoint", { ...completeWorkspace, source }),
+      false,
+      source,
+    );
+  }
+
+  const unauthenticated = workflow(
+    `var setting = Environment.GetEnvironmentVariable("AZURE_STORAGE_BLOB_ENDPOINT");
+var endpoint = new Uri(setting!, UriKind.Absolute);`,
+    "var client = new BlobServiceClient(endpoint);",
+  );
+  assert.equal(
+    evaluateRule("prompt/credential-client-association", {
+      ...completeWorkspace,
+      source: unauthenticated,
+    }),
+    false,
+  );
+  assert.equal(
+    evaluateRule("prompt/authenticated-operation", {
+      ...completeWorkspace,
+      source: unauthenticated,
+    }),
+    false,
+  );
+
+  const unawaited = workflow(
+    `var setting = Environment.GetEnvironmentVariable("AZURE_STORAGE_BLOB_ENDPOINT");
+var endpoint = new Uri(setting!, UriKind.Absolute);`,
+    "var client = new BlobServiceClient(endpoint, credential);",
+    "client.GetAccountInfoAsync()",
+  );
+  assert.equal(
+    evaluateRule("prompt/authenticated-operation", {
+      ...completeWorkspace,
+      source: unawaited,
+    }),
+    false,
+  );
+
+  const unrelatedCatch = `
+var setting = Environment.GetEnvironmentVariable("AZURE_STORAGE_BLOB_ENDPOINT");
+var endpoint = new Uri(setting!, UriKind.Absolute);
+var credential = new DefaultAzureCredential();
+var client = new BlobServiceClient(endpoint, credential);
+try
+{
+    await OtherOperationAsync();
+}
+catch (CredentialUnavailableException unavailable)
+{
+    Console.Error.WriteLine(unavailable.Message);
+}
+catch (AuthenticationFailedException failed)
+{
+    Console.Error.WriteLine(failed.Message);
+}
+await client.GetAccountInfoAsync();`;
+  assert.equal(
+    evaluateRule("prompt/auth-errors", {
+      ...completeWorkspace,
+      source: unrelatedCatch,
+    }),
+    false,
+  );
 });
 
 test("focused omissions fail their scenario rules", () => {

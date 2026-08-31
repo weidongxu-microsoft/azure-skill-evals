@@ -354,6 +354,9 @@ function evaluateExpression(expression, expectedType, state) {
   const environment = environmentValue(value, state);
   if (environment) return environment;
 
+  const accessor = environmentAccessorValue(value, state);
+  if (accessor) return accessor;
+
   const operation = awaitedOperation(value, state);
   if (operation) {
     if (/\.Value\s*$/.test(value)) {
@@ -544,12 +547,12 @@ function processStatement(statement, state) {
 function methodDefinitions(code) {
   const methods = new Map();
   const pattern =
-    /\b(?:(?:public|private|protected|internal|static|virtual|override|sealed|new|unsafe|extern|async|partial)\s+)*(?:[\w.:<>\[\]?]+\s+)(\w+)\s*\(([^()]*)\)\s*(=>|\{)/g;
+    /\b((?:(?:public|private|protected|internal|static|virtual|override|sealed|new|unsafe|extern|async|partial)\s+)*)(?:[\w.:<>\[\]?]+\s+)(\w+)\s*\(([^()]*)\)\s*(=>|\{)/g;
   const ignored = new Set(["if", "for", "foreach", "while", "switch", "catch"]);
   let id = 0;
   for (const match of code.matchAll(pattern)) {
-    if (ignored.has(match[1])) continue;
-    const parameters = splitArguments(match[2])
+    if (ignored.has(match[2])) continue;
+    const parameters = splitArguments(match[3])
       .map((parameter) =>
         /(?:^|[\s.])([A-Za-z_]\w*)\s*(?:=[\s\S]*)?$/.exec(
           parameter.replace(/\[[^\]]*\]/g, "").trim(),
@@ -559,7 +562,7 @@ function methodDefinitions(code) {
     let body;
     let bodyStart;
     let bodyEnd;
-    if (match[3] === "{") {
+    if (match[4] === "{") {
       const open = match.index + match[0].lastIndexOf("{");
       const close = matchingDelimiter(code, open, "{", "}");
       if (close < 0) continue;
@@ -585,7 +588,8 @@ function methodDefinitions(code) {
       bodyEnd,
       bodyStart,
       id,
-      name: match[1],
+      modifiers: match[1].trim().split(/\s+/).filter(Boolean),
+      name: match[2],
       parameters,
       start: match.index,
     };
@@ -594,6 +598,193 @@ function methodDefinitions(code) {
     methods.set(definition.name, overloads);
   }
   return methods;
+}
+
+function environmentAccessorSummaries(code, types) {
+  const summaries = new Map();
+  const methods = methodDefinitions(code);
+  const allDefinitions = [...methods.values()].flat();
+  const typeRanges = [];
+  for (const match of code.matchAll(
+    /\b(?:class|record|struct)\s+\w+[^{;]*\{/g,
+  )) {
+    const open = match.index + match[0].lastIndexOf("{");
+    const close = matchingDelimiter(code, open, "{", "}");
+    if (close >= 0) typeRanges.push({ start: open + 1, end: close });
+  }
+  for (const definitions of methods.values()) {
+    for (const definition of definitions) {
+      const local =
+        !typeRanges.some(
+          (range) =>
+            range.start <= definition.start && definition.bodyEnd < range.end,
+        ) ||
+        allDefinitions.some(
+          (candidate) =>
+            candidate !== definition &&
+            candidate.bodyStart <= definition.start &&
+            definition.bodyEnd <= candidate.bodyEnd,
+        );
+      if (!local && !definition.modifiers.includes("static")) continue;
+
+      const derived = new Set();
+      let sourceParameter = null;
+      let returnedParameter = null;
+      let unsafe = false;
+      const environmentParameter = (expression) => {
+        const match =
+          /^\s*((?:global::)?[\w.:]+)\s*\.\s*GetEnvironmentVariable\s*\(\s*(\w+)\s*\)\s*!?\s*([\s\S]*)$/.exec(
+            expression,
+          );
+        if (!match) return null;
+        let receiver = match[1].replace(/^global::/, "");
+        const first = receiver.split(/[.:]/)[0];
+        if (types.aliases.has(first)) {
+          receiver = receiver.replace(first, types.aliases.get(first));
+        }
+        const parameterIndex = definition.parameters.indexOf(match[2]);
+        const fallback = match[3].trim();
+        return ["Environment", "System.Environment"].includes(receiver) &&
+            parameterIndex >= 0 &&
+            (!fallback || /^\?\?\s*throw\b[\s\S]+$/.test(fallback))
+          ? parameterIndex
+          : null;
+      };
+
+      for (const statement of taintStatements(definition.body)) {
+        const environmentDeclaration =
+          /^\s*(?:string\s*\?|string|var)\s+(\w+)\s*=\s*([\s\S]+)$/.exec(
+            statement,
+          );
+        if (environmentDeclaration) {
+          const parameterIndex = environmentParameter(
+            environmentDeclaration[2],
+          );
+          if (parameterIndex !== null) {
+            if (sourceParameter !== null) {
+              unsafe = true;
+              continue;
+            }
+            sourceParameter = parameterIndex;
+            derived.add(environmentDeclaration[1]);
+            continue;
+          }
+          const alias = accessPath(
+            stripOuterParentheses(environmentDeclaration[2]).replace(/!+$/, ""),
+          );
+          if (alias && derived.has(alias)) {
+            derived.add(environmentDeclaration[1]);
+          }
+          continue;
+        }
+
+        const assignment =
+          /^\s*(\w+)\s*(\?\?=|=)\s*([\s\S]+)$/.exec(statement);
+        if (assignment && derived.has(assignment[1])) {
+          const alias = accessPath(
+            stripOuterParentheses(assignment[3]).replace(/!+$/, ""),
+          );
+          if (assignment[2] !== "=" || !alias || !derived.has(alias)) {
+            derived.delete(assignment[1]);
+          }
+          continue;
+        }
+
+        const output = loggingArgument(statement);
+        if (
+          output !== null &&
+          [...derived].some((name) =>
+            new RegExp(String.raw`\b${escapeRegExp(name)}\b`).test(output)
+          )
+        ) {
+          unsafe = true;
+        }
+
+        const returned = /^\s*return\s+([\s\S]+)$/.exec(statement)?.[1];
+        if (returned) {
+          const parameterIndex = environmentParameter(returned);
+          if (parameterIndex !== null) {
+            if (
+              sourceParameter !== null &&
+              sourceParameter !== parameterIndex
+            ) {
+              unsafe = true;
+            } else {
+              sourceParameter = parameterIndex;
+              returnedParameter = parameterIndex;
+            }
+            continue;
+          }
+          const alias = accessPath(
+            stripOuterParentheses(returned).replace(/!+$/, ""),
+          );
+          if (alias && derived.has(alias)) returnedParameter = sourceParameter;
+        }
+      }
+
+      if (!unsafe && sourceParameter !== null && returnedParameter !== null) {
+        const entries = summaries.get(definition.name) ?? [];
+        entries.push({
+          arity: definition.parameters.length,
+          parameters: definition.parameters,
+          sourceParameter: returnedParameter,
+        });
+        summaries.set(definition.name, entries);
+      }
+    }
+  }
+  return summaries;
+}
+
+function environmentAccessorValue(expression, state) {
+  const calls = invocations(expression);
+  const call = calls.find(
+    (candidate) =>
+      candidate.start === 0 &&
+      candidate.end === expression.length &&
+      !candidate.constructed,
+  );
+  if (!call) return null;
+  const name = call.name.split(/[.:]/).at(-1);
+  const argumentsList = splitArguments(call.arguments).map(namedArgument);
+  const candidates = (state.environmentAccessors.get(name) ?? []).filter(
+    (summary) => summary.arity === argumentsList.length,
+  );
+  const kinds = new Set();
+  for (const summary of candidates) {
+    const ordered = new Array(summary.arity).fill(null);
+    let positional = 0;
+    let valid = true;
+    for (const argument of argumentsList) {
+      const index = argument.name
+        ? summary.parameters.findIndex(
+            (parameter) =>
+              parameter.toLowerCase() === argument.name.toLowerCase(),
+          )
+        : positional++;
+      if (index < 0 || ordered[index] !== null) {
+        valid = false;
+        break;
+      }
+      ordered[index] = argument.expression;
+    }
+    if (!valid) continue;
+    const variable = literalArgumentValue(
+      ordered[summary.sourceParameter] ?? "",
+      state.literals,
+    );
+    const kind = {
+      AZURE_TENANT_ID: "tenant-id",
+      AZURE_CLIENT_ID: "client-id",
+      AZURE_CLIENT_SECRET: "client-secret",
+      AZURE_STORAGE_BLOB_ENDPOINT: "endpoint-value",
+    }[variable];
+    if (kind) kinds.add(kind);
+  }
+  if (kinds.size !== 1) return null;
+  const kind = [...kinds][0];
+  state.environmentKinds.add(kind);
+  return { kind };
 }
 
 function taintStatements(source) {
@@ -697,7 +888,13 @@ function isLoggingCall(name) {
   );
 }
 
-function allocationIdentityTaint(source, methods, secretMarkers) {
+function allocationIdentityTaint(
+  source,
+  methods,
+  secretMarkers,
+  literals,
+  environmentAccessors,
+) {
   const objects = new Map();
   const cleanSinks = new Set();
   let nextObjectId = 1;
@@ -842,15 +1039,45 @@ function allocationIdentityTaint(source, methods, secretMarkers) {
         (methods.get(call.name.split(/[.:]/).at(-1))?.length ?? 0) > 0,
     );
     if (whole) {
-      const argumentsList = splitArguments(whole.arguments).map((argument) =>
-        expressionValue(namedArgument(argument).expression, environment, depth),
+      const parsedArguments = splitArguments(whole.arguments).map(namedArgument);
+      const simpleName = whole.name.split(/[.:]/).at(-1);
+      for (const accessor of environmentAccessors.get(simpleName) ?? []) {
+        if (accessor.arity !== parsedArguments.length) continue;
+        const ordered = new Array(accessor.arity).fill(null);
+        let positional = 0;
+        let valid = true;
+        for (const argument of parsedArguments) {
+          const index = argument.name
+            ? accessor.parameters.findIndex(
+                (parameter) =>
+                  parameter.toLowerCase() === argument.name.toLowerCase(),
+              )
+            : positional++;
+          if (index < 0 || ordered[index] !== null) {
+            valid = false;
+            break;
+          }
+          ordered[index] = argument.expression;
+        }
+        if (
+          valid &&
+          literalArgumentValue(
+            ordered[accessor.sourceParameter] ?? "",
+            literals,
+          ) === "AZURE_CLIENT_SECRET"
+        ) {
+          return value(true);
+        }
+      }
+      const argumentsList = parsedArguments.map((argument) =>
+        expressionValue(argument.expression, environment, depth)
       );
       const receiverPath = whole.name.split(/[.:]/).slice(0, -1).join(".");
       const receiver = receiverPath
         ? readPath(receiverPath, environment)
         : environment.get("this");
       const result = merge(
-        ...(methods.get(whole.name.split(/[.:]/).at(-1)) ?? [])
+        ...(methods.get(simpleName) ?? [])
           .filter(
             (definition) =>
               definition.parameters.length === argumentsList.length,
@@ -996,14 +1223,25 @@ function allocationIdentityTaint(source, methods, secretMarkers) {
   return { exposed, source: sanitized };
 }
 
-function secretExposureAnalysis(code, literals, types) {
+function secretExposureAnalysis(
+  code,
+  literals,
+  types,
+  environmentAccessors,
+) {
   const methods = methodDefinitions(code);
   const secretMarkers = new Set(
     [...literals]
       .filter(([, value]) => value === "AZURE_CLIENT_SECRET")
       .map(([marker]) => marker),
   );
-  const identity = allocationIdentityTaint(code, methods, secretMarkers);
+  const identity = allocationIdentityTaint(
+    code,
+    methods,
+    secretMarkers,
+    literals,
+    environmentAccessors,
+  );
   if (identity.exposed) return true;
   code = identity.source;
   const memo = new Map();
@@ -1093,6 +1331,37 @@ function secretExposureAnalysis(code, literals, types) {
         )
       ) {
         return { exposed: false, tainted: true };
+      }
+
+      const accessorDefinitions =
+        environmentAccessors.get(simpleName) ?? [];
+      for (const accessor of accessorDefinitions) {
+        if (accessor.arity !== parsedArguments.length) continue;
+        const ordered = new Array(accessor.arity).fill(null);
+        let positional = 0;
+        let valid = true;
+        for (const argument of parsedArguments) {
+          const index = argument.name
+            ? accessor.parameters.findIndex(
+                (parameter) =>
+                  parameter.toLowerCase() === argument.name.toLowerCase(),
+              )
+            : positional++;
+          if (index < 0 || ordered[index] !== null) {
+            valid = false;
+            break;
+          }
+          ordered[index] = argument.expression;
+        }
+        if (
+          valid &&
+          literalArgumentValue(
+            ordered[accessor.sourceParameter] ?? "",
+            literals,
+          ) === "AZURE_CLIENT_SECRET"
+        ) {
+          return { exposed: false, tainted: true };
+        }
       }
 
       const definitions = (methods.get(simpleName) ?? []).filter(
@@ -1315,6 +1584,7 @@ function secretExposureAnalysis(code, literals, types) {
 function analyze(source) {
   const { code, literals } = literalAwareCode(source);
   const types = typeContext(code);
+  const environmentAccessors = environmentAccessorSummaries(code, types);
   const memberTypes = new Map();
   const memberNames = new Set();
   for (const match of code.matchAll(
@@ -1337,6 +1607,7 @@ function analyze(source) {
     ),
     memberNames,
     memberTypes,
+    environmentAccessors,
     environmentKinds: new Set(),
     secretExposed: false,
     credentialFound: false,
@@ -1395,7 +1666,12 @@ function analyze(source) {
       statement += character;
     }
   }
-  state.secretExposed ||= secretExposureAnalysis(code, literals, types);
+  state.secretExposed ||= secretExposureAnalysis(
+    code,
+    literals,
+    types,
+    environmentAccessors,
+  );
   return { ...state, code };
 }
 

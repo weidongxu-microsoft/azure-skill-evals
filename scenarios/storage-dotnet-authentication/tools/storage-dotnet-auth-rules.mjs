@@ -272,6 +272,33 @@ function normalizeTryCreate(source) {
     );
 }
 
+function resolveEndpointSettingConstants(source) {
+  const resolved = new Set();
+  let previousSize = -1;
+  while (resolved.size !== previousSize) {
+    previousSize = resolved.size;
+    for (const match of source.matchAll(
+      /\bconst\s+string\s+(\w+)\s*=\s*(\w+)\s*;/g,
+    )) {
+      if (
+        match[2] === endpointSetting ||
+        resolved.has(match[2])
+      ) {
+        resolved.add(match[1]);
+      }
+    }
+  }
+  if (resolved.size === 0) return source;
+  const aliases = [...resolved].map(escapeRegExp).join("|");
+  return source.replace(
+    new RegExp(
+      String.raw`((?:global::)?(?:System\s*\.\s*)?Environment\s*\.\s*GetEnvironmentVariable\s*\(\s*)(?:${aliases})(\s*\))`,
+      "g",
+    ),
+    `$1${endpointSetting}$2`,
+  );
+}
+
 function matchingDelimiter(source, openIndex, open, close) {
   let depth = 0;
   for (let index = openIndex; index < source.length; index += 1) {
@@ -741,15 +768,17 @@ function processIdentityStatement(statement, state) {
   ).exec(statement);
   if (tryCreate !== null) {
     const input = lookupBinding(scopes, tryCreate[1]);
+    const provenance = input?.kind === "setting" && input.provenance;
     bind(
       scopes,
       tryCreate[2],
       {
         kind: "endpoint",
-        provenance: input?.kind === "setting" && input.provenance,
+        provenance,
       },
       true,
     );
+    state.endpointFound ||= provenance;
   }
   const output =
     /\bConsole\s*\.\s*(?:Write|WriteLine)\s*\(([\s\S]*)\)\s*$/.exec(
@@ -782,7 +811,7 @@ function processIdentityStatement(statement, state) {
 
   const settingDeclaration =
     new RegExp(
-      String.raw`^\s*(?:string|var)\s+(\w+)\s*=\s*Environment\s*\.\s*GetEnvironmentVariable\s*\(\s*${endpointSetting}\s*\)(?:\s*\?\?[\s\S]+)?$`,
+      String.raw`^\s*(?:string\s*\?|string|var)\s+(\w+)\s*=\s*Environment\s*\.\s*GetEnvironmentVariable\s*\(\s*${endpointSetting}\s*\)\s*!?(?:\s*\?\?[\s\S]+)?$`,
     ).exec(statement);
   if (settingDeclaration !== null) {
     bind(
@@ -800,15 +829,17 @@ function processIdentityStatement(statement, state) {
     );
   if (endpointDeclaration !== null) {
     const input = lookupBinding(scopes, endpointDeclaration[2]);
+    const provenance = input?.kind === "setting" && input.provenance;
     bind(
       scopes,
       endpointDeclaration[1],
       {
         kind: "endpoint",
-        provenance: input?.kind === "setting" && input.provenance,
+        provenance,
       },
       true,
     );
+    state.endpointFound ||= provenance;
     return;
   }
 
@@ -899,6 +930,7 @@ function analyzeIdentityBindings(source) {
   const state = {
     scopes: [new Map()],
     associationFound: false,
+    endpointFound: false,
     outputFound: false,
   };
   let statement = "";
@@ -1054,7 +1086,10 @@ function hasAuthErrorHandling(source) {
 }
 
 function hasAccountEndpoint(source) {
-  return analyzeIdentityBindings(source).associationFound;
+  return (
+    !/\bInvalid(?:DefaultAzureCredential|BlobServiceClient)\b/.test(source) &&
+    analyzeIdentityBindings(source).endpointFound
+  );
 }
 
 function conditionAllowsTargetFramework(condition, targetFramework) {
@@ -1350,7 +1385,9 @@ export function evaluateRule(name, workspace) {
     );
     const source = reachableSource(
       normalizeTryCreate(
-        normalizeSdkTypes(dotnetCodeOnly(protectedSource)),
+        resolveEndpointSettingConstants(
+          normalizeSdkTypes(dotnetCodeOnly(protectedSource)),
+        ),
       ),
     );
     return Boolean(rule({ ...project, source }));
