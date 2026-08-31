@@ -6,6 +6,7 @@ import { fileURLToPath } from "node:url";
 import {
   loadCatalog,
   parseTagFilters,
+  runExperimentGroups,
   selectEvaluations,
 } from "./run-evaluations.mjs";
 
@@ -84,4 +85,39 @@ test("rejects suites that are not fully represented in experiments", () => {
       ),
     /not declared by a language experiment/,
   );
+});
+
+test("runs every language group before reporting failures", async () => {
+  const invoked = [];
+  const groups = [
+    { language: "python", experiment: "python.yaml", filters: ["python-eval.yaml"] },
+    { language: "java", experiment: "java.yaml", filters: ["java-eval.yaml"] },
+    {
+      language: "typescript",
+      experiment: "typescript.yaml",
+      filters: ["typescript-eval.yaml"],
+    },
+  ];
+
+  await assert.rejects(
+    runExperimentGroups(
+      groups,
+      {
+        variant: "baseline",
+        outputDir: "reports",
+        dryRun: false,
+      },
+      root,
+      async (_command, args) => {
+        const experiment = args[args.indexOf("run") + 1];
+        invoked.push(experiment);
+        if (experiment === "java.yaml") {
+          throw new Error("threshold not met");
+        }
+      },
+    ),
+    /1 evaluation group\(s\) failed: java/,
+  );
+
+  assert.deepEqual(invoked, ["python.yaml", "java.yaml", "typescript.yaml"]);
 });

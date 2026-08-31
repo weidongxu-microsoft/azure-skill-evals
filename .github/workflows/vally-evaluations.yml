@@ -53,13 +53,17 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - uses: pnpm/action-setup@v4
-        with:
-          version: 10.26.0
-
       - uses: actions/setup-node@v4
         with:
           node-version: 22
+
+      - name: Configure public npm registry
+        shell: bash
+        run: |
+          npm config set registry https://registry.npmjs.org/ --location=user
+
+      - name: Install pnpm
+        run: npm install --global pnpm@10.26.0 --registry=https://registry.npmjs.org/
 
       - uses: actions/setup-python@v5
         with:
@@ -76,9 +80,12 @@ jobs:
 
       - name: Install dependencies
         run: |
-          pnpm install --no-frozen-lockfile
+          pnpm install --no-frozen-lockfile --public-hoist-pattern '@github/copilot-*'
+          copilot_cli_path=$(node --input-type=module -e "import { fileURLToPath } from 'node:url'; console.log(fileURLToPath(new URL('./index.js', import.meta.resolve('@github/copilot-linux-x64'))))")
+          echo "COPILOT_CLI_PATH=$copilot_cli_path" >> "$GITHUB_ENV"
+          pnpm list @microsoft/vally @github/copilot-sdk @github/copilot --depth 10
+          node "$copilot_cli_path" --version
           python -m pip install -r requirements-dev.txt
-          npm install --global @github/copilot@1.0.82
 
       - name: Bootstrap pinned skill repositories
         shell: pwsh
@@ -104,6 +111,23 @@ jobs:
             args+=(--dry-run)
           fi
           node scripts/run-evaluations.mjs "${args[@]}"
+
+      - name: Publish evaluation summary
+        if: ${{ always() && inputs.dry_run == false }}
+        shell: bash
+        run: |
+          mapfile -t report_files < <(find reports -type f -name report.md -print 2>/dev/null | sort)
+          if (( ${#report_files[@]} == 0 )); then
+            echo "::warning::Vally did not generate a Markdown report."
+            echo "## Vally evaluation report" >> "$GITHUB_STEP_SUMMARY"
+            echo "No report was generated." >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+
+          for report_file in "${report_files[@]}"; do
+            cat "$report_file" >> "$GITHUB_STEP_SUMMARY"
+            echo >> "$GITHUB_STEP_SUMMARY"
+          done
 
       - name: Upload evaluation reports
         if: ${{ always() && inputs.dry_run == false }}

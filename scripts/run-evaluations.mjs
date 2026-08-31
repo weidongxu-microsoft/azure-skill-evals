@@ -322,6 +322,45 @@ function runCommand(command, args, cwd) {
   });
 }
 
+export async function runExperimentGroups(groups, options, root, runner = runCommand) {
+  const pnpm = process.platform === "win32" ? "pnpm.cmd" : "pnpm";
+  const failures = [];
+
+  for (const group of groups) {
+    const args = [
+      "exec",
+      "vally",
+      "experiment",
+      "run",
+      group.experiment,
+      "--output-dir",
+      options.outputDir,
+    ];
+    if (options.variant !== "all") {
+      args.push("--variant", options.variant);
+    }
+    for (const filter of group.filters) {
+      args.push("--eval-filter", filter);
+    }
+    if (options.dryRun) {
+      args.push("--dry-run");
+    }
+
+    try {
+      await runner(pnpm, args, root);
+    } catch (error) {
+      failures.push({ language: group.language, error });
+      console.error(`Evaluation group "${group.language}" failed: ${error.message}`);
+    }
+  }
+
+  if (failures.length > 0) {
+    throw new Error(
+      `${failures.length} evaluation group(s) failed: ${failures.map(({ language }) => language).join(", ")}.`,
+    );
+  }
+}
+
 export async function main(argv = process.argv.slice(2)) {
   const options = parseArguments(argv);
   const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
@@ -352,29 +391,7 @@ export async function main(argv = process.argv.slice(2)) {
     return;
   }
 
-  const pnpm = process.platform === "win32" ? "pnpm.cmd" : "pnpm";
-  for (const group of groups) {
-    const args = [
-      "exec",
-      "vally",
-      "experiment",
-      "run",
-      group.experiment,
-      "--output-dir",
-      options.outputDir,
-    ];
-    if (options.variant !== "all") {
-      args.push("--variant", options.variant);
-    }
-    for (const filter of group.filters) {
-      args.push("--eval-filter", filter);
-    }
-    if (options.dryRun) {
-      args.push("--dry-run");
-    }
-
-    await runCommand(pnpm, args, root);
-  }
+  await runExperimentGroups(groups, options, root);
 }
 
 if (process.argv[1] && pathToFileURL(process.argv[1]).href === import.meta.url) {
