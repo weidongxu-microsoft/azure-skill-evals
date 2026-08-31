@@ -305,6 +305,85 @@ function matchingBrace(source, openIndex) {
   return -1;
 }
 
+function matchingParenthesis(source, openIndex) {
+  let depth = 0;
+  for (let index = openIndex; index < source.length; index += 1) {
+    if (source[index] === "(") depth += 1;
+    else if (source[index] === ")" && --depth === 0) return index;
+  }
+  return -1;
+}
+
+function splitArguments(source) {
+  const argumentsList = [];
+  let start = 0;
+  let depth = 0;
+  for (let index = 0; index < source.length; index += 1) {
+    if ("([{".includes(source[index])) depth += 1;
+    else if (")]}".includes(source[index])) depth -= 1;
+    else if (source[index] === "," && depth === 0) {
+      argumentsList.push(source.slice(start, index).trim());
+      start = index + 1;
+    }
+  }
+  const final = source.slice(start).trim();
+  if (final) argumentsList.push(final);
+  return argumentsList;
+}
+
+function cancellableWaitBindings(source) {
+  const bindings = new Set();
+  for (const match of source.matchAll(
+    /\b(?:Task|var)\s+(\w+)\s*=\s*Task\s*\.\s*Delay\s*\(\s*(?:Timeout\s*\.\s*Infinite(?:TimeSpan)?|-1)\s*,\s*[^,)]+\)/g,
+  )) {
+    bindings.add(match[1]);
+  }
+  return bindings;
+}
+
+function hasBoundedProcessorWait(source, start, end) {
+  const region = source.slice(start, end);
+  if (
+    /\bawait\s+Task\s*\.\s*Delay\s*\(\s*(?!(?:0|Timeout\s*\.\s*Infinite(?:TimeSpan)?|-1)\s*(?:,|\)))[^)]+\)/.test(
+      region,
+    ) ||
+    /\bawait\s+\w+(?:\.\w+)*\s*\.\s*WaitForCancellationAsync\s*\([^)]*\)/.test(
+      region,
+    ) ||
+    /\bConsole\s*\.\s*Read(?:Line|Key)\s*\(/.test(region)
+  ) {
+    return true;
+  }
+
+  const waitBindings = cancellableWaitBindings(region);
+  for (const match of region.matchAll(/\bawait\s+Task\s*\.\s*WhenAny\s*\(/g)) {
+    const open = region.indexOf("(", match.index);
+    const close = matchingParenthesis(region, open);
+    if (close < 0) continue;
+    const argumentsList = splitArguments(region.slice(open + 1, close));
+    const cancellable = argumentsList.some(
+      (argument) =>
+        waitBindings.has(argument.trim()) ||
+        /^Task\s*\.\s*Delay\s*\(\s*(?:Timeout\s*\.\s*Infinite(?:TimeSpan)?|-1)\s*,\s*[^,)]+\)$/.test(
+          argument,
+        ) ||
+        /WaitForCancellationAsync\s*\([^)]*\)$/.test(argument),
+    );
+    const signal = argumentsList.some(
+      (argument) =>
+        !waitBindings.has(argument.trim()) &&
+        !/^Task\s*\.\s*(?:CompletedTask|From(?:Result|Exception|Canceled)\s*\(|Delay\s*\(\s*0\b)/.test(
+          argument,
+        ) &&
+        !/^Task\s*\.\s*Delay\s*\(\s*(?:Timeout\s*\.\s*Infinite(?:TimeSpan)?|-1)\s*,/.test(
+          argument,
+        ),
+    );
+    if (argumentsList.length >= 2 && cancellable && signal) return true;
+  }
+  return false;
+}
+
 function serviceBusFactoryBindings(source, client, type, method) {
   const escapedClient = escapeRegExp(client);
   const escapedType = escapeRegExp(type);
@@ -361,10 +440,6 @@ function serviceBusProcessorIsStopped(source, processor) {
     `\\bawait\\s+${escaped}\\s*\\.\\s*StartProcessingAsync\\s*\\(`,
   ).exec(source);
   if (!start) return false;
-  const wait = new RegExp(
-    `\\b(?:await\\s+Task\\s*\\.\\s*Delay|await\\s+\\w+(?:\\.\\w+)*\\s*\\.\\s*WaitForCancellationAsync|Console\\s*\\.\\s*Read(?:Line|Key))\\s*\\(`,
-    "g",
-  );
   const stop = new RegExp(
     `\\bawait\\s+${escaped}\\s*\\.\\s*StopProcessingAsync\\s*\\(`,
     "g",
@@ -377,10 +452,15 @@ function serviceBusProcessorIsStopped(source, processor) {
     const stopped = stop.exec(body);
     stop.lastIndex = 0;
     if (!stopped || finallyMatch.index <= start.index) continue;
-    wait.lastIndex = start.index + start[0].length;
-    const waited = wait.exec(source);
-    wait.lastIndex = 0;
-    if (waited && waited.index < finallyMatch.index) return true;
+    if (
+      hasBoundedProcessorWait(
+        source,
+        start.index + start[0].length,
+        finallyMatch.index,
+      )
+    ) {
+      return true;
+    }
   }
   return false;
 }

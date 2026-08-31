@@ -1337,7 +1337,21 @@ function evaluateExpression(
   const invocation = wholeInvocation(value);
   if (invocation) {
     const sdk = invokeSdk(invocation, environment, state, context);
-    if (sdk !== null) return sdk;
+    if (sdk !== null) {
+      if (
+        canonicalType(expectedType, state.types) === "KeyVaultSecret" &&
+        sdk.kind === "secret-response"
+      ) {
+        return {
+          kind: "secret",
+          clientId: sdk.clientId,
+          name: sdk.name,
+          retrieved: sdk.retrieved,
+          value: sdk.value,
+        };
+      }
+      return sdk;
+    }
     const helper = invokeHelper(invocation, environment, state, context);
     if (helper !== null) return helper;
   }

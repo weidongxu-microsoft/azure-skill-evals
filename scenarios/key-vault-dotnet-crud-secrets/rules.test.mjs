@@ -15,6 +15,11 @@ const baseline33374429826 = loadWorkspace(
     new URL("./fixtures/baseline-33374429826", import.meta.url),
   ),
 );
+const baseline33420505368 = loadWorkspace(
+  fileURLToPath(
+    new URL("./fixtures/baseline-33420505368", import.meta.url),
+  ),
+);
 
 function workspace(source, project = completeWorkspace.project) {
   return { ...completeWorkspace, project, source };
@@ -83,6 +88,12 @@ test("golden passes exactly eight semantic criteria", () => {
 test("baseline run 33374429826 exact output passes every grader", () => {
   for (const rule of ruleNames()) {
     assert.equal(evaluateRule(rule, baseline33374429826), true, rule);
+  }
+});
+
+test("baseline run 33420505368 implicit secret conversion passes every grader", () => {
+  for (const rule of ruleNames()) {
+    assert.equal(evaluateRule(rule, baseline33420505368), true, rule);
   }
 });
 
@@ -416,6 +427,43 @@ test("interpolated retrieved secret values remain connected", () => {
     ),
   );
   assert.equal(evaluateRule("prompt/get-print-secret", workspace(source)), true);
+});
+
+test("typed implicit response conversion preserves retrieved secret provenance", () => {
+  const implicit = handled(
+    lifecycle.replace(
+      "var response = await client.GetSecretAsync(\"my-secret\");\nConsole.WriteLine(response.Value.Value);",
+      `KeyVaultSecret secret = await client.GetSecretAsync("my-secret");
+Console.WriteLine(secret.Value);`,
+    ),
+  );
+  assert.equal(evaluateRule("prompt/get-print-secret", workspace(implicit)), true);
+  assert.equal(evaluateRule("prompt/update-secret", workspace(implicit)), true);
+  assert.equal(
+    evaluateRule("prompt/delete-wait-purge", workspace(implicit)),
+    true,
+  );
+
+  const invalid = [
+    implicit.replace(
+      'client.GetSecretAsync("my-secret")',
+      'client.GetSecretAsync("other-secret")',
+    ),
+    implicit.replace(
+      'client.GetSecretAsync("my-secret")',
+      'otherClient.GetSecretAsync("my-secret")',
+    ),
+    implicit.replace(
+      "KeyVaultSecret secret = await client.GetSecretAsync",
+      "KeyVaultSecret secret = client.GetSecretAsync",
+    ),
+  ];
+  for (const source of invalid) {
+    assert.equal(
+      evaluateRule("prompt/get-print-secret", workspace(source)),
+      false,
+    );
+  }
 });
 
 test("unqualified Azure symbols require real imports and reject local fakes", () => {

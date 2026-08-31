@@ -1305,6 +1305,10 @@ function invokeHelper(invocation, environment, state, context) {
     definition.parameters.forEach((parameter, index) => {
       callEnvironment.declare(parameter.name, parameterValues[index]);
     });
+    const analyzesOwnTry =
+      (context.callDepth ?? 0) === 0 &&
+      definition.owner === null &&
+      /\btry\s*\{/.test(definition.body);
     state.activeMethods.add(key);
     const flow = executeRegion(
       definition.body,
@@ -1313,9 +1317,10 @@ function invokeHelper(invocation, environment, state, context) {
       state,
       {
         branchScope: `${context.branchScope ?? "root"}/${context.origin}:${definition.id}`,
+        callDepth: (context.callDepth ?? 0) + 1,
         loop: context.loop,
         path: context.path,
-        site: context.site ?? context.origin,
+        site: analyzesOwnTry ? undefined : context.site ?? context.origin,
       },
     );
     state.activeMethods.delete(key);
@@ -2565,8 +2570,18 @@ function lifecycle(analysis) {
                     for (const confirmationStep of eventsAfter(
                       completion.event,
                       (event) =>
-                        event.kind === "confirmation" &&
-                        event.name === create.name,
+                        (
+                          event.kind === "confirmation" &&
+                          event.name === create.name
+                        ) ||
+                        (
+                          event.kind === "output" &&
+                          event.clientId === create.clientId &&
+                          event.collectionId === create.collectionId &&
+                          event.name === create.name &&
+                          event.property === "name" &&
+                          event.provenance === "create"
+                        ),
                       completion.path,
                     )) {
                       promote(5, {

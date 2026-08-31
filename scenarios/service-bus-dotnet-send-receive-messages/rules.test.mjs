@@ -13,6 +13,11 @@ import {
 
 const goldenRoot = fileURLToPath(new URL("./golden", import.meta.url));
 const completeWorkspace = loadDotnetWorkspace(goldenRoot);
+const baseline33420505368 = loadDotnetWorkspace(
+  fileURLToPath(
+    new URL("./fixtures/baseline-33420505368", import.meta.url),
+  ),
+);
 
 function workspace(source, project = completeWorkspace.project) {
   return { ...completeWorkspace, project, source };
@@ -37,6 +42,28 @@ test("golden passes the nine-rule contract and shared lifecycle", () => {
     evaluateDotnetCheck("language/client-lifecycle", completeWorkspace),
     true,
   );
+});
+
+test("baseline run 33420505368 passes all prompt and shared lifecycle checks", () => {
+  for (const rule of ruleNames()) {
+    assert.equal(evaluateRule(rule, baseline33420505368), true, rule);
+  }
+  assert.equal(
+    evaluateDotnetCheck("language/client-lifecycle", baseline33420505368),
+    true,
+  );
+});
+
+test("explicit Azure.Identity 1.21.0 remains compatible", () => {
+  const project = baseline33420505368.project.replace(
+    '<PackageReference Include="Azure.Messaging.ServiceBus" Version="7.20.2" />',
+    `<PackageReference Include="Azure.Identity" Version="1.21.0" />
+    <PackageReference Include="Azure.Messaging.ServiceBus" Version="7.20.2" />`,
+  );
+  const compatible = { ...baseline33420505368, project };
+  for (const rule of ruleNames()) {
+    assert.equal(evaluateRule(rule, compatible), true, rule);
+  }
 });
 
 test("source manifest requires one active pinned net8 project", () => {
@@ -648,6 +675,104 @@ test("processor handlers must be live, useful, and settle their own message", ()
   }
 });
 
+test("interpolated processor error details preserve exact argument provenance", () => {
+  assert.equal(
+    evaluateRule("prompt/processor-handlers", baseline33420505368),
+    true,
+  );
+  const lowercaseProperty = baseline33420505368.source.replace(
+    "args.Exception}",
+    "args.error}",
+  );
+  assert.equal(
+    evaluateRule(
+      "prompt/processor-handlers",
+      workspace(lowercaseProperty, baseline33420505368.project),
+    ),
+    true,
+  );
+  const unrelated = baseline33420505368.source.replace(
+    "args.Exception}",
+    "other.Exception}",
+  );
+  assert.equal(
+    evaluateRule(
+      "prompt/processor-handlers",
+      workspace(unrelated, baseline33420505368.project),
+    ),
+    false,
+  );
+});
+
+test("environment setting names are arbitrary but role dataflow stays consistent", () => {
+  const arbitrary = baseline33420505368.source
+    .replaceAll("AZURE_SERVICE_BUS_FULLY_QUALIFIED_NAMESPACE", "BROKER_HOST")
+    .replaceAll("AZURE_SERVICE_BUS_QUEUE_NAME", "PRIMARY_ENTITY")
+    .replaceAll("AZURE_SERVICE_BUS_TOPIC_NAME", "PUBLISH_ENTITY")
+    .replaceAll("AZURE_SERVICE_BUS_SUBSCRIPTION_NAME", "CONSUMER_SLOT");
+  for (const rule of ruleNames()) {
+    assert.equal(
+      evaluateRule(
+        rule,
+        workspace(arbitrary, baseline33420505368.project),
+      ),
+      true,
+      rule,
+    );
+  }
+
+  const literalNamespace = arbitrary.replace(
+    /GetRequiredEnvironmentVariable\(\r?\n    "BROKER_HOST"\)/,
+    '"example.servicebus.windows.net"',
+  );
+  assert.equal(
+    evaluateRule(
+      "prompt/client-configuration",
+      workspace(literalNamespace, baseline33420505368.project),
+    ),
+    false,
+  );
+
+  const fallbackQueue = arbitrary.replace(
+    'string queueName = GetRequiredEnvironmentVariable("PRIMARY_ENTITY");',
+    `string queueName =
+    Environment.GetEnvironmentVariable("PRIMARY_ENTITY") ?? "orders";`,
+  );
+  assert.equal(
+    evaluateRule(
+      "prompt/queue-single-message",
+      workspace(fallbackQueue, baseline33420505368.project),
+    ),
+    false,
+  );
+
+  const mismatchedQueue = arbitrary.replace(
+    "await ReceiveQueueMessageAsync(client, queueName);",
+    "await ReceiveQueueMessageAsync(client, topicName);",
+  );
+  assert.equal(
+    evaluateRule(
+      "prompt/queue-receive-body",
+      workspace(mismatchedQueue, baseline33420505368.project),
+    ),
+    false,
+  );
+
+  const swappedTopicSubscription = arbitrary.replace(
+    /client\.CreateReceiver\(\r?\n        topicName,\r?\n        subscriptionName\)/,
+    `client.CreateReceiver(
+        subscriptionName,
+        topicName)`,
+  );
+  assert.equal(
+    evaluateRule(
+      "prompt/topic-subscription",
+      workspace(swappedTopicSubscription, baseline33420505368.project),
+    ),
+    false,
+  );
+});
+
 test("inline handlers and separately configured processor options pass", () => {
   const source = completeWorkspace.source
     .replace(
@@ -709,6 +834,59 @@ test("processor lifecycle rejects immediate, unawaited, or unguaranteed stop", (
   for (const source of [immediate, unawaited, unguaranteed]) {
     assert.equal(
       evaluateRule("prompt/resource-lifecycle", workspace(source)),
+      false,
+    );
+  }
+});
+
+test("cancellable Task.WhenAny is bounded only with a real signal and finally stop", () => {
+  for (const check of [
+    (source) =>
+      evaluateRule(
+        "prompt/resource-lifecycle",
+        workspace(source, baseline33420505368.project),
+      ),
+    (source) =>
+      evaluateDotnetCheck("language/client-lifecycle", {
+        ...baseline33420505368,
+        source,
+      }),
+  ]) {
+    assert.equal(check(baseline33420505368.source), true);
+    assert.equal(
+      check(
+        baseline33420505368.source.replace(
+          "processedMessage.Task, cancellation",
+          "Task.CompletedTask, cancellation",
+        ),
+      ),
+      false,
+    );
+    assert.equal(
+      check(
+        baseline33420505368.source.replace(
+          "processedMessage.Task, cancellation",
+          "Task.FromResult(true), cancellation",
+        ),
+      ),
+      false,
+    );
+    assert.equal(
+      check(
+        baseline33420505368.source.replace(
+          "Task.Delay(Timeout.InfiniteTimeSpan, shutdown.Token)",
+          "Task.Delay(Timeout.InfiniteTimeSpan)",
+        ),
+      ),
+      false,
+    );
+    assert.equal(
+      check(
+        baseline33420505368.source.replace(
+          "await processor.StopProcessingAsync();",
+          "",
+        ),
+      ),
       false,
     );
   }

@@ -27,6 +27,11 @@ const baseline33403910898 = loadWorkspace(
     new URL("./fixtures/baseline-33403910898", import.meta.url),
   ),
 );
+const baseline33420505368 = loadWorkspace(
+  fileURLToPath(
+    new URL("./fixtures/baseline-33420505368", import.meta.url),
+  ),
+);
 
 function manifest({
   target = "net8.0",
@@ -77,6 +82,15 @@ test("baseline run 33403910898 exact output passes every configured check", () =
   }
   for (const check of dotnetCheckNames()) {
     assert.equal(evaluateDotnetCheck(check, baseline33403910898), true, check);
+  }
+});
+
+test("baseline run 33420505368 compound endpoint validation passes all checks", () => {
+  for (const rule of ruleNames()) {
+    assert.equal(evaluateRule(rule, baseline33420505368), true, rule);
+  }
+  for (const check of dotnetCheckNames()) {
+    assert.equal(evaluateDotnetCheck(check, baseline33420505368), true, check);
   }
 });
 
@@ -151,6 +165,71 @@ var client = new BlobServiceClient(endpoint);
     }),
     false,
   );
+});
+
+test("compound TryCreate scheme validation accepts equivalent ordering only", () => {
+  const workflow = (condition) => `
+using Azure.Identity;
+using Azure.Storage.Blobs;
+var setting = Environment.GetEnvironmentVariable("AZURE_STORAGE_BLOB_ENDPOINT");
+if (${condition})
+{
+    return;
+}
+var credential = new DefaultAzureCredential();
+var client = new BlobServiceClient(endpoint, credential);
+try
+{
+    var response = await client.GetAccountInfoAsync();
+    Console.WriteLine(response.Value.AccountKind);
+}
+catch (CredentialUnavailableException unavailable)
+{
+    Console.Error.WriteLine(unavailable.Message);
+}
+catch (AuthenticationFailedException failed)
+{
+    Console.Error.WriteLine(failed.Message);
+}`;
+  const tryCreate =
+    "!Uri.TryCreate(setting, UriKind.Absolute, out var endpoint)";
+  const invalidScheme =
+    "endpoint.Scheme != Uri.UriSchemeHttps && endpoint.Scheme != Uri.UriSchemeHttp";
+  const reversedScheme =
+    "endpoint.Scheme != Uri.UriSchemeHttp && endpoint.Scheme != Uri.UriSchemeHttps";
+  for (const condition of [
+    `${tryCreate} || (${invalidScheme})`,
+    `(${reversedScheme}) || ${tryCreate}`,
+  ]) {
+    const source = workflow(condition);
+    for (const rule of ruleNames().filter(
+      (name) => name !== "prompt/storage-packages",
+    )) {
+      assert.equal(
+        evaluateRule(rule, { ...completeWorkspace, source }),
+        true,
+        `${rule}\n${condition}`,
+      );
+    }
+  }
+
+  for (const condition of [
+    `${tryCreate} || endpoint.Scheme == Uri.UriSchemeHttps`,
+    `${tryCreate} || endpoint.Scheme != Uri.UriSchemeHttps || endpoint.Scheme != Uri.UriSchemeHttp`,
+    `(${tryCreate} || endpoint.Scheme != Uri.UriSchemeHttp) && ` +
+      "endpoint.Scheme != Uri.UriSchemeHttps",
+    "!Uri.TryCreate(setting, UriKind.Relative, out var endpoint) || " +
+      `(${invalidScheme})`,
+  ]) {
+    assert.equal(
+      evaluateRule("prompt/account-endpoint", {
+        ...completeWorkspace,
+        source: workflow(condition),
+      }),
+      false,
+      condition,
+    );
+  }
 });
 
 test("endpoint and operation dataflow rejects adversarial variants", () => {

@@ -261,15 +261,94 @@ function withoutDeadCode(source) {
 }
 
 function normalizeTryCreate(source) {
-  return source
-    .replace(
-    /\bif\s*\(\s*!\s*Uri\s*\.\s*TryCreate\s*\(\s*(\w+)\s*,\s*UriKind\s*\.\s*Absolute\s*,\s*out\s+(?:(?:var|Uri\??)\s+)?(\w+)\s*\)\s*\)\s*\{/g,
-    "Uri $2 = new Uri($1, UriKind.Absolute); if (false) {",
-    )
-    .replace(
-      /\bif\s*\(\s*Uri\s*\.\s*TryCreate\s*\(\s*(\w+)\s*,\s*UriKind\s*\.\s*Absolute\s*,\s*out\s+(?:(?:var|Uri\??)\s+)?(\w+)\s*\)\s*\)\s*\{/g,
-      "{ Uri $2 = new Uri($1, UriKind.Absolute);",
+  const stripParentheses = (expression) => {
+    let value = expression.trim();
+    while (
+      value.startsWith("(") &&
+      matchingDelimiter(value, 0, "(", ")") === value.length - 1
+    ) {
+      value = value.slice(1, -1).trim();
+    }
+    return value;
+  };
+  const splitLogical = (expression, operator) => {
+    const parts = [];
+    let start = 0;
+    let depth = 0;
+    for (let index = 0; index < expression.length; index += 1) {
+      if ("([{".includes(expression[index])) depth += 1;
+      else if (")]}".includes(expression[index])) depth -= 1;
+      else if (
+        depth === 0 &&
+        expression.startsWith(operator, index)
+      ) {
+        parts.push(expression.slice(start, index).trim());
+        start = index + operator.length;
+        index += operator.length - 1;
+      }
+    }
+    parts.push(expression.slice(start).trim());
+    return parts;
+  };
+  const replacements = [];
+  for (const match of source.matchAll(/\bif\s*\(/g)) {
+    const open = source.indexOf("(", match.index);
+    const close = matchingDelimiter(source, open, "(", ")");
+    if (close < 0) continue;
+    let blockOpen = close + 1;
+    while (/\s/.test(source[blockOpen] ?? "")) blockOpen += 1;
+    if (source[blockOpen] !== "{") continue;
+    const condition = source.slice(open + 1, close);
+    const tryCreate = new RegExp(
+      String.raw`!\s*Uri\s*\.\s*TryCreate\s*\(\s*(\w+)\s*,\s*UriKind\s*\.\s*Absolute\s*,\s*out\s+(?:(?:var|Uri\??)\s+)?(\w+)\s*\)`,
+    ).exec(condition);
+    if (!tryCreate) continue;
+
+    const negatedTryCreate = stripParentheses(tryCreate[0])
+      .replace(/\s+/g, "");
+    const compact = stripParentheses(condition).replace(/\s+/g, "");
+    const exact = compact === negatedTryCreate;
+    const endpoint = escapeRegExp(tryCreate[2]);
+    const scheme = (expression) =>
+      new RegExp(
+        String.raw`^${endpoint}\.Scheme(?:!=|isnot)(?:Uri\.)?UriScheme(Http|Https)$`,
+        "i",
+      ).exec(stripParentheses(expression).replace(/\s+/g, ""))?.[1]
+        ?.toLowerCase() ?? null;
+    const orParts = splitLogical(stripParentheses(condition), "||");
+    const tryPart = orParts.find(
+      (part) =>
+        stripParentheses(part).replace(/\s+/g, "") === negatedTryCreate,
     );
+    const schemePart = orParts.find((part) => part !== tryPart);
+    const schemes = schemePart
+      ? splitLogical(stripParentheses(schemePart), "&&").map(scheme)
+      : [];
+    const compound =
+      orParts.length === 2 &&
+      tryPart !== undefined &&
+      schemes.length === 2 &&
+      schemes.includes("http") &&
+      schemes.includes("https");
+    if (!exact && !compound) continue;
+    replacements.push({
+      end: blockOpen + 1,
+      replacement:
+        `Uri ${tryCreate[2]} = new Uri(${tryCreate[1]}, UriKind.Absolute); if (false) {`,
+      start: match.index,
+    });
+  }
+  let normalized = source;
+  for (const replacement of replacements.reverse()) {
+    normalized =
+      normalized.slice(0, replacement.start) +
+      replacement.replacement +
+      normalized.slice(replacement.end);
+  }
+  return normalized.replace(
+    /\bif\s*\(\s*Uri\s*\.\s*TryCreate\s*\(\s*(\w+)\s*,\s*UriKind\s*\.\s*Absolute\s*,\s*out\s+(?:(?:var|Uri\??)\s+)?(\w+)\s*\)\s*\)\s*\{/g,
+    "{ Uri $2 = new Uri($1, UriKind.Absolute);",
+  );
 }
 
 function resolveEndpointSettingConstants(source) {

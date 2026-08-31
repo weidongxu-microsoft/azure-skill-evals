@@ -477,7 +477,12 @@ function constructor(expression, expectedType, state) {
 }
 
 function stringIdentity(value) {
-  return value?.kind === "string" ? value.value : null;
+  return value?.kind === "string" && !value.fallback ? value.value : null;
+}
+
+function environmentIdentity(value) {
+  const identity = stringIdentity(value);
+  return identity?.startsWith("env:") ? identity : null;
 }
 
 function evaluateExpression(
@@ -492,13 +497,19 @@ function evaluateExpression(
     .trim();
   const coalesce = value.indexOf("??");
   if (coalesce >= 0) {
-    return evaluateExpression(
+    const left = evaluateExpression(
       value.slice(0, coalesce),
       expectedType,
       environment,
       state,
       context,
     );
+    return left?.kind === "string"
+      ? {
+          ...left,
+          fallback: !/^\s*throw\b/.test(value.slice(coalesce + 2)),
+        }
+      : left;
   }
   const literal = literalValue(value, state);
   if (literal) return literal;
@@ -522,6 +533,17 @@ function evaluateExpression(
       kind: "duration",
     };
   }
+  if (/^Timeout\s*\.\s*Infinite(?:TimeSpan)?$/.test(value)) {
+    return { bounded: false, infinite: true, kind: "duration" };
+  }
+  if (/^Task\s*\.\s*CompletedTask$/.test(value)) {
+    return { kind: "completed-task" };
+  }
+  if (
+    /^Task\s*\.\s*From(?:Result|Exception|Canceled)\s*\(/.test(value)
+  ) {
+    return { kind: "completed-task" };
+  }
 
   const environmentRead =
     /^(?:System\s*\.\s*)?Environment\s*\.\s*GetEnvironmentVariable\s*\(([\s\S]*)\)$/.exec(
@@ -537,7 +559,11 @@ function evaluateExpression(
         context,
       ),
     );
-    return { kind: "string", value: name ? `env:${name}` : null };
+    return {
+      fallback: false,
+      kind: "string",
+      value: name ? `env:${name}` : null,
+    };
   }
 
   const body = /^([\s\S]+)\.\s*Body$/.exec(value);
@@ -564,7 +590,7 @@ function evaluateExpression(
     );
     return owner?.kind === "handler-args" ? owner.message : unknown();
   }
-  const exceptionProperty = /^([\s\S]+)\.\s*Exception$/.exec(value);
+  const exceptionProperty = /^([\s\S]+)\.\s*(?:Exception|error)$/i.exec(value);
   if (exceptionProperty) {
     const owner = evaluateExpression(
       exceptionProperty[1],
@@ -612,7 +638,7 @@ function evaluateExpression(
         "options",
       ]);
       const namespace = args?.[0]
-        ? stringIdentity(
+        ? environmentIdentity(
             evaluateExpression(args[0], null, environment, state, context),
           )
         : null;
@@ -624,9 +650,7 @@ function evaluateExpression(
         kind: "client",
         namespace,
         path: context.path ?? [],
-        valid:
-          namespace === "env:SERVICE_BUS_FULLY_QUALIFIED_NAMESPACE" &&
-          credential?.kind === "credential",
+        valid: namespace !== null && credential?.kind === "credential",
       };
       state.resources.push(object);
       return object;
@@ -1004,12 +1028,8 @@ function invoke(call, environment, state, context) {
     return unknown();
   }
 
-  if (
-    (call.receiver === "Task" && method === "Delay") ||
-    (call.receiver === "Task" && method === "WhenAny") ||
-    /(?:WaitForCancellation|WaitOne|ReadLine|ReadKey)/.test(call.method)
-  ) {
-    const delay = call.receiver === "Task" && call.arguments[0]
+  if (call.receiver === "Task" && method === "Delay") {
+    const delay = call.arguments[0]
       ? evaluateExpression(
           call.arguments[0],
           null,
@@ -1018,10 +1038,47 @@ function invoke(call, environment, state, context) {
           context,
         )
       : null;
+    const cancellable = call.arguments.length > 1;
+    const valid =
+      delay?.kind === "duration"
+        ? delay.bounded || (delay.infinite && cancellable)
+        : delay?.kind === "number" && delay.value > 0;
+    if (call.awaited) {
+      event(state, context, {
+        awaited: true,
+        kind: "wait",
+        valid,
+      });
+    }
+    return { cancellable, kind: "wait-task", valid };
+  }
+  if (call.receiver === "Task" && method === "WhenAny") {
+    const values = call.arguments.map((argument) =>
+      evaluateExpression(argument, null, environment, state, context)
+    );
+    const cancellableWait = values.some(
+      (candidate) =>
+        candidate?.kind === "wait-task" &&
+        candidate.cancellable &&
+        candidate.valid,
+    );
+    const signal = values.some(
+      (candidate) =>
+        candidate?.kind !== "wait-task" &&
+        candidate?.kind !== "completed-task",
+    );
     event(state, context, {
-      awaited: call.receiver === "Task" ? call.awaited : true,
+      awaited: call.awaited,
       kind: "wait",
-      valid: delay?.kind !== "number" || delay.value > 0,
+      valid: call.arguments.length >= 2 && cancellableWait && signal,
+    });
+    return unknown();
+  }
+  if (/(?:WaitForCancellation|WaitOne|ReadLine|ReadKey)/.test(call.method)) {
+    event(state, context, {
+      awaited: true,
+      kind: "wait",
+      valid: true,
     });
     return unknown();
   }
@@ -1102,6 +1159,27 @@ function processOutput(expression, environment, state, context) {
   if (value?.kind === "error-detail") {
     event(state, context, { kind: "error-output" });
     return;
+  }
+  for (const match of expression.matchAll(
+    /\b((?:this\.)?\w+(?:\.\w+)*)\s*\.\s*(?:Exception|error)\b/gi,
+  )) {
+    const owner = evaluateExpression(
+      match[1],
+      null,
+      environment,
+      state,
+      context,
+    );
+    if (owner?.kind === "error-args") {
+      event(state, context, { kind: "error-output" });
+      return;
+    }
+  }
+  for (const name of expression.match(/\b\w+\b/g) ?? []) {
+    if (environment.lookup(name)?.kind === "error-detail") {
+      event(state, context, { kind: "error-output" });
+      return;
+    }
   }
   for (const match of expression.matchAll(
     /\b((?:this\.)?\w+(?:\.\w+)*)\s*\.\s*Body\b/g,
@@ -2094,17 +2172,32 @@ function queueSenders(analysis) {
     (resource) =>
       resource.kind === "sender" &&
       clients.has(resource.clientId) &&
-      resource.entity === "env:SERVICE_BUS_QUEUE_NAME",
+      resource.entity?.startsWith("env:") &&
+      analysis.resources.some(
+        (candidate) =>
+          candidate.kind === "receiver" &&
+          candidate.clientId === resource.clientId &&
+          candidate.entity === resource.entity &&
+          candidate.subscription === null,
+      ) &&
+      analysis.resources.some(
+        (candidate) =>
+          candidate.kind === "processor" &&
+          candidate.clientId === resource.clientId &&
+          candidate.entity === resource.entity &&
+          candidate.subscription === null,
+      ),
   );
 }
 
 function queueReceivers(analysis) {
   const clients = new Set(configuredClients(analysis).map(({ id }) => id));
+  const senderEntities = new Set(queueSenders(analysis).map(({ entity }) => entity));
   return analysis.resources.filter(
     (resource) =>
       resource.kind === "receiver" &&
       clients.has(resource.clientId) &&
-      resource.entity === "env:SERVICE_BUS_QUEUE_NAME" &&
+      senderEntities.has(resource.entity) &&
       resource.subscription === null,
   );
 }
@@ -2113,7 +2206,11 @@ function processorHandlersPass(analysis) {
   for (const processor of analysis.resources.filter(
     (resource) =>
       resource.kind === "processor" &&
-      resource.entity === "env:SERVICE_BUS_QUEUE_NAME",
+      queueSenders(analysis).some(
+        (sender) =>
+          sender.clientId === resource.clientId &&
+          sender.entity === resource.entity,
+      ),
   )) {
     const registrations = analysis.events.filter(
       (candidate) =>
@@ -2393,21 +2490,33 @@ const rules = {
 
   "prompt/topic-subscription": ({ analysis }) => {
     const clients = new Set(configuredClients(analysis).map(({ id }) => id));
+    const namespaces = new Map(
+      configuredClients(analysis).map(({ id, namespace }) => [id, namespace]),
+    );
+    const queueEntities = new Set(queueSenders(analysis).map(({ entity }) => entity));
     const senders = analysis.resources.filter(
       (resource) =>
         resource.kind === "sender" &&
         clients.has(resource.clientId) &&
-        resource.entity === "env:SERVICE_BUS_TOPIC_NAME",
+        resource.entity?.startsWith("env:") &&
+        !queueEntities.has(resource.entity) &&
+        resource.entity !== namespaces.get(resource.clientId),
     );
     const receivers = analysis.resources.filter(
       (resource) =>
         resource.kind === "receiver" &&
         clients.has(resource.clientId) &&
-        resource.entity === "env:SERVICE_BUS_TOPIC_NAME" &&
-        resource.subscription === "env:SERVICE_BUS_SUBSCRIPTION_NAME",
+        resource.entity?.startsWith("env:") &&
+        resource.subscription?.startsWith("env:") &&
+        resource.entity !== resource.subscription &&
+        resource.entity !== namespaces.get(resource.clientId) &&
+        resource.subscription !== namespaces.get(resource.clientId) &&
+        !queueEntities.has(resource.entity) &&
+        !queueEntities.has(resource.subscription),
     );
     return senders.some((sender) => receivers.some((receiver) =>
       sender.clientId === receiver.clientId &&
+      sender.entity === receiver.entity &&
       analysis.events.some((sent) =>
         sent.kind === "send-message" &&
         sent.senderId === sender.id &&

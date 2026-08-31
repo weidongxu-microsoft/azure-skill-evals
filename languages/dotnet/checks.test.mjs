@@ -202,6 +202,48 @@ finally
   );
 });
 
+test("Service Bus Task.WhenAny wait requires cancellation, signal, and finally stop", () => {
+  const source = `
+await using var client = new ServiceBusClient(namespaceName, credential);
+await using var processor = client.CreateProcessor(queueName);
+var processed = new TaskCompletionSource();
+using var shutdown = new CancellationTokenSource(TimeSpan.FromSeconds(30));
+try
+{
+    await processor.StartProcessingAsync();
+    Task cancellation =
+        Task.Delay(Timeout.InfiniteTimeSpan, shutdown.Token);
+    await Task.WhenAny(processed.Task, cancellation);
+}
+finally
+{
+    await processor.StopProcessingAsync();
+}
+`;
+  assert.equal(
+    evaluateDotnetCheck("language/client-lifecycle", {
+      ...completeWorkspace,
+      source,
+    }),
+    true,
+  );
+  for (const invalid of [
+    source.replace("processed.Task", "Task.CompletedTask"),
+    source.replace("processed.Task", "Task.FromResult(true)"),
+    source.replace(", shutdown.Token", ""),
+    source.replace("await processor.StopProcessingAsync();", ""),
+    source.replace("finally", "if (cleanup)"),
+  ]) {
+    assert.equal(
+      evaluateDotnetCheck("language/client-lifecycle", {
+        ...completeWorkspace,
+        source: invalid,
+      }),
+      false,
+    );
+  }
+});
+
 test("Service Bus lifecycle is type-aware and rejects incomplete cleanup", () => {
   const base = `
 await using var client = new ServiceBusClient(namespaceName, credential);

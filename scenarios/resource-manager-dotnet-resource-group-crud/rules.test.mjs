@@ -15,6 +15,11 @@ const baseline33374429826 = loadWorkspace(
     new URL("./fixtures/baseline-33374429826", import.meta.url),
   ),
 );
+const baseline33420505368 = loadWorkspace(
+  fileURLToPath(
+    new URL("./fixtures/baseline-33420505368", import.meta.url),
+  ),
+);
 
 function workspace(source, project = completeWorkspace.project) {
   return { ...completeWorkspace, project, source };
@@ -108,6 +113,12 @@ test("golden passes exactly the nine-criterion contract", () => {
 test("baseline run 33374429826 exact output passes every grader", () => {
   for (const rule of ruleNames()) {
     assert.equal(evaluateRule(rule, baseline33374429826), true, rule);
+  }
+});
+
+test("baseline run 33420505368 invoked RunAsync passes every grader", () => {
+  for (const rule of ruleNames()) {
+    assert.equal(evaluateRule(rule, baseline33420505368), true, rule);
   }
 });
 
@@ -363,6 +374,56 @@ await updated.DeleteAsync(WaitUntil.Completed);`,
     evaluateRule("prompt/delete-resource-group", workspace(premature)),
     false,
   );
+});
+
+test("post-delete created resource names confirm only the same lifecycle", () => {
+  const createdName = handled(
+    lifecycle.replace(
+      "Console.WriteLine(resourceGroupName);",
+      "Console.WriteLine(created.Data.Name);",
+    ),
+  );
+  assert.equal(
+    evaluateRule("prompt/delete-resource-group", workspace(createdName)),
+    true,
+  );
+
+  const otherGroup = createdName.replace(
+    "Console.WriteLine(created.Data.Name);",
+    "Console.WriteLine(otherGroup.Data.Name);",
+  );
+  assert.equal(
+    evaluateRule("prompt/delete-resource-group", workspace(otherGroup)),
+    false,
+  );
+
+  const premature = createdName.replace(
+    `await updated.DeleteAsync(WaitUntil.Completed);
+Console.WriteLine(created.Data.Name);`,
+    `Console.WriteLine(created.Data.Name);
+await updated.DeleteAsync(WaitUntil.Completed);`,
+  );
+  assert.equal(
+    evaluateRule("prompt/delete-resource-group", workspace(premature)),
+    false,
+  );
+});
+
+test("invoked top-level local function owns lifecycle and surrounding catches", () => {
+  for (const rule of ruleNames()) {
+    assert.equal(evaluateRule(rule, baseline33420505368), true, rule);
+  }
+  const notInvoked = baseline33420505368.source.replace(
+    "return await RunAsync();",
+    "return 0;",
+  );
+  for (const rule of ruleNames().filter((name) => name !== "prompt/source-manifest")) {
+    assert.equal(
+      evaluateRule(rule, workspace(notInvoked, baseline33420505368.project)),
+      false,
+      rule,
+    );
+  }
 });
 
 test("resource names, collections, clients, and update results stay connected", () => {
