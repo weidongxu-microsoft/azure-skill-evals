@@ -30,6 +30,10 @@ language correctness checks; the number of checks can vary by scenario.
 
 ## Run evaluations in GitHub Actions
 
+Pull requests targeting `main` run deterministic tests, strict evaluation
+linting, and dry-runs of all four language experiments. Agent evaluations
+remain manual.
+
 The `Vally evaluations` workflow supports manual runs of all evaluations,
 evaluations matching tags, or one suite from `.vally.yaml`. Tag clauses are
 separated with semicolons, and comma-separated values within one clause are
