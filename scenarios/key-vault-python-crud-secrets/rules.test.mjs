@@ -100,10 +100,15 @@ test("workspace discovery scores generated source and runtime manifests only", (
     mkdirSync(join(root, "src"), { recursive: true });
     mkdirSync(join(root, "tests"), { recursive: true });
     mkdirSync(join(root, "generated"), { recursive: true });
+    mkdirSync(join(root, ".vally", "tools"), { recursive: true });
     writeFileSync(join(root, "requirements.txt"), dependencies);
     writeFileSync(join(root, "src", "app.py"), completeSource);
     writeFileSync(join(root, "tests", "test_decoy.py"), completeSource);
     writeFileSync(join(root, "generated", "decoy.py"), completeSource);
+    writeFileSync(
+      join(root, ".vally", "tools", "decoy.py"),
+      "def invoke(*args):\n    print(*args)\n",
+    );
     writeFileSync(join(root, "README.md"), completeSource);
 
     const discovered = loadKeyVaultWorkspace(root);
@@ -512,6 +517,17 @@ test("hard-coded output and unrelated retrieved values fail read provenance", ()
       replacement,
     );
   }
+});
+
+test("starred retrieved output preserves provenance", () => {
+  const source = completeSource.replace(
+    "print(found.value)",
+    "print(*[found.value])",
+  );
+  assert.equal(
+    evaluateRule("prompt/read-secret-value", workspace(source)),
+    true,
+  );
 });
 
 test("purge requires the same completed deletion poller in strict order", () => {

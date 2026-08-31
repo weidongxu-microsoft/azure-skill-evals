@@ -71,11 +71,16 @@ test("workspace discovery recursively includes only application Python", () => {
     mkdirSync(join(root, "src"), { recursive: true });
     mkdirSync(join(root, "tests"), { recursive: true });
     mkdirSync(join(root, "build", "generated"), { recursive: true });
+    mkdirSync(join(root, ".vally", "tools"), { recursive: true });
     mkdirSync(join(root, ".venv", "Lib", "site-packages"), { recursive: true });
     writeFileSync(join(root, "requirements.txt"), dependencies);
     writeFileSync(join(root, "src", "main.py"), completeSource);
     writeFileSync(join(root, "tests", "test_decoy.py"), "print(client_secret)");
     writeFileSync(join(root, "build", "generated", "decoy.py"), completeSource);
+    writeFileSync(
+      join(root, ".vally", "tools", "decoy.py"),
+      "def invoke(*args):\n    print(*args)\n",
+    );
     writeFileSync(
       join(root, ".venv", "Lib", "site-packages", "decoy.py"),
       completeSource,
@@ -729,6 +734,7 @@ test("authenticated operation, result, value, and output stay connected", () => 
 test("inline, formatted, extracted, looped, and branched output forms pass", () => {
   const forms = [
     "print(client.get_secret(secret_name).value)",
+    "print(*[client.get_secret(secret_name).value])",
     'print(f"Value: {client.get_secret(secret_name).value}")',
     "secret = client.get_secret(secret_name)\n    value = secret.value\n    print(value)",
     "for name in [secret_name]:\n        print(client.get_secret(name).value)",
