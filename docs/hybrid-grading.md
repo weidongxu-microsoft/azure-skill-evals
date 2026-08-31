@@ -71,6 +71,42 @@ calibration. Keep deterministic and prompted scores separate until their
 agreement and stability are understood. Use repeated trials before comparing
 environment variants.
 
+## Prompt fallback
+
+Vally runs graders declared in `eval.yaml` independently; it does not natively
+express "run this prompt grader only when that deterministic grader fails."
+Fallback scoring would require either a custom composite grader plugin or a
+second offline grading pass.
+
+A composite grader could:
+
+1. Run the deterministic checks once.
+2. Return a pass immediately for each deterministic success.
+3. Send only deterministic failures to one prompted review.
+4. Use the prompted verdict as the final result for those criteria.
+5. Mark every prompt-resolved pass for later human review.
+6. Report deterministic errors and timeouts separately instead of silently
+   treating them as ordinary failures.
+
+This reduces false negatives and avoids repeating an expensive analyzer or
+making one LLM call per criterion. It does not detect deterministic false
+positives because a deterministic pass skips prompted review. Therefore,
+fallback should follow a calibration period in which both graders run and
+their disagreements are measured.
+
+Suggested result states:
+
+| Deterministic | Prompt fallback | Final result | Review |
+|---|---|---|---|
+| pass | not run | pass | none |
+| fail | pass | pass | human review |
+| fail | fail | fail | sample as needed |
+| error or timeout | pass or fail | report separately | infrastructure review |
+
+An initial prototype can use `vally grade` to prompt-grade failed saved
+trajectories and workspaces without rerunning the agent. Integrate fallback
+into the primary score only after the behavior and reporting are validated.
+
 ## Pilot
 
 Start with a small set of analyzer-heavy scenarios, including the Python Blob
