@@ -1103,8 +1103,10 @@ class Analyzer:
             ]
             flags = frozenset().union(*(value_flags(value) for value in children))
             return unknown(flags)
-        if isinstance(node, (ast.UnaryOp, ast.Starred)):
+        if isinstance(node, ast.UnaryOp):
             return self.evaluate_expression(node.operand, environment)
+        if isinstance(node, ast.Starred):
+            return self.evaluate_expression(node.value, environment)
         if isinstance(node, ast.Dict):
             aggregate = Aggregate()
             flags = frozenset()

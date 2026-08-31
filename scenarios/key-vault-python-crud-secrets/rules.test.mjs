@@ -77,6 +77,67 @@ async def main():
 await main()
 `;
 
+const fullRunRegressionSource = `
+import os
+
+from azure.core.exceptions import ResourceNotFoundError
+from azure.identity import DefaultAzureCredential
+from azure.keyvault.secrets import SecretClient
+
+
+SECRET_NAME = "my-secret"
+
+
+def require_vault_url() -> str:
+    vault_url = os.environ.get("AZURE_KEY_VAULT_URL")
+    if not vault_url:
+        raise RuntimeError(
+            "Set AZURE_KEY_VAULT_URL to the Key Vault URL, "
+            "for example https://my-vault.vault.azure.net."
+        )
+    return vault_url
+
+
+def main() -> None:
+    credential = DefaultAzureCredential()
+    client = SecretClient(vault_url=require_vault_url(), credential=credential)
+
+    try:
+        client.set_secret(SECRET_NAME, "my-secret-value")
+
+        try:
+            retrieved_secret = client.get_secret(SECRET_NAME)
+        except ResourceNotFoundError as error:
+            raise RuntimeError(
+                f"Secret {SECRET_NAME!r} was not found immediately after creation."
+            ) from error
+        print(retrieved_secret.value)
+
+        client.set_secret(SECRET_NAME, "updated-value")
+
+        try:
+            deletion_poller = client.begin_delete_secret(SECRET_NAME)
+            deletion_poller.result()
+        except ResourceNotFoundError as error:
+            raise RuntimeError(
+                f"Secret {SECRET_NAME!r} could not be deleted because it was not found."
+            ) from error
+
+        try:
+            client.purge_deleted_secret(SECRET_NAME)
+        except ResourceNotFoundError as error:
+            raise RuntimeError(
+                f"Deleted secret {SECRET_NAME!r} was not available to purge."
+            ) from error
+    finally:
+        client.close()
+        credential.close()
+
+
+if __name__ == "__main__":
+    main()
+`;
+
 test("pinned golden passes exactly eight equally weighted rules", () => {
   assert.deepEqual(ruleNames(), [
     "prompt/key-vault-packages",
@@ -93,6 +154,16 @@ test("pinned golden passes exactly eight equally weighted rules", () => {
   }
 });
 
+test("full-suite run 33358499457 output passes all rules", () => {
+  const generated = workspace(
+    fullRunRegressionSource,
+    "azure-identity\nazure-keyvault-secrets\n",
+  );
+  for (const rule of ruleNames()) {
+    assert.equal(evaluateRule(rule, generated), true, rule);
+  }
+});
+
 test("workspace discovery scores generated source and runtime manifests only", () => {
   const root = fileURLToPath(new URL("./.workspace-fixture", import.meta.url));
   rmSync(root, { recursive: true, force: true });
@@ -100,10 +171,15 @@ test("workspace discovery scores generated source and runtime manifests only", (
     mkdirSync(join(root, "src"), { recursive: true });
     mkdirSync(join(root, "tests"), { recursive: true });
     mkdirSync(join(root, "generated"), { recursive: true });
+    mkdirSync(join(root, ".vally", "tools"), { recursive: true });
     writeFileSync(join(root, "requirements.txt"), dependencies);
     writeFileSync(join(root, "src", "app.py"), completeSource);
     writeFileSync(join(root, "tests", "test_decoy.py"), completeSource);
     writeFileSync(join(root, "generated", "decoy.py"), completeSource);
+    writeFileSync(
+      join(root, ".vally", "tools", "decoy.py"),
+      "def invoke(*args):\n    print(*args)\n",
+    );
     writeFileSync(join(root, "README.md"), completeSource);
 
     const discovered = loadKeyVaultWorkspace(root);
@@ -512,6 +588,17 @@ test("hard-coded output and unrelated retrieved values fail read provenance", ()
       replacement,
     );
   }
+});
+
+test("starred retrieved output preserves provenance", () => {
+  const source = completeSource.replace(
+    "print(found.value)",
+    "print(*[found.value])",
+  );
+  assert.equal(
+    evaluateRule("prompt/read-secret-value", workspace(source)),
+    true,
+  );
 });
 
 test("purge requires the same completed deletion poller in strict order", () => {

@@ -50,6 +50,50 @@ except ClientAuthenticationError as error:
     print(error, file=sys.stderr)
 `;
 
+const fullRunRegressionSource = `
+import os
+
+from azure.core.exceptions import ClientAuthenticationError
+from azure.identity import ClientSecretCredential
+from azure.keyvault.secrets import SecretClient
+
+
+def required_environment_variable(name: str) -> str:
+    value = os.environ.get(name)
+    if not value:
+        raise RuntimeError(f"Required environment variable {name} is not set.")
+    return value
+
+
+def main() -> None:
+    tenant_id = required_environment_variable("AZURE_TENANT_ID")
+    client_id = required_environment_variable("AZURE_CLIENT_ID")
+    client_secret = required_environment_variable("AZURE_CLIENT_SECRET")
+    vault_url = required_environment_variable("AZURE_KEY_VAULT_URL")
+    secret_name = required_environment_variable("AZURE_KEY_VAULT_SECRET_NAME")
+
+    credential = ClientSecretCredential(
+        tenant_id=tenant_id,
+        client_id=client_id,
+        client_secret=client_secret,
+    )
+    client = SecretClient(vault_url=vault_url, credential=credential)
+
+    try:
+        secret = client.get_secret(secret_name)
+    except ClientAuthenticationError as error:
+        raise SystemExit(
+            "Azure authentication failed. Verify the service principal "
+            "credentials and its Key Vault access."
+        ) from error
+
+    print(secret.value)
+
+
+if __name__ == "__main__":
+    main()
+`;
+
 test("real pinned golden passes all six equally weighted rules", () => {
   assert.deepEqual(ruleNames(), [
     "prompt/identity-packages",
@@ -64,6 +108,16 @@ test("real pinned golden passes all six equally weighted rules", () => {
   }
 });
 
+test("full-suite run 33358499457 output passes all rules", () => {
+  const generated = workspace(
+    fullRunRegressionSource,
+    "azure-identity\nazure-keyvault-secrets\n",
+  );
+  for (const rule of ruleNames()) {
+    assert.equal(evaluateRule(rule, generated), true, rule);
+  }
+});
+
 test("workspace discovery recursively includes only application Python", () => {
   const root = fileURLToPath(new URL("./.recursive-source-fixture", import.meta.url));
   rmSync(root, { force: true, recursive: true });
@@ -71,11 +125,16 @@ test("workspace discovery recursively includes only application Python", () => {
     mkdirSync(join(root, "src"), { recursive: true });
     mkdirSync(join(root, "tests"), { recursive: true });
     mkdirSync(join(root, "build", "generated"), { recursive: true });
+    mkdirSync(join(root, ".vally", "tools"), { recursive: true });
     mkdirSync(join(root, ".venv", "Lib", "site-packages"), { recursive: true });
     writeFileSync(join(root, "requirements.txt"), dependencies);
     writeFileSync(join(root, "src", "main.py"), completeSource);
     writeFileSync(join(root, "tests", "test_decoy.py"), "print(client_secret)");
     writeFileSync(join(root, "build", "generated", "decoy.py"), completeSource);
+    writeFileSync(
+      join(root, ".vally", "tools", "decoy.py"),
+      "def invoke(*args):\n    print(*args)\n",
+    );
     writeFileSync(
       join(root, ".venv", "Lib", "site-packages", "decoy.py"),
       completeSource,
@@ -729,6 +788,7 @@ test("authenticated operation, result, value, and output stay connected", () => 
 test("inline, formatted, extracted, looped, and branched output forms pass", () => {
   const forms = [
     "print(client.get_secret(secret_name).value)",
+    "print(*[client.get_secret(secret_name).value])",
     'print(f"Value: {client.get_secret(secret_name).value}")',
     "secret = client.get_secret(secret_name)\n    value = secret.value\n    print(value)",
     "for name in [secret_name]:\n        print(client.get_secret(name).value)",

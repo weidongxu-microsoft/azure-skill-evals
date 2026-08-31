@@ -16,6 +16,7 @@ export function loadServicePrincipalWorkspace(root) {
     ".pytest_cache",
     ".ruff_cache",
     ".tox",
+    ".vally",
     ".venv",
     "__pycache__",
     "build",
