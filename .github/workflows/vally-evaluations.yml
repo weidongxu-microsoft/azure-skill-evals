@@ -60,7 +60,6 @@ jobs:
       - name: Configure public npm registry
         shell: bash
         run: |
-          rm -f .npmrc
           npm config set registry https://registry.npmjs.org/ --location=user
 
       - name: Install pnpm
