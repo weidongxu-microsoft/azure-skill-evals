@@ -31,97 +31,77 @@ stimuli:
       plane: data-plane
       language: python
       category: crud
+      scenario: cosmos-db-python-crud-items
     graders:
-      - type: run-command
-        name: prompt/azure-cosmos-package
+      - type: panel
+        name: prompt/full-case-review
         weight: 1
         config:
-          command: node
-          args:
-            - .vally/scenarios/cosmos-db-python-crud/tools/check-cosmos-python.mjs
-            - prompt/azure-cosmos-package
-      - type: run-command
-        name: prompt/cosmos-client
-        weight: 1
-        config:
-          command: node
-          args:
-            - .vally/scenarios/cosmos-db-python-crud/tools/check-cosmos-python.mjs
-            - prompt/cosmos-client
-      - type: run-command
-        name: prompt/create-database
-        weight: 1
-        config:
-          command: node
-          args:
-            - .vally/scenarios/cosmos-db-python-crud/tools/check-cosmos-python.mjs
-            - prompt/create-database
-      - type: run-command
-        name: prompt/create-container
-        weight: 1
-        config:
-          command: node
-          args:
-            - .vally/scenarios/cosmos-db-python-crud/tools/check-cosmos-python.mjs
-            - prompt/create-container
-      - type: run-command
-        name: prompt/cross-partition-query
-        weight: 1
-        config:
-          command: node
-          args:
-            - .vally/scenarios/cosmos-db-python-crud/tools/check-cosmos-python.mjs
-            - prompt/cross-partition-query
-      - type: run-command
-        name: prompt/cosmos-exception
-        weight: 1
-        config:
-          command: node
-          args:
-            - .vally/scenarios/cosmos-db-python-crud/tools/check-cosmos-python.mjs
-            - prompt/cosmos-exception
-      - type: run-command
-        name: language/correct-imports
-        weight: 1
-        config:
-          command: node
-          args:
-            - .vally/languages/python/check.mjs
-            - language/correct-imports
-      - type: run-command
-        name: language/client-lifecycle
-        weight: 1
-        config:
-          command: node
-          args:
-            - .vally/languages/python/check.mjs
-            - language/client-lifecycle
-      - type: run-command
-        name: language/async-client
-        weight: 1
-        config:
-          command: node
-          args:
-            - .vally/languages/python/check.mjs
-            - language/async-client
-      - type: run-command
-        name: language/exception-handling
-        weight: 1
-        config:
-          command: node
-          args:
-            - .vally/languages/python/check.mjs
-            - language/exception-handling
-    environment:
-      files:
-        - src: tools/check-cosmos-python.mjs
-          dest: .vally/scenarios/cosmos-db-python-crud/tools/check-cosmos-python.mjs
-        - src: tools/cosmos-python-rules.mjs
-          dest: .vally/scenarios/cosmos-db-python-crud/tools/cosmos-python-rules.mjs
-        - src: ../../languages/python/check.mjs
-          dest: .vally/languages/python/check.mjs
-        - src: ../../languages/python/checks.mjs
-          dest: .vally/languages/python/checks.mjs
+          prompt: |-
+            Review the final generated repository as a complete implementation of the task.
+            Score each rubric item independently as pass or fail. Accept equivalent valid
+            implementations and do not require the golden application's file names or code
+            structure. Judge only application correctness and SDK usage; do not score tool,
+            MCP, or skill activity.
+          models:
+            - gpt-5.6-sol
+          aggregation: unanimous
+          scoring: binary
+          threshold: 1
+          overall_threshold: 1
+          evidence:
+            - diff
+          criteria:
+            - name: prompt/azure-cosmos-package
+              description: Declares the azure-cosmos package required to run the generated application.
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: prompt/cosmos-client
+              description: Creates a real Azure Cosmos DB CosmosClient using runtime configuration rather than hard-coded credentials.
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: prompt/create-database
+              description: Creates the TestDB database if it does not exist.
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: prompt/create-container
+              description: Creates the Items container if it does not exist with partition key path /category.
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: prompt/cross-partition-query
+              description: Queries for the electronics category with a parameterized query and enables cross-partition querying.
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: prompt/cosmos-exception
+              description: Handles relevant exceptions from azure.cosmos.exceptions with useful diagnostics without swallowing unrelated failures.
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: language/correct-imports
+              description: Uses valid imports from the real Azure Cosmos DB Python SDK rather than local stand-ins.
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: language/client-lifecycle
+              description: Cleans up the CosmosClient with a context manager or an explicit close call.
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: language/async-client
+              description: If an asynchronous Azure SDK client is used, awaits its operations and closes it asynchronously.
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: prompt/item-crud
+              description: Implements the requested upsert, point read, replace, and delete workflow with the same item identity and partition key.
+              weight: 1
+              pass_threshold: 1
+              required: true
 artifacts:
   include:
     - "**/*.py"

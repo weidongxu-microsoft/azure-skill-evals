@@ -1,5 +1,10 @@
 import assert from "node:assert/strict";
-import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
+import {
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  writeFileSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -19,6 +24,22 @@ const goldenWorkspacePath = fileURLToPath(
   new URL("./golden", import.meta.url),
 );
 const completeWorkspace = loadPythonWorkspace(goldenWorkspacePath);
+
+test("eval uses one full-case model review with ten required criteria", () => {
+  const evalSpec = readFileSync(
+    fileURLToPath(new URL("./eval.yaml", import.meta.url)),
+    "utf8",
+  );
+
+  assert.equal((evalSpec.match(/^\s+- type: panel$/gm) ?? []).length, 1);
+  assert.equal((evalSpec.match(/^\s+- type: run-command$/gm) ?? []).length, 0);
+  assert.equal(
+    (evalSpec.match(/^\s+- name: (?:prompt|language)\//gm) ?? []).length,
+    10,
+  );
+  assert.match(evalSpec, /^\s+models:\r?\n\s+- gpt-5\.6-sol$/m);
+  assert.match(evalSpec, /^\s+evidence:\r?\n\s+- diff$/m);
+});
 
 test("lint-clean reference application passes every prompt rule", () => {
   for (const rule of ruleNames()) {
