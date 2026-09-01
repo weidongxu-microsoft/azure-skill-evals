@@ -8,9 +8,10 @@ environment:
       dest: .gitignore
     - src: ../../eval-workspace-AGENTS.md
       dest: AGENTS.md
+    - src: ../../scripts/program-checks/java.mjs
+      dest: .vally/program-checks/java.mjs
 scoring:
   weights: {}
-  threshold: 1
 defaults:
   runs: 1
   timeout: 30m
@@ -186,6 +187,13 @@ stimuli:
               weight: 1
               pass_threshold: 1
               required: true
+      - type: run-command
+        name: program/java-project-compiles
+        config:
+          command: node
+          args:
+            - .vally/program-checks/java.mjs
+          timeout: 3m
 artifacts:
   include:
     - "**/*.java"

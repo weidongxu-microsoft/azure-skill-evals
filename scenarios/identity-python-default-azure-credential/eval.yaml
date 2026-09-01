@@ -10,7 +10,6 @@ environment:
       dest: AGENTS.md
 scoring:
   weights: {}
-  threshold: 1
 defaults:
   runs: 1
   timeout: 30m
@@ -117,6 +116,16 @@ stimuli:
               weight: 1
               pass_threshold: 1
               required: true
+      - type: run-command
+        name: program/python-source-compiles
+        config:
+          command: python
+          args:
+            - -m
+            - compileall
+            - -q
+            - .
+          timeout: 30s
 artifacts:
   include:
     - "**/*.py"

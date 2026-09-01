@@ -3,6 +3,17 @@ import path from "node:path";
 import process from "node:process";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
+const expectedProgramChecks = {
+  dotnet: ["program/dotnet-project-builds"],
+  go: ["program/go-project-tests"],
+  java: ["program/java-project-compiles"],
+  python: ["program/python-source-compiles"],
+  typescript: [
+    "program/typescript-dependencies-install",
+    "program/typescript-type-checks",
+  ],
+};
+
 function findFiles(root, name) {
   const matches = [];
   for (const entry of readdirSync(root, { withFileTypes: true })) {
@@ -34,6 +45,30 @@ function extractCriteria(gradeResult) {
   return [];
 }
 
+function extractProgramChecks(gradeResult) {
+  const checks = [];
+  const pending = [gradeResult];
+  while (pending.length > 0) {
+    const detail = pending.shift();
+    if (detail?.graderType === "run-command") {
+      checks.push(detail);
+    }
+    if (Array.isArray(detail?.details)) {
+      pending.push(...detail.details);
+    }
+  }
+  return checks;
+}
+
+function hasGraderError(result) {
+  if (result?.status === "error") {
+    return true;
+  }
+  return Array.isArray(result?.details)
+    ? result.details.some((detail) => hasGraderError(detail))
+    : false;
+}
+
 function percentage(passed, total) {
   return total === 0 ? "n/a" : `${((passed / total) * 100).toFixed(1)}%`;
 }
@@ -50,13 +85,6 @@ function addCriteria(target, criteria) {
       target[group].passed += 1;
     }
   }
-}
-
-function renderScore(score) {
-  const passed =
-    score.prompt.passed + score.languageCriteria.passed + score.other.passed;
-  const total = score.prompt.total + score.languageCriteria.total + score.other.total;
-  return `${passed}/${total} (${percentage(passed, total)})`;
 }
 
 export function summarizeReports({ inputDir, expectedMatrix }) {
@@ -152,19 +180,19 @@ export function summarizeReports({ inputDir, expectedMatrix }) {
         language: row.language,
         variant: row.variant,
         trials: 0,
-        passedTrials: 0,
         prompt: { passed: 0, total: 0 },
         languageCriteria: { passed: 0, total: 0 },
         other: { passed: 0, total: 0 },
+        program: { passed: 0, total: 0 },
       });
     }
     if (!variantSummaries.has(row.variant)) {
       variantSummaries.set(row.variant, {
         trials: 0,
-        passedTrials: 0,
         prompt: { passed: 0, total: 0 },
         languageCriteria: { passed: 0, total: 0 },
         other: { passed: 0, total: 0 },
+        program: { passed: 0, total: 0 },
       });
     }
     const summary = summaries.get(key);
@@ -175,11 +203,46 @@ export function summarizeReports({ inputDir, expectedMatrix }) {
     if (criteria.length === 0) {
       problems.push(`No criterion results found: ${row.variant}/${row.evalName}`);
     } else {
-      const perfect = criteria.every((criterion) => criterion.passed);
-      summary.passedTrials += perfect ? 1 : 0;
-      variantSummary.passedTrials += perfect ? 1 : 0;
       addCriteria(summary, criteria);
       addCriteria(variantSummary, criteria);
+    }
+    const programChecks = extractProgramChecks(row.gradeResult);
+    if (programChecks.length === 0) {
+      problems.push(`No program check results found: ${row.variant}/${row.evalName}`);
+    }
+    const expectedNames = expectedProgramChecks[row.language] ?? [];
+    const actualNames = programChecks.map((check) => check.name);
+    for (const expectedName of expectedNames) {
+      const matchingChecks = programChecks.filter(
+        (check) => check.name === expectedName,
+      );
+      summary.program.total += 1;
+      variantSummary.program.total += 1;
+      if (matchingChecks.length === 1 && matchingChecks[0].passed) {
+        summary.program.passed += 1;
+        variantSummary.program.passed += 1;
+      }
+      if (matchingChecks.length === 0) {
+        problems.push(
+          `Missing program check: ${row.variant}/${row.evalName}/${expectedName}`,
+        );
+      } else if (matchingChecks.length > 1) {
+        problems.push(
+          `Duplicate program check: ${row.variant}/${row.evalName}/${expectedName}`,
+        );
+      }
+    }
+    for (const actualName of new Set(actualNames)) {
+      if (!expectedNames.includes(actualName)) {
+        problems.push(
+          `Unexpected program check: ${row.variant}/${row.evalName}/${actualName}`,
+        );
+      }
+    }
+    for (const check of programChecks.filter((item) => hasGraderError(item))) {
+      problems.push(
+        `Program check error: ${row.variant}/${row.evalName}/${check.name}`,
+      );
     }
   }
 
@@ -190,19 +253,19 @@ export function summarizeReports({ inputDir, expectedMatrix }) {
     "",
     "## Variant totals",
     "",
-    "| Variant | Trials | Perfect | Prompt | Language | Overall |",
-    "|---|---:|---:|---:|---:|---:|",
+    "| Variant | Trials | Prompt | Language | Program |",
+    "|---|---:|---:|---:|---:|",
   ];
   for (const variant of [
     ...new Set(expectedMatrix.include.map((shard) => shard.variant)),
   ]) {
     const summary = variantSummaries.get(variant);
     if (!summary) {
-      lines.push(`| ${variant} | 0 | 0 | n/a | n/a | n/a |`);
+      lines.push(`| ${variant} | 0 | n/a | n/a | n/a |`);
       continue;
     }
     lines.push(
-      `| ${variant} | ${summary.trials} | ${summary.passedTrials} | ${summary.prompt.passed}/${summary.prompt.total} (${percentage(summary.prompt.passed, summary.prompt.total)}) | ${summary.languageCriteria.passed}/${summary.languageCriteria.total} (${percentage(summary.languageCriteria.passed, summary.languageCriteria.total)}) | ${renderScore(summary)} |`,
+      `| ${variant} | ${summary.trials} | ${summary.prompt.passed}/${summary.prompt.total} (${percentage(summary.prompt.passed, summary.prompt.total)}) | ${summary.languageCriteria.passed}/${summary.languageCriteria.total} (${percentage(summary.languageCriteria.passed, summary.languageCriteria.total)}) | ${summary.program.passed}/${summary.program.total} (${percentage(summary.program.passed, summary.program.total)}) |`,
     );
   }
 
@@ -210,20 +273,20 @@ export function summarizeReports({ inputDir, expectedMatrix }) {
     "",
     "## Shards",
     "",
-    "| Language | Variant | Trials | Perfect | Prompt | Language | Overall |",
-    "|---|---|---:|---:|---:|---:|---:|",
+    "| Language | Variant | Trials | Prompt | Language | Program |",
+    "|---|---|---:|---:|---:|---:|",
   );
   for (const shard of expectedMatrix.include) {
     const key = shardKey(shard);
     const summary = summaries.get(key);
     if (!summary) {
       lines.push(
-        `| ${shard.language} | ${shard.variant} | 0/${shard.evaluations} | 0 | n/a | n/a | n/a |`,
+        `| ${shard.language} | ${shard.variant} | 0/${shard.evaluations} | n/a | n/a | n/a |`,
       );
       continue;
     }
     lines.push(
-      `| ${summary.language} | ${summary.variant} | ${summary.trials}/${shard.evaluations} | ${summary.passedTrials} | ${summary.prompt.passed}/${summary.prompt.total} (${percentage(summary.prompt.passed, summary.prompt.total)}) | ${summary.languageCriteria.passed}/${summary.languageCriteria.total} (${percentage(summary.languageCriteria.passed, summary.languageCriteria.total)}) | ${renderScore(summary)} |`,
+      `| ${summary.language} | ${summary.variant} | ${summary.trials}/${shard.evaluations} | ${summary.prompt.passed}/${summary.prompt.total} (${percentage(summary.prompt.passed, summary.prompt.total)}) | ${summary.languageCriteria.passed}/${summary.languageCriteria.total} (${percentage(summary.languageCriteria.passed, summary.languageCriteria.total)}) | ${summary.program.passed}/${summary.program.total} (${percentage(summary.program.passed, summary.program.total)}) |`,
     );
   }
 

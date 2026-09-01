@@ -57,8 +57,8 @@ packages from public npm. Copilot requests use the workflow's built-in
 The workflow expands the selection into a language-by-variant matrix with at
 most six concurrent shards. Each shard uploads its machine-readable Vally
 results. An always-running fan-in job verifies shard completeness, detects
-duplicate or unsuccessful trials, and publishes combined prompt, language, and
-overall scores by variant and shard. Workflow copies of the experiment files
+duplicate or unsuccessful trials, and publishes independent prompt, language,
+and program-check totals by variant and shard. Workflow copies of the experiment files
 point MCP package installation at public npm; local experiment files retain the
 corporate Azure SDK feed.
 
@@ -93,7 +93,8 @@ experiments/<language>/
 
 Each scenario uses one single-model Vally panel. The panel contains the exact
 Hyoka scenario criteria and every Hyoka model-based language criterion, with
-one required point per criterion. Language experiments own the three
+one required point per criterion. Independent program graders compile, build,
+or type-check the generated project. Language experiments own the three
 environment variants and can run multiple evals. Each workspace starts with a
 shared `.gitignore` and `AGENTS.md`. The instructions require complete runnable
 projects with root-level manifests, while the ignore rules keep installed
@@ -106,11 +107,14 @@ Every criterion has weight 1. Grader names identify the source of each check:
 
 - `prompt/*`: requirements specific to the customer scenario.
 - `language/*`: reusable language and SDK conventions.
+- `program/*`: deterministic compile, build, dependency, or type checks.
 
-Scores measure only the generated application and code. MCP calls and skill
-activation remain available in Vally trajectories as diagnostic evidence, but
-they do not affect correctness scores. Checker entrypoints require at least one top-level source file without imposing
-a specific filename.
+Fan-in aggregates these groups independently and does not calculate a combined
+weighted score. An evaluation passes only when its panel and every program
+grader pass. MCP calls and skill activation remain available in Vally
+trajectories as diagnostic evidence, but they do not affect correctness
+results. Checker entrypoints require at least one top-level source file without
+imposing a specific filename.
 
 Golden applications remain runnable reference implementations. Live
 model-grader oracle coverage will verify them separately from ordinary unit

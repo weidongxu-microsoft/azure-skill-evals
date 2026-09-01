@@ -41,18 +41,21 @@ dependency or project manifests. This preserves the originating Hyoka task
 prompt while making generated workspaces suitable for deterministic compile and
 lint graders.
 
-Grader names preserve two independent result groups:
+Grader names preserve three independent result groups:
 
 | Prefix | Responsibility |
 |---|---|
 | `prompt/` | Scenario-specific completion requirements |
 | `language/` | Reusable language and Azure SDK conventions |
+| `program/` | Deterministic compile, build, dependency, and type checks |
 
 Each panel criterion is required, binary, and equally weighted. The panel score
-is the fraction of passed criteria, while the case passes only when every
-criterion passes. Raw Vally trajectories remain the source of truth for skill
-activation, MCP calls, timing, errors, and token usage, but these diagnostics
-do not affect scores.
+is the fraction of passed criteria. Program graders remain independent from the
+panel, and fan-in reports each result group without calculating an overall
+weighted score. The case passes only when the panel and every program grader
+pass. Raw Vally trajectories remain the source of truth for skill activation,
+MCP calls, timing, errors, and token usage, but these diagnostics do not affect
+correctness results.
 
 ## What changes
 
@@ -67,7 +70,7 @@ do not affect scores.
 
 - The same model runs the same prompt in every arm.
 - Each criterion contributes one point.
-- Prompt and language results remain separate.
+- Prompt, language, and program results remain separate.
 - The baseline has no Azure MCP server and no injected Azure skills.
 - Existing Hyoka reports remain historical migration references.
 
@@ -145,10 +148,11 @@ least three trials per arm before drawing comparative quality conclusions.
 ## Scope
 
 Version 1 includes migrated Azure SDK stimuli for Python, .NET, Java,
-TypeScript, and Go. Every evaluation has correctness criteria, a buildable
-golden application, configuration linting, model-grader structure tests, and
-one trial per arm. Go has two experiment arms because `microsoft/skills` has no
-Go Azure SDK plugin; the other languages have three.
+TypeScript, and Go. Every evaluation has correctness criteria, deterministic
+program checks, a buildable golden application, configuration linting,
+model-grader structure tests, and one trial per arm. Go has two experiment arms
+because `microsoft/skills` has no Go Azure SDK plugin; the other languages have
+three.
 
 Version 1 does not migrate all Hyoka prompts, add PR quality gates, or claim
 statistical significance. Those follow after the pilot reproduces correct
@@ -158,5 +162,5 @@ workspace, MCP, and skill evidence.
 
 - Vally plans every supported variant with no configuration drift.
 - Each variant produces application code and independently visible checks.
-- Results distinguish prompt and language checks.
+- Results distinguish prompt, language, and program checks.
 - Trajectories preserve MCP and skill diagnostics without changing scores.
