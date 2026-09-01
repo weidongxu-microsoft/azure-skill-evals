@@ -54,7 +54,7 @@ stimuli:
           overall_threshold: 1
           evidence:
             - trajectory
-            - diff
+            - repo
           criteria:
             - name: prompt/managedidentitycredential-class-from-azure-identity
               description: |-

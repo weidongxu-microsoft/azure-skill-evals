@@ -49,7 +49,7 @@ stimuli:
           overall_threshold: 1
           evidence:
             - trajectory
-            - diff
+            - repo
           criteria:
             - name: prompt/installing-azure-identity-and-azure-storage-blobs-packag
               description: |-

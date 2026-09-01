@@ -56,7 +56,7 @@ stimuli:
           overall_threshold: 1
           evidence:
             - trajectory
-            - diff
+            - repo
           criteria:
             - name: prompt/blobclientoptions-retry-configuration-with-retryoptions
               description: |-

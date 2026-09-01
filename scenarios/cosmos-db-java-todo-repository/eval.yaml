@@ -60,7 +60,7 @@ stimuli:
           overall_threshold: 1
           evidence:
             - trajectory
-            - diff
+            - repo
           criteria:
             - name: prompt/correct-partition-key-usage-category-path-partitionkey-i
               description: |-

@@ -82,8 +82,8 @@ one required point per criterion. Language experiments own the three
 environment variants and can run multiple evals. Each workspace starts with a
 shared `.gitignore` and `AGENTS.md`. The instructions require complete runnable
 projects with root-level manifests, while the ignore rules keep installed
-dependencies and build outputs from exhausting Vally's diff-evidence buffer.
-Judges receive both the response trajectory and generated source diff.
+dependencies and build outputs out of generated workspaces. Judges receive both
+the response trajectory and a bounded snapshot of the complete workspace.
 
 ## Scoring
 

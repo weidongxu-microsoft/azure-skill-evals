@@ -30,9 +30,10 @@ stay outside Git. Every eval stages `eval-workspace.gitignore` into its
 workspace before execution so package installs and build outputs do not enter
 the generated diff.
 
-Each judge receives both the agent trajectory and generated source diff. This
-preserves answer-style implementations returned in Markdown while retaining
-the final file state for tasks that write code into the workspace.
+Each judge receives both the agent trajectory and a bounded snapshot of the
+complete generated workspace. This preserves answer-style implementations
+returned in Markdown while exposing final source and manifest files without
+depending on diff ordering.
 
 Every evaluation workspace also receives a shared `AGENTS.md` instruction that
 requires code requests to produce complete runnable projects with root-level
@@ -121,11 +122,10 @@ least three trials per arm before drawing comparative quality conclusions.
 
 - **Likelihood:** Medium
 - **Impact:** High
-- **Mitigation:** Vally 0.12 provides the response trajectory and generated
-  diff, with each diff capped at 20,000 characters. Shared workspace ignore
-  rules exclude dependencies, lockfiles, and build outputs before Vally
-  computes the diff. Treat large source-only cases as an upgrade trigger for
-  workspace-backed repository evidence.
+- **Mitigation:** Vally 0.14 provides the response trajectory and bounded
+  repository evidence. Repository snapshots include up to 256 KiB of source
+  text with a 32 KiB per-file cap while excluding common dependency, cache, and
+  build directories.
 
 ### Skill loading differs from plugin loading
 

@@ -52,7 +52,7 @@ test("every eval uses one complete model review", () => {
     assert.match(source, /^\s+models:\r?\n\s+- gpt-5\.6-sol$/m, evalPath);
     assert.match(
       source,
-      /^\s+evidence:\r?\n\s+- trajectory\r?\n\s+- diff$/m,
+      /^\s+evidence:\r?\n\s+- trajectory\r?\n\s+- repo$/m,
       evalPath,
     );
     assert.match(
