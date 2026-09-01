@@ -30,6 +30,10 @@ stay outside Git. Every eval stages `eval-workspace.gitignore` into its
 workspace before execution so package installs and build outputs do not enter
 the generated diff.
 
+Each judge receives both the agent trajectory and generated source diff. This
+preserves answer-style implementations returned in Markdown while retaining
+the final file state for tasks that write code into the workspace.
+
 Grader names preserve two independent result groups:
 
 | Prefix | Responsibility |
@@ -111,10 +115,11 @@ least three trials per arm before drawing comparative quality conclusions.
 
 - **Likelihood:** Medium
 - **Impact:** High
-- **Mitigation:** Vally 0.12 grades the generated diff, which is capped at
-  20,000 characters. Shared workspace ignore rules exclude dependencies and
-  build outputs before Vally computes the diff. Treat large source-only cases
-  as an upgrade trigger for workspace-backed repository evidence.
+- **Mitigation:** Vally 0.12 provides the response trajectory and generated
+  diff, with each diff capped at 20,000 characters. Shared workspace ignore
+  rules exclude dependencies, lockfiles, and build outputs before Vally
+  computes the diff. Treat large source-only cases as an upgrade trigger for
+  workspace-backed repository evidence.
 
 ### Skill loading differs from plugin loading
 

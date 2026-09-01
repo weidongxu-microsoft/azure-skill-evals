@@ -1,6 +1,9 @@
 node_modules/
 .pnpm-store/
 .npm/
+package-lock.json
+pnpm-lock.yaml
+yarn.lock
 bin/
 obj/
 target/

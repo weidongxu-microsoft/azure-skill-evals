@@ -50,7 +50,11 @@ test("every eval uses one complete model review", () => {
       evalPath,
     );
     assert.match(source, /^\s+models:\r?\n\s+- gpt-5\.6-sol$/m, evalPath);
-    assert.match(source, /^\s+evidence:\r?\n\s+- diff$/m, evalPath);
+    assert.match(
+      source,
+      /^\s+evidence:\r?\n\s+- trajectory\r?\n\s+- diff$/m,
+      evalPath,
+    );
     assert.match(
       source,
       /value must start with "prompt\/" or "language\/"\. Never copy a rubric\r?\n\s+list number into the criterion value\./,

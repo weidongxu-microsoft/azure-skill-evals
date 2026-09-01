@@ -57,6 +57,7 @@ stimuli:
           threshold: 1
           overall_threshold: 1
           evidence:
+            - trajectory
             - diff
           criteria:
             - name: prompt/configures-a-custom-retry-policy-with-exponential-backof
