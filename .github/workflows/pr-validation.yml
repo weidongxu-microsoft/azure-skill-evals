@@ -41,6 +41,10 @@ jobs:
           distribution: temurin
           java-version: "17"
 
+      - uses: actions/setup-go@v6
+        with:
+          go-version: "1.26.x"
+
       - name: Install dependencies
         run: |
           pnpm install --no-frozen-lockfile
@@ -61,3 +65,4 @@ jobs:
           pnpm exec vally experiment run experiments/dotnet/experiment.yaml --output-dir reports --dry-run
           pnpm exec vally experiment run experiments/java/experiment.yaml --output-dir reports --dry-run
           pnpm exec vally experiment run experiments/typescript/experiment.yaml --output-dir reports --dry-run
+          pnpm exec vally experiment run experiments/go/experiment.yaml --output-dir reports --dry-run

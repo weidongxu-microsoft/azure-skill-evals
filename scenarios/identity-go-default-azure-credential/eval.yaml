@@ -1,0 +1,104 @@
+name: identity-go-default-azure-credential
+description: Compare Azure tooling for DefaultAzureCredential authentication in Go
+version: "1.0"
+type: capability
+environment:
+  files:
+    - src: ../../eval-workspace.gitignore
+      dest: .gitignore
+    - src: ../../eval-workspace-AGENTS.md
+      dest: AGENTS.md
+scoring:
+  weights: {}
+  threshold: 1
+defaults:
+  runs: 1
+  timeout: 30m
+  model: gpt-5.6-sol
+  judge_model: gpt-5.6-sol
+stimuli:
+  - name: identity-dp-go-default-credential
+    prompt: |-
+      Show me how to authenticate
+      an Azure SDK client using DefaultAzureCredential. Explain:
+      1. What Go modules are needed
+      2. How to create and use a DefaultAzureCredential instance
+      3. The credential chain order and which credentials are tried
+      4. How it works in local development vs Azure-hosted environments
+      5. How to troubleshoot authentication failures
+
+      Provide a complete Go example that creates a Key Vault SecretClient using
+      DefaultAzureCredential.
+    tags:
+      service: identity
+      plane: data-plane
+      language: go
+      category: auth
+    graders:
+      - type: panel
+        name: prompt/full-case-review
+        weight: 1
+        config:
+          prompt: |-
+            Review the generated implementation against every criterion.
+            Score each criterion independently. Accept equivalent valid
+            implementations and judge code behavior rather than syntax.
+            Return every criterion name exactly as provided. The criterion
+            value must start with "prompt/" or "language/". Never copy a rubric
+            list number into the criterion value. For example, return
+            "prompt/foo", never "1. prompt/foo".
+          models:
+            - gpt-5.6-sol
+          aggregation: unanimous
+          scoring: binary
+          threshold: 1
+          overall_threshold: 1
+          evidence:
+            - trajectory
+            - repo
+          criteria:
+            - name: prompt/azidentity-module
+              description: |-
+                `azidentity` module import
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: prompt/default-azure-credential
+              description: |-
+                `azidentity.NewDefaultAzureCredential()` function
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: prompt/credential-chain-order
+              description: |-
+                Credential chain order in Go SDK
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: prompt/credential-client-constructor
+              description: |-
+                Passing credential to client constructors
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: prompt/response-error
+              description: |-
+                Error handling with `*azcore.ResponseError`
+              weight: 1
+              pass_threshold: 1
+              required: true
+artifacts:
+  include:
+    - "**/*.go"
+    - "**/go.mod"
+    - "**/go.sum"
+    - "**/README.md"
+  exclude:
+    - "**/.vally/**"
+    - "**/bin/**"
+    - "**/build/**"
+    - "**/dist/**"
+    - "**/vendor/**"
+    - "**/.cache/**"
+    - "**/*.test"
+    - "**/coverage.out"

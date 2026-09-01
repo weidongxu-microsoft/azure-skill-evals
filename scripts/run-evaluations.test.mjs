@@ -4,6 +4,7 @@ import test from "node:test";
 import { fileURLToPath } from "node:url";
 
 import {
+  buildShardMatrix,
   loadCatalog,
   parseTagFilters,
   runExperimentGroups,
@@ -50,6 +51,64 @@ test("accepts comma-separated values within a tag", () => {
   });
 
   assert.deepEqual(groups.map(({ language }) => language), ["python", "typescript"]);
+});
+
+test("builds one shard per selected language and variant", () => {
+  const groups = selectEvaluations(catalog, {
+    mode: "suite",
+    suite: "cosmos-db-todo-repository",
+  });
+
+  assert.deepEqual(buildShardMatrix(groups, "all"), {
+    include: [
+      { language: "python", variant: "baseline", evaluations: 1 },
+      { language: "python", variant: "azure-skill-mcp", evaluations: 1 },
+      {
+        language: "python",
+        variant: "azure-skill-mcp-microsoft-skill",
+        evaluations: 1,
+      },
+      { language: "java", variant: "baseline", evaluations: 1 },
+      { language: "java", variant: "azure-skill-mcp", evaluations: 1 },
+      {
+        language: "java",
+        variant: "azure-skill-mcp-microsoft-skill",
+        evaluations: 1,
+      },
+    ],
+  });
+});
+
+test("builds only the two supported Go variants", () => {
+  const groups = selectEvaluations(catalog, {
+    mode: "tags",
+    tags: "language=go",
+  });
+
+  assert.deepEqual(buildShardMatrix(groups, "all"), {
+    include: [
+      { language: "go", variant: "baseline", evaluations: 7 },
+      { language: "go", variant: "azure-skill-mcp", evaluations: 7 },
+    ],
+  });
+  assert.throws(
+    () => buildShardMatrix(groups, "azure-skill-mcp-microsoft-skill"),
+    /do not support/,
+  );
+});
+
+test("omits Go when a mixed selection requests the unsupported third variant", () => {
+  const groups = selectEvaluations(catalog, {
+    mode: "suite",
+    suite: "identity-default-azure-credential",
+  });
+
+  assert.deepEqual(
+    buildShardMatrix(groups, "azure-skill-mcp-microsoft-skill").include.map(
+      ({ language }) => language,
+    ),
+    ["python", "dotnet", "java", "typescript"],
+  );
 });
 
 test("rejects malformed tag filters", () => {

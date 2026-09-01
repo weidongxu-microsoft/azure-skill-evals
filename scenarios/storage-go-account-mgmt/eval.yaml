@@ -1,0 +1,130 @@
+name: storage-go-account-mgmt
+description: Compare Azure tooling for an Azure Storage Go account management task
+version: "1.0"
+type: capability
+environment:
+  files:
+    - src: ../../eval-workspace.gitignore
+      dest: .gitignore
+    - src: ../../eval-workspace-AGENTS.md
+      dest: AGENTS.md
+scoring:
+  weights: {}
+  threshold: 1
+defaults:
+  runs: 1
+  timeout: 30m
+  model: gpt-5.6-sol
+  judge_model: gpt-5.6-sol
+stimuli:
+  - name: storage-mp-go-account-mgmt
+    prompt: |-
+      Write a Go program that manages
+      Azure Storage Accounts using the management plane SDK:
+      1. Authenticate using DefaultAzureCredential from azidentity
+      2. Create an AccountsClient from the armstorage package
+      3. Create a new Storage Account with Standard_LRS SKU in "eastus" using BeginCreate
+      4. Poll the LRO to completion
+      5. List all Storage Accounts in a resource group using NewListByResourceGroupPager
+      6. Get the properties of the created Storage Account
+      7. Update the account properties
+      8. Delete the Storage Account
+
+      Show required Go module imports and proper error handling with poller patterns.
+    tags:
+      service: storage
+      plane: management-plane
+      language: go
+      category: provisioning
+    graders:
+      - type: panel
+        name: prompt/full-case-review
+        weight: 1
+        config:
+          prompt: |-
+            Review the generated implementation against every criterion.
+            Score each criterion independently. Accept equivalent valid
+            implementations and judge code behavior rather than syntax.
+            Return every criterion name exactly as provided. The criterion
+            value must start with "prompt/" or "language/". Never copy a rubric
+            list number into the criterion value. For example, return
+            "prompt/foo", never "1. prompt/foo".
+          models:
+            - gpt-5.6-sol
+          aggregation: unanimous
+          scoring: binary
+          threshold: 1
+          overall_threshold: 1
+          evidence:
+            - trajectory
+            - repo
+          criteria:
+            - name: prompt/armstorage-module
+              description: |-
+                `github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/storage/armstorage` module
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: prompt/default-azure-credential
+              description: |-
+                `azidentity.NewDefaultAzureCredential()` for authentication
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: prompt/accounts-client
+              description: |-
+                `armstorage.NewAccountsClient()` with subscription ID and credential
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: prompt/begin-create
+              description: |-
+                `BeginCreate()` with `armstorage.AccountCreateParameters` (SKU, Kind, Location)
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: prompt/poll-until-done
+              description: |-
+                `PollUntilDone()` for waiting on the LRO
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: prompt/list-by-resource-group-pager
+              description: |-
+                `NewListByResourceGroupPager()` with pager iteration pattern
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: prompt/get-properties
+              description: |-
+                `GetProperties()` for account details
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: prompt/update-account
+              description: |-
+                `Update()` with `AccountUpdateParameters`
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: prompt/delete-account
+              description: |-
+                `Delete()` for removal
+              weight: 1
+              pass_threshold: 1
+              required: true
+artifacts:
+  include:
+    - "**/*.go"
+    - "**/go.mod"
+    - "**/go.sum"
+    - "**/README.md"
+  exclude:
+    - "**/.vally/**"
+    - "**/bin/**"
+    - "**/build/**"
+    - "**/dist/**"
+    - "**/vendor/**"
+    - "**/.cache/**"
+    - "**/*.test"
+    - "**/coverage.out"

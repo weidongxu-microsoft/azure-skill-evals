@@ -2,12 +2,15 @@
 
 This repository measures Azure coding-agent behavior with
 [Vally](https://microsoft.github.io/vally/). It compares the same prompt and
-graders across three environments:
+graders across up to three environments:
 
 1. No Azure MCP server or skills.
 2. Azure MCP plus general Azure skills.
 3. Azure MCP plus general Azure skills and the complete language-specific SDK
    skill suite.
+
+Go uses only the first two environments because `microsoft/skills` does not
+provide a Go Azure SDK plugin.
 
 ## Run the evaluations
 
@@ -19,19 +22,22 @@ pnpm lint:evals
 pnpm test
 pnpm experiment:python
 pnpm experiment:dotnet
+pnpm experiment:go
 pnpm experiment:java
 pnpm experiment:typescript
 ```
 
 Each language experiment runs every migrated scenario once per arm. Vally
 writes timestamped output under `reports/`. The repository covers Python,
-.NET, Java, and TypeScript. Each evaluation has scenario-specific and reusable
-language correctness checks; the number of checks can vary by scenario.
+.NET, Java, TypeScript, and Go. Go has two arms because `microsoft/skills`
+does not provide a Go Azure SDK plugin; the other languages have three. Each
+evaluation has scenario-specific and reusable language correctness checks; the
+number of checks can vary by scenario.
 
 ## Run evaluations in GitHub Actions
 
 Pull requests targeting `main` run harness and model-grader configuration
-tests, strict evaluation linting, and dry-runs of all four language
+tests, strict evaluation linting, and dry-runs of all five language
 experiments. Agent and judge evaluations remain manual.
 
 The `Vally evaluations` workflow supports manual runs of all evaluations,
@@ -48,11 +54,20 @@ resolved plans can be reviewed before running agents. GitHub Actions installs
 packages from public npm. Copilot requests use the workflow's built-in
 `GITHUB_TOKEN`.
 
+The workflow expands the selection into a language-by-variant matrix with at
+most six concurrent shards. Each shard uploads its machine-readable Vally
+results. An always-running fan-in job verifies shard completeness, detects
+duplicate or unsuccessful trials, and publishes combined prompt, language, and
+overall scores by variant and shard. Workflow copies of the experiment files
+point MCP package installation at public npm; local experiment files retain the
+corporate Azure SDK feed.
+
 The same selector can be checked locally without running Vally:
 
 ```powershell
 node scripts/run-evaluations.mjs --mode suite --suite cosmos-crud --select-only
 node scripts/run-evaluations.mjs --mode tags --tags "service=identity;language=python" --select-only
+node scripts/run-evaluations.mjs --mode all --variant all --matrix
 ```
 
 ## Scenario layout
@@ -94,8 +109,8 @@ Every criterion has weight 1. Grader names identify the source of each check:
 
 Scores measure only the generated application and code. MCP calls and skill
 activation remain available in Vally trajectories as diagnostic evidence, but
-they do not affect correctness scores. Checker entrypoints require at least one
-top-level Python file without imposing a specific filename.
+they do not affect correctness scores. Checker entrypoints require at least one top-level source file without imposing
+a specific filename.
 
 Golden applications remain runnable reference implementations. Live
 model-grader oracle coverage will verify them separately from ordinary unit

@@ -1,0 +1,61 @@
+name: go-two-way
+evals:
+  - ../../scenarios/storage-go-account-mgmt/eval.yaml
+  - ../../scenarios/resource-manager-go-resource-group-crud/eval.yaml
+  - ../../scenarios/identity-go-service-principal-auth/eval.yaml
+  - ../../scenarios/identity-go-default-azure-credential/eval.yaml
+  - ../../scenarios/identity-go-managed-identity-auth/eval.yaml
+  - ../../scenarios/key-vault-go-crud-secrets/eval.yaml
+  - ../../scenarios/storage-go-crud-blobs/eval.yaml
+vary:
+  - /environment/skills
+  - /environment/mcpServers
+baseline: baseline
+variants:
+  baseline:
+    environment:
+      skills: []
+      mcpServers: null
+  azure-skill-mcp:
+    environment:
+      skills:
+        - ../../.work/dependencies/azure-skills/.github/plugins/azure-skills/skills/airunway-aks-setup
+        - ../../.work/dependencies/azure-skills/.github/plugins/azure-skills/skills/appinsights-instrumentation
+        - ../../.work/dependencies/azure-skills/.github/plugins/azure-skills/skills/azure-ai
+        - ../../.work/dependencies/azure-skills/.github/plugins/azure-skills/skills/azure-aigateway
+        - ../../.work/dependencies/azure-skills/.github/plugins/azure-skills/skills/azure-app-onboard-prereq
+        - ../../.work/dependencies/azure-skills/.github/plugins/azure-skills/skills/azure-app-onboard
+        - ../../.work/dependencies/azure-skills/.github/plugins/azure-skills/skills/azure-cloud-migrate
+        - ../../.work/dependencies/azure-skills/.github/plugins/azure-skills/skills/azure-compliance
+        - ../../.work/dependencies/azure-skills/.github/plugins/azure-skills/skills/azure-compute
+        - ../../.work/dependencies/azure-skills/.github/plugins/azure-skills/skills/azure-cost
+        - ../../.work/dependencies/azure-skills/.github/plugins/azure-skills/skills/azure-deploy
+        - ../../.work/dependencies/azure-skills/.github/plugins/azure-skills/skills/azure-diagnostics
+        - ../../.work/dependencies/azure-skills/.github/plugins/azure-skills/skills/azure-enterprise-infra-planner
+        - ../../.work/dependencies/azure-skills/.github/plugins/azure-skills/skills/azure-kubernetes
+        - ../../.work/dependencies/azure-skills/.github/plugins/azure-skills/skills/azure-kusto
+        - ../../.work/dependencies/azure-skills/.github/plugins/azure-skills/skills/azure-messaging
+        - ../../.work/dependencies/azure-skills/.github/plugins/azure-skills/skills/azure-prepare
+        - ../../.work/dependencies/azure-skills/.github/plugins/azure-skills/skills/azure-quotas
+        - ../../.work/dependencies/azure-skills/.github/plugins/azure-skills/skills/azure-reliability
+        - ../../.work/dependencies/azure-skills/.github/plugins/azure-skills/skills/azure-resource-lookup
+        - ../../.work/dependencies/azure-skills/.github/plugins/azure-skills/skills/azure-resource-visualizer
+        - ../../.work/dependencies/azure-skills/.github/plugins/azure-skills/skills/azure-storage
+        - ../../.work/dependencies/azure-skills/.github/plugins/azure-skills/skills/azure-upgrade
+        - ../../.work/dependencies/azure-skills/.github/plugins/azure-skills/skills/azure-validate
+        - ../../.work/dependencies/azure-skills/.github/plugins/azure-skills/skills/entra-agent-id
+        - ../../.work/dependencies/azure-skills/.github/plugins/azure-skills/skills/entra-app-registration
+        - ../../.work/dependencies/azure-skills/.github/plugins/azure-skills/skills/microsoft-foundry
+        - ../../.work/dependencies/azure-skills/.github/plugins/azure-skills/skills/python-appservice-deploy
+      mcpServers:
+        azure:
+          type: stdio
+          command: npx
+          args:
+            - -y
+            - "@azure/mcp@3.0.0-beta.38"
+            - server
+            - start
+          env:
+            npm_config_registry: https://pkgs.dev.azure.com/azure-sdk/public/_packaging/azure-sdk-for-js/npm/registry/
+          timeout: 30s

@@ -2,22 +2,23 @@
 
 ## Purpose
 
-This repository uses Vally to compare the same Azure coding task across three
-environments:
+This repository uses Vally to compare the same Azure coding task across up to
+three environments:
 
 1. Baseline without Azure MCP or skills.
 2. Azure MCP plus general Azure skills.
 3. Azure MCP plus general Azure skills and the complete language-specific SDK
    skill suite.
 
-Keep the prompt, model, trial count, timeout, and graders identical across the
-three variants. Experiments may vary only the declared skill and MCP
+Keep the prompt, model, trial count, timeout, and graders identical across all
+supported variants. Experiments may vary only the declared skill and MCP
 environment paths.
 
 The third arm must expose every skill from the applicable `microsoft/skills`
-language plugin. Do not grade or require invocation of a particular skill.
+language plugin. Do not grade or require invocation of a particular skill. Go
+has only the first two arms because no Go Azure SDK plugin exists.
 
-Migrated scenarios cover Python, .NET, Java, and TypeScript. Each evaluation
+Migrated scenarios cover Python, .NET, Java, TypeScript, and Go. Each evaluation
 uses the exact originating Hyoka prompt, its scenario criteria, and all
 model-based Hyoka language criteria. The number of criteria can vary.
 
@@ -137,6 +138,7 @@ vally experiment run experiments/python/experiment.yaml --output-dir reports --d
 vally experiment run experiments/dotnet/experiment.yaml --output-dir reports --dry-run
 vally experiment run experiments/java/experiment.yaml --output-dir reports --dry-run
 vally experiment run experiments/typescript/experiment.yaml --output-dir reports --dry-run
+vally experiment run experiments/go/experiment.yaml --output-dir reports --dry-run
 ```
 
 Use one trial per arm only for harness development. Use repeated trials before

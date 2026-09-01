@@ -88,9 +88,9 @@ stimuli:
               weight: 1
               pass_threshold: 1
               required: true
-            - name: prompt/delete-with-waitforcompletion
+            - name: prompt/delete-resource-group-and-wait-for-completion
               description: |-
-                `Delete()` with `WaitForCompletion()`
+                Deletes the resource group and waits for the long-running operation to complete, such as `DeleteAsync(WaitUntil.Completed)` or `DeleteAsync(WaitUntil.Started)` followed by `WaitForCompletionAsync()`.
               weight: 1
               pass_threshold: 1
               required: true

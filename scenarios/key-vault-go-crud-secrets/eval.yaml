@@ -1,0 +1,103 @@
+name: key-vault-go-crud-secrets
+description: Compare Azure tooling for an Azure Key Vault Go secret CRUD task
+version: "1.0"
+type: capability
+environment:
+  files:
+    - src: ../../eval-workspace.gitignore
+      dest: .gitignore
+    - src: ../../eval-workspace-AGENTS.md
+      dest: AGENTS.md
+scoring:
+  weights: {}
+  threshold: 1
+defaults:
+  runs: 1
+  timeout: 30m
+  model: gpt-5.6-sol
+  judge_model: gpt-5.6-sol
+stimuli:
+  - name: key-vault-dp-go-crud
+    prompt: |-
+      Write a Go program that performs
+      all four CRUD operations on Azure Key Vault secrets:
+      1. Create a new secret called "my-secret" with value "my-secret-value"
+      2. Read the secret back and print its value
+      3. Update the secret to a new value "updated-value"
+      4. Delete the secret and purge it (soft-delete enabled vault)
+
+      Use DefaultAzureCredential from azidentity for authentication.
+      Show the go module imports and include proper error handling.
+    tags:
+      service: key-vault
+      plane: data-plane
+      language: go
+      category: crud
+    graders:
+      - type: panel
+        name: prompt/full-case-review
+        weight: 1
+        config:
+          prompt: |-
+            Review the generated implementation against every criterion.
+            Score each criterion independently. Accept equivalent valid
+            implementations and judge code behavior rather than syntax.
+            Return every criterion name exactly as provided. The criterion
+            value must start with "prompt/" or "language/". Never copy a rubric
+            list number into the criterion value. For example, return
+            "prompt/foo", never "1. prompt/foo".
+          models:
+            - gpt-5.6-sol
+          aggregation: unanimous
+          scoring: binary
+          threshold: 1
+          overall_threshold: 1
+          evidence:
+            - trajectory
+            - repo
+          criteria:
+            - name: prompt/azsecrets-module
+              description: |-
+                Importing `github.com/Azure/azure-sdk-for-go/sdk/security/keyvault/azsecrets`
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: prompt/azidentity-module
+              description: |-
+                Importing `github.com/Azure/azure-sdk-for-go/sdk/azidentity`
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: prompt/secrets-client
+              description: |-
+                Creating a client with `azsecrets.NewClient()`
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: prompt/secret-crud
+              description: |-
+                `SetSecret()`, `GetSecret()`, `DeleteSecret()`, `PurgeDeletedSecret()`
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: prompt/response-error
+              description: |-
+                Handling the `*azcore.ResponseError` type for errors
+              weight: 1
+              pass_threshold: 1
+              required: true
+artifacts:
+  include:
+    - "**/*.go"
+    - "**/go.mod"
+    - "**/go.sum"
+    - "**/README.md"
+  exclude:
+    - "**/.vally/**"
+    - "**/bin/**"
+    - "**/build/**"
+    - "**/dist/**"
+    - "**/vendor/**"
+    - "**/.cache/**"
+    - "**/*.test"
+    - "**/coverage.out"

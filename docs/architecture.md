@@ -46,7 +46,7 @@ Grader names preserve two independent result groups:
 | Prefix | Responsibility |
 |---|---|
 | `prompt/` | Scenario-specific completion requirements |
-| `language/` | Reusable Python and Azure SDK conventions |
+| `language/` | Reusable language and Azure SDK conventions |
 
 Each panel criterion is required, binary, and equally weighted. The panel score
 is the fraction of passed criteria, while the case passes only when every
@@ -60,7 +60,8 @@ do not affect scores.
 - Hyoka prompt and language criteria become named items in one model review.
 - Explicit Vally variants replace Hyoka configuration combinations.
 - `results.jsonl` replaces Hyoka report JSON as the machine-readable result.
-- A comparison script will aggregate variants without assuming only two arms.
+- GitHub Actions runs one shard per selected language and variant, then
+  aggregates shard artifacts without assuming only two arms.
 
 ## What stays the same
 
@@ -143,10 +144,11 @@ least three trials per arm before drawing comparative quality conclusions.
 
 ## Scope
 
-Version 1 includes migrated Azure SDK stimuli for Python, .NET, Java, and
-TypeScript. Every evaluation has correctness criteria, three experiment arms,
-a buildable golden application, configuration linting, model-grader structure
-tests, and one trial per arm.
+Version 1 includes migrated Azure SDK stimuli for Python, .NET, Java,
+TypeScript, and Go. Every evaluation has correctness criteria, a buildable
+golden application, configuration linting, model-grader structure tests, and
+one trial per arm. Go has two experiment arms because `microsoft/skills` has no
+Go Azure SDK plugin; the other languages have three.
 
 Version 1 does not migrate all Hyoka prompts, add PR quality gates, or claim
 statistical significance. Those follow after the pilot reproduces correct
@@ -154,7 +156,7 @@ workspace, MCP, and skill evidence.
 
 ## Success criteria
 
-- Vally plans and runs exactly three variants with no configuration drift.
+- Vally plans every supported variant with no configuration drift.
 - Each variant produces application code and independently visible checks.
 - Results distinguish prompt and language checks.
 - Trajectories preserve MCP and skill diagnostics without changing scores.
