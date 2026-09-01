@@ -36,6 +36,8 @@ stimuli:
             Review the generated implementation against every criterion.
             Score each criterion independently. Accept equivalent valid
             implementations and judge code behavior rather than syntax.
+            Return every criterion name exactly as provided. Do not add list
+            numbers, prefixes, suffixes, or other formatting to criterion names.
           models:
             - gpt-5.6-sol
           aggregation: unanimous
