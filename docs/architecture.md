@@ -60,7 +60,8 @@ do not affect scores.
 - Hyoka prompt and language criteria become named items in one model review.
 - Explicit Vally variants replace Hyoka configuration combinations.
 - `results.jsonl` replaces Hyoka report JSON as the machine-readable result.
-- A comparison script will aggregate variants without assuming only two arms.
+- GitHub Actions runs one shard per selected language and variant, then
+  aggregates shard artifacts without assuming only two arms.
 
 ## What stays the same
 

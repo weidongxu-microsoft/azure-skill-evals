@@ -11,6 +11,12 @@ const languageExperiments = [
   ["typescript", "experiments/typescript/experiment.yaml"],
 ];
 
+const variants = [
+  "baseline",
+  "azure-skill-mcp",
+  "azure-skill-mcp-microsoft-skill",
+];
+
 function unquote(value) {
   const trimmed = value.trim();
   if (
@@ -232,7 +238,20 @@ export function selectEvaluations(catalog, options) {
   return groups;
 }
 
-function parseArguments(argv) {
+export function buildShardMatrix(groups, variant) {
+  const selectedVariants = variant === "all" ? variants : [variant];
+  return {
+    include: groups.flatMap((group) =>
+      selectedVariants.map((selectedVariant) => ({
+        language: group.language,
+        variant: selectedVariant,
+        evaluations: group.filters.length,
+      })),
+    ),
+  };
+}
+
+export function parseArguments(argv) {
   const options = {
     mode: "all",
     variant: "all",
@@ -240,6 +259,7 @@ function parseArguments(argv) {
     dryRun: false,
     selectOnly: false,
     listSuites: false,
+    matrix: false,
   };
 
   for (let index = 0; index < argv.length; index += 1) {
@@ -250,8 +270,12 @@ function parseArguments(argv) {
       options.selectOnly = true;
     } else if (argument === "--list-suites") {
       options.listSuites = true;
+    } else if (argument === "--matrix") {
+      options.matrix = true;
     } else if (
-      ["--mode", "--suite", "--tags", "--variant", "--output-dir"].includes(argument)
+      ["--mode", "--suite", "--tags", "--variant", "--language", "--output-dir"].includes(
+        argument,
+      )
     ) {
       const value = argv[index + 1];
       if (!value) {
@@ -263,6 +287,7 @@ function parseArguments(argv) {
           "--suite": "suite",
           "--tags": "tags",
           "--variant": "variant",
+          "--language": "language",
           "--output-dir": "outputDir",
         }[argument]
       ] = value;
@@ -272,14 +297,14 @@ function parseArguments(argv) {
     }
   }
 
-  const variants = new Set([
-    "all",
-    "baseline",
-    "azure-skill-mcp",
-    "azure-skill-mcp-microsoft-skill",
-  ]);
-  if (!variants.has(options.variant)) {
+  if (!new Set(["all", ...variants]).has(options.variant)) {
     throw new Error(`Unknown variant "${options.variant}".`);
+  }
+  if (
+    options.language &&
+    !new Set(languageExperiments.map(([language]) => language)).has(options.language)
+  ) {
+    throw new Error(`Unknown language "${options.language}".`);
   }
   if (!/^[A-Za-z0-9._/\\-]+$/.test(options.outputDir)) {
     throw new Error(`Unsafe output directory "${options.outputDir}".`);
@@ -371,7 +396,21 @@ export async function main(argv = process.argv.slice(2)) {
     return;
   }
 
-  const groups = selectEvaluations(catalog, options);
+  let groups = selectEvaluations(catalog, options);
+  if (options.language) {
+    groups = groups.filter((group) => group.language === options.language);
+    if (groups.length === 0) {
+      throw new Error(
+        `The requested selection contains no ${options.language} evaluations.`,
+      );
+    }
+  }
+
+  if (options.matrix) {
+    console.log(JSON.stringify(buildShardMatrix(groups, options.variant)));
+    return;
+  }
+
   console.log(
     JSON.stringify(
       {

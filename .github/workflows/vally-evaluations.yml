@@ -46,9 +46,45 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  plan:
+    runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.matrix.outputs.matrix }}
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+
+      - name: Resolve evaluation shards
+        id: matrix
+        env:
+          SELECTION: ${{ inputs.selection }}
+          SUITE: ${{ inputs.suite }}
+          TAGS: ${{ inputs.tags }}
+          VARIANT: ${{ inputs.variant }}
+        shell: bash
+        run: |
+          args=(--mode "$SELECTION" --variant "$VARIANT" --matrix)
+          if [[ "$SELECTION" == "suite" ]]; then
+            args+=(--suite "$SUITE")
+          elif [[ "$SELECTION" == "tags" ]]; then
+            args+=(--tags "$TAGS")
+          fi
+          matrix=$(node scripts/run-evaluations.mjs "${args[@]}")
+          echo "matrix=$matrix" >> "$GITHUB_OUTPUT"
+          echo "\`$matrix\`" >> "$GITHUB_STEP_SUMMARY"
+
   evaluate:
+    needs: plan
     runs-on: ubuntu-latest
     timeout-minutes: 360
+    strategy:
+      fail-fast: false
+      max-parallel: 6
+      matrix: ${{ fromJSON(needs.plan.outputs.matrix) }}
 
     steps:
       - uses: actions/checkout@v7
@@ -66,14 +102,17 @@ jobs:
         run: npm install --global pnpm@10.26.0 --registry=https://registry.npmjs.org/
 
       - uses: actions/setup-python@v7
+        if: ${{ matrix.language == 'python' }}
         with:
           python-version: "3.12"
 
       - uses: actions/setup-dotnet@v6
+        if: ${{ matrix.language == 'dotnet' }}
         with:
           dotnet-version: "8.0.x"
 
       - uses: actions/setup-java@v6
+        if: ${{ matrix.language == 'java' }}
         with:
           distribution: temurin
           java-version: "17"
@@ -85,23 +124,35 @@ jobs:
           echo "COPILOT_CLI_PATH=$copilot_cli_path" >> "$GITHUB_ENV"
           pnpm list @microsoft/vally @github/copilot-sdk @github/copilot --depth 10
           node "$copilot_cli_path" --version
-          python -m pip install -r requirements-dev.txt
+
+      - name: Install Python dependencies
+        if: ${{ matrix.language == 'python' }}
+        run: python -m pip install -r requirements-dev.txt
 
       - name: Bootstrap pinned skill repositories
         shell: pwsh
         run: pnpm bootstrap
 
+      - name: Use public npm for MCP child processes
+        shell: bash
+        run: |
+          find experiments -name experiment.yaml -exec sed -i \
+            's#https://pkgs.dev.azure.com/azure-sdk/public/_packaging/azure-sdk-for-js/npm/registry/#https://registry.npmjs.org/#g' \
+            {} +
+
       - name: Run selected evaluations
+        id: evaluation
         env:
           GITHUB_TOKEN: ${{ github.token }}
           SELECTION: ${{ inputs.selection }}
           SUITE: ${{ inputs.suite }}
           TAGS: ${{ inputs.tags }}
-          VARIANT: ${{ inputs.variant }}
+          LANGUAGE: ${{ matrix.language }}
+          VARIANT: ${{ matrix.variant }}
           DRY_RUN: ${{ inputs.dry_run }}
         shell: bash
         run: |
-          args=(--mode "$SELECTION" --variant "$VARIANT" --output-dir reports)
+          args=(--mode "$SELECTION" --language "$LANGUAGE" --variant "$VARIANT" --output-dir reports)
           if [[ "$SELECTION" == "suite" ]]; then
             args+=(--suite "$SUITE")
           elif [[ "$SELECTION" == "tags" ]]; then
@@ -112,27 +163,75 @@ jobs:
           fi
           node scripts/run-evaluations.mjs "${args[@]}"
 
-      - name: Publish evaluation summary
+      - name: Write shard manifest
         if: ${{ always() && inputs.dry_run == false }}
+        env:
+          LANGUAGE: ${{ matrix.language }}
+          VARIANT: ${{ matrix.variant }}
+          EXPECTED_EVALUATIONS: ${{ matrix.evaluations }}
+          EVALUATION_OUTCOME: ${{ steps.evaluation.outcome }}
         shell: bash
         run: |
-          mapfile -t report_files < <(find reports -type f -name report.md -print 2>/dev/null | sort)
-          if (( ${#report_files[@]} == 0 )); then
-            echo "::warning::Vally did not generate a Markdown report."
-            echo "## Vally evaluation report" >> "$GITHUB_STEP_SUMMARY"
-            echo "No report was generated." >> "$GITHUB_STEP_SUMMARY"
-            exit 0
-          fi
+          node -e 'const fs = require("node:fs"); fs.writeFileSync("evaluation-shard.json", JSON.stringify({ language: process.env.LANGUAGE, variant: process.env.VARIANT, expectedEvaluations: Number(process.env.EXPECTED_EVALUATIONS), evaluationOutcome: process.env.EVALUATION_OUTCOME }, null, 2));'
 
-          for report_file in "${report_files[@]}"; do
-            cat "$report_file" >> "$GITHUB_STEP_SUMMARY"
-            echo >> "$GITHUB_STEP_SUMMARY"
-          done
-
-      - name: Upload evaluation reports
+      - name: Upload evaluation shard
         if: ${{ always() && inputs.dry_run == false }}
         uses: actions/upload-artifact@v7
         with:
-          name: vally-reports-${{ github.run_id }}
-          path: reports
+          name: vally-shard-${{ matrix.language }}-${{ matrix.variant }}-${{ github.run_id }}
+          path: |
+            reports
+            evaluation-shard.json
+          if-no-files-found: error
+
+  summarize:
+    if: ${{ always() && inputs.dry_run == false }}
+    needs:
+      - plan
+      - evaluate
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+
+      - name: Prepare shard download directory
+        run: mkdir downloaded-shards
+
+      - name: Download evaluation shards
+        continue-on-error: true
+        uses: actions/download-artifact@v8
+        with:
+          pattern: vally-shard-*-${{ github.run_id }}
+          path: downloaded-shards
+
+      - name: Aggregate evaluation results
+        env:
+          EXPECTED_MATRIX: ${{ needs.plan.outputs.matrix }}
+        run: |
+          node scripts/summarize-reports.mjs \
+            --input-dir downloaded-shards \
+            --expected-matrix "$EXPECTED_MATRIX" \
+            --output evaluation-summary.md
+
+      - name: Publish combined summary
+        if: ${{ always() }}
+        shell: bash
+        run: |
+          if [[ -f evaluation-summary.md ]]; then
+            cat evaluation-summary.md >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "## Vally evaluation summary" >> "$GITHUB_STEP_SUMMARY"
+            echo "The combined summary could not be generated." >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+      - name: Upload combined report
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: vally-summary-${{ github.run_id }}
+          path: evaluation-summary.md
           if-no-files-found: warn

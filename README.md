@@ -48,11 +48,20 @@ resolved plans can be reviewed before running agents. GitHub Actions installs
 packages from public npm. Copilot requests use the workflow's built-in
 `GITHUB_TOKEN`.
 
+The workflow expands the selection into a language-by-variant matrix with at
+most six concurrent shards. Each shard uploads its machine-readable Vally
+results. An always-running fan-in job verifies shard completeness, detects
+duplicate or unsuccessful trials, and publishes combined prompt, language, and
+overall scores by variant and shard. Workflow copies of the experiment files
+point MCP package installation at public npm; local experiment files retain the
+corporate Azure SDK feed.
+
 The same selector can be checked locally without running Vally:
 
 ```powershell
 node scripts/run-evaluations.mjs --mode suite --suite cosmos-crud --select-only
 node scripts/run-evaluations.mjs --mode tags --tags "service=identity;language=python" --select-only
+node scripts/run-evaluations.mjs --mode all --variant all --matrix
 ```
 
 ## Scenario layout
