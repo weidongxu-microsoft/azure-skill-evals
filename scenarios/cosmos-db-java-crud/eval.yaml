@@ -13,123 +13,154 @@ defaults:
 stimuli:
   - name: cosmos-db-dp-java-crud
     prompt: |-
-      Write a Java program that performs CRUD operations on items in an Azure Cosmos DB NoSQL container.
-
-      Write the code to files. Do not reply with code blocks.
-
-      1. Create a CosmosClient using endpoint and key with CosmosClientBuilder.
-      2. Create a database "TestDB" and container "Items" with partition key "/category".
-      3. Insert a POJO item with properties: id, category, name, and quantity.
-      4. Read the item back by id and partition key value.
-      5. Query items where category equals "electronics" using parameterized SQL.
-      6. Replace the item with an updated quantity.
-      7. Delete the item by id and partition key.
-
-      Show the required Maven dependency and handle CosmosException with status-code inspection.
+      Write a Java program that performs
+      CRUD operations on items in an Azure Cosmos DB NoSQL container:
+      1. Create a CosmosClient using endpoint and key with CosmosClientBuilder
+      2. Create a database "TestDB" and container "Items" with partition key "/category"
+      3. Insert a POJO item with properties: id, category, name, quantity
+      4. Read the item back by id and partition key value
+      5. Query items where category equals "electronics" using parameterized SQL
+      6. Replace the item with updated quantity
+      7. Delete the item by id and partition key
+      
+      Show required Maven dependency and handle CosmosException appropriately.
     tags:
       service: cosmos-db
       plane: data-plane
       language: java
       category: crud
     graders:
-      - type: run-command
-        name: prompt/cosmos-package
+      - type: panel
+        name: prompt/full-case-review
         weight: 1
         config:
-          command: node
-          args:
-            - .vally/scenarios/cosmos-db-java-crud/tools/check-cosmos-java.mjs
-            - prompt/cosmos-package
-      - type: run-command
-        name: prompt/cosmos-client
-        weight: 1
-        config:
-          command: node
-          args:
-            - .vally/scenarios/cosmos-db-java-crud/tools/check-cosmos-java.mjs
-            - prompt/cosmos-client
-      - type: run-command
-        name: prompt/database-container
-        weight: 1
-        config:
-          command: node
-          args:
-            - .vally/scenarios/cosmos-db-java-crud/tools/check-cosmos-java.mjs
-            - prompt/database-container
-      - type: run-command
-        name: prompt/item-crud
-        weight: 1
-        config:
-          command: node
-          args:
-            - .vally/scenarios/cosmos-db-java-crud/tools/check-cosmos-java.mjs
-            - prompt/item-crud
-      - type: run-command
-        name: prompt/query-iteration
-        weight: 1
-        config:
-          command: node
-          args:
-            - .vally/scenarios/cosmos-db-java-crud/tools/check-cosmos-java.mjs
-            - prompt/query-iteration
-      - type: run-command
-        name: prompt/parameterized-query
-        weight: 1
-        config:
-          command: node
-          args:
-            - .vally/scenarios/cosmos-db-java-crud/tools/check-cosmos-java.mjs
-            - prompt/parameterized-query
-      - type: run-command
-        name: prompt/cosmos-exception
-        weight: 1
-        config:
-          command: node
-          args:
-            - .vally/scenarios/cosmos-db-java-crud/tools/check-cosmos-java.mjs
-            - prompt/cosmos-exception
-      - type: run-command
-        name: language/build-manifest
-        weight: 1
-        config:
-          command: node
-          args:
-            - .vally/languages/java/check.mjs
-            - language/build-manifest
-      - type: run-command
-        name: language/current-azure-dependencies
-        weight: 1
-        config:
-          command: node
-          args:
-            - .vally/languages/java/check.mjs
-            - language/current-azure-dependencies
-      - type: run-command
-        name: language/current-imports
-        weight: 1
-        config:
-          command: node
-          args:
-            - .vally/languages/java/check.mjs
-            - language/current-imports
-      - type: run-command
-        name: language/client-builder
-        weight: 1
-        config:
-          command: node
-          args:
-            - .vally/languages/java/check.mjs
-            - language/client-builder
-    environment:
-      files:
-        - src: tools/check-cosmos-java.mjs
-          dest: .vally/scenarios/cosmos-db-java-crud/tools/check-cosmos-java.mjs
-        - src: tools/cosmos-java-rules.mjs
-          dest: .vally/scenarios/cosmos-db-java-crud/tools/cosmos-java-rules.mjs
-        - src: ../../languages/java/check.mjs
-          dest: .vally/languages/java/check.mjs
-        - src: ../../languages/java/checks.mjs
-          dest: .vally/languages/java/checks.mjs
+          prompt: |-
+            Review the generated implementation against every criterion.
+            Score each criterion independently. Accept equivalent valid
+            implementations and judge code behavior rather than syntax.
+          models:
+            - gpt-5.6-sol
+          aggregation: unanimous
+          scoring: binary
+          threshold: 1
+          overall_threshold: 1
+          evidence:
+            - diff
+          criteria:
+            - name: prompt/azure-cosmos-maven-dependency-com-azure-azure-cosmos
+              description: |-
+                `azure-cosmos` Maven dependency (com.azure:azure-cosmos)
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: prompt/cosmosclientbuilder-and-cosmosclient
+              description: |-
+                `CosmosClientBuilder` and `CosmosClient`
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: prompt/cosmosdatabase-and-cosmoscontainer-creation
+              description: |-
+                `CosmosDatabase` and `CosmosContainer` creation
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: prompt/cosmoscontainer-createitem-readitem-replaceitem-deleteit
+              description: |-
+                `CosmosContainer.createItem()`, `readItem()`, `replaceItem()`, `deleteItem()`
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: prompt/cosmosqueryrequestoptions-and-cosmospagediterable
+              description: |-
+                `CosmosQueryRequestOptions` and `CosmosPagedIterable`
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: prompt/sqlqueryspec-with-parameters
+              description: |-
+                `SqlQuerySpec` with parameters
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: prompt/cosmosexception-error-handling
+              description: |-
+                `CosmosException` error handling
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: language/correct-dependencies-com-azure-not-com-microsoft-azure
+              description: |-
+                Uses com.azure group ID for all Azure SDK packages. No com.microsoft.azure (legacy SDK) dependencies. Includes azure-identity for authentication.
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: language/azure-sdk-bom-for-version-management
+              description: |-
+                Uses azure-sdk-bom in dependencyManagement to manage Azure SDK versions instead of hardcoding individual artifact versions. Dependencies should omit <version> tags when managed by the BOM.
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: language/correct-imports-no-legacy-no-internal-packages
+              description: |-
+                All imports use com.azure.* packages. No com.microsoft.azure.* (legacy) or com.azure.*.implementation.* (internal API) imports.
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: language/defaultazurecredential-authentication
+              description: |-
+                Uses DefaultAzureCredential or another com.azure.identity credential. No hardcoded connection strings, account keys, SAS tokens, or secrets.
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: language/client-builder-pattern
+              description: |-
+                SDK clients constructed using *ClientBuilder classes with .endpoint() or .vaultUrl() and .credential(). No legacy constructors (CloudStorageAccount, DocumentClient, KeyVaultClient).
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: language/no-deprecated-legacy-classes
+              description: |-
+                No deprecated classes from the old SDK (CloudStorageAccount, CloudBlobClient, DocumentClient, QueueClient, ApplicationTokenCredentials, MSICredentials, ConnectionStringBuilder).
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: language/pagination-pagediterable-pagedflux
+              description: |-
+                List/query operations return PagedIterable (sync) or PagedFlux (async). Does not flatten all pages into a raw List or Stream in memory.
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: language/lro-pattern-syncpoller-pollerflux
+              description: |-
+                Long-running operations use SyncPoller (sync) or PollerFlux (async) with begin* method prefix. No Thread.sleep() polling loops.
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: language/async-uses-project-reactor-mono-flux
+              description: |-
+                Async code uses Project Reactor types (Mono, Flux). Not CompletableFuture (wrong), not RxJava (wrong), not sync wrapped in ExecutorService. No .block() inside async service implementations.
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: language/service-specific-exception-handling
+              description: |-
+                Catches service-specific exceptions (BlobStorageException, CosmosException, ServiceBusException, HttpResponseException) with status code inspection. Not just generic Exception catches.
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: language/code-compiles-mvn-compile-gradle-compilejava
+              description: |-
+                The generated code compiles without errors. Attempt build verification if build tools are available.
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: language/try-with-resources-for-clients
+              description: |-
+                All Azure SDK client instances that implement AutoCloseable are used within try-with-resources blocks or explicitly closed in a finally block.
+              weight: 1
+              pass_threshold: 1
+              required: true
 artifacts:
   include:
     - "**/*.java"

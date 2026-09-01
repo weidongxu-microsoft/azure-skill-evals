@@ -13,83 +13,176 @@ defaults:
 stimuli:
   - name: key-vault-dp-java-secret-config
     prompt: |-
-      Create a Java 17 Maven project that implements an application configuration provider backed by Azure Key Vault.
-
-      Write the code to files. Do not reply with code blocks.
-
-      Implement synchronous and asynchronous providers using SecretClient and SecretAsyncClient. Each provider must get the latest secret or a requested version, return a caller-provided default when the secret is not found, and expose SecretProperties.getExpiresOn(). Add in-memory caches that bulk-load required keys, read cached values, refresh one key on demand, and automatically refresh secrets whose expiry is inside a configurable warning window.
-
-      Build both clients from an environment-provided vault URL with one DefaultAzureCredential and no embedded credentials. Add sync and async rotation helpers that call beginDeleteSecret, wait for the returned SyncPoller or PollerFlux to complete, purge the completed deletion so the soft-deleted name can be reused, and only then create the replacement value with an expiry date.
-
-      Main must demonstrate the connected sync flow first and the connected async flow second: bulk load, cached reads, one-key refresh, near-expiry warning/refresh, and rotation.
-
-      Include active Maven runtime dependencies
-      com.azure:azure-identity:1.18.5 and
-      com.azure:azure-security-keyvault-secrets:4.11.2.
+      Create a small Java 17 Maven project that implements an application configuration provider backed by Azure Key Vault.
+      
+      The project needs:
+      
+      - A **secret provider class** (both sync and async versions) that retrieves secrets from Key Vault by name, with graceful handling when a secret doesn't exist (return a default value instead of crashing). It should also be able to retrieve a specific version of a secret (not just the latest), and inspect a secret's expiry date so the caller can tell if a secret is about to expire.
+      
+      - A **caching layer** on top of the provider that stores secret values in memory after first retrieval. It should support bulk-loading a predefined set of required config keys at startup, on-demand refresh of individual keys, and automatic re-fetch of any secret whose expiry date is within a configurable warning window (e.g., 7 days out).
+      
+      - A **configuration/factory class** that connects securely to the Key Vault using the vault URL from an environment variable. The application runs in Azure and should authenticate using managed identity — no client secrets or certificates in code.
+      
+      - A **secret rotation helper** that safely rotates a secret: delete the old secret, ensure the deletion is fully complete, then create the new secret with an updated value and expiry date. The rotation must be safe — don't assume deletion is instantaneous, since Key Vault's soft-delete feature means the secret may not be immediately gone.
+      
+      - A **Main class** that demos both implementations: loading several config keys at startup, reading them from cache, refreshing one, printing a warning if any secret is near expiry, and performing a secret rotation (delete old, wait for completion, create new). Run the full demo with the sync implementation first, then repeat with the async implementation.
+      
+      Include a complete `pom.xml` with the necessary Azure SDK dependencies.
     tags:
       service: key-vault
       plane: data-plane
       language: java
       category: crud
     graders:
-      - type: run-command
-        name: prompt/sdk-dependencies
+      - type: panel
+        name: prompt/full-case-review
         weight: 1
-        config: { command: node, args: [.vally/scenarios/key-vault-java-secret-config/tools/check-secret-config-java.mjs, prompt/sdk-dependencies] }
-      - type: run-command
-        name: prompt/managed-identity-configuration
-        weight: 1
-        config: { command: node, args: [.vally/scenarios/key-vault-java-secret-config/tools/check-secret-config-java.mjs, prompt/managed-identity-configuration] }
-      - type: run-command
-        name: prompt/sync-provider
-        weight: 1
-        config: { command: node, args: [.vally/scenarios/key-vault-java-secret-config/tools/check-secret-config-java.mjs, prompt/sync-provider] }
-      - type: run-command
-        name: prompt/async-provider
-        weight: 1
-        config: { command: node, args: [.vally/scenarios/key-vault-java-secret-config/tools/check-secret-config-java.mjs, prompt/async-provider] }
-      - type: run-command
-        name: prompt/expiry-aware-cache
-        weight: 1
-        config: { command: node, args: [.vally/scenarios/key-vault-java-secret-config/tools/check-secret-config-java.mjs, prompt/expiry-aware-cache] }
-      - type: run-command
-        name: prompt/sync-safe-rotation
-        weight: 1
-        config: { command: node, args: [.vally/scenarios/key-vault-java-secret-config/tools/check-secret-config-java.mjs, prompt/sync-safe-rotation] }
-      - type: run-command
-        name: prompt/async-safe-rotation
-        weight: 1
-        config: { command: node, args: [.vally/scenarios/key-vault-java-secret-config/tools/check-secret-config-java.mjs, prompt/async-safe-rotation] }
-      - type: run-command
-        name: prompt/connected-demo
-        weight: 1
-        config: { command: node, args: [.vally/scenarios/key-vault-java-secret-config/tools/check-secret-config-java.mjs, prompt/connected-demo] }
-      - type: run-command
-        name: language/build-manifest
-        weight: 1
-        config: { command: node, args: [.vally/languages/java/check.mjs, language/build-manifest] }
-      - type: run-command
-        name: language/current-azure-dependencies
-        weight: 1
-        config: { command: node, args: [.vally/languages/java/check.mjs, language/current-azure-dependencies] }
-      - type: run-command
-        name: language/current-imports
-        weight: 1
-        config: { command: node, args: [.vally/languages/java/check.mjs, language/current-imports] }
-      - type: run-command
-        name: language/client-builder
-        weight: 1
-        config: { command: node, args: [.vally/languages/java/check.mjs, language/client-builder] }
-    environment:
-      files:
-        - src: tools/check-secret-config-java.mjs
-          dest: .vally/scenarios/key-vault-java-secret-config/tools/check-secret-config-java.mjs
-        - src: tools/secret-config-java-rules.mjs
-          dest: .vally/scenarios/key-vault-java-secret-config/tools/secret-config-java-rules.mjs
-        - src: ../../languages/java/check.mjs
-          dest: .vally/languages/java/check.mjs
-        - src: ../../languages/java/checks.mjs
-          dest: .vally/languages/java/checks.mjs
+        config:
+          prompt: |-
+            Review the generated implementation against every criterion.
+            Score each criterion independently. Accept equivalent valid
+            implementations and judge code behavior rather than syntax.
+          models:
+            - gpt-5.6-sol
+          aggregation: unanimous
+          scoring: binary
+          threshold: 1
+          overall_threshold: 1
+          evidence:
+            - diff
+          criteria:
+            - name: prompt/secret-versioning-retrieves-specific-version-via-getsecr
+              description: |-
+                Secret versioning: retrieves specific version via `getSecret(name, version)`
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: prompt/secret-expiry-accesses-properties-getexpireson-on-secret
+              description: |-
+                Secret expiry: accesses `properties().getExpiresOn()` on `SecretProperties`
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: prompt/configurable-warning-window-for-near-expiry-detection
+              description: |-
+                Configurable warning window for near-expiry detection
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: prompt/in-memory-caching-e-g-concurrenthashmap-with-bulk-load-a
+              description: |-
+                In-memory caching (e.g., `ConcurrentHashMap`) with bulk-load and single-key refresh
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: prompt/secret-rotation-uses-begindeletesecret-as-a-long-running
+              description: |-
+                Secret rotation uses `beginDeleteSecret()` as a long-running operation
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: prompt/sync-uses-syncpoller-to-wait-for-delete-completion
+              description: |-
+                Sync uses `SyncPoller` to wait for delete completion
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: prompt/async-uses-pollerflux-to-wait-for-delete-completion
+              description: |-
+                Async uses `PollerFlux` to wait for delete completion
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: prompt/creates-new-secret-only-after-delete-completes-not-concu
+              description: |-
+                Creates new secret only after delete completes (not concurrently) ### Scenario-Specific Error Handling
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: prompt/returns-a-default-value-when-secret-is-not-found-does-no
+              description: |-
+                Returns a default value when secret is not found (does not crash) ### Anti-Patterns (scenario-specific)
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: prompt/not-using-fire-and-forget-deletesecret-without-waiting-f
+              description: |-
+                NOT using fire-and-forget `deleteSecret()` without waiting for completion
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: language/correct-dependencies-com-azure-not-com-microsoft-azure
+              description: |-
+                Uses com.azure group ID for all Azure SDK packages. No com.microsoft.azure (legacy SDK) dependencies. Includes azure-identity for authentication.
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: language/azure-sdk-bom-for-version-management
+              description: |-
+                Uses azure-sdk-bom in dependencyManagement to manage Azure SDK versions instead of hardcoding individual artifact versions. Dependencies should omit <version> tags when managed by the BOM.
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: language/correct-imports-no-legacy-no-internal-packages
+              description: |-
+                All imports use com.azure.* packages. No com.microsoft.azure.* (legacy) or com.azure.*.implementation.* (internal API) imports.
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: language/defaultazurecredential-authentication
+              description: |-
+                Uses DefaultAzureCredential or another com.azure.identity credential. No hardcoded connection strings, account keys, SAS tokens, or secrets.
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: language/client-builder-pattern
+              description: |-
+                SDK clients constructed using *ClientBuilder classes with .endpoint() or .vaultUrl() and .credential(). No legacy constructors (CloudStorageAccount, DocumentClient, KeyVaultClient).
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: language/no-deprecated-legacy-classes
+              description: |-
+                No deprecated classes from the old SDK (CloudStorageAccount, CloudBlobClient, DocumentClient, QueueClient, ApplicationTokenCredentials, MSICredentials, ConnectionStringBuilder).
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: language/pagination-pagediterable-pagedflux
+              description: |-
+                List/query operations return PagedIterable (sync) or PagedFlux (async). Does not flatten all pages into a raw List or Stream in memory.
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: language/lro-pattern-syncpoller-pollerflux
+              description: |-
+                Long-running operations use SyncPoller (sync) or PollerFlux (async) with begin* method prefix. No Thread.sleep() polling loops.
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: language/async-uses-project-reactor-mono-flux
+              description: |-
+                Async code uses Project Reactor types (Mono, Flux). Not CompletableFuture (wrong), not RxJava (wrong), not sync wrapped in ExecutorService. No .block() inside async service implementations.
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: language/service-specific-exception-handling
+              description: |-
+                Catches service-specific exceptions (BlobStorageException, CosmosException, ServiceBusException, HttpResponseException) with status code inspection. Not just generic Exception catches.
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: language/code-compiles-mvn-compile-gradle-compilejava
+              description: |-
+                The generated code compiles without errors. Attempt build verification if build tools are available.
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: language/try-with-resources-for-clients
+              description: |-
+                All Azure SDK client instances that implement AutoCloseable are used within try-with-resources blocks or explicitly closed in a finally block.
+              weight: 1
+              pass_threshold: 1
+              required: true
 artifacts:
   include:
     - "**/*.java"

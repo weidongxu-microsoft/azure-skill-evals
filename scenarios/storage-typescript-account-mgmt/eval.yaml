@@ -13,107 +13,148 @@ defaults:
 stimuli:
   - name: storage-mp-typescript-account-mgmt
     prompt: |-
-      Write a TypeScript Node.js program that manages an Azure Storage account through one complete lifecycle.
-
-      Write the code to files. Do not reply with code blocks.
-
-      1. Read the Azure subscription ID, resource group name, and storage account name from environment variables. Use "eastus" as the location.
-      2. Authenticate with DefaultAzureCredential and create a StorageManagementClient.
-      3. Create the storage account in that resource group with Standard_LRS, StorageV2, and no access tier. Wait for creation to finish.
-      4. List storage accounts in that resource group by asynchronously iterating the SDK result, printing each account name.
-      5. Get that storage account's properties and print a non-secret property from the returned result. Do not call listKeys.
-      6. Enable blob versioning for that account's default Blob service with blobServices.setServiceProperties(), and print the returned versioning setting.
-      7. Await deletion of that same storage account and only then print a deletion confirmation.
-
-      Show the required npm packages. Handle Azure request/authentication failures meaningfully and preserve unknown failures.
+      Write a TypeScript program
+      that manages Azure Storage Accounts using the management plane SDK:
+      1. Authenticate using DefaultAzureCredential from @azure/identity
+      2. Create a StorageManagementClient with the credential and subscription ID
+      3. Create a new Storage Account with Standard_LRS SKU in "eastus"
+      4. List all Storage Accounts in a resource group using async iteration
+      5. Get the properties of the created Storage Account
+      6. Update the account to enable blob versioning
+      7. Delete the Storage Account
+      
+      Show required npm packages (@azure/arm-storage) and proper async/await patterns.
     tags:
       service: storage
       plane: management-plane
       language: typescript
       category: crud
     graders:
-      - type: run-command
-        name: prompt/packages
+      - type: panel
+        name: prompt/full-case-review
         weight: 1
         config:
-          command: node
-          args:
-            - .vally/scenarios/storage-typescript-account-mgmt/tools/check-storage-typescript.mjs
-            - prompt/packages
-      - type: run-command
-        name: prompt/environment
-        weight: 1
-        config:
-          command: node
-          args:
-            - .vally/scenarios/storage-typescript-account-mgmt/tools/check-storage-typescript.mjs
-            - prompt/environment
-      - type: run-command
-        name: prompt/authenticated-client
-        weight: 1
-        config:
-          command: node
-          args:
-            - .vally/scenarios/storage-typescript-account-mgmt/tools/check-storage-typescript.mjs
-            - prompt/authenticated-client
-      - type: run-command
-        name: prompt/create-and-output
-        weight: 1
-        config:
-          command: node
-          args:
-            - .vally/scenarios/storage-typescript-account-mgmt/tools/check-storage-typescript.mjs
-            - prompt/create-and-output
-      - type: run-command
-        name: prompt/list-and-output
-        weight: 1
-        config:
-          command: node
-          args:
-            - .vally/scenarios/storage-typescript-account-mgmt/tools/check-storage-typescript.mjs
-            - prompt/list-and-output
-      - type: run-command
-        name: prompt/get-and-output
-        weight: 1
-        config:
-          command: node
-          args:
-            - .vally/scenarios/storage-typescript-account-mgmt/tools/check-storage-typescript.mjs
-            - prompt/get-and-output
-      - type: run-command
-        name: prompt/versioning-and-output
-        weight: 1
-        config:
-          command: node
-          args:
-            - .vally/scenarios/storage-typescript-account-mgmt/tools/check-storage-typescript.mjs
-            - prompt/versioning-and-output
-      - type: run-command
-        name: prompt/delete-and-confirm
-        weight: 1
-        config:
-          command: node
-          args:
-            - .vally/scenarios/storage-typescript-account-mgmt/tools/check-storage-typescript.mjs
-            - prompt/delete-and-confirm
-      - type: run-command
-        name: prompt/error-handling
-        weight: 1
-        config:
-          command: node
-          args:
-            - .vally/scenarios/storage-typescript-account-mgmt/tools/check-storage-typescript.mjs
-            - prompt/error-handling
-    environment:
-      files:
-        - src: tools/check-storage-typescript.mjs
-          dest: .vally/scenarios/storage-typescript-account-mgmt/tools/check-storage-typescript.mjs
-        - src: tools/storage-typescript-rules.mjs
-          dest: .vally/scenarios/storage-typescript-account-mgmt/tools/storage-typescript-rules.mjs
-        - src: tools/source-manifest.mjs
-          dest: .vally/scenarios/storage-typescript-account-mgmt/tools/source-manifest.mjs
-        - src: ../../languages/typescript/checks.mjs
-          dest: .vally/languages/typescript/checks.mjs
+          prompt: |-
+            Review the generated implementation against every criterion.
+            Score each criterion independently. Accept equivalent valid
+            implementations and judge code behavior rather than syntax.
+          models:
+            - gpt-5.6-sol
+          aggregation: unanimous
+          scoring: binary
+          threshold: 1
+          overall_threshold: 1
+          evidence:
+            - diff
+          criteria:
+            - name: prompt/azure-arm-storage-and-azure-identity-npm-packages
+              description: |-
+                `@azure/arm-storage` and `@azure/identity` npm packages
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: prompt/storagemanagementclient-constructor-with-credential-and
+              description: |-
+                `StorageManagementClient` constructor with credential and subscriptionId
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: prompt/storageaccounts-begincreateandwait-with-storageaccountcr
+              description: |-
+                `storageAccounts.beginCreateAndWait()` with `StorageAccountCreateParameters`
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: prompt/sku-and-kind-configuration-in-create-parameters
+              description: |-
+                SKU and kind configuration in create parameters
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: prompt/storageaccounts-listbyresourcegroup-with-async-iteration
+              description: |-
+                `storageAccounts.listByResourceGroup()` with async iteration
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: prompt/storageaccounts-getproperties-for-details
+              description: |-
+                `storageAccounts.getProperties()` for details
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: prompt/storageaccounts-update-for-modifying-properties
+              description: |-
+                `storageAccounts.update()` for modifying properties
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: prompt/storageaccounts-delete-for-removal
+              description: |-
+                `storageAccounts.delete()` for removal
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: language/correct-azure-scoped-packages
+              description: |-
+                All Azure SDK dependencies use @azure/ scoped packages (e.g., @azure/storage-blob, @azure/keyvault-secrets, @azure/identity). No deprecated unscoped packages (azure-storage, azure-arm-*, ms-rest-azure, @azure/ms-rest-*).
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: language/azure-identity-for-authentication
+              description: |-
+                Includes @azure/identity as a dependency. For local development, DefaultAzureCredential is acceptable. For production code, uses a specific Entra token credential (e.g., ManagedIdentityCredential, ClientSecretCredential, WorkloadIdentityCredential) or configures DefaultAzureCredential with the AZURE_TOKEN_CREDENTIALS environment variable set to "prod" or a specific token credential. No hardcoded connection strings, account keys, SAS tokens, or secrets in code.
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: language/client-constructor-with-endpoint-and-credential
+              description: |-
+                SDK clients constructed with endpoint URL and credential object, e.g. new BlobServiceClient(url, credential) or new SecretClient(vaultUrl, credential). No legacy constructor patterns or connection string-based construction when identity-based auth is available.
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: language/async-await-pattern
+              description: |-
+                Uses async/await for all asynchronous operations. No raw .then()/.catch() chains when await is cleaner. No callback-based patterns. Top-level async function or IIFE for entry point.
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: language/pagination-with-for-await-of
+              description: |-
+                List/query operations use for-await-of iteration over the PagedAsyncIterableIterator returned by SDK methods. Does not collect all pages into an array in memory (e.g., no Array.from() or manual page accumulation). Uses byPage() when per-page control is needed.
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: language/lro-pattern-beginxxx-polluntildone
+              description: |-
+                Long-running operations use the begin* method prefix (e.g., beginDeleteSecret, beginCreateOrUpdate) and await poller.pollUntilDone(). No manual setTimeout/setInterval polling loops.
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: language/resterror-exception-handling
+              description: |-
+                Catches RestError (from @azure/core-rest-pipeline or the service package) with statusCode inspection for error-specific handling. Not just generic Error or try/catch without type checking.
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: language/no-deprecated-packages
+              description: |-
+                No deprecated or legacy Azure packages in package.json: azure-storage, azure-arm-*, ms-rest-azure, @azure/ms-rest-js, @azure/ms-rest-nodeauth, @azure/ms-rest-azure-js. All dependencies use the current @azure/* track.
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: language/logging-via-azure-logger
+              description: |-
+                Uses @azure/logger with setLogLevel() or the AZURE_LOG_LEVEL environment variable for SDK diagnostic logging. No custom logging wrappers around SDK internals.
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: language/package-json-with-correct-dependencies
+              description: |-
+                Includes a valid package.json with all required @azure/* dependencies listed. TypeScript projects include tsconfig.json and appropriate @types/* packages or use a recent TypeScript version with built-in types.
+              weight: 1
+              pass_threshold: 1
+              required: true
 artifacts:
   include:
     - "**/*.ts"

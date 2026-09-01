@@ -13,106 +13,103 @@ defaults:
 stimuli:
   - name: storage-mp-dotnet-account-mgmt
     prompt: |-
-      Write a complete C# console application that manages one Azure storage account with the current Azure.ResourceManager.Storage SDK.
-
-      Write the code to files. Do not reply with code blocks.
-
-      Read the subscription ID, existing resource group name, and storage account name from AZURE_SUBSCRIPTION_ID, AZURE_RESOURCE_GROUP_NAME, and AZURE_STORAGE_ACCOUNT_NAME. Read AZURE_LOCATION with "eastus" as its default. Authenticate with DefaultAzureCredential, construct ArmClient with the subscription ID, get its default subscription, get the existing resource group, and use that resource group's storage account collection.
-
-      Perform one reachable lifecycle, in order:
-      1. Create or update the named storage account with Standard_LRS, StorageV2, and the configured location, and wait for the operation to complete.
-      2. Enumerate the storage accounts and print each listed account's name.
-      3. Get the named storage account asynchronously and print a property from the returned resource.
-      4. Create or update that account's associated default Blob service with versioning enabled, wait for completion, and print the observed IsVersioningEnabled value from the result.
-      5. Delete that same storage account, wait for deletion to complete, and only then print a confirmation containing its name.
-
-      Include meaningful RequestFailedException handling. Any other catch path must preserve or report the causal exception. Target net8.0 and pin Azure.ResourceManager.Storage 1.7.0 and Azure.Identity 1.21.0.
+      Write a C# program that manages
+      Azure Storage Accounts using the management plane SDK:
+      1. Authenticate using DefaultAzureCredential
+      2. Create a new Storage Account with Standard_LRS SKU in "eastus"
+      3. List all Storage Accounts in a resource group
+      4. Get the properties of the created Storage Account
+      5. Update the account to enable blob versioning
+      6. Delete the Storage Account
+      
+      Show required NuGet packages and proper error handling.
+      Use the Azure.ResourceManager.Storage SDK.
     tags:
       service: storage
       plane: management-plane
       language: dotnet
       category: crud
     graders:
-      - type: run-command
-        name: prompt/source-manifest
+      - type: panel
+        name: prompt/full-case-review
         weight: 1
         config:
-          command: node
-          args:
-            - .vally/scenarios/storage-dotnet-account-mgmt/tools/check-storage-dotnet.mjs
-            - prompt/source-manifest
-      - type: run-command
-        name: prompt/credential-arm-client
-        weight: 1
-        config:
-          command: node
-          args:
-            - .vally/scenarios/storage-dotnet-account-mgmt/tools/check-storage-dotnet.mjs
-            - prompt/credential-arm-client
-      - type: run-command
-        name: prompt/subscription-resource-group-accounts
-        weight: 1
-        config:
-          command: node
-          args:
-            - .vally/scenarios/storage-dotnet-account-mgmt/tools/check-storage-dotnet.mjs
-            - prompt/subscription-resource-group-accounts
-      - type: run-command
-        name: prompt/create-storage-account
-        weight: 1
-        config:
-          command: node
-          args:
-            - .vally/scenarios/storage-dotnet-account-mgmt/tools/check-storage-dotnet.mjs
-            - prompt/create-storage-account
-      - type: run-command
-        name: prompt/list-storage-accounts
-        weight: 1
-        config:
-          command: node
-          args:
-            - .vally/scenarios/storage-dotnet-account-mgmt/tools/check-storage-dotnet.mjs
-            - prompt/list-storage-accounts
-      - type: run-command
-        name: prompt/get-storage-account
-        weight: 1
-        config:
-          command: node
-          args:
-            - .vally/scenarios/storage-dotnet-account-mgmt/tools/check-storage-dotnet.mjs
-            - prompt/get-storage-account
-      - type: run-command
-        name: prompt/configure-blob-service
-        weight: 1
-        config:
-          command: node
-          args:
-            - .vally/scenarios/storage-dotnet-account-mgmt/tools/check-storage-dotnet.mjs
-            - prompt/configure-blob-service
-      - type: run-command
-        name: prompt/delete-storage-account
-        weight: 1
-        config:
-          command: node
-          args:
-            - .vally/scenarios/storage-dotnet-account-mgmt/tools/check-storage-dotnet.mjs
-            - prompt/delete-storage-account
-      - type: run-command
-        name: prompt/request-failed-error
-        weight: 1
-        config:
-          command: node
-          args:
-            - .vally/scenarios/storage-dotnet-account-mgmt/tools/check-storage-dotnet.mjs
-            - prompt/request-failed-error
-    environment:
-      files:
-        - src: tools/check-storage-dotnet.mjs
-          dest: .vally/scenarios/storage-dotnet-account-mgmt/tools/check-storage-dotnet.mjs
-        - src: tools/storage-dotnet-rules.mjs
-          dest: .vally/scenarios/storage-dotnet-account-mgmt/tools/storage-dotnet-rules.mjs
-        - src: ../../languages/dotnet/checks.mjs
-          dest: .vally/languages/dotnet/checks.mjs
+          prompt: |-
+            Review the generated implementation against every criterion.
+            Score each criterion independently. Accept equivalent valid
+            implementations and judge code behavior rather than syntax.
+          models:
+            - gpt-5.6-sol
+          aggregation: unanimous
+          scoring: binary
+          threshold: 1
+          overall_threshold: 1
+          evidence:
+            - diff
+          criteria:
+            - name: prompt/azure-resourcemanager-storage-nuget-package
+              description: |-
+                `Azure.ResourceManager.Storage` NuGet package
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: prompt/armclient-and-subscription-resource-group-navigation
+              description: |-
+                `ArmClient` and subscription/resource group navigation
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: prompt/storageaccountcollection-createorupdate-with-storageacco
+              description: |-
+                `StorageAccountCollection.CreateOrUpdate()` with `StorageAccountCreateOrUpdateContent`
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: prompt/sku-and-kind-configuration-storagesku-storagekind
+              description: |-
+                SKU and kind configuration (`StorageSku`, `StorageKind`)
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: prompt/listing-and-getting-storage-accounts
+              description: |-
+                Listing and getting storage accounts
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: prompt/updating-properties-via-storageaccountpatch
+              description: |-
+                Updating properties via `StorageAccountPatch`
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: prompt/delete-operation
+              description: |-
+                Delete operation
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: language/azure-identity-authentication
+              description: |-
+                Check that authentication follows the prompt and uses the appropriate modern .NET Azure SDK mechanism.
+                When token-based authentication is requested, uses an appropriate credential from Azure.Identity and passes it to the SDK client. When the prompt explicitly requests a connection string, connection-string construction is valid. Credentials, connection strings, and secrets are not hardcoded.
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: language/sdk-specific-exception-handling
+              description: |-
+                Check that requested error handling uses the exception model of the selected .NET Azure SDK package.
+                When error handling is requested, catches the appropriate SDK exception, such as RequestFailedException for many Azure.* and ARM clients, CosmosException for Microsoft.Azure.Cosmos, ServiceBusException for Service Bus, EventHubsException for Event Hubs, or AuthenticationFailedException and CredentialUnavailableException for Azure Identity. Inspects status codes, error codes, or retry details when relevant instead of relying only on a generic Exception catch.
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: language/asynchronous-sdk-usage
+              description: |-
+                Check that asynchronous .NET Azure SDK calls use normal asynchronous control flow.
+                When asynchronous SDK APIs are used, awaits them with async and await rather than blocking through .Result, .Wait(), or GetAwaiter().GetResult().
+              weight: 1
+              pass_threshold: 1
+              required: true
 artifacts:
   include:
     - "**/*.cs"

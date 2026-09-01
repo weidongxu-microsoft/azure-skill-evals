@@ -13,98 +13,95 @@ defaults:
 stimuli:
   - name: identity-dp-dotnet-managed-identity
     prompt: |-
-      Write a complete C# program that demonstrates managed identity authentication for Azure Blob Storage.
-
-      Write the code to files. Do not reply with code blocks.
-
-      1. Target .NET 8 and pin Azure.Identity 1.21.0 and Azure.Storage.Blobs 12.29.2.
-      2. Read AZURE_STORAGE_BLOB_ENDPOINT and the user-assigned managed identity client ID from AZURE_CLIENT_ID.
-      3. Construct ManagedIdentityCredential examples for both a system-assigned identity and the user-assigned client ID.
-      4. Configure DefaultAzureCredential to use that user-assigned managed identity without excluding managed identity.
-      5. Build a ChainedTokenCredential whose first credential is managed identity and whose second credential is AzureCliCredential for local development.
-      6. Pass one of the demonstrated credentials to BlobServiceClient.
-      7. Await BlobServiceClient.GetAccountInfoAsync and print both the account kind and SKU.
-      8. Handle CredentialUnavailableException with useful diagnostic details, while allowing unrelated exceptions to propagate.
-
-      Do not hard-code credentials.
+      Show me how to use
+      Managed Identity to authenticate Azure SDK clients in C#. Cover:
+      1. System-assigned vs user-assigned managed identity differences
+      2. How to create a ManagedIdentityCredential for each type
+      3. Using it with an Azure SDK client (e.g., KeyVaultClient or BlobServiceClient)
+      4. How to test locally when managed identity isn't available
+      5. Common pitfalls and error handling
+      
+      Provide examples for both system-assigned and user-assigned identity.
     tags:
       service: identity
       plane: data-plane
       language: dotnet
       category: auth
     graders:
-      - type: run-command
-        name: prompt/identity-packages
+      - type: panel
+        name: prompt/full-case-review
         weight: 1
         config:
-          command: node
-          args:
-            - .vally/scenarios/identity-dotnet-managed-identity-auth/tools/check-identity-dotnet-managed.mjs
-            - prompt/identity-packages
-      - type: run-command
-        name: prompt/system-assigned-credential
-        weight: 1
-        config:
-          command: node
-          args:
-            - .vally/scenarios/identity-dotnet-managed-identity-auth/tools/check-identity-dotnet-managed.mjs
-            - prompt/system-assigned-credential
-      - type: run-command
-        name: prompt/user-assigned-credential
-        weight: 1
-        config:
-          command: node
-          args:
-            - .vally/scenarios/identity-dotnet-managed-identity-auth/tools/check-identity-dotnet-managed.mjs
-            - prompt/user-assigned-credential
-      - type: run-command
-        name: prompt/default-azure-credential
-        weight: 1
-        config:
-          command: node
-          args:
-            - .vally/scenarios/identity-dotnet-managed-identity-auth/tools/check-identity-dotnet-managed.mjs
-            - prompt/default-azure-credential
-      - type: run-command
-        name: prompt/local-fallback-chain
-        weight: 1
-        config:
-          command: node
-          args:
-            - .vally/scenarios/identity-dotnet-managed-identity-auth/tools/check-identity-dotnet-managed.mjs
-            - prompt/local-fallback-chain
-      - type: run-command
-        name: prompt/credential-client-association
-        weight: 1
-        config:
-          command: node
-          args:
-            - .vally/scenarios/identity-dotnet-managed-identity-auth/tools/check-identity-dotnet-managed.mjs
-            - prompt/credential-client-association
-      - type: run-command
-        name: prompt/authenticated-operation
-        weight: 1
-        config:
-          command: node
-          args:
-            - .vally/scenarios/identity-dotnet-managed-identity-auth/tools/check-identity-dotnet-managed.mjs
-            - prompt/authenticated-operation
-      - type: run-command
-        name: prompt/credential-unavailable-error
-        weight: 1
-        config:
-          command: node
-          args:
-            - .vally/scenarios/identity-dotnet-managed-identity-auth/tools/check-identity-dotnet-managed.mjs
-            - prompt/credential-unavailable-error
-    environment:
-      files:
-        - src: tools/check-identity-dotnet-managed.mjs
-          dest: .vally/scenarios/identity-dotnet-managed-identity-auth/tools/check-identity-dotnet-managed.mjs
-        - src: tools/identity-dotnet-managed-rules.mjs
-          dest: .vally/scenarios/identity-dotnet-managed-identity-auth/tools/identity-dotnet-managed-rules.mjs
-        - src: ../../languages/dotnet/checks.mjs
-          dest: .vally/languages/dotnet/checks.mjs
+          prompt: |-
+            Review the generated implementation against every criterion.
+            Score each criterion independently. Accept equivalent valid
+            implementations and judge code behavior rather than syntax.
+          models:
+            - gpt-5.6-sol
+          aggregation: unanimous
+          scoring: binary
+          threshold: 1
+          overall_threshold: 1
+          evidence:
+            - diff
+          criteria:
+            - name: prompt/managedidentitycredential-class-and-constructors
+              description: |-
+                `ManagedIdentityCredential` class and constructors
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: prompt/system-assigned-no-parameters-needed
+              description: |-
+                System-assigned: no parameters needed
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: prompt/user-assigned-passing-the-client-id
+              description: |-
+                User-assigned: passing the client ID
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: prompt/integration-with-defaultazurecredential-managed-identity
+              description: |-
+                Integration with `DefaultAzureCredential` (managed identity in the chain)
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: prompt/credentialunavailableexception-when-not-running-in-azure
+              description: |-
+                `CredentialUnavailableException` when not running in Azure
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: prompt/combining-with-chainedtokencredential-for-local-fallback
+              description: |-
+                Combining with `ChainedTokenCredential` for local fallback
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: language/azure-identity-authentication
+              description: |-
+                Check that authentication follows the prompt and uses the appropriate modern .NET Azure SDK mechanism.
+                When token-based authentication is requested, uses an appropriate credential from Azure.Identity and passes it to the SDK client. When the prompt explicitly requests a connection string, connection-string construction is valid. Credentials, connection strings, and secrets are not hardcoded.
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: language/sdk-specific-exception-handling
+              description: |-
+                Check that requested error handling uses the exception model of the selected .NET Azure SDK package.
+                When error handling is requested, catches the appropriate SDK exception, such as RequestFailedException for many Azure.* and ARM clients, CosmosException for Microsoft.Azure.Cosmos, ServiceBusException for Service Bus, EventHubsException for Event Hubs, or AuthenticationFailedException and CredentialUnavailableException for Azure Identity. Inspects status codes, error codes, or retry details when relevant instead of relying only on a generic Exception catch.
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: language/asynchronous-sdk-usage
+              description: |-
+                Check that asynchronous .NET Azure SDK calls use normal asynchronous control flow.
+                When asynchronous SDK APIs are used, awaits them with async and await rather than blocking through .Result, .Wait(), or GetAwaiter().GetResult().
+              weight: 1
+              pass_threshold: 1
+              required: true
 artifacts:
   include:
     - "**/*.cs"

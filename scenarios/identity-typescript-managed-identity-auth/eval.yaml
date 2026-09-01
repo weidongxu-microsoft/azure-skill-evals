@@ -13,96 +13,134 @@ defaults:
 stimuli:
   - name: identity-dp-typescript-managed-identity
     prompt: |-
-      Write a TypeScript program that uses managed identity to authenticate an Azure Key Vault client.
-
-      Write the code to files. Do not reply with code blocks.
-
-      1. Show the required @azure/identity and @azure/keyvault-secrets npm packages.
-      2. Create a ManagedIdentityCredential for a system-assigned identity.
-      3. Read AZURE_CLIENT_ID and create a ManagedIdentityCredential for that user-assigned identity.
-      4. Configure DefaultAzureCredential to use the managed identity client ID.
-      5. Create a ChainedTokenCredential that tries managed identity before AzureCliCredential for local development.
-      6. Pass an appropriate credential to SecretClient using AZURE_KEY_VAULT_URL.
-      7. Await getSecret with AZURE_KEY_VAULT_SECRET_NAME and print the returned secret value.
-      8. Meaningfully handle CredentialUnavailableError without swallowing other errors.
+      Write a TypeScript program that
+      uses Managed Identity to authenticate Azure SDK clients. The program should:
+      1. Create a ManagedIdentityCredential for system-assigned identity
+      2. Create a ManagedIdentityCredential for user-assigned identity (with client ID)
+      3. Use ChainedTokenCredential to fall back to Azure CLI credential for local development
+      4. Pass the credential to an Azure SDK client and perform an operation
+      5. Handle CredentialUnavailableError when not running in Azure
+      
+      Include a package.json with all dependencies and use async/await throughout.
     tags:
       service: identity
       plane: data-plane
       language: typescript
       category: auth
     graders:
-      - type: run-command
-        name: prompt/identity-packages
+      - type: panel
+        name: prompt/full-case-review
         weight: 1
         config:
-          command: node
-          args:
-            - .vally/scenarios/identity-typescript-managed-identity-auth/tools/check-managed-identity-typescript.mjs
-            - prompt/identity-packages
-      - type: run-command
-        name: prompt/system-assigned-credential
-        weight: 1
-        config:
-          command: node
-          args:
-            - .vally/scenarios/identity-typescript-managed-identity-auth/tools/check-managed-identity-typescript.mjs
-            - prompt/system-assigned-credential
-      - type: run-command
-        name: prompt/user-assigned-credential
-        weight: 1
-        config:
-          command: node
-          args:
-            - .vally/scenarios/identity-typescript-managed-identity-auth/tools/check-managed-identity-typescript.mjs
-            - prompt/user-assigned-credential
-      - type: run-command
-        name: prompt/default-azure-credential
-        weight: 1
-        config:
-          command: node
-          args:
-            - .vally/scenarios/identity-typescript-managed-identity-auth/tools/check-managed-identity-typescript.mjs
-            - prompt/default-azure-credential
-      - type: run-command
-        name: prompt/local-fallback-chain
-        weight: 1
-        config:
-          command: node
-          args:
-            - .vally/scenarios/identity-typescript-managed-identity-auth/tools/check-managed-identity-typescript.mjs
-            - prompt/local-fallback-chain
-      - type: run-command
-        name: prompt/credential-client-association
-        weight: 1
-        config:
-          command: node
-          args:
-            - .vally/scenarios/identity-typescript-managed-identity-auth/tools/check-managed-identity-typescript.mjs
-            - prompt/credential-client-association
-      - type: run-command
-        name: prompt/authenticated-operation
-        weight: 1
-        config:
-          command: node
-          args:
-            - .vally/scenarios/identity-typescript-managed-identity-auth/tools/check-managed-identity-typescript.mjs
-            - prompt/authenticated-operation
-      - type: run-command
-        name: prompt/credential-unavailable-error
-        weight: 1
-        config:
-          command: node
-          args:
-            - .vally/scenarios/identity-typescript-managed-identity-auth/tools/check-managed-identity-typescript.mjs
-            - prompt/credential-unavailable-error
-    environment:
-      files:
-        - src: tools/check-managed-identity-typescript.mjs
-          dest: .vally/scenarios/identity-typescript-managed-identity-auth/tools/check-managed-identity-typescript.mjs
-        - src: tools/managed-identity-typescript-rules.mjs
-          dest: .vally/scenarios/identity-typescript-managed-identity-auth/tools/managed-identity-typescript-rules.mjs
-        - src: ../../languages/typescript/checks.mjs
-          dest: .vally/languages/typescript/checks.mjs
+          prompt: |-
+            Review the generated implementation against every criterion.
+            Score each criterion independently. Accept equivalent valid
+            implementations and judge code behavior rather than syntax.
+          models:
+            - gpt-5.6-sol
+          aggregation: unanimous
+          scoring: binary
+          threshold: 1
+          overall_threshold: 1
+          evidence:
+            - diff
+          criteria:
+            - name: prompt/managedidentitycredential-class-from-azure-identity
+              description: |-
+                `ManagedIdentityCredential` class from `@azure/identity`
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: prompt/system-assigned-no-parameters-needed
+              description: |-
+                System-assigned: no parameters needed
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: prompt/user-assigned-passing-the-client-id-in-options
+              description: |-
+                User-assigned: passing the client ID in options
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: prompt/integration-with-defaultazurecredential-chain
+              description: |-
+                Integration with `DefaultAzureCredential` chain
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: prompt/credentialunavailableerror-when-not-running-in-azure
+              description: |-
+                `CredentialUnavailableError` when not running in Azure
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: prompt/chainedtokencredential-for-local-fallback
+              description: |-
+                `ChainedTokenCredential` for local fallback
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: language/correct-azure-scoped-packages
+              description: |-
+                All Azure SDK dependencies use @azure/ scoped packages (e.g., @azure/storage-blob, @azure/keyvault-secrets, @azure/identity). No deprecated unscoped packages (azure-storage, azure-arm-*, ms-rest-azure, @azure/ms-rest-*).
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: language/azure-identity-for-authentication
+              description: |-
+                Includes @azure/identity as a dependency. For local development, DefaultAzureCredential is acceptable. For production code, uses a specific Entra token credential (e.g., ManagedIdentityCredential, ClientSecretCredential, WorkloadIdentityCredential) or configures DefaultAzureCredential with the AZURE_TOKEN_CREDENTIALS environment variable set to "prod" or a specific token credential. No hardcoded connection strings, account keys, SAS tokens, or secrets in code.
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: language/client-constructor-with-endpoint-and-credential
+              description: |-
+                SDK clients constructed with endpoint URL and credential object, e.g. new BlobServiceClient(url, credential) or new SecretClient(vaultUrl, credential). No legacy constructor patterns or connection string-based construction when identity-based auth is available.
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: language/async-await-pattern
+              description: |-
+                Uses async/await for all asynchronous operations. No raw .then()/.catch() chains when await is cleaner. No callback-based patterns. Top-level async function or IIFE for entry point.
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: language/pagination-with-for-await-of
+              description: |-
+                List/query operations use for-await-of iteration over the PagedAsyncIterableIterator returned by SDK methods. Does not collect all pages into an array in memory (e.g., no Array.from() or manual page accumulation). Uses byPage() when per-page control is needed.
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: language/lro-pattern-beginxxx-polluntildone
+              description: |-
+                Long-running operations use the begin* method prefix (e.g., beginDeleteSecret, beginCreateOrUpdate) and await poller.pollUntilDone(). No manual setTimeout/setInterval polling loops.
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: language/resterror-exception-handling
+              description: |-
+                Catches RestError (from @azure/core-rest-pipeline or the service package) with statusCode inspection for error-specific handling. Not just generic Error or try/catch without type checking.
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: language/no-deprecated-packages
+              description: |-
+                No deprecated or legacy Azure packages in package.json: azure-storage, azure-arm-*, ms-rest-azure, @azure/ms-rest-js, @azure/ms-rest-nodeauth, @azure/ms-rest-azure-js. All dependencies use the current @azure/* track.
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: language/logging-via-azure-logger
+              description: |-
+                Uses @azure/logger with setLogLevel() or the AZURE_LOG_LEVEL environment variable for SDK diagnostic logging. No custom logging wrappers around SDK internals.
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: language/package-json-with-correct-dependencies
+              description: |-
+                Includes a valid package.json with all required @azure/* dependencies listed. TypeScript projects include tsconfig.json and appropriate @types/* packages or use a recent TypeScript version with built-in types.
+              weight: 1
+              pass_threshold: 1
+              required: true
 artifacts:
   include:
     - "**/*.ts"

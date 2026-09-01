@@ -13,115 +13,109 @@ defaults:
 stimuli:
   - name: service-bus-dp-dotnet-send-receive
     prompt: |-
-      Write a complete C# console application that sends and receives messages with Azure Service Bus.
-
-      Write the code to files. Do not reply with code blocks.
-
-      Read the fully qualified namespace, queue name, topic name, and subscription name from environment variables. Authenticate to the namespace with DefaultAzureCredential.
-
-      Perform one reachable messaging lifecycle:
-      1. Create one queue sender, send one message, then create a message batch and add exactly five messages. Handle TryAddMessage returning false and send that same batch.
-      2. Create a queue receiver, receive a message, print its body after receipt, and explicitly complete that same message after processing it.
-      3. Create a processor, register both message and error handlers, start it, keep it alive for a bounded wait or cancellation signal, and always stop it before disposal. The message handler must process and complete its received message.
-      4. Create a sender for the topic and a receiver for its subscription, and demonstrate sending and receiving a topic message.
-
-      Always asynchronously dispose the ServiceBusClient and every sender, receiver, and processor created from it. Dispose every message batch. Target net8.0 and pin Azure.Messaging.ServiceBus 7.20.2.
+      Write a C# program that demonstrates
+      messaging with Azure Service Bus:
+      1. Create a ServiceBusClient using a connection string
+      2. Create a ServiceBusSender for a queue and send a single message
+      3. Send a batch of 5 messages using ServiceBusMessageBatch
+      4. Create a ServiceBusReceiver and receive messages using ReceiveMessagesAsync
+      5. Complete a message after processing with CompleteMessageAsync
+      6. Create a ServiceBusProcessor for continuous processing with handlers
+      7. Demonstrate sending to a topic and receiving from a subscription
+      
+      Show required NuGet packages and proper disposal with await using.
     tags:
       service: service-bus
       plane: data-plane
       language: dotnet
       category: send-receive
     graders:
-      - type: run-command
-        name: prompt/source-manifest
+      - type: panel
+        name: prompt/full-case-review
         weight: 1
         config:
-          command: node
-          args:
-            - .vally/scenarios/service-bus-dotnet-send-receive-messages/tools/check-service-bus-dotnet.mjs
-            - prompt/source-manifest
-      - type: run-command
-        name: prompt/client-configuration
-        weight: 1
-        config:
-          command: node
-          args:
-            - .vally/scenarios/service-bus-dotnet-send-receive-messages/tools/check-service-bus-dotnet.mjs
-            - prompt/client-configuration
-      - type: run-command
-        name: prompt/queue-single-message
-        weight: 1
-        config:
-          command: node
-          args:
-            - .vally/scenarios/service-bus-dotnet-send-receive-messages/tools/check-service-bus-dotnet.mjs
-            - prompt/queue-single-message
-      - type: run-command
-        name: prompt/queue-five-message-batch
-        weight: 1
-        config:
-          command: node
-          args:
-            - .vally/scenarios/service-bus-dotnet-send-receive-messages/tools/check-service-bus-dotnet.mjs
-            - prompt/queue-five-message-batch
-      - type: run-command
-        name: prompt/queue-receive-body
-        weight: 1
-        config:
-          command: node
-          args:
-            - .vally/scenarios/service-bus-dotnet-send-receive-messages/tools/check-service-bus-dotnet.mjs
-            - prompt/queue-receive-body
-      - type: run-command
-        name: prompt/complete-same-message
-        weight: 1
-        config:
-          command: node
-          args:
-            - .vally/scenarios/service-bus-dotnet-send-receive-messages/tools/check-service-bus-dotnet.mjs
-            - prompt/complete-same-message
-      - type: run-command
-        name: prompt/processor-handlers
-        weight: 1
-        config:
-          command: node
-          args:
-            - .vally/scenarios/service-bus-dotnet-send-receive-messages/tools/check-service-bus-dotnet.mjs
-            - prompt/processor-handlers
-      - type: run-command
-        name: prompt/topic-subscription
-        weight: 1
-        config:
-          command: node
-          args:
-            - .vally/scenarios/service-bus-dotnet-send-receive-messages/tools/check-service-bus-dotnet.mjs
-            - prompt/topic-subscription
-      - type: run-command
-        name: prompt/resource-lifecycle
-        weight: 1
-        config:
-          command: node
-          args:
-            - .vally/scenarios/service-bus-dotnet-send-receive-messages/tools/check-service-bus-dotnet.mjs
-            - prompt/resource-lifecycle
-      - type: run-command
-        name: language/client-lifecycle
-        weight: 1
-        config:
-          command: node
-          args:
-            - .vally/languages/dotnet/check.mjs
-            - language/client-lifecycle
-    environment:
-      files:
-        - src: tools/check-service-bus-dotnet.mjs
-          dest: .vally/scenarios/service-bus-dotnet-send-receive-messages/tools/check-service-bus-dotnet.mjs
-        - src: tools/service-bus-dotnet-rules.mjs
-          dest: .vally/scenarios/service-bus-dotnet-send-receive-messages/tools/service-bus-dotnet-rules.mjs
-        - src: ../../languages/dotnet/check.mjs
-          dest: .vally/languages/dotnet/check.mjs
-        - src: ../../languages/dotnet/checks.mjs
-          dest: .vally/languages/dotnet/checks.mjs
+          prompt: |-
+            Review the generated implementation against every criterion.
+            Score each criterion independently. Accept equivalent valid
+            implementations and judge code behavior rather than syntax.
+          models:
+            - gpt-5.6-sol
+          aggregation: unanimous
+          scoring: binary
+          threshold: 1
+          overall_threshold: 1
+          evidence:
+            - diff
+          criteria:
+            - name: prompt/azure-messaging-servicebus-nuget-package
+              description: |-
+                `Azure.Messaging.ServiceBus` NuGet package
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: prompt/servicebusclient-creation-with-connection-string-or-defa
+              description: |-
+                `ServiceBusClient` creation with connection string or `DefaultAzureCredential`
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: prompt/servicebussender-and-servicebusmessage-for-sending
+              description: |-
+                `ServiceBusSender` and `ServiceBusMessage` for sending
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: prompt/servicebusmessagebatch-and-tryaddmessage
+              description: |-
+                `ServiceBusMessageBatch` and `TryAddMessage()`
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: prompt/servicebusreceiver-and-receivemessagesasync
+              description: |-
+                `ServiceBusReceiver` and `ReceiveMessagesAsync()`
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: prompt/completemessageasync-abandonmessageasync-deadlettermessa
+              description: |-
+                `CompleteMessageAsync()`, `AbandonMessageAsync()`, `DeadLetterMessageAsync()`
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: prompt/servicebusprocessor-with-processmessageasync-and-process
+              description: |-
+                `ServiceBusProcessor` with `ProcessMessageAsync` and `ProcessErrorAsync`
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: prompt/topic-subscription-with-createsender-topicname-and-creat
+              description: |-
+                Topic/subscription with `CreateSender(topicName)` and `CreateReceiver(topicName, subscriptionName)`
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: language/azure-identity-authentication
+              description: |-
+                Check that authentication follows the prompt and uses the appropriate modern .NET Azure SDK mechanism.
+                When token-based authentication is requested, uses an appropriate credential from Azure.Identity and passes it to the SDK client. When the prompt explicitly requests a connection string, connection-string construction is valid. Credentials, connection strings, and secrets are not hardcoded.
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: language/sdk-specific-exception-handling
+              description: |-
+                Check that requested error handling uses the exception model of the selected .NET Azure SDK package.
+                When error handling is requested, catches the appropriate SDK exception, such as RequestFailedException for many Azure.* and ARM clients, CosmosException for Microsoft.Azure.Cosmos, ServiceBusException for Service Bus, EventHubsException for Event Hubs, or AuthenticationFailedException and CredentialUnavailableException for Azure Identity. Inspects status codes, error codes, or retry details when relevant instead of relying only on a generic Exception catch.
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: language/asynchronous-sdk-usage
+              description: |-
+                Check that asynchronous .NET Azure SDK calls use normal asynchronous control flow.
+                When asynchronous SDK APIs are used, awaits them with async and await rather than blocking through .Result, .Wait(), or GetAwaiter().GetResult().
+              weight: 1
+              pass_threshold: 1
+              required: true
 artifacts:
   include:
     - "**/*.cs"

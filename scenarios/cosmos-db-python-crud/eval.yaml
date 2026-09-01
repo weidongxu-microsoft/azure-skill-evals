@@ -14,17 +14,17 @@ stimuli:
   - name: cosmos-db-dp-python-crud
     prompt: |-
       Write a Python script that performs CRUD operations on items in an Azure Cosmos DB NoSQL container.
-
-      Write the code to files. Do not reply with code blocks.
-
-      1. Create a CosmosClient.
-      2. Create a database "TestDB" and container "Items" with partition key "/category".
-      3. Upsert an item dict with keys: id, category, name, quantity.
-      4. Read the item back using read_item() with id and partition key.
-      5. Query items where category equals "electronics" using a parameterized query.
-      6. Replace the item with an updated quantity.
-      7. Delete the item.
-
+      
+      **Write the code to files (use file-write tools, do not reply with code blocks).**
+      
+      1. Create a CosmosClient
+      2. Create a database "TestDB" and container "Items" with partition key "/category"
+      3. Upsert an item dict with keys: id, category, name, quantity
+      4. Read the item back using read_item() with id and partition key
+      5. Query items where category equals "electronics" using parameterized query
+      6. Replace the item with updated quantity
+      7. Delete the item
+      
       Show required pip packages and handle exceptions from azure.cosmos.exceptions.
     tags:
       service: cosmos-db
@@ -38,11 +38,9 @@ stimuli:
         weight: 1
         config:
           prompt: |-
-            Review the final generated repository as a complete implementation of the task.
-            Score each rubric item independently as pass or fail. Accept equivalent valid
-            implementations and do not require the golden application's file names or code
-            structure. Judge only application correctness and SDK usage; do not score tool,
-            MCP, or skill activity.
+            Review the generated implementation against every criterion.
+            Score each criterion independently. Accept equivalent valid
+            implementations and judge code behavior rather than syntax.
           models:
             - gpt-5.6-sol
           aggregation: unanimous
@@ -52,53 +50,69 @@ stimuli:
           evidence:
             - diff
           criteria:
-            - name: prompt/azure-cosmos-package
-              description: Declares the azure-cosmos package required to run the generated application.
+            - name: prompt/azure-cosmos-pip-package
+              description: |-
+                `azure-cosmos` pip package
               weight: 1
               pass_threshold: 1
               required: true
-            - name: prompt/cosmos-client
-              description: Creates a real Azure Cosmos DB CosmosClient using runtime configuration rather than hard-coded credentials.
+            - name: prompt/cosmosclient-creation
+              description: |-
+                `CosmosClient` creation
               weight: 1
               pass_threshold: 1
               required: true
-            - name: prompt/create-database
-              description: Creates the TestDB database if it does not exist.
+            - name: prompt/database-client-create-database-if-not-exists
+              description: |-
+                `database_client.create_database_if_not_exists()`
               weight: 1
               pass_threshold: 1
               required: true
-            - name: prompt/create-container
-              description: Creates the Items container if it does not exist with partition key path /category.
+            - name: prompt/database-create-container-if-not-exists-with-partitionke
+              description: |-
+                `database.create_container_if_not_exists()` with `PartitionKey`
               weight: 1
               pass_threshold: 1
               required: true
-            - name: prompt/cross-partition-query
-              description: Queries for the electronics category with a parameterized query and enables cross-partition querying.
+            - name: prompt/container-query-items-with-enable-cross-partition-query
+              description: |-
+                `container.query_items()` with `enable_cross_partition_query`
               weight: 1
               pass_threshold: 1
               required: true
-            - name: prompt/cosmos-exception
-              description: Handles relevant exceptions from azure.cosmos.exceptions with useful diagnostics without swallowing unrelated failures.
+            - name: prompt/cosmoshttpresponseerror-exception-handling
+              description: |-
+                `CosmosHttpResponseError` exception handling
               weight: 1
               pass_threshold: 1
               required: true
-            - name: language/correct-imports
-              description: Uses valid imports from the real Azure Cosmos DB Python SDK rather than local stand-ins.
+            - name: language/correct-package-imports
+              description: |-
+                Imports use the latest azure-sdk-for-python package structure (azure.*), not deprecated packages.
               weight: 1
               pass_threshold: 1
               required: true
-            - name: language/client-lifecycle
-              description: Cleans up the CosmosClient with a context manager or an explicit close call.
+            - name: language/defaultazurecredential-usage
+              description: |-
+                Authentication matches what the prompt asks for. If the prompt explicitly requires a connection string (or other key-based auth), using `from_connection_string()` / connection-string-based clients is correct and should pass. Otherwise, authentication must use DefaultAzureCredential from azure-identity (or another `azure.identity` credential), not connection strings or hardcoded keys. Hardcoded secrets/keys/connection strings in source code always fail — required values should come from environment variables or a secret store.
               weight: 1
               pass_threshold: 1
               required: true
-            - name: language/async-client
-              description: If an asynchronous Azure SDK client is used, awaits its operations and closes it asynchronously.
+            - name: language/context-manager-for-clients
+              description: |-
+                Azure SDK clients that support context managers are used with `with` statements or explicitly closed.
               weight: 1
               pass_threshold: 1
               required: true
-            - name: prompt/item-crud
-              description: Implements the requested upsert, point read, replace, and delete workflow with the same item identity and partition key.
+            - name: language/async-client-usage
+              description: |-
+                If async operations are requested, code uses the async client variant with proper await patterns.
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: language/proper-exception-handling
+              description: |-
+                Azure SDK exceptions (HttpResponseError and subclasses) are caught and handled appropriately.
               weight: 1
               pass_threshold: 1
               required: true

@@ -13,81 +13,103 @@ defaults:
 stimuli:
   - name: storage-mp-dotnet-polling
     prompt: |-
-      Write a complete C# console application that creates an Azure storage account with the current Azure.ResourceManager.Storage SDK and explicitly handles the long-running operation.
-
-      Write the code to files. Do not reply with code blocks.
-
-      Read the subscription ID, existing resource group name, and storage account name from AZURE_SUBSCRIPTION_ID, AZURE_RESOURCE_GROUP_NAME, and AZURE_STORAGE_ACCOUNT_NAME. Read AZURE_LOCATION with "eastus" as its default. Authenticate with DefaultAzureCredential, construct ArmClient with the subscription ID, get its default subscription, get the existing resource group, and use that resource group's storage account collection.
-
-      Build StorageAccountCreateOrUpdateContent for Standard_LRS, StorageV2, and the configured location. Start CreateOrUpdateAsync with WaitUntil.Started and retain its ArmOperation<StorageAccountResource>.
-
-      Configure a finite timeout with CancellationTokenSource. Manually poll that exact create operation by checking HasCompleted and awaiting UpdateStatusAsync with the timeout token. Then await the same operation's WaitForCompletionAsync with the timeout token before using its returned StorageAccountResource. Print the created account's returned name and one returned property.
-
-      Handle timeout cancellation and RequestFailedException meaningfully. Target net8.0 and pin Azure.ResourceManager.Storage 1.7.0 and Azure.Identity 1.21.0 exactly.
+      Write a C# program that creates
+      an Azure Storage Account using the management plane SDK and properly handles the
+      long-running operation (LRO):
+      1. Start the create operation using CreateOrUpdateAsync
+      2. Poll for completion using WaitForCompletionAsync
+      3. Show how to check the operation status while it's in progress
+      4. Handle timeout scenarios where the operation takes too long
+      5. Demonstrate the difference between WaitForCompletion and manual polling
+      
+      Use Azure.ResourceManager.Storage with DefaultAzureCredential. Show required
+      NuGet packages and explain the ArmOperation<T> pattern.
     tags:
       service: storage
       plane: management-plane
       language: dotnet
       category: polling
     graders:
-      - type: run-command
-        name: prompt/storage-manifest
+      - type: panel
+        name: prompt/full-case-review
         weight: 1
-        config: { command: node, args: [.vally/scenarios/storage-dotnet-polling-create-account/tools/check-storage-dotnet-polling.mjs, prompt/storage-manifest] }
-      - type: run-command
-        name: prompt/credential-resource-path
-        weight: 1
-        config: { command: node, args: [.vally/scenarios/storage-dotnet-polling-create-account/tools/check-storage-dotnet-polling.mjs, prompt/credential-resource-path] }
-      - type: run-command
-        name: prompt/storage-account-content
-        weight: 1
-        config: { command: node, args: [.vally/scenarios/storage-dotnet-polling-create-account/tools/check-storage-dotnet-polling.mjs, prompt/storage-account-content] }
-      - type: run-command
-        name: prompt/create-started-operation
-        weight: 1
-        config: { command: node, args: [.vally/scenarios/storage-dotnet-polling-create-account/tools/check-storage-dotnet-polling.mjs, prompt/create-started-operation] }
-      - type: run-command
-        name: prompt/connected-manual-polling
-        weight: 1
-        config: { command: node, args: [.vally/scenarios/storage-dotnet-polling-create-account/tools/check-storage-dotnet-polling.mjs, prompt/connected-manual-polling] }
-      - type: run-command
-        name: prompt/exact-operation-completion
-        weight: 1
-        config: { command: node, args: [.vally/scenarios/storage-dotnet-polling-create-account/tools/check-storage-dotnet-polling.mjs, prompt/exact-operation-completion] }
-      - type: run-command
-        name: prompt/created-account-output
-        weight: 1
-        config: { command: node, args: [.vally/scenarios/storage-dotnet-polling-create-account/tools/check-storage-dotnet-polling.mjs, prompt/created-account-output] }
-      - type: run-command
-        name: prompt/timeout-request-errors
-        weight: 1
-        config: { command: node, args: [.vally/scenarios/storage-dotnet-polling-create-account/tools/check-storage-dotnet-polling.mjs, prompt/timeout-request-errors] }
-      - type: run-command
-        name: language/project-manifest
-        weight: 1
-        config: { command: node, args: [.vally/languages/dotnet/check.mjs, language/project-manifest] }
-      - type: run-command
-        name: language/current-azure-packages
-        weight: 1
-        config: { command: node, args: [.vally/languages/dotnet/check.mjs, language/current-azure-packages] }
-      - type: run-command
-        name: language/async-await
-        weight: 1
-        config: { command: node, args: [.vally/languages/dotnet/check.mjs, language/async-await] }
-      - type: run-command
-        name: language/client-lifecycle
-        weight: 1
-        config: { command: node, args: [.vally/languages/dotnet/check.mjs, language/client-lifecycle] }
-    environment:
-      files:
-        - src: tools/check-storage-dotnet-polling.mjs
-          dest: .vally/scenarios/storage-dotnet-polling-create-account/tools/check-storage-dotnet-polling.mjs
-        - src: tools/storage-dotnet-polling-rules.mjs
-          dest: .vally/scenarios/storage-dotnet-polling-create-account/tools/storage-dotnet-polling-rules.mjs
-        - src: ../../languages/dotnet/check.mjs
-          dest: .vally/languages/dotnet/check.mjs
-        - src: ../../languages/dotnet/checks.mjs
-          dest: .vally/languages/dotnet/checks.mjs
+        config:
+          prompt: |-
+            Review the generated implementation against every criterion.
+            Score each criterion independently. Accept equivalent valid
+            implementations and judge code behavior rather than syntax.
+          models:
+            - gpt-5.6-sol
+          aggregation: unanimous
+          scoring: binary
+          threshold: 1
+          overall_threshold: 1
+          evidence:
+            - diff
+          criteria:
+            - name: prompt/storageaccountcollection-createorupdateasync-returning-a
+              description: |-
+                `StorageAccountCollection.CreateOrUpdateAsync()` returning `ArmOperation<StorageAccountResource>`
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: prompt/armoperation-t-waitforcompletionasync-for-simple-complet
+              description: |-
+                `ArmOperation<T>.WaitForCompletionAsync()` for simple completion
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: prompt/armoperation-t-hascompleted-and-updatestatusasync-for-ma
+              description: |-
+                `ArmOperation<T>.HasCompleted` and `UpdateStatusAsync()` for manual polling
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: prompt/armoperation-t-value-to-get-the-result-after-completion
+              description: |-
+                `ArmOperation<T>.Value` to get the result after completion
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: prompt/timeout-handling-with-cancellationtoken
+              description: |-
+                Timeout handling with `CancellationToken`
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: prompt/waituntil-completed-vs-waituntil-started-parameter
+              description: |-
+                `WaitUntil.Completed` vs `WaitUntil.Started` parameter
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: prompt/error-handling-when-the-lro-fails
+              description: |-
+                Error handling when the LRO fails
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: language/azure-identity-authentication
+              description: |-
+                Check that authentication follows the prompt and uses the appropriate modern .NET Azure SDK mechanism.
+                When token-based authentication is requested, uses an appropriate credential from Azure.Identity and passes it to the SDK client. When the prompt explicitly requests a connection string, connection-string construction is valid. Credentials, connection strings, and secrets are not hardcoded.
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: language/sdk-specific-exception-handling
+              description: |-
+                Check that requested error handling uses the exception model of the selected .NET Azure SDK package.
+                When error handling is requested, catches the appropriate SDK exception, such as RequestFailedException for many Azure.* and ARM clients, CosmosException for Microsoft.Azure.Cosmos, ServiceBusException for Service Bus, EventHubsException for Event Hubs, or AuthenticationFailedException and CredentialUnavailableException for Azure Identity. Inspects status codes, error codes, or retry details when relevant instead of relying only on a generic Exception catch.
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: language/asynchronous-sdk-usage
+              description: |-
+                Check that asynchronous .NET Azure SDK calls use normal asynchronous control flow.
+                When asynchronous SDK APIs are used, awaits them with async and await rather than blocking through .Result, .Wait(), or GetAwaiter().GetResult().
+              weight: 1
+              pass_threshold: 1
+              required: true
 artifacts:
   include:
     - "**/*.cs"

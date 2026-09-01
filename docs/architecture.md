@@ -14,13 +14,12 @@ explicitly activated `azure-cosmos-py`.
 
 ## Proposed architecture
 
-Vally owns execution, trajectories, grading, and experiment isolation. Each
-scenario directory owns its eval, golden application, grader, and grader tests.
-Shared language checks live under `languages/`. Each language owns one shared
-experiment under `experiments/`, whose eval list grows as scenarios migrate.
-Each `eval.yaml` defines its stimulus and equally weighted correctness graders.
-The number of checks can vary by scenario and language. The experiment changes
-only `/environment/skills` and
+Vally owns execution, trajectories, model grading, and experiment isolation.
+Each scenario directory owns its eval and golden application. Each language
+owns one shared experiment under `experiments/`. Every `eval.yaml` restores its
+originating Hyoka prompt and defines one single-model panel containing the exact
+Hyoka scenario and language criteria. The experiment changes only
+`/environment/skills` and
 `/environment/mcpServers`, so prompts, models, limits, and graders cannot drift
 between arms.
 
@@ -36,18 +35,16 @@ Grader names preserve two independent result groups:
 | `prompt/` | Scenario-specific completion requirements |
 | `language/` | Reusable Python and Azure SDK conventions |
 
-Static Node.js checks grade code structure and reject workspaces without a
-top-level Python file. They do not require a specific filename unless the
-stimulus does. The colocated golden application must compile, pass Ruff, and
-pass every deterministic rule. Raw Vally
-trajectories remain the source of truth for skill activation, MCP calls,
-timing, errors, and token usage, but these diagnostics do not affect scores.
+Each panel criterion is required, binary, and equally weighted. The panel score
+is the fraction of passed criteria, while the case passes only when every
+criterion passes. Raw Vally trajectories remain the source of truth for skill
+activation, MCP calls, timing, errors, and token usage, but these diagnostics
+do not affect scores.
 
 ## What changes
 
 - Prompt Markdown frontmatter becomes Vally stimulus metadata and tags.
-- Prompt criteria become individually named graders.
-- Generic language criteria become reusable rules rather than copied prose.
+- Hyoka prompt and language criteria become named items in one model review.
 - Explicit Vally variants replace Hyoka configuration combinations.
 - `results.jsonl` replaces Hyoka report JSON as the machine-readable result.
 - A comparison script will aggregate variants without assuming only two arms.
@@ -101,12 +98,20 @@ least three trials per arm before drawing comparative quality conclusions.
 - **Mitigation:** Pin Git commits and npm versions, record them with every run,
   and update them through reviewed pull requests.
 
-### False-positive static grading
+### Model-grading variance
+
+- **Likelihood:** High
+- **Impact:** Medium
+- **Mitigation:** Use binary required criteria, repeated trials for conclusions,
+  and separate live golden-oracle calibration.
+
+### Incomplete judge evidence
 
 - **Likelihood:** Medium
-- **Impact:** Medium
-- **Mitigation:** Unit-test every rule with passing and failing fixtures. Use
-  prompt graders only when deterministic inspection cannot express a criterion.
+- **Impact:** High
+- **Mitigation:** Vally 0.12 grades the generated diff, which is capped at
+  20,000 characters. Treat large-output cases as an upgrade trigger for
+  workspace-backed repository evidence.
 
 ### Skill loading differs from plugin loading
 
@@ -126,8 +131,8 @@ least three trials per arm before drawing comparative quality conclusions.
 
 Version 1 includes migrated Azure SDK stimuli for Python, .NET, Java, and
 TypeScript. Every evaluation has correctness criteria, three experiment arms,
-a buildable golden application, configuration linting, grader unit tests, and
-one trial per arm.
+a buildable golden application, configuration linting, model-grader structure
+tests, and one trial per arm.
 
 Version 1 does not migrate all Hyoka prompts, add PR quality gates, or claim
 statistical significance. Those follow after the pilot reproduces correct

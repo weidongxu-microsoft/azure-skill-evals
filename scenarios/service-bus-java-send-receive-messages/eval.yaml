@@ -13,142 +13,155 @@ defaults:
 stimuli:
   - name: service-bus-dp-java-send-receive
     prompt: |-
-      Write a Java 17 program that sends and receives messages with Azure Service Bus.
-
-      Write the code to files. Do not reply with code blocks.
-
-      1. Create a Maven project that uses com.azure:azure-messaging-servicebus:7.17.20.
-      2. Read the Service Bus connection string, queue name, topic name, and subscription name from environment variables.
-      3. Build current synchronous Service Bus clients with ServiceBusClientBuilder.
-      4. Send one message to the queue with sendMessage.
-      5. Create one ServiceBusMessageBatch from the queue sender. Add exactly five messages with tryAddMessage, fail explicitly if any message cannot be added, and send that same batch.
-      6. Receive queue messages in PEEK_LOCK mode, print each received message body, and complete that same message.
-      7. Build a queue ServiceBusProcessorClient. Register processMessage and processError handlers, start it, keep it alive with a bounded wait that a message handler can signal, then stop and close it. The message handler must print the body and explicitly complete the message.
-      8. Send a separate message to the topic. Receive it through the named subscription, print its body, and complete that same subscription message.
-      9. Reliably close every sender and receiver with try-with-resources or finally.
-
-      Use SERVICE_BUS_CONNECTION_STRING, SERVICE_BUS_QUEUE_NAME,
-      SERVICE_BUS_TOPIC_NAME, and SERVICE_BUS_SUBSCRIPTION_NAME.
+      Write a Java program that demonstrates
+      messaging with Azure Service Bus:
+      1. Create a ServiceBusSenderClient using ServiceBusClientBuilder for a queue
+      2. Send a single message with ServiceBusMessage
+      3. Send a batch of 5 messages using ServiceBusMessageBatch
+      4. Create a ServiceBusReceiverClient and receive messages using receiveMessages()
+      5. Complete a message with complete() after processing
+      6. Create a ServiceBusProcessorClient for continuous processing with handlers
+      7. Demonstrate sending to a topic and receiving from a subscription
+      
+      Show required Maven dependency (com.azure:azure-messaging-servicebus) and
+      proper resource cleanup with close().
     tags:
       service: service-bus
       plane: data-plane
       language: java
       category: batch
     graders:
-      - type: run-command
-        name: prompt/sdk-package
+      - type: panel
+        name: prompt/full-case-review
         weight: 1
         config:
-          command: node
-          args:
-            - .vally/scenarios/service-bus-java-send-receive-messages/tools/check-service-bus-java.mjs
-            - prompt/sdk-package
-      - type: run-command
-        name: prompt/environment-configuration
-        weight: 1
-        config:
-          command: node
-          args:
-            - .vally/scenarios/service-bus-java-send-receive-messages/tools/check-service-bus-java.mjs
-            - prompt/environment-configuration
-      - type: run-command
-        name: prompt/single-message-send
-        weight: 1
-        config:
-          command: node
-          args:
-            - .vally/scenarios/service-bus-java-send-receive-messages/tools/check-service-bus-java.mjs
-            - prompt/single-message-send
-      - type: run-command
-        name: prompt/five-message-batch
-        weight: 1
-        config:
-          command: node
-          args:
-            - .vally/scenarios/service-bus-java-send-receive-messages/tools/check-service-bus-java.mjs
-            - prompt/five-message-batch
-      - type: run-command
-        name: prompt/receive-body
-        weight: 1
-        config:
-          command: node
-          args:
-            - .vally/scenarios/service-bus-java-send-receive-messages/tools/check-service-bus-java.mjs
-            - prompt/receive-body
-      - type: run-command
-        name: prompt/same-message-settlement
-        weight: 1
-        config:
-          command: node
-          args:
-            - .vally/scenarios/service-bus-java-send-receive-messages/tools/check-service-bus-java.mjs
-            - prompt/same-message-settlement
-      - type: run-command
-        name: prompt/processor-handlers
-        weight: 1
-        config:
-          command: node
-          args:
-            - .vally/scenarios/service-bus-java-send-receive-messages/tools/check-service-bus-java.mjs
-            - prompt/processor-handlers
-      - type: run-command
-        name: prompt/topic-subscription
-        weight: 1
-        config:
-          command: node
-          args:
-            - .vally/scenarios/service-bus-java-send-receive-messages/tools/check-service-bus-java.mjs
-            - prompt/topic-subscription
-      - type: run-command
-        name: prompt/client-lifecycle
-        weight: 1
-        config:
-          command: node
-          args:
-            - .vally/scenarios/service-bus-java-send-receive-messages/tools/check-service-bus-java.mjs
-            - prompt/client-lifecycle
-      - type: run-command
-        name: language/build-manifest
-        weight: 1
-        config:
-          command: node
-          args:
-            - .vally/languages/java/check.mjs
-            - language/build-manifest
-      - type: run-command
-        name: language/current-azure-dependencies
-        weight: 1
-        config:
-          command: node
-          args:
-            - .vally/languages/java/check.mjs
-            - language/current-azure-dependencies
-      - type: run-command
-        name: language/current-imports
-        weight: 1
-        config:
-          command: node
-          args:
-            - .vally/languages/java/check.mjs
-            - language/current-imports
-      - type: run-command
-        name: language/client-builder
-        weight: 1
-        config:
-          command: node
-          args:
-            - .vally/languages/java/check.mjs
-            - language/client-builder
-    environment:
-      files:
-        - src: tools/check-service-bus-java.mjs
-          dest: .vally/scenarios/service-bus-java-send-receive-messages/tools/check-service-bus-java.mjs
-        - src: tools/service-bus-java-rules.mjs
-          dest: .vally/scenarios/service-bus-java-send-receive-messages/tools/service-bus-java-rules.mjs
-        - src: ../../languages/java/check.mjs
-          dest: .vally/languages/java/check.mjs
-        - src: ../../languages/java/checks.mjs
-          dest: .vally/languages/java/checks.mjs
+          prompt: |-
+            Review the generated implementation against every criterion.
+            Score each criterion independently. Accept equivalent valid
+            implementations and judge code behavior rather than syntax.
+          models:
+            - gpt-5.6-sol
+          aggregation: unanimous
+          scoring: binary
+          threshold: 1
+          overall_threshold: 1
+          evidence:
+            - diff
+          criteria:
+            - name: prompt/azure-messaging-servicebus-maven-dependency
+              description: |-
+                `azure-messaging-servicebus` Maven dependency
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: prompt/servicebusclientbuilder-with-connection-string
+              description: |-
+                `ServiceBusClientBuilder` with connection string
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: prompt/servicebussenderclient-and-servicebusmessage
+              description: |-
+                `ServiceBusSenderClient` and `ServiceBusMessage`
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: prompt/createmessagebatch-and-tryaddmessage
+              description: |-
+                `createMessageBatch()` and `tryAddMessage()`
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: prompt/servicebusreceiverclient-receivemessages-and-complete
+              description: |-
+                `ServiceBusReceiverClient.receiveMessages()` and `complete()`
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: prompt/servicebusprocessorclient-with-processmessage-and-proces
+              description: |-
+                `ServiceBusProcessorClient` with `processMessage` and `processError` handlers
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: prompt/topic-operations-with-topicname-and-subscriptionname-on
+              description: |-
+                Topic operations with `.topicName()` and `.subscriptionName()` on the builder
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: language/correct-dependencies-com-azure-not-com-microsoft-azure
+              description: |-
+                Uses com.azure group ID for all Azure SDK packages. No com.microsoft.azure (legacy SDK) dependencies. Includes azure-identity for authentication.
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: language/azure-sdk-bom-for-version-management
+              description: |-
+                Uses azure-sdk-bom in dependencyManagement to manage Azure SDK versions instead of hardcoding individual artifact versions. Dependencies should omit <version> tags when managed by the BOM.
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: language/correct-imports-no-legacy-no-internal-packages
+              description: |-
+                All imports use com.azure.* packages. No com.microsoft.azure.* (legacy) or com.azure.*.implementation.* (internal API) imports.
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: language/defaultazurecredential-authentication
+              description: |-
+                Uses DefaultAzureCredential or another com.azure.identity credential. No hardcoded connection strings, account keys, SAS tokens, or secrets.
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: language/client-builder-pattern
+              description: |-
+                SDK clients constructed using *ClientBuilder classes with .endpoint() or .vaultUrl() and .credential(). No legacy constructors (CloudStorageAccount, DocumentClient, KeyVaultClient).
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: language/no-deprecated-legacy-classes
+              description: |-
+                No deprecated classes from the old SDK (CloudStorageAccount, CloudBlobClient, DocumentClient, QueueClient, ApplicationTokenCredentials, MSICredentials, ConnectionStringBuilder).
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: language/pagination-pagediterable-pagedflux
+              description: |-
+                List/query operations return PagedIterable (sync) or PagedFlux (async). Does not flatten all pages into a raw List or Stream in memory.
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: language/lro-pattern-syncpoller-pollerflux
+              description: |-
+                Long-running operations use SyncPoller (sync) or PollerFlux (async) with begin* method prefix. No Thread.sleep() polling loops.
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: language/async-uses-project-reactor-mono-flux
+              description: |-
+                Async code uses Project Reactor types (Mono, Flux). Not CompletableFuture (wrong), not RxJava (wrong), not sync wrapped in ExecutorService. No .block() inside async service implementations.
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: language/service-specific-exception-handling
+              description: |-
+                Catches service-specific exceptions (BlobStorageException, CosmosException, ServiceBusException, HttpResponseException) with status code inspection. Not just generic Exception catches.
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: language/code-compiles-mvn-compile-gradle-compilejava
+              description: |-
+                The generated code compiles without errors. Attempt build verification if build tools are available.
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: language/try-with-resources-for-clients
+              description: |-
+                All Azure SDK client instances that implement AutoCloseable are used within try-with-resources blocks or explicitly closed in a finally block.
+              weight: 1
+              pass_threshold: 1
+              required: true
 artifacts:
   include:
     - "**/*.java"

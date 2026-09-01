@@ -13,76 +13,140 @@ defaults:
 stimuli:
   - name: identity-dp-java-service-principal
     prompt: |-
-      Write a Java 17 program that authenticates to Azure Key Vault with a service principal client secret.
-
-      Write the code to files. Do not reply with code blocks.
-
-      1. Add Maven dependencies for Azure Identity and Azure Key Vault Secrets.
-      2. Read the tenant ID, client ID, client secret, vault URL, and secret name from AZURE_TENANT_ID, AZURE_CLIENT_ID, AZURE_CLIENT_SECRET, AZURE_KEY_VAULT_URL, and AZURE_KEY_VAULT_SECRET_NAME. Do not use literal or default credential values, and never print or log the client secret.
-      3. Build a ClientSecretCredential with ClientSecretCredentialBuilder using the tenant ID, client ID, and client secret.
-      4. Pass that credential to SecretClientBuilder and build a SecretClient for the vault URL.
-      5. Call SecretClient.getSecret with the configured secret name and print the returned secret value.
-      6. Handle ClientAuthenticationException meaningfully without swallowing unrelated failures.
+      Show me how to authenticate
+      to Azure using a Service Principal with client secret in Java. I need:
+      1. Required Maven dependencies
+      2. How to create a ClientSecretCredential with ClientSecretCredentialBuilder
+      3. Using it with an Azure SDK client
+      4. Best practices for secret management
+      5. Error handling for invalid credentials
+      
+      Provide a complete example with proper exception handling.
     tags:
       service: identity
       plane: data-plane
       language: java
       category: authentication
     graders:
-      - type: run-command
-        name: prompt/identity-packages
+      - type: panel
+        name: prompt/full-case-review
         weight: 1
         config:
-          command: node
-          args:
-            - .vally/scenarios/identity-java-service-principal-auth/tools/check-service-principal-java.mjs
-            - prompt/identity-packages
-      - type: run-command
-        name: prompt/environment-secret-management
-        weight: 1
-        config:
-          command: node
-          args:
-            - .vally/scenarios/identity-java-service-principal-auth/tools/check-service-principal-java.mjs
-            - prompt/environment-secret-management
-      - type: run-command
-        name: prompt/client-secret-credential
-        weight: 1
-        config:
-          command: node
-          args:
-            - .vally/scenarios/identity-java-service-principal-auth/tools/check-service-principal-java.mjs
-            - prompt/client-secret-credential
-      - type: run-command
-        name: prompt/credential-client-association
-        weight: 1
-        config:
-          command: node
-          args:
-            - .vally/scenarios/identity-java-service-principal-auth/tools/check-service-principal-java.mjs
-            - prompt/credential-client-association
-      - type: run-command
-        name: prompt/authenticated-operation
-        weight: 1
-        config:
-          command: node
-          args:
-            - .vally/scenarios/identity-java-service-principal-auth/tools/check-service-principal-java.mjs
-            - prompt/authenticated-operation
-      - type: run-command
-        name: prompt/authentication-errors
-        weight: 1
-        config:
-          command: node
-          args:
-            - .vally/scenarios/identity-java-service-principal-auth/tools/check-service-principal-java.mjs
-            - prompt/authentication-errors
-    environment:
-      files:
-        - src: tools/check-service-principal-java.mjs
-          dest: .vally/scenarios/identity-java-service-principal-auth/tools/check-service-principal-java.mjs
-        - src: tools/service-principal-java-rules.mjs
-          dest: .vally/scenarios/identity-java-service-principal-auth/tools/service-principal-java-rules.mjs
+          prompt: |-
+            Review the generated implementation against every criterion.
+            Score each criterion independently. Accept equivalent valid
+            implementations and judge code behavior rather than syntax.
+          models:
+            - gpt-5.6-sol
+          aggregation: unanimous
+          scoring: binary
+          threshold: 1
+          overall_threshold: 1
+          evidence:
+            - diff
+          criteria:
+            - name: prompt/maven-dependency-for-azure-identity
+              description: |-
+                Maven dependency for `azure-identity`
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: prompt/clientsecretcredentialbuilder-with-tenantid-clientid-cli
+              description: |-
+                `ClientSecretCredentialBuilder` with tenantId, clientId, clientSecret
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: prompt/passing-credential-to-azure-sdk-client-builders
+              description: |-
+                Passing credential to Azure SDK client builders
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: prompt/environment-variable-patterns-for-secret-storage
+              description: |-
+                Environment variable patterns for secret storage
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: prompt/authenticationexception-handling
+              description: |-
+                `AuthenticationException` handling
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: language/correct-dependencies-com-azure-not-com-microsoft-azure
+              description: |-
+                Uses com.azure group ID for all Azure SDK packages. No com.microsoft.azure (legacy SDK) dependencies. Includes azure-identity for authentication.
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: language/azure-sdk-bom-for-version-management
+              description: |-
+                Uses azure-sdk-bom in dependencyManagement to manage Azure SDK versions instead of hardcoding individual artifact versions. Dependencies should omit <version> tags when managed by the BOM.
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: language/correct-imports-no-legacy-no-internal-packages
+              description: |-
+                All imports use com.azure.* packages. No com.microsoft.azure.* (legacy) or com.azure.*.implementation.* (internal API) imports.
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: language/defaultazurecredential-authentication
+              description: |-
+                Uses DefaultAzureCredential or another com.azure.identity credential. No hardcoded connection strings, account keys, SAS tokens, or secrets.
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: language/client-builder-pattern
+              description: |-
+                SDK clients constructed using *ClientBuilder classes with .endpoint() or .vaultUrl() and .credential(). No legacy constructors (CloudStorageAccount, DocumentClient, KeyVaultClient).
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: language/no-deprecated-legacy-classes
+              description: |-
+                No deprecated classes from the old SDK (CloudStorageAccount, CloudBlobClient, DocumentClient, QueueClient, ApplicationTokenCredentials, MSICredentials, ConnectionStringBuilder).
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: language/pagination-pagediterable-pagedflux
+              description: |-
+                List/query operations return PagedIterable (sync) or PagedFlux (async). Does not flatten all pages into a raw List or Stream in memory.
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: language/lro-pattern-syncpoller-pollerflux
+              description: |-
+                Long-running operations use SyncPoller (sync) or PollerFlux (async) with begin* method prefix. No Thread.sleep() polling loops.
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: language/async-uses-project-reactor-mono-flux
+              description: |-
+                Async code uses Project Reactor types (Mono, Flux). Not CompletableFuture (wrong), not RxJava (wrong), not sync wrapped in ExecutorService. No .block() inside async service implementations.
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: language/service-specific-exception-handling
+              description: |-
+                Catches service-specific exceptions (BlobStorageException, CosmosException, ServiceBusException, HttpResponseException) with status code inspection. Not just generic Exception catches.
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: language/code-compiles-mvn-compile-gradle-compilejava
+              description: |-
+                The generated code compiles without errors. Attempt build verification if build tools are available.
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: language/try-with-resources-for-clients
+              description: |-
+                All Azure SDK client instances that implement AutoCloseable are used within try-with-resources blocks or explicitly closed in a finally block.
+              weight: 1
+              pass_threshold: 1
+              required: true
 artifacts:
   include:
     - "**/*.java"

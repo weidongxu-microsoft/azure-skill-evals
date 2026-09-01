@@ -13,123 +13,155 @@ defaults:
 stimuli:
   - name: app-configuration-dp-java-crud
     prompt: |-
-      Write a Java program that manages configuration settings in Azure App Configuration.
-
-      Write the code to files. Do not reply with code blocks.
-
-      1. Create a ConfigurationClient using ConfigurationClientBuilder with a connection string.
-      2. Set a configuration setting with key "app:Settings:FontSize" and value "24".
-      3. Set a setting with label "Production".
-      4. Get the setting by key and print its value.
-      5. List settings with key filter "app:Settings:*" using listConfigurationSettings.
-      6. Create an enabled feature flag configuration setting for "BetaFeature".
-      7. Delete the setting by key.
-
-      Show the com.azure:azure-data-appconfiguration Maven dependency and handle HttpResponseException with status inspection.
+      Write a Java program that manages
+      configuration settings in Azure App Configuration:
+      1. Create a ConfigurationClient using ConfigurationClientBuilder with a connection string
+      2. Set a configuration setting with key "app:Settings:FontSize" and value "24"
+      3. Set a setting with label "Production"
+      4. Get the setting by key and print its value
+      5. List settings with a key filter "app:Settings:*" using listConfigurationSettings
+      6. Create a feature flag configuration setting for "BetaFeature"
+      7. Delete the setting by key
+      
+      Show required Maven dependency (com.azure:azure-data-appconfiguration) and
+      proper error handling with HttpResponseException.
     tags:
       service: app-configuration
       plane: data-plane
       language: java
       category: crud
     graders:
-      - type: run-command
-        name: prompt/app-configuration-package
+      - type: panel
+        name: prompt/full-case-review
         weight: 1
         config:
-          command: node
-          args:
-            - .vally/scenarios/app-configuration-java-config-values/tools/check-app-configuration-java.mjs
-            - prompt/app-configuration-package
-      - type: run-command
-        name: prompt/configuration-client
-        weight: 1
-        config:
-          command: node
-          args:
-            - .vally/scenarios/app-configuration-java-config-values/tools/check-app-configuration-java.mjs
-            - prompt/configuration-client
-      - type: run-command
-        name: prompt/set-settings
-        weight: 1
-        config:
-          command: node
-          args:
-            - .vally/scenarios/app-configuration-java-config-values/tools/check-app-configuration-java.mjs
-            - prompt/set-settings
-      - type: run-command
-        name: prompt/production-label
-        weight: 1
-        config:
-          command: node
-          args:
-            - .vally/scenarios/app-configuration-java-config-values/tools/check-app-configuration-java.mjs
-            - prompt/production-label
-      - type: run-command
-        name: prompt/get-list-settings
-        weight: 1
-        config:
-          command: node
-          args:
-            - .vally/scenarios/app-configuration-java-config-values/tools/check-app-configuration-java.mjs
-            - prompt/get-list-settings
-      - type: run-command
-        name: prompt/enabled-feature-flag
-        weight: 1
-        config:
-          command: node
-          args:
-            - .vally/scenarios/app-configuration-java-config-values/tools/check-app-configuration-java.mjs
-            - prompt/enabled-feature-flag
-      - type: run-command
-        name: prompt/delete-error
-        weight: 1
-        config:
-          command: node
-          args:
-            - .vally/scenarios/app-configuration-java-config-values/tools/check-app-configuration-java.mjs
-            - prompt/delete-error
-      - type: run-command
-        name: language/build-manifest
-        weight: 1
-        config:
-          command: node
-          args:
-            - .vally/languages/java/check.mjs
-            - language/build-manifest
-      - type: run-command
-        name: language/current-azure-dependencies
-        weight: 1
-        config:
-          command: node
-          args:
-            - .vally/languages/java/check.mjs
-            - language/current-azure-dependencies
-      - type: run-command
-        name: language/current-imports
-        weight: 1
-        config:
-          command: node
-          args:
-            - .vally/languages/java/check.mjs
-            - language/current-imports
-      - type: run-command
-        name: language/client-builder
-        weight: 1
-        config:
-          command: node
-          args:
-            - .vally/languages/java/check.mjs
-            - language/client-builder
-    environment:
-      files:
-        - src: tools/check-app-configuration-java.mjs
-          dest: .vally/scenarios/app-configuration-java-config-values/tools/check-app-configuration-java.mjs
-        - src: tools/app-configuration-java-rules.mjs
-          dest: .vally/scenarios/app-configuration-java-config-values/tools/app-configuration-java-rules.mjs
-        - src: ../../languages/java/check.mjs
-          dest: .vally/languages/java/check.mjs
-        - src: ../../languages/java/checks.mjs
-          dest: .vally/languages/java/checks.mjs
+          prompt: |-
+            Review the generated implementation against every criterion.
+            Score each criterion independently. Accept equivalent valid
+            implementations and judge code behavior rather than syntax.
+          models:
+            - gpt-5.6-sol
+          aggregation: unanimous
+          scoring: binary
+          threshold: 1
+          overall_threshold: 1
+          evidence:
+            - diff
+          criteria:
+            - name: prompt/azure-data-appconfiguration-maven-dependency
+              description: |-
+                `azure-data-appconfiguration` Maven dependency
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: prompt/configurationclientbuilder-and-configurationclient
+              description: |-
+                `ConfigurationClientBuilder` and `ConfigurationClient`
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: prompt/setconfigurationsetting-with-key-value-label
+              description: |-
+                `setConfigurationSetting()` with key, value, label
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: prompt/getconfigurationsetting-by-key-and-label
+              description: |-
+                `getConfigurationSetting()` by key and label
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: prompt/listconfigurationsettings-with-settingselector
+              description: |-
+                `listConfigurationSettings()` with `SettingSelector`
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: prompt/featureflagconfigurationsetting-for-feature-flags
+              description: |-
+                `FeatureFlagConfigurationSetting` for feature flags
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: prompt/deleteconfigurationsetting-and-exception-handling
+              description: |-
+                `deleteConfigurationSetting()` and exception handling
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: language/correct-dependencies-com-azure-not-com-microsoft-azure
+              description: |-
+                Uses com.azure group ID for all Azure SDK packages. No com.microsoft.azure (legacy SDK) dependencies. Includes azure-identity for authentication.
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: language/azure-sdk-bom-for-version-management
+              description: |-
+                Uses azure-sdk-bom in dependencyManagement to manage Azure SDK versions instead of hardcoding individual artifact versions. Dependencies should omit <version> tags when managed by the BOM.
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: language/correct-imports-no-legacy-no-internal-packages
+              description: |-
+                All imports use com.azure.* packages. No com.microsoft.azure.* (legacy) or com.azure.*.implementation.* (internal API) imports.
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: language/defaultazurecredential-authentication
+              description: |-
+                Uses DefaultAzureCredential or another com.azure.identity credential. No hardcoded connection strings, account keys, SAS tokens, or secrets.
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: language/client-builder-pattern
+              description: |-
+                SDK clients constructed using *ClientBuilder classes with .endpoint() or .vaultUrl() and .credential(). No legacy constructors (CloudStorageAccount, DocumentClient, KeyVaultClient).
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: language/no-deprecated-legacy-classes
+              description: |-
+                No deprecated classes from the old SDK (CloudStorageAccount, CloudBlobClient, DocumentClient, QueueClient, ApplicationTokenCredentials, MSICredentials, ConnectionStringBuilder).
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: language/pagination-pagediterable-pagedflux
+              description: |-
+                List/query operations return PagedIterable (sync) or PagedFlux (async). Does not flatten all pages into a raw List or Stream in memory.
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: language/lro-pattern-syncpoller-pollerflux
+              description: |-
+                Long-running operations use SyncPoller (sync) or PollerFlux (async) with begin* method prefix. No Thread.sleep() polling loops.
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: language/async-uses-project-reactor-mono-flux
+              description: |-
+                Async code uses Project Reactor types (Mono, Flux). Not CompletableFuture (wrong), not RxJava (wrong), not sync wrapped in ExecutorService. No .block() inside async service implementations.
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: language/service-specific-exception-handling
+              description: |-
+                Catches service-specific exceptions (BlobStorageException, CosmosException, ServiceBusException, HttpResponseException) with status code inspection. Not just generic Exception catches.
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: language/code-compiles-mvn-compile-gradle-compilejava
+              description: |-
+                The generated code compiles without errors. Attempt build verification if build tools are available.
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: language/try-with-resources-for-clients
+              description: |-
+                All Azure SDK client instances that implement AutoCloseable are used within try-with-resources blocks or explicitly closed in a finally block.
+              weight: 1
+              pass_threshold: 1
+              required: true
 artifacts:
   include:
     - "**/*.java"

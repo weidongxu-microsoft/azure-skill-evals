@@ -13,114 +13,186 @@ defaults:
 stimuli:
   - name: service-bus-dp-java-order-processor
     prompt: |-
-      Create a complete, runnable Java 17 Maven project that implements an order processing system using Azure Service Bus.
-
-      Write the code to files. Do not reply with code blocks.
-
-      1. Use com.azure:azure-messaging-servicebus:7.17.20, com.azure:azure-identity:1.18.5, and com.fasterxml.jackson.core:jackson-databind:2.20.0. Read the fully qualified Service Bus namespace and queue name from environment variables, authenticate with managed identity, and do not hard-code credentials.
-      2. Define an Order model with order ID, customer name, product, quantity, total price, and a pending/processing/completed/failed status. Support JSON serialization and deserialization.
-      3. Implement synchronous and asynchronous senders. Each must send one order and efficiently send multiple orders with ServiceBusMessageBatch. Check tryAddMessage and, when an order does not fit, send the current batch and retry that order in a new batch. Set correlation ID to the order ID and session ID to the customer name.
-      4. Mark orders above a documented price threshold as high priority and schedule them approximately 30 seconds in the future with scheduleMessage or setScheduledEnqueueTime.
-      5. Implement a session-aware ServiceBusProcessorClient with processMessage and processError handlers plus an asynchronous session receiver. Deserialize and process each received order, complete that same message only after success, and explicitly dead-letter deserialization or non-transient processing failures with a useful reason. Abandon transient ServiceBusException failures so Service Bus can retry them.
-      6. Read the queue's SubQueue.DEAD_LETTER_QUEUE, inspect and deserialize failed orders, republish valid orders through the matching sender, and complete the same dead-letter message only after republishing succeeds.
-      7. The processor error handler must log entity path, error source, and exception details, and distinguish transient from non-transient failures with isTransient or getReason.
-      8. A Main class must run a connected synchronous send/process/dead-letter-reprocess cycle first, then run and await the equivalent asynchronous cycle. Reliably close every client, sender, processor, and receiver.
-
-      Use SERVICE_BUS_FULLY_QUALIFIED_NAMESPACE and SERVICE_BUS_QUEUE_NAME.
+      Create a small Java 17 Maven project that implements an order processing system using Azure Service Bus.
+      
+      The project needs:
+      
+      - A **model class** for an Order with fields for order ID, customer name, product, quantity, total price, and status (pending/processing/completed/failed). It should be serializable to and from JSON.
+      
+      - A **sender class** (both sync and async versions) that publishes order messages to a Service Bus queue. It should support sending individual orders and sending a batch of orders efficiently (respecting the maximum batch size so messages aren't rejected). Each message should carry the order ID as a correlation property, and orders above a certain dollar threshold should be sent as high-priority with a scheduled delivery delay of 30 seconds (to allow for fraud review before processing).
+      
+      - A **processor class** (both sync and async versions) that receives and processes orders from the queue. It should handle messages as they arrive, deserialize them, and log the results. If processing fails (e.g., a deserialization error), the message should be sent to the dead-letter queue with a reason string rather than being silently abandoned. The processor should also be able to read from the dead-letter queue so failed messages can be inspected and reprocessed. It should guarantee that orders from the same customer are processed in sequence, not interleaved with other customers' orders.
+      
+      - A **Main class** that demos both implementations: connects to the Service Bus namespace (from an environment variable) with managed identity, runs the full send/receive/dead-letter cycle using the sync implementation first, then repeats with the async implementation.
+      
+      Include a complete `pom.xml` with the necessary Azure SDK dependencies.
     tags:
       service: service-bus
       plane: data-plane
       language: java
       category: streaming
     graders:
-      - type: run-command
-        name: prompt/sdk-dependencies
+      - type: panel
+        name: prompt/full-case-review
         weight: 1
         config:
-          command: node
-          args: [.vally/scenarios/service-bus-java-order-processor/tools/check-order-processor-java.mjs, prompt/sdk-dependencies]
-      - type: run-command
-        name: prompt/order-model
-        weight: 1
-        config:
-          command: node
-          args: [.vally/scenarios/service-bus-java-order-processor/tools/check-order-processor-java.mjs, prompt/order-model]
-      - type: run-command
-        name: prompt/sync-sender
-        weight: 1
-        config:
-          command: node
-          args: [.vally/scenarios/service-bus-java-order-processor/tools/check-order-processor-java.mjs, prompt/sync-sender]
-      - type: run-command
-        name: prompt/async-sender
-        weight: 1
-        config:
-          command: node
-          args: [.vally/scenarios/service-bus-java-order-processor/tools/check-order-processor-java.mjs, prompt/async-sender]
-      - type: run-command
-        name: prompt/sync-processing-settlement
-        weight: 1
-        config:
-          command: node
-          args: [.vally/scenarios/service-bus-java-order-processor/tools/check-order-processor-java.mjs, prompt/sync-processing-settlement]
-      - type: run-command
-        name: prompt/async-processing-settlement
-        weight: 1
-        config:
-          command: node
-          args: [.vally/scenarios/service-bus-java-order-processor/tools/check-order-processor-java.mjs, prompt/async-processing-settlement]
-      - type: run-command
-        name: prompt/dead-letter-reprocessing
-        weight: 1
-        config:
-          command: node
-          args: [.vally/scenarios/service-bus-java-order-processor/tools/check-order-processor-java.mjs, prompt/dead-letter-reprocessing]
-      - type: run-command
-        name: prompt/error-classification
-        weight: 1
-        config:
-          command: node
-          args: [.vally/scenarios/service-bus-java-order-processor/tools/check-order-processor-java.mjs, prompt/error-classification]
-      - type: run-command
-        name: prompt/connected-demo
-        weight: 1
-        config:
-          command: node
-          args: [.vally/scenarios/service-bus-java-order-processor/tools/check-order-processor-java.mjs, prompt/connected-demo]
-      - type: run-command
-        name: language/build-manifest
-        weight: 1
-        config:
-          command: node
-          args: [.vally/languages/java/check.mjs, language/build-manifest]
-      - type: run-command
-        name: language/current-azure-dependencies
-        weight: 1
-        config:
-          command: node
-          args: [.vally/languages/java/check.mjs, language/current-azure-dependencies]
-      - type: run-command
-        name: language/current-imports
-        weight: 1
-        config:
-          command: node
-          args: [.vally/languages/java/check.mjs, language/current-imports]
-      - type: run-command
-        name: language/client-builder
-        weight: 1
-        config:
-          command: node
-          args: [.vally/languages/java/check.mjs, language/client-builder]
-    environment:
-      files:
-        - src: tools/check-order-processor-java.mjs
-          dest: .vally/scenarios/service-bus-java-order-processor/tools/check-order-processor-java.mjs
-        - src: tools/order-processor-java-rules.mjs
-          dest: .vally/scenarios/service-bus-java-order-processor/tools/order-processor-java-rules.mjs
-        - src: ../../languages/java/check.mjs
-          dest: .vally/languages/java/check.mjs
-        - src: ../../languages/java/checks.mjs
-          dest: .vally/languages/java/checks.mjs
+          prompt: |-
+            Review the generated implementation against every criterion.
+            Score each criterion independently. Accept equivalent valid
+            implementations and judge code behavior rather than syntax.
+          models:
+            - gpt-5.6-sol
+          aggregation: unanimous
+          scoring: binary
+          threshold: 1
+          overall_threshold: 1
+          evidence:
+            - diff
+          criteria:
+            - name: prompt/sender-uses-sender-queuename-buildclient-chain-or-async
+              description: |-
+                Sender uses `.sender().queueName().buildClient()` chain (or async equivalent)
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: prompt/processor-uses-processor-queuename-processmessage-proces
+              description: |-
+                Processor uses `.processor().queueName().processMessage().processError()` chain ### Scenario-Specific Patterns
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: prompt/batch-sending-creates-servicebusmessagebatch-checks-trya
+              description: |-
+                Batch sending: creates `ServiceBusMessageBatch`, checks `tryAddMessage()` return value
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: prompt/handles-the-case-where-a-message-doesnt-fit-in-the-curre
+              description: |-
+                Handles the case where a message doesn't fit in the current batch
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: prompt/scheduled-delivery-uses-schedulemessage-or-setschedulede
+              description: |-
+                Scheduled delivery: uses `scheduleMessage()` or `setScheduledEnqueueTime()` (~30s delay)
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: prompt/correlation-sets-order-id-as-correlation-property-via-se
+              description: |-
+                Correlation: sets order ID as correlation property via `setCorrelationId()` or application properties
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: prompt/dead-letter-explicitly-dead-letters-failed-messages-with
+              description: |-
+                Dead-letter: explicitly dead-letters failed messages with `deadLetter()` and a reason string
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: prompt/dead-letter-queue-reading-uses-subqueue-dead-letter-queu
+              description: |-
+                Dead-letter queue reading: uses `SubQueue.DEAD_LETTER_QUEUE` or `$deadletterqueue` path
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: prompt/session-aware-processing-uses-sessionprocessor-or-sessio
+              description: |-
+                Session-aware processing: uses `.sessionProcessor()` or session-enabled receiver
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: prompt/session-id-keyed-by-customer-name-for-ordered-processing
+              description: |-
+                Session ID keyed by customer name for ordered processing ### Scenario-Specific Error Handling
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: prompt/error-handler-in-processor-logs-entity-path-and-error-so
+              description: |-
+                Error handler in processor logs entity path and error source
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: prompt/distinguishes-transient-vs-non-transient-errors-via-istr
+              description: |-
+                Distinguishes transient vs non-transient errors via `isTransient()` or `getReason()`
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: language/correct-dependencies-com-azure-not-com-microsoft-azure
+              description: |-
+                Uses com.azure group ID for all Azure SDK packages. No com.microsoft.azure (legacy SDK) dependencies. Includes azure-identity for authentication.
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: language/azure-sdk-bom-for-version-management
+              description: |-
+                Uses azure-sdk-bom in dependencyManagement to manage Azure SDK versions instead of hardcoding individual artifact versions. Dependencies should omit <version> tags when managed by the BOM.
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: language/correct-imports-no-legacy-no-internal-packages
+              description: |-
+                All imports use com.azure.* packages. No com.microsoft.azure.* (legacy) or com.azure.*.implementation.* (internal API) imports.
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: language/defaultazurecredential-authentication
+              description: |-
+                Uses DefaultAzureCredential or another com.azure.identity credential. No hardcoded connection strings, account keys, SAS tokens, or secrets.
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: language/client-builder-pattern
+              description: |-
+                SDK clients constructed using *ClientBuilder classes with .endpoint() or .vaultUrl() and .credential(). No legacy constructors (CloudStorageAccount, DocumentClient, KeyVaultClient).
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: language/no-deprecated-legacy-classes
+              description: |-
+                No deprecated classes from the old SDK (CloudStorageAccount, CloudBlobClient, DocumentClient, QueueClient, ApplicationTokenCredentials, MSICredentials, ConnectionStringBuilder).
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: language/pagination-pagediterable-pagedflux
+              description: |-
+                List/query operations return PagedIterable (sync) or PagedFlux (async). Does not flatten all pages into a raw List or Stream in memory.
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: language/lro-pattern-syncpoller-pollerflux
+              description: |-
+                Long-running operations use SyncPoller (sync) or PollerFlux (async) with begin* method prefix. No Thread.sleep() polling loops.
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: language/async-uses-project-reactor-mono-flux
+              description: |-
+                Async code uses Project Reactor types (Mono, Flux). Not CompletableFuture (wrong), not RxJava (wrong), not sync wrapped in ExecutorService. No .block() inside async service implementations.
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: language/service-specific-exception-handling
+              description: |-
+                Catches service-specific exceptions (BlobStorageException, CosmosException, ServiceBusException, HttpResponseException) with status code inspection. Not just generic Exception catches.
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: language/code-compiles-mvn-compile-gradle-compilejava
+              description: |-
+                The generated code compiles without errors. Attempt build verification if build tools are available.
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: language/try-with-resources-for-clients
+              description: |-
+                All Azure SDK client instances that implement AutoCloseable are used within try-with-resources blocks or explicitly closed in a finally block.
+              weight: 1
+              pass_threshold: 1
+              required: true
 artifacts:
   include:
     - "**/*.java"

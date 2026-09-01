@@ -14,148 +14,171 @@ stimuli:
   - name: storage-dp-typescript-blob-storage-manager
     prompt: |-
       Create a TypeScript Node.js project that provides a reusable Azure Blob Storage management utility.
-
+      
       The project needs:
-
+      
       - A **service class** that wraps blob operations: upload (with optional metadata and blob index tags for later querying), download, list blobs in a container, and delete. The upload method should handle large files efficiently using streaming — uploading a multi-gigabyte file should not load the entire thing into memory. The service should also prevent concurrent writers from overwriting each other's changes when updating the same blob by acquiring a lease before writing.
-
+      
       - A **configuration module** that connects to Azure securely using the storage account endpoint (from an environment variable). No connection strings or account keys should be used — the app will run in Azure with managed identity. The configuration should set up a custom retry policy (exponential backoff, configurable max retries and delay) and enable SDK logging at a configurable level for debugging.
-
+      
       - A **main script** that wires everything together and demos each operation: uploads a sample file with some index tags, lists all blobs in the container, downloads the file back and prints its content, acquires a lease and overwrites the blob, then finally deletes it. Print status at each step.
-
+      
       Include a complete `package.json` with the necessary Azure SDK dependencies and a `tsconfig.json`.
-
-      Write the code to files. Do not reply with code blocks.
     tags:
       service: storage
       plane: data-plane
       language: typescript
       category: crud
     graders:
-      - type: run-command
-        name: prompt/packages
+      - type: panel
+        name: prompt/full-case-review
         weight: 1
         config:
-          command: node
-          args:
-            - .vally/scenarios/storage-typescript-blob-storage-manager/tools/check-storage-typescript.mjs
-            - prompt/packages
-      - type: run-command
-        name: prompt/configuration
-        weight: 1
-        config:
-          command: node
-          args:
-            - .vally/scenarios/storage-typescript-blob-storage-manager/tools/check-storage-typescript.mjs
-            - prompt/configuration
-      - type: run-command
-        name: prompt/retry-and-logging
-        weight: 1
-        config:
-          command: node
-          args:
-            - .vally/scenarios/storage-typescript-blob-storage-manager/tools/check-storage-typescript.mjs
-            - prompt/retry-and-logging
-      - type: run-command
-        name: prompt/service-class
-        weight: 1
-        config:
-          command: node
-          args:
-            - .vally/scenarios/storage-typescript-blob-storage-manager/tools/check-storage-typescript.mjs
-            - prompt/service-class
-      - type: run-command
-        name: prompt/upload-with-tags
-        weight: 1
-        config:
-          command: node
-          args:
-            - .vally/scenarios/storage-typescript-blob-storage-manager/tools/check-storage-typescript.mjs
-            - prompt/upload-with-tags
-      - type: run-command
-        name: prompt/list-blobs
-        weight: 1
-        config:
-          command: node
-          args:
-            - .vally/scenarios/storage-typescript-blob-storage-manager/tools/check-storage-typescript.mjs
-            - prompt/list-blobs
-      - type: run-command
-        name: prompt/download-stream
-        weight: 1
-        config:
-          command: node
-          args:
-            - .vally/scenarios/storage-typescript-blob-storage-manager/tools/check-storage-typescript.mjs
-            - prompt/download-stream
-      - type: run-command
-        name: prompt/lease-overwrite
-        weight: 1
-        config:
-          command: node
-          args:
-            - .vally/scenarios/storage-typescript-blob-storage-manager/tools/check-storage-typescript.mjs
-            - prompt/lease-overwrite
-      - type: run-command
-        name: prompt/error-handling
-        weight: 1
-        config:
-          command: node
-          args:
-            - .vally/scenarios/storage-typescript-blob-storage-manager/tools/check-storage-typescript.mjs
-            - prompt/error-handling
-      - type: run-command
-        name: prompt/demo-lifecycle
-        weight: 1
-        config:
-          command: node
-          args:
-            - .vally/scenarios/storage-typescript-blob-storage-manager/tools/check-storage-typescript.mjs
-            - prompt/demo-lifecycle
-      - type: run-command
-        name: language/package-manifest
-        weight: 1
-        config:
-          command: node
-          args:
-            - .vally/languages/typescript/check.mjs
-            - language/package-manifest
-      - type: run-command
-        name: language/current-azure-packages
-        weight: 1
-        config:
-          command: node
-          args:
-            - .vally/languages/typescript/check.mjs
-            - language/current-azure-packages
-      - type: run-command
-        name: language/async-await
-        weight: 1
-        config:
-          command: node
-          args:
-            - .vally/languages/typescript/check.mjs
-            - language/async-await
-      - type: run-command
-        name: language/typescript-config
-        weight: 1
-        config:
-          command: node
-          args:
-            - .vally/languages/typescript/check.mjs
-            - language/typescript-config
-    environment:
-      files:
-        - src: tools/check-storage-typescript.mjs
-          dest: .vally/scenarios/storage-typescript-blob-storage-manager/tools/check-storage-typescript.mjs
-        - src: tools/source-manifest.mjs
-          dest: .vally/scenarios/storage-typescript-blob-storage-manager/tools/source-manifest.mjs
-        - src: tools/storage-typescript-rules.mjs
-          dest: .vally/scenarios/storage-typescript-blob-storage-manager/tools/storage-typescript-rules.mjs
-        - src: ../../languages/typescript/check.mjs
-          dest: .vally/languages/typescript/check.mjs
-        - src: ../../languages/typescript/checks.mjs
-          dest: .vally/languages/typescript/checks.mjs
+          prompt: |-
+            Review the generated implementation against every criterion.
+            Score each criterion independently. Accept equivalent valid
+            implementations and judge code behavior rather than syntax.
+          models:
+            - gpt-5.6-sol
+          aggregation: unanimous
+          scoring: binary
+          threshold: 1
+          overall_threshold: 1
+          evidence:
+            - diff
+          criteria:
+            - name: prompt/configures-custom-retry-policy-via-storageretryoptions-e
+              description: |-
+                Configures custom retry policy via `StorageRetryOptions` (exponential backoff, max retries, retry delay)
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: prompt/enables-sdk-logging-via-azure-logger-setloglevel-or-azur
+              description: |-
+                Enables SDK logging via `@azure/logger` `setLogLevel()` or `AZURE_LOG_LEVEL`
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: prompt/implements-blob-lease-acquisition-before-overwrite-using
+              description: |-
+                Implements blob lease acquisition before overwrite using `BlobLeaseClient`
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: prompt/uses-blockblobclient-uploadstream-for-large-file-streami
+              description: |-
+                Uses `BlockBlobClient.uploadStream()` for large file streaming upload (not `uploadData()` or `upload()` which buffer in memory)
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: prompt/sets-blob-index-tags-on-upload-via-tags-property-in-bloc
+              description: |-
+                Sets blob index tags on upload via `tags` property in `BlockBlobUploadStreamOptions`
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: prompt/downloads-blob-and-reads-response-via-readablestreambody
+              description: |-
+                Downloads blob and reads response via `readableStreamBody` (Node.js Readable stream)
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: prompt/lists-blobs-using-for-await-of-async-iteration-over-cont
+              description: |-
+                Lists blobs using `for await...of` async iteration over `ContainerClient.listBlobsFlat()` ### Scenario-Specific Error Handling
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: prompt/handles-lease-conflict-errors-409-status-code-when-blob
+              description: |-
+                Handles lease conflict errors (409 status code) when blob is already leased
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: prompt/handles-blob-not-found-errors-404-status-code-on-downloa
+              description: |-
+                Handles blob not found errors (404 status code) on download/delete ### Anti-Patterns (scenario-specific)
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: prompt/not-using-uploaddata-or-upload-with-full-buffer-for-larg
+              description: |-
+                NOT using `uploadData()` or `upload()` with full buffer for large files
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: prompt/not-using-connection-strings-or-account-keys-for-authent
+              description: |-
+                NOT using connection strings or account keys for authentication
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: prompt/not-collecting-all-listed-blobs-into-an-array-before-pro
+              description: |-
+                NOT collecting all listed blobs into an array before processing
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: language/correct-azure-scoped-packages
+              description: |-
+                All Azure SDK dependencies use @azure/ scoped packages (e.g., @azure/storage-blob, @azure/keyvault-secrets, @azure/identity). No deprecated unscoped packages (azure-storage, azure-arm-*, ms-rest-azure, @azure/ms-rest-*).
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: language/azure-identity-for-authentication
+              description: |-
+                Includes @azure/identity as a dependency. For local development, DefaultAzureCredential is acceptable. For production code, uses a specific Entra token credential (e.g., ManagedIdentityCredential, ClientSecretCredential, WorkloadIdentityCredential) or configures DefaultAzureCredential with the AZURE_TOKEN_CREDENTIALS environment variable set to "prod" or a specific token credential. No hardcoded connection strings, account keys, SAS tokens, or secrets in code.
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: language/client-constructor-with-endpoint-and-credential
+              description: |-
+                SDK clients constructed with endpoint URL and credential object, e.g. new BlobServiceClient(url, credential) or new SecretClient(vaultUrl, credential). No legacy constructor patterns or connection string-based construction when identity-based auth is available.
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: language/async-await-pattern
+              description: |-
+                Uses async/await for all asynchronous operations. No raw .then()/.catch() chains when await is cleaner. No callback-based patterns. Top-level async function or IIFE for entry point.
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: language/pagination-with-for-await-of
+              description: |-
+                List/query operations use for-await-of iteration over the PagedAsyncIterableIterator returned by SDK methods. Does not collect all pages into an array in memory (e.g., no Array.from() or manual page accumulation). Uses byPage() when per-page control is needed.
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: language/lro-pattern-beginxxx-polluntildone
+              description: |-
+                Long-running operations use the begin* method prefix (e.g., beginDeleteSecret, beginCreateOrUpdate) and await poller.pollUntilDone(). No manual setTimeout/setInterval polling loops.
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: language/resterror-exception-handling
+              description: |-
+                Catches RestError (from @azure/core-rest-pipeline or the service package) with statusCode inspection for error-specific handling. Not just generic Error or try/catch without type checking.
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: language/no-deprecated-packages
+              description: |-
+                No deprecated or legacy Azure packages in package.json: azure-storage, azure-arm-*, ms-rest-azure, @azure/ms-rest-js, @azure/ms-rest-nodeauth, @azure/ms-rest-azure-js. All dependencies use the current @azure/* track.
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: language/logging-via-azure-logger
+              description: |-
+                Uses @azure/logger with setLogLevel() or the AZURE_LOG_LEVEL environment variable for SDK diagnostic logging. No custom logging wrappers around SDK internals.
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: language/package-json-with-correct-dependencies
+              description: |-
+                Includes a valid package.json with all required @azure/* dependencies listed. TypeScript projects include tsconfig.json and appropriate @types/* packages or use a recent TypeScript version with built-in types.
+              weight: 1
+              pass_threshold: 1
+              required: true
 artifacts:
   include:
     - "**/*.ts"

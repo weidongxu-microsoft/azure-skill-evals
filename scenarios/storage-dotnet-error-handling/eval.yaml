@@ -13,78 +13,91 @@ defaults:
 stimuli:
   - name: storage-dp-dotnet-error-handling
     prompt: |-
-      Write a runnable C# console application that demonstrates production error handling with Azure.Storage.Blobs.
-
-      Write the code to files. Do not reply with code blocks.
-
-      1. Target net8.0 and pin Azure.Identity 1.21.0 and Azure.Storage.Blobs 12.29.2 exactly.
-      2. Read an absolute Blob service endpoint from AZURE_STORAGE_BLOB_ENDPOINT, plus the container and blob names from AZURE_STORAGE_CONTAINER and AZURE_STORAGE_BLOB. Authenticate with DefaultAzureCredential.
-      3. Configure BlobClientOptions.Retry with bounded exponential retries, and pass those options to BlobServiceClient.
-      4. From that service client, derive the container and blob clients. Await GetPropertiesAsync, then use its ETag as IfMatch and the optional AZURE_STORAGE_LEASE_ID as LeaseId in BlobRequestConditions for an awaited SetMetadataAsync call on the same blob.
-      5. Catch RequestFailedException around those connected operations. Log Status, ErrorCode, and Message, plus the client request ID read from the x-ms-client-request-id raw-response header and the service request ID from GetRawResponse().Headers.RequestId.
-      6. Handle 404, 403, 409, 412, and 429 explicitly. Explain in the relevant paths: missing blob or container; authorization/RBAC permissions; lease or storage-state conflict; failed ETag/precondition or lease condition; and throttling after the configured SDK retry policy.
-
-      Equivalent well-factored helper methods and SDK forms are acceptable. Do not hard-code credentials.
+      How do I properly handle errors when working with Azure Blob Storage in .NET?
+      I need to understand what exceptions are thrown for common failure scenarios:
+      container not found (404), access denied (403), and throttling (429).
+      Show me idiomatic try/catch patterns with the Azure.Storage.Blobs SDK
+      including how to extract the error code and HTTP status from RequestFailedException.
     tags:
       service: storage
       plane: data-plane
       language: dotnet
       category: error-handling
     graders:
-      - type: run-command
-        name: prompt/storage-error-manifest
+      - type: panel
+        name: prompt/full-case-review
         weight: 1
-        config: { command: node, args: [.vally/scenarios/storage-dotnet-error-handling/tools/check-storage-dotnet-error-handling.mjs, prompt/storage-error-manifest] }
-      - type: run-command
-        name: prompt/configured-blob-client
-        weight: 1
-        config: { command: node, args: [.vally/scenarios/storage-dotnet-error-handling/tools/check-storage-dotnet-error-handling.mjs, prompt/configured-blob-client] }
-      - type: run-command
-        name: prompt/connected-storage-operations
-        weight: 1
-        config: { command: node, args: [.vally/scenarios/storage-dotnet-error-handling/tools/check-storage-dotnet-error-handling.mjs, prompt/connected-storage-operations] }
-      - type: run-command
-        name: prompt/exception-details
-        weight: 1
-        config: { command: node, args: [.vally/scenarios/storage-dotnet-error-handling/tools/check-storage-dotnet-error-handling.mjs, prompt/exception-details] }
-      - type: run-command
-        name: prompt/common-status-handling
-        weight: 1
-        config: { command: node, args: [.vally/scenarios/storage-dotnet-error-handling/tools/check-storage-dotnet-error-handling.mjs, prompt/common-status-handling] }
-      - type: run-command
-        name: prompt/conditional-request
-        weight: 1
-        config: { command: node, args: [.vally/scenarios/storage-dotnet-error-handling/tools/check-storage-dotnet-error-handling.mjs, prompt/conditional-request] }
-      - type: run-command
-        name: prompt/retry-policy
-        weight: 1
-        config: { command: node, args: [.vally/scenarios/storage-dotnet-error-handling/tools/check-storage-dotnet-error-handling.mjs, prompt/retry-policy] }
-      - type: run-command
-        name: language/project-manifest
-        weight: 1
-        config: { command: node, args: [.vally/languages/dotnet/check.mjs, language/project-manifest] }
-      - type: run-command
-        name: language/current-azure-packages
-        weight: 1
-        config: { command: node, args: [.vally/languages/dotnet/check.mjs, language/current-azure-packages] }
-      - type: run-command
-        name: language/async-await
-        weight: 1
-        config: { command: node, args: [.vally/languages/dotnet/check.mjs, language/async-await] }
-      - type: run-command
-        name: language/client-lifecycle
-        weight: 1
-        config: { command: node, args: [.vally/languages/dotnet/check.mjs, language/client-lifecycle] }
-    environment:
-      files:
-        - src: tools/check-storage-dotnet-error-handling.mjs
-          dest: .vally/scenarios/storage-dotnet-error-handling/tools/check-storage-dotnet-error-handling.mjs
-        - src: tools/storage-dotnet-error-handling-rules.mjs
-          dest: .vally/scenarios/storage-dotnet-error-handling/tools/storage-dotnet-error-handling-rules.mjs
-        - src: ../../languages/dotnet/check.mjs
-          dest: .vally/languages/dotnet/check.mjs
-        - src: ../../languages/dotnet/checks.mjs
-          dest: .vally/languages/dotnet/checks.mjs
+        config:
+          prompt: |-
+            Review the generated implementation against every criterion.
+            Score each criterion independently. Accept equivalent valid
+            implementations and judge code behavior rather than syntax.
+          models:
+            - gpt-5.6-sol
+          aggregation: unanimous
+          scoring: binary
+          threshold: 1
+          overall_threshold: 1
+          evidence:
+            - diff
+          criteria:
+            - name: prompt/requestfailedexception-as-the-primary-exception-type
+              description: |-
+                `RequestFailedException` as the primary exception type
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: prompt/extracting-status-and-errorcode-from-the-exception
+              description: |-
+                Extracting `Status` and `ErrorCode` from the exception
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: prompt/handling-specific-http-status-codes-404-403-409-429
+              description: |-
+                Handling specific HTTP status codes (404, 403, 409, 429)
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: prompt/retry-policy-configuration-via-blobclientoptions
+              description: |-
+                Retry policy configuration via `BlobClientOptions`
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: prompt/conditional-request-failures-etags-leases
+              description: |-
+                Conditional request failures (ETags, leases)
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: prompt/logging-and-diagnostics-for-troubleshooting
+              description: |-
+                Logging and diagnostics for troubleshooting
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: language/azure-identity-authentication
+              description: |-
+                Check that authentication follows the prompt and uses the appropriate modern .NET Azure SDK mechanism.
+                When token-based authentication is requested, uses an appropriate credential from Azure.Identity and passes it to the SDK client. When the prompt explicitly requests a connection string, connection-string construction is valid. Credentials, connection strings, and secrets are not hardcoded.
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: language/sdk-specific-exception-handling
+              description: |-
+                Check that requested error handling uses the exception model of the selected .NET Azure SDK package.
+                When error handling is requested, catches the appropriate SDK exception, such as RequestFailedException for many Azure.* and ARM clients, CosmosException for Microsoft.Azure.Cosmos, ServiceBusException for Service Bus, EventHubsException for Event Hubs, or AuthenticationFailedException and CredentialUnavailableException for Azure Identity. Inspects status codes, error codes, or retry details when relevant instead of relying only on a generic Exception catch.
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: language/asynchronous-sdk-usage
+              description: |-
+                Check that asynchronous .NET Azure SDK calls use normal asynchronous control flow.
+                When asynchronous SDK APIs are used, awaits them with async and await rather than blocking through .Result, .Wait(), or GetAwaiter().GetResult().
+              weight: 1
+              pass_threshold: 1
+              required: true
 artifacts:
   include:
     - "**/*.cs"

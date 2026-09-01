@@ -13,114 +13,90 @@ defaults:
 stimuli:
   - name: identity-dp-dotnet-default-azure-credential
     prompt: |-
-      Write a C# program that authenticates to Azure Blob Storage with DefaultAzureCredential.
-
-      Write the code to files. Do not reply with code blocks.
-
-      1. Add the current Azure Identity and Blob Storage NuGet packages.
-      2. Construct a DefaultAzureCredential.
-      3. Pass that credential to a BlobServiceClient for an account endpoint.
-      4. Asynchronously get the storage account information and print it.
-      5. Handle CredentialUnavailableException and AuthenticationFailedException, including useful error details.
-      6. Enable Azure Identity diagnostics with an AzureEventSourceListener.
-
-      Read the account endpoint from an environment variable and explain how to run the application.
+      Show me how to authenticate
+      an Azure SDK client using DefaultAzureCredential in C#. Explain:
+      1. What NuGet packages are needed
+      2. How to create and use a DefaultAzureCredential instance
+      3. The credential chain order (which credentials are tried and in what sequence)
+      4. How it behaves differently in local development vs deployed Azure environments
+      5. How to troubleshoot when authentication fails
+      
+      Provide a complete, runnable example that creates a BlobServiceClient using
+      DefaultAzureCredential.
     tags:
       service: identity
       plane: data-plane
       language: dotnet
       category: auth
     graders:
-      - type: run-command
-        name: prompt/identity-packages
+      - type: panel
+        name: prompt/full-case-review
         weight: 1
         config:
-          command: node
-          args:
-            - .vally/scenarios/identity-dotnet-default-azure-credential/tools/check-identity-dotnet.mjs
-            - prompt/identity-packages
-      - type: run-command
-        name: prompt/default-azure-credential
-        weight: 1
-        config:
-          command: node
-          args:
-            - .vally/scenarios/identity-dotnet-default-azure-credential/tools/check-identity-dotnet.mjs
-            - prompt/default-azure-credential
-      - type: run-command
-        name: prompt/credential-client-association
-        weight: 1
-        config:
-          command: node
-          args:
-            - .vally/scenarios/identity-dotnet-default-azure-credential/tools/check-identity-dotnet.mjs
-            - prompt/credential-client-association
-      - type: run-command
-        name: prompt/authenticated-operation
-        weight: 1
-        config:
-          command: node
-          args:
-            - .vally/scenarios/identity-dotnet-default-azure-credential/tools/check-identity-dotnet.mjs
-            - prompt/authenticated-operation
-      - type: run-command
-        name: prompt/auth-errors
-        weight: 1
-        config:
-          command: node
-          args:
-            - .vally/scenarios/identity-dotnet-default-azure-credential/tools/check-identity-dotnet.mjs
-            - prompt/auth-errors
-      - type: run-command
-        name: prompt/identity-diagnostics
-        weight: 1
-        config:
-          command: node
-          args:
-            - .vally/scenarios/identity-dotnet-default-azure-credential/tools/check-identity-dotnet.mjs
-            - prompt/identity-diagnostics
-      - type: run-command
-        name: language/project-manifest
-        weight: 1
-        config:
-          command: node
-          args:
-            - .vally/languages/dotnet/check.mjs
-            - language/project-manifest
-      - type: run-command
-        name: language/current-azure-packages
-        weight: 1
-        config:
-          command: node
-          args:
-            - .vally/languages/dotnet/check.mjs
-            - language/current-azure-packages
-      - type: run-command
-        name: language/async-await
-        weight: 1
-        config:
-          command: node
-          args:
-            - .vally/languages/dotnet/check.mjs
-            - language/async-await
-      - type: run-command
-        name: language/client-lifecycle
-        weight: 1
-        config:
-          command: node
-          args:
-            - .vally/languages/dotnet/check.mjs
-            - language/client-lifecycle
-    environment:
-      files:
-        - src: tools/check-identity-dotnet.mjs
-          dest: .vally/scenarios/identity-dotnet-default-azure-credential/tools/check-identity-dotnet.mjs
-        - src: tools/identity-dotnet-rules.mjs
-          dest: .vally/scenarios/identity-dotnet-default-azure-credential/tools/identity-dotnet-rules.mjs
-        - src: ../../languages/dotnet/check.mjs
-          dest: .vally/languages/dotnet/check.mjs
-        - src: ../../languages/dotnet/checks.mjs
-          dest: .vally/languages/dotnet/checks.mjs
+          prompt: |-
+            Review the generated implementation against every criterion.
+            Score each criterion independently. Accept equivalent valid
+            implementations and judge code behavior rather than syntax.
+          models:
+            - gpt-5.6-sol
+          aggregation: unanimous
+          scoring: binary
+          threshold: 1
+          overall_threshold: 1
+          evidence:
+            - diff
+          criteria:
+            - name: prompt/azure-identity-nuget-package-installation
+              description: |-
+                `Azure.Identity` NuGet package installation
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: prompt/defaultazurecredential-constructor-and-options
+              description: |-
+                `DefaultAzureCredential` constructor and options
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: prompt/credential-chain-environment-workload-identity-managed-i
+              description: |-
+                Credential chain: Environment → Workload Identity → Managed Identity → Azure CLI → etc.
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: prompt/passing-credential-to-any-azure-sdk-client-constructor
+              description: |-
+                Passing credential to any Azure SDK client constructor
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: prompt/authenticationfailedexception-handling-and-diagnostics
+              description: |-
+                `AuthenticationFailedException` handling and diagnostics
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: language/azure-identity-authentication
+              description: |-
+                Check that authentication follows the prompt and uses the appropriate modern .NET Azure SDK mechanism.
+                When token-based authentication is requested, uses an appropriate credential from Azure.Identity and passes it to the SDK client. When the prompt explicitly requests a connection string, connection-string construction is valid. Credentials, connection strings, and secrets are not hardcoded.
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: language/sdk-specific-exception-handling
+              description: |-
+                Check that requested error handling uses the exception model of the selected .NET Azure SDK package.
+                When error handling is requested, catches the appropriate SDK exception, such as RequestFailedException for many Azure.* and ARM clients, CosmosException for Microsoft.Azure.Cosmos, ServiceBusException for Service Bus, EventHubsException for Event Hubs, or AuthenticationFailedException and CredentialUnavailableException for Azure Identity. Inspects status codes, error codes, or retry details when relevant instead of relying only on a generic Exception catch.
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: language/asynchronous-sdk-usage
+              description: |-
+                Check that asynchronous .NET Azure SDK calls use normal asynchronous control flow.
+                When asynchronous SDK APIs are used, awaits them with async and await rather than blocking through .Result, .Wait(), or GetAwaiter().GetResult().
+              weight: 1
+              pass_threshold: 1
+              required: true
 artifacts:
   include:
     - "**/*.cs"

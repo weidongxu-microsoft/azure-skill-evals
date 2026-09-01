@@ -18,8 +18,8 @@ The third arm must expose every skill from the applicable `microsoft/skills`
 language plugin. Do not grade or require invocation of a particular skill.
 
 Migrated scenarios cover Python, .NET, Java, and TypeScript. Each evaluation
-has scenario-specific and reusable language correctness checks; the number of
-checks can vary by scenario.
+uses the exact originating Hyoka prompt, its scenario criteria, and all
+model-based Hyoka language criteria. The number of criteria can vary.
 
 ## Scenario layout
 
@@ -33,48 +33,41 @@ scenarios/<name>/
 │   ├── application source
 │   └── dependency manifest
 └── tools/
-    ├── grader entrypoint
-    └── deterministic rules
+    └── retired deterministic grader implementation
 
 languages/<language>/
-├── check entrypoint
-├── reusable deterministic checks
-└── grader tests
+└── retired deterministic checks and tests
 
 experiments/<language>/
 └── experiment.yaml
 ```
 
 Add root-level tooling only when multiple scenarios reuse it. Vally 0.12 does
-not support external grader-list includes, so each eval declares its
-`language/*` graders while invoking the shared language checker.
+not support external grader-list includes, so each eval contains its complete
+single-model panel configuration.
 
 ## Sources of truth
 
 - `scenarios/<name>/eval.yaml` defines stimuli, grader composition, weights,
   and artifacts.
-- `scenarios/<name>/tools/` implements scenario-specific deterministic code
-  criteria.
 - `experiments/<language>/experiment.yaml` defines controlled environment
   variants shared by all scenarios for that language.
 - `scenarios/<name>/golden/` contains the runnable, lint-clean reference
   application.
-- `scenarios/<name>/*.test.mjs` validates scenario-specific graders.
-- `languages/<language>/` implements and tests reusable language checks.
+- `model-graders.test.mjs` validates the active panel structure across all
+  evaluations.
+- `scenarios/<name>/tools/`, `scenarios/<name>/*.test.mjs`, and
+  `languages/<language>/` retain the retired deterministic implementation
+  during the transition; their grader tests are skipped.
 - `dependencies.lock.json` records pinned external repositories and package
   versions.
 - `docs/pilot-results/` contains concise, reviewed findings from completed
   experiments.
 
-Code synthesized inside a negative test exercises one grader behavior. Tests
-must load their positive workspace from the corresponding real application in
-the scenario's `golden/` directory.
-
 A golden application establishes that at least one complete, executable
-implementation passes syntax checks, linting, and every deterministic grader.
-It is a positive oracle, not the only canonical answer. Graders must accept
-equivalent valid implementations and must include negative and alternate-form
-fixtures to prevent overfitting to the reference application's exact structure.
+implementation passes syntax checks and linting. It is a positive oracle, not
+the only canonical answer. Run the same live model criteria against goldens in
+separate oracle validation rather than ordinary unit tests.
 
 ## Dependency locking
 
@@ -117,13 +110,12 @@ Every criterion has weight 1. Preserve these result groups:
 
 Grade only application and code correctness. Do not score MCP calls, tool
 calls, or skill activation. Use Vally trajectories to diagnose whether
-configured tools and skills loaded or were invoked. Language and prompt checker
-entrypoints must reject workspaces with no top-level source file; do not require
-a filename unless the stimulus explicitly specifies one.
+configured tools and skills loaded or were invoked.
 
-Skills are staged into the Vally workspace. Generated-code graders must inspect
-only the expected generated files and must not pass because a skill contains
-matching source code.
+Each eval must use one `panel` grader with one judge model. Restore prompt and
+criterion wording exactly from the corresponding Hyoka prompt and language
+criteria files. All criteria are required, binary, equally weighted, and
+evaluated from the generated diff. Accept equivalent valid implementations.
 
 ## Validation
 

@@ -13,96 +13,106 @@ defaults:
 stimuli:
   - name: identity-dp-python-managed-identity
     prompt: |-
-      Write a complete, runnable Python application that authenticates an Azure Key Vault client with managed identity and retrieves a secret.
-
-      Write the code to files. Do not reply with code blocks.
-
-      1. Show the required pip packages for Azure Identity and Key Vault secrets.
-      2. Demonstrate distinct ManagedIdentityCredential examples for system-assigned identity (no client ID) and user-assigned identity (client ID).
-      3. Configure a DefaultAzureCredential to use the user-assigned managed identity.
-      4. Show a local development ChainedTokenCredential ordered with managed identity first and Azure CLI second.
-      5. Pass an appropriate credential to SecretClient, call get_secret, and print the retrieved secret value.
-      6. Handle CredentialUnavailableError usefully when managed identity is unavailable without swallowing unrelated exceptions.
-
-      Read the vault URL, secret name, and user-assigned identity client ID from AZURE_KEY_VAULT_URL, AZURE_KEY_VAULT_SECRET_NAME, and AZURE_CLIENT_ID. Do not hard-code credentials.
+      Write a runnable Python project that authenticates Azure SDK clients using Managed Identity.
+      
+      **Write the code to files (use file-write tools, do not reply with code blocks).**
+      
+      1. System-assigned vs user-assigned managed identity differences
+      2. How to create a ManagedIdentityCredential for each type
+      3. Using it with Azure SDK clients
+      4. Local development fallback strategies
+      5. Error handling and troubleshooting
+      
+      Provide examples for both system-assigned and user-assigned identity.
     tags:
       service: identity
       plane: data-plane
       language: python
       category: authentication
     graders:
-      - type: run-command
-        name: prompt/identity-packages
+      - type: panel
+        name: prompt/full-case-review
         weight: 1
         config:
-          command: node
-          args:
-            - .vally/scenarios/identity-python-managed-identity-auth/tools/check-managed-identity-python.mjs
-            - prompt/identity-packages
-      - type: run-command
-        name: prompt/system-assigned-credential
-        weight: 1
-        config:
-          command: node
-          args:
-            - .vally/scenarios/identity-python-managed-identity-auth/tools/check-managed-identity-python.mjs
-            - prompt/system-assigned-credential
-      - type: run-command
-        name: prompt/user-assigned-credential
-        weight: 1
-        config:
-          command: node
-          args:
-            - .vally/scenarios/identity-python-managed-identity-auth/tools/check-managed-identity-python.mjs
-            - prompt/user-assigned-credential
-      - type: run-command
-        name: prompt/default-azure-credential
-        weight: 1
-        config:
-          command: node
-          args:
-            - .vally/scenarios/identity-python-managed-identity-auth/tools/check-managed-identity-python.mjs
-            - prompt/default-azure-credential
-      - type: run-command
-        name: prompt/local-fallback-chain
-        weight: 1
-        config:
-          command: node
-          args:
-            - .vally/scenarios/identity-python-managed-identity-auth/tools/check-managed-identity-python.mjs
-            - prompt/local-fallback-chain
-      - type: run-command
-        name: prompt/credential-client-association
-        weight: 1
-        config:
-          command: node
-          args:
-            - .vally/scenarios/identity-python-managed-identity-auth/tools/check-managed-identity-python.mjs
-            - prompt/credential-client-association
-      - type: run-command
-        name: prompt/authenticated-operation
-        weight: 1
-        config:
-          command: node
-          args:
-            - .vally/scenarios/identity-python-managed-identity-auth/tools/check-managed-identity-python.mjs
-            - prompt/authenticated-operation
-      - type: run-command
-        name: prompt/credential-unavailable-error
-        weight: 1
-        config:
-          command: node
-          args:
-            - .vally/scenarios/identity-python-managed-identity-auth/tools/check-managed-identity-python.mjs
-            - prompt/credential-unavailable-error
-    environment:
-      files:
-        - src: tools/check-managed-identity-python.mjs
-          dest: .vally/scenarios/identity-python-managed-identity-auth/tools/check-managed-identity-python.mjs
-        - src: tools/managed-identity-python-rules.mjs
-          dest: .vally/scenarios/identity-python-managed-identity-auth/tools/managed-identity-python-rules.mjs
-        - src: ../../languages/python/checks.mjs
-          dest: .vally/languages/python/checks.mjs
+          prompt: |-
+            Review the generated implementation against every criterion.
+            Score each criterion independently. Accept equivalent valid
+            implementations and judge code behavior rather than syntax.
+          models:
+            - gpt-5.6-sol
+          aggregation: unanimous
+          scoring: binary
+          threshold: 1
+          overall_threshold: 1
+          evidence:
+            - diff
+          criteria:
+            - name: prompt/managedidentitycredential-class-from-azure-identity
+              description: |-
+                `ManagedIdentityCredential` class from `azure.identity`
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: prompt/system-assigned-no-parameters-needed
+              description: |-
+                System-assigned: no parameters needed
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: prompt/user-assigned-passing-client-id-keyword-argument
+              description: |-
+                User-assigned: passing `client_id` keyword argument
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: prompt/integration-with-defaultazurecredential-chain
+              description: |-
+                Integration with `DefaultAzureCredential` chain
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: prompt/credentialunavailableerror-when-not-running-in-azure
+              description: |-
+                `CredentialUnavailableError` when not running in Azure
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: prompt/chainedtokencredential-for-local-development-fallback
+              description: |-
+                `ChainedTokenCredential` for local development fallback
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: language/correct-package-imports
+              description: |-
+                Imports use the latest azure-sdk-for-python package structure (azure.*), not deprecated packages.
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: language/defaultazurecredential-usage
+              description: |-
+                Authentication matches what the prompt asks for. If the prompt explicitly requires a connection string (or other key-based auth), using `from_connection_string()` / connection-string-based clients is correct and should pass. Otherwise, authentication must use DefaultAzureCredential from azure-identity (or another `azure.identity` credential), not connection strings or hardcoded keys. Hardcoded secrets/keys/connection strings in source code always fail — required values should come from environment variables or a secret store.
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: language/context-manager-for-clients
+              description: |-
+                Azure SDK clients that support context managers are used with `with` statements or explicitly closed.
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: language/async-client-usage
+              description: |-
+                If async operations are requested, code uses the async client variant with proper await patterns.
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: language/proper-exception-handling
+              description: |-
+                Azure SDK exceptions (HttpResponseError and subclasses) are caught and handled appropriately.
+              weight: 1
+              pass_threshold: 1
+              required: true
 artifacts:
   include:
     - "**/*.py"

@@ -14,126 +14,251 @@ stimuli:
   - name: storage-dp-js-ts-encrypted-uploader
     prompt: |-
       Create a TypeScript Node.js project that uploads files to Azure Blob Storage with client-side encryption, where the encryption key material is managed in Azure Key Vault.
-
+      
       The project needs:
-
+      
       - A **key management class** that interacts with Azure Key Vault's Keys service (not Secrets) to perform cryptographic operations. It should implement envelope encryption: generate a data encryption key locally, use Key Vault to protect (wrap) it, and store the protected key alongside the encrypted blob. For decryption, have Key Vault recover (unwrap) the data key, then decrypt locally. The raw data key should never be persisted anywhere, and the vault's key material should never leave Key Vault.
-
+      
       - A **blob uploader/downloader class** that handles the actual encryption and storage. For upload: generate a data key, encrypt the data locally using AES-GCM, protect the data key via Key Vault, then upload the ciphertext to Blob Storage with the protected key and any necessary cryptographic parameters stored as blob metadata (including the initialization vector and the authentication tag, which in Node.js is separate from the ciphertext). For download: read the blob and its metadata, recover the data key via Key Vault, and decrypt. Should handle errors from both services (e.g., the vault key may have been disabled, or the blob may not exist).
-
+      
       - A **configuration module** that builds the necessary Azure connections for both Blob Storage and Key Vault. It should read endpoints from environment variables and authenticate with managed identity. All connections should share a single credential instance.
-
+      
       - A **main script** that demos the full encrypt-upload-download-decrypt round-trip: encrypts and uploads a sample string, then downloads and decrypts it back. Print the vault key ID used, the wrapped DEK (base64), and the decrypted output to verify the round-trip.
-
+      
       Include a complete `package.json` with the necessary Azure SDK dependencies and a `tsconfig.json`.
-
-      Write the code to files. Do not reply with code blocks.
     tags:
       service: storage
       plane: data-plane
       language: typescript
       category: crud
     graders:
-      - type: run-command
-        name: prompt/packages
+      - type: panel
+        name: prompt/full-case-review
         weight: 1
         config:
-          command: node
-          args:
-            - .vally/scenarios/storage-typescript-encrypted-uploader/tools/check-encrypted-uploader-typescript.mjs
-            - prompt/packages
-      - type: run-command
-        name: prompt/key-vault-envelope-encryption
-        weight: 1
-        config:
-          command: node
-          args:
-            - .vally/scenarios/storage-typescript-encrypted-uploader/tools/check-encrypted-uploader-typescript.mjs
-            - prompt/key-vault-envelope-encryption
-      - type: run-command
-        name: prompt/encrypted-blob-metadata
-        weight: 1
-        config:
-          command: node
-          args:
-            - .vally/scenarios/storage-typescript-encrypted-uploader/tools/check-encrypted-uploader-typescript.mjs
-            - prompt/encrypted-blob-metadata
-      - type: run-command
-        name: prompt/decrypt-path
-        weight: 1
-        config:
-          command: node
-          args:
-            - .vally/scenarios/storage-typescript-encrypted-uploader/tools/check-encrypted-uploader-typescript.mjs
-            - prompt/decrypt-path
-      - type: run-command
-        name: prompt/managed-identity-configuration
-        weight: 1
-        config:
-          command: node
-          args:
-            - .vally/scenarios/storage-typescript-encrypted-uploader/tools/check-encrypted-uploader-typescript.mjs
-            - prompt/managed-identity-configuration
-      - type: run-command
-        name: prompt/rest-error-handling
-        weight: 1
-        config:
-          command: node
-          args:
-            - .vally/scenarios/storage-typescript-encrypted-uploader/tools/check-encrypted-uploader-typescript.mjs
-            - prompt/rest-error-handling
-      - type: run-command
-        name: prompt/connected-round-trip
-        weight: 1
-        config:
-          command: node
-          args:
-            - .vally/scenarios/storage-typescript-encrypted-uploader/tools/check-encrypted-uploader-typescript.mjs
-            - prompt/connected-round-trip
-      - type: run-command
-        name: language/package-manifest
-        weight: 1
-        config:
-          command: node
-          args:
-            - .vally/languages/typescript/check.mjs
-            - language/package-manifest
-      - type: run-command
-        name: language/current-azure-packages
-        weight: 1
-        config:
-          command: node
-          args:
-            - .vally/languages/typescript/check.mjs
-            - language/current-azure-packages
-      - type: run-command
-        name: language/async-await
-        weight: 1
-        config:
-          command: node
-          args:
-            - .vally/languages/typescript/check.mjs
-            - language/async-await
-      - type: run-command
-        name: language/typescript-config
-        weight: 1
-        config:
-          command: node
-          args:
-            - .vally/languages/typescript/check.mjs
-            - language/typescript-config
-    environment:
-      files:
-        - src: tools/check-encrypted-uploader-typescript.mjs
-          dest: .vally/scenarios/storage-typescript-encrypted-uploader/tools/check-encrypted-uploader-typescript.mjs
-        - src: tools/source-manifest.mjs
-          dest: .vally/scenarios/storage-typescript-encrypted-uploader/tools/source-manifest.mjs
-        - src: tools/encrypted-uploader-typescript-rules.mjs
-          dest: .vally/scenarios/storage-typescript-encrypted-uploader/tools/encrypted-uploader-typescript-rules.mjs
-        - src: ../../languages/typescript/check.mjs
-          dest: .vally/languages/typescript/check.mjs
-        - src: ../../languages/typescript/checks.mjs
-          dest: .vally/languages/typescript/checks.mjs
+          prompt: |-
+            Review the generated implementation against every criterion.
+            Score each criterion independently. Accept equivalent valid
+            implementations and judge code behavior rather than syntax.
+          models:
+            - gpt-5.6-sol
+          aggregation: unanimous
+          scoring: binary
+          threshold: 1
+          overall_threshold: 1
+          evidence:
+            - diff
+          criteria:
+            - name: prompt/uses-azure-keyvault-keys-keys-not-secrets-critical-disti
+              description: |-
+                Uses `@azure/keyvault-keys` (Keys, NOT Secrets) — critical distinction
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: prompt/uses-node-js-built-in-crypto-module-for-local-aes-gcm-en
+              description: |-
+                Uses Node.js built-in `crypto` module for local AES-GCM encryption ### Client Construction (scenario-specific)
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: prompt/uses-keyclient-for-key-management-and-cryptographyclient
+              description: |-
+                Uses `KeyClient` for key management and `CryptographyClient` for wrap/unwrap operations (NOT `SecretClient`)
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: prompt/constructs-cryptographyclient-with-the-key-id-or-key-nam
+              description: |-
+                Constructs `CryptographyClient` with the key ID or key name ### Key Vault Keys Patterns (critical)
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: prompt/uses-cryptographyclient-for-wrapkey-and-unwrapkey-operat
+              description: |-
+                Uses `CryptographyClient` for `wrapKey()` and `unwrapKey()` operations
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: prompt/specifies-rsa-key-wrap-algorithm-e-g-rsa-oaep-or-rsa-oae
+              description: |-
+                Specifies RSA key wrap algorithm (e.g., `"RSA-OAEP"` or `"RSA-OAEP-256"`)
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: prompt/key-material-never-leaves-key-vault-wrap-unwrap-is-serve
+              description: |-
+                Key material never leaves Key Vault (wrap/unwrap is server-side) ### Envelope Encryption Patterns (critical)
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: prompt/generates-a-random-aes-256-dek-locally-32-bytes-via-cryp
+              description: |-
+                Generates a random AES-256 DEK locally (32 bytes via `crypto.randomBytes`)
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: prompt/encrypts-data-with-aes-gcm-locally-using-the-dek-crypto
+              description: |-
+                Encrypts data with AES-GCM locally using the DEK (`crypto.createCipheriv("aes-256-gcm", ...)`)
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: prompt/wraps-the-dek-via-key-vault-wrapkey
+              description: |-
+                Wraps the DEK via Key Vault `wrapKey()`
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: prompt/stores-wrapped-dek-as-blob-metadata-base64-encoded
+              description: |-
+                Stores wrapped DEK as blob metadata (base64-encoded)
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: prompt/stores-iv-initialization-vector-in-blob-metadata-base64
+              description: |-
+                Stores IV (initialization vector) in blob metadata (base64-encoded)
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: prompt/stores-gcm-auth-tag-in-blob-metadata-base64-encoded-in-n
+              description: |-
+                Stores GCM auth tag in blob metadata (base64-encoded) — in Node.js the auth tag is separate from ciphertext
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: prompt/stores-vault-key-identifier-in-blob-metadata
+              description: |-
+                Stores vault key identifier in blob metadata
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: prompt/for-decryption-retrieves-wrapped-dek-from-metadata-unwra
+              description: |-
+                For decryption: retrieves wrapped DEK from metadata, unwraps via Key Vault, sets auth tag via `decipher.setAuthTag()`, decrypts locally ### AES-GCM (Node.js specific)
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: prompt/uses-aes-gcm-not-aes-cbc-aes-ecb-or-other-modes
+              description: |-
+                Uses AES-GCM (not AES-CBC, AES-ECB, or other modes)
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: prompt/generates-random-iv-for-each-encryption-typically-12-byt
+              description: |-
+                Generates random IV for each encryption (typically 12 bytes for GCM)
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: prompt/retrieves-auth-tag-via-cipher-getauthtag-after-encryptio
+              description: |-
+                Retrieves auth tag via `cipher.getAuthTag()` after encryption finalize
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: prompt/sets-auth-tag-via-decipher-setauthtag-before-decryption
+              description: |-
+                Sets auth tag via `decipher.setAuthTag()` before decryption finalize ### Scenario-Specific Error Handling
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: prompt/handles-key-vault-errors-key-disabled-key-not-found-via
+              description: |-
+                Handles Key Vault errors (key disabled, key not found) via RestError
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: prompt/handles-storage-errors-blob-not-found-via-resterror-with
+              description: |-
+                Handles Storage errors (blob not found) via RestError with statusCode ### Anti-Patterns (scenario-specific)
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: prompt/not-using-secretclient-instead-of-keyclient-cryptography
+              description: |-
+                NOT using `SecretClient` instead of `KeyClient`/`CryptographyClient`
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: prompt/not-encrypting-data-directly-with-the-vault-key-should-b
+              description: |-
+                NOT encrypting data directly with the vault key (should be envelope encryption)
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: prompt/not-storing-raw-dek-in-plaintext
+              description: |-
+                NOT storing raw DEK in plaintext
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: prompt/not-omitting-the-gcm-auth-tag-from-blob-metadata-decrypt
+              description: |-
+                NOT omitting the GCM auth tag from blob metadata (decryption will fail)
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: language/correct-azure-scoped-packages
+              description: |-
+                All Azure SDK dependencies use @azure/ scoped packages (e.g., @azure/storage-blob, @azure/keyvault-secrets, @azure/identity). No deprecated unscoped packages (azure-storage, azure-arm-*, ms-rest-azure, @azure/ms-rest-*).
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: language/azure-identity-for-authentication
+              description: |-
+                Includes @azure/identity as a dependency. For local development, DefaultAzureCredential is acceptable. For production code, uses a specific Entra token credential (e.g., ManagedIdentityCredential, ClientSecretCredential, WorkloadIdentityCredential) or configures DefaultAzureCredential with the AZURE_TOKEN_CREDENTIALS environment variable set to "prod" or a specific token credential. No hardcoded connection strings, account keys, SAS tokens, or secrets in code.
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: language/client-constructor-with-endpoint-and-credential
+              description: |-
+                SDK clients constructed with endpoint URL and credential object, e.g. new BlobServiceClient(url, credential) or new SecretClient(vaultUrl, credential). No legacy constructor patterns or connection string-based construction when identity-based auth is available.
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: language/async-await-pattern
+              description: |-
+                Uses async/await for all asynchronous operations. No raw .then()/.catch() chains when await is cleaner. No callback-based patterns. Top-level async function or IIFE for entry point.
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: language/pagination-with-for-await-of
+              description: |-
+                List/query operations use for-await-of iteration over the PagedAsyncIterableIterator returned by SDK methods. Does not collect all pages into an array in memory (e.g., no Array.from() or manual page accumulation). Uses byPage() when per-page control is needed.
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: language/lro-pattern-beginxxx-polluntildone
+              description: |-
+                Long-running operations use the begin* method prefix (e.g., beginDeleteSecret, beginCreateOrUpdate) and await poller.pollUntilDone(). No manual setTimeout/setInterval polling loops.
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: language/resterror-exception-handling
+              description: |-
+                Catches RestError (from @azure/core-rest-pipeline or the service package) with statusCode inspection for error-specific handling. Not just generic Error or try/catch without type checking.
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: language/no-deprecated-packages
+              description: |-
+                No deprecated or legacy Azure packages in package.json: azure-storage, azure-arm-*, ms-rest-azure, @azure/ms-rest-js, @azure/ms-rest-nodeauth, @azure/ms-rest-azure-js. All dependencies use the current @azure/* track.
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: language/logging-via-azure-logger
+              description: |-
+                Uses @azure/logger with setLogLevel() or the AZURE_LOG_LEVEL environment variable for SDK diagnostic logging. No custom logging wrappers around SDK internals.
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: language/package-json-with-correct-dependencies
+              description: |-
+                Includes a valid package.json with all required @azure/* dependencies listed. TypeScript projects include tsconfig.json and appropriate @types/* packages or use a recent TypeScript version with built-in types.
+              weight: 1
+              pass_threshold: 1
+              required: true
 artifacts:
   include:
     - "**/*.ts"

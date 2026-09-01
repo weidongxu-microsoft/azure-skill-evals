@@ -13,107 +13,149 @@ defaults:
 stimuli:
   - name: resource-manager-mp-typescript-resource-group-crud
     prompt: |-
-      Write a TypeScript Node.js program that manages an Azure resource group through one complete lifecycle.
-
-      Write the code to files. Do not reply with code blocks.
-
-      1. Read the Azure subscription ID and resource group name from environment variables. Use "eastus" as the location.
-      2. Authenticate with DefaultAzureCredential and create a ResourceManagementClient.
-      3. Create the resource group and print the created resource.
-      4. List resource groups by asynchronously iterating the SDK result, printing each resource group.
-      5. Get the created resource group by name and print it.
-      6. Update that same resource group with resourceGroups.update(), adding the tag environment=development, and print the updated resource.
-      7. Delete the resource group, wait for the long-running deletion to complete, and only then print a deletion confirmation.
-
-      Show the required npm packages. Handle Azure request/authentication failures meaningfully and preserve unknown failures.
+      Write a TypeScript program
+      that manages Azure Resource Groups using the management plane SDK:
+      1. Authenticate using DefaultAzureCredential from @azure/identity
+      2. Create a ResourceManagementClient with the credential and subscription ID
+      3. Create a new resource group in "eastus" region
+      4. List all resource groups in the subscription using iteration
+      5. Get details of the created resource group
+      6. Update the resource group by adding a tag
+      7. Delete the resource group using beginDeleteAndWait
+      
+      Show required npm packages and proper async/await patterns.
+      Use the @azure/arm-resources package.
     tags:
       service: resource-manager
       plane: management-plane
       language: typescript
       category: crud
     graders:
-      - type: run-command
-        name: prompt/packages
+      - type: panel
+        name: prompt/full-case-review
         weight: 1
         config:
-          command: node
-          args:
-            - .vally/scenarios/resource-manager-typescript-resource-group-crud/tools/check-resource-manager-typescript.mjs
-            - prompt/packages
-      - type: run-command
-        name: prompt/environment
-        weight: 1
-        config:
-          command: node
-          args:
-            - .vally/scenarios/resource-manager-typescript-resource-group-crud/tools/check-resource-manager-typescript.mjs
-            - prompt/environment
-      - type: run-command
-        name: prompt/authenticated-client
-        weight: 1
-        config:
-          command: node
-          args:
-            - .vally/scenarios/resource-manager-typescript-resource-group-crud/tools/check-resource-manager-typescript.mjs
-            - prompt/authenticated-client
-      - type: run-command
-        name: prompt/create-and-output
-        weight: 1
-        config:
-          command: node
-          args:
-            - .vally/scenarios/resource-manager-typescript-resource-group-crud/tools/check-resource-manager-typescript.mjs
-            - prompt/create-and-output
-      - type: run-command
-        name: prompt/list-and-output
-        weight: 1
-        config:
-          command: node
-          args:
-            - .vally/scenarios/resource-manager-typescript-resource-group-crud/tools/check-resource-manager-typescript.mjs
-            - prompt/list-and-output
-      - type: run-command
-        name: prompt/get-and-output
-        weight: 1
-        config:
-          command: node
-          args:
-            - .vally/scenarios/resource-manager-typescript-resource-group-crud/tools/check-resource-manager-typescript.mjs
-            - prompt/get-and-output
-      - type: run-command
-        name: prompt/update-and-output
-        weight: 1
-        config:
-          command: node
-          args:
-            - .vally/scenarios/resource-manager-typescript-resource-group-crud/tools/check-resource-manager-typescript.mjs
-            - prompt/update-and-output
-      - type: run-command
-        name: prompt/delete-wait-confirm
-        weight: 1
-        config:
-          command: node
-          args:
-            - .vally/scenarios/resource-manager-typescript-resource-group-crud/tools/check-resource-manager-typescript.mjs
-            - prompt/delete-wait-confirm
-      - type: run-command
-        name: prompt/error-handling
-        weight: 1
-        config:
-          command: node
-          args:
-            - .vally/scenarios/resource-manager-typescript-resource-group-crud/tools/check-resource-manager-typescript.mjs
-            - prompt/error-handling
-    environment:
-      files:
-        - src: tools/check-resource-manager-typescript.mjs
-          dest: .vally/scenarios/resource-manager-typescript-resource-group-crud/tools/check-resource-manager-typescript.mjs
-        - src: tools/resource-manager-typescript-rules.mjs
-          dest: .vally/scenarios/resource-manager-typescript-resource-group-crud/tools/resource-manager-typescript-rules.mjs
-        - src: tools/source-manifest.mjs
-          dest: .vally/scenarios/resource-manager-typescript-resource-group-crud/tools/source-manifest.mjs
-        - src: ../../languages/typescript/checks.mjs
-          dest: .vally/languages/typescript/checks.mjs
+          prompt: |-
+            Review the generated implementation against every criterion.
+            Score each criterion independently. Accept equivalent valid
+            implementations and judge code behavior rather than syntax.
+          models:
+            - gpt-5.6-sol
+          aggregation: unanimous
+          scoring: binary
+          threshold: 1
+          overall_threshold: 1
+          evidence:
+            - diff
+          criteria:
+            - name: prompt/azure-arm-resources-and-azure-identity-npm-packages
+              description: |-
+                `@azure/arm-resources` and `@azure/identity` npm packages
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: prompt/defaultazurecredential-for-authentication
+              description: |-
+                `DefaultAzureCredential` for authentication
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: prompt/resourcemanagementclient-constructor-with-credential-and
+              description: |-
+                `ResourceManagementClient` constructor with credential and subscriptionId
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: prompt/resourcegroups-createorupdate-with-resource-group-name-a
+              description: |-
+                `resourceGroups.createOrUpdate()` with resource group name and parameters
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: prompt/resourcegroups-list-with-async-iteration-for-await-of
+              description: |-
+                `resourceGroups.list()` with async iteration (`for await...of`)
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: prompt/resourcegroups-get-for-fetching-details
+              description: |-
+                `resourceGroups.get()` for fetching details
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: prompt/resourcegroups-begindeleteandwait-for-long-running-delet
+              description: |-
+                `resourceGroups.beginDeleteAndWait()` for long-running delete
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: prompt/tag-updates-via-resourcegroups-update-with-tags-paramete
+              description: |-
+                Tag updates via `resourceGroups.update()` with tags parameter
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: language/correct-azure-scoped-packages
+              description: |-
+                All Azure SDK dependencies use @azure/ scoped packages (e.g., @azure/storage-blob, @azure/keyvault-secrets, @azure/identity). No deprecated unscoped packages (azure-storage, azure-arm-*, ms-rest-azure, @azure/ms-rest-*).
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: language/azure-identity-for-authentication
+              description: |-
+                Includes @azure/identity as a dependency. For local development, DefaultAzureCredential is acceptable. For production code, uses a specific Entra token credential (e.g., ManagedIdentityCredential, ClientSecretCredential, WorkloadIdentityCredential) or configures DefaultAzureCredential with the AZURE_TOKEN_CREDENTIALS environment variable set to "prod" or a specific token credential. No hardcoded connection strings, account keys, SAS tokens, or secrets in code.
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: language/client-constructor-with-endpoint-and-credential
+              description: |-
+                SDK clients constructed with endpoint URL and credential object, e.g. new BlobServiceClient(url, credential) or new SecretClient(vaultUrl, credential). No legacy constructor patterns or connection string-based construction when identity-based auth is available.
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: language/async-await-pattern
+              description: |-
+                Uses async/await for all asynchronous operations. No raw .then()/.catch() chains when await is cleaner. No callback-based patterns. Top-level async function or IIFE for entry point.
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: language/pagination-with-for-await-of
+              description: |-
+                List/query operations use for-await-of iteration over the PagedAsyncIterableIterator returned by SDK methods. Does not collect all pages into an array in memory (e.g., no Array.from() or manual page accumulation). Uses byPage() when per-page control is needed.
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: language/lro-pattern-beginxxx-polluntildone
+              description: |-
+                Long-running operations use the begin* method prefix (e.g., beginDeleteSecret, beginCreateOrUpdate) and await poller.pollUntilDone(). No manual setTimeout/setInterval polling loops.
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: language/resterror-exception-handling
+              description: |-
+                Catches RestError (from @azure/core-rest-pipeline or the service package) with statusCode inspection for error-specific handling. Not just generic Error or try/catch without type checking.
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: language/no-deprecated-packages
+              description: |-
+                No deprecated or legacy Azure packages in package.json: azure-storage, azure-arm-*, ms-rest-azure, @azure/ms-rest-js, @azure/ms-rest-nodeauth, @azure/ms-rest-azure-js. All dependencies use the current @azure/* track.
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: language/logging-via-azure-logger
+              description: |-
+                Uses @azure/logger with setLogLevel() or the AZURE_LOG_LEVEL environment variable for SDK diagnostic logging. No custom logging wrappers around SDK internals.
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: language/package-json-with-correct-dependencies
+              description: |-
+                Includes a valid package.json with all required @azure/* dependencies listed. TypeScript projects include tsconfig.json and appropriate @types/* packages or use a recent TypeScript version with built-in types.
+              weight: 1
+              pass_threshold: 1
+              required: true
 artifacts:
   include:
     - "**/*.ts"

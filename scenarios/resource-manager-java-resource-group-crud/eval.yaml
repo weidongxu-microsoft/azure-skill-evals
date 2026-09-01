@@ -13,117 +13,154 @@ defaults:
 stimuli:
   - name: resource-manager-mp-java-resource-group-crud
     prompt: |-
-      Write a Java 17 application that manages an Azure resource group with the
-      current Azure Resource Manager fluent SDK.
-
-      Write the code to files. Do not reply with code blocks.
-
-      Read AZURE_SUBSCRIPTION_ID, RESOURCE_GROUP_NAME, and AZURE_LOCATION from
-      environment variables. AZURE_LOCATION will be set to "eastus".
-
-      Use DefaultAzureCredential and an AzureProfile for AzureEnvironment.AZURE
-      to authenticate AzureResourceManager for AZURE_SUBSCRIPTION_ID. Perform
-      one connected lifecycle on RESOURCE_GROUP_NAME:
-
-      1. Create the resource group in AZURE_LOCATION.
-      2. List resource groups, iterate the result, and print each group.
-      3. Get RESOURCE_GROUP_NAME by name and print the result.
-      4. Update that retrieved group with tag
-         environment=development, apply the update, and print the result.
-      5. Delete RESOURCE_GROUP_NAME synchronously. If using
-         beginDeleteByName, wait for that exact poller to complete.
-      6. Print a deletion confirmation only after deletion completes.
-
-      Include an active Maven or Gradle runtime manifest with
-      com.azure.resourcemanager:azure-resourcemanager:2.63.0 and
-      com.azure:azure-identity:1.18.5. Handle ManagementException or
-      HttpResponseException meaningfully without swallowing failures.
+      Write a Java application that manages
+      Azure Resource Groups using the management plane SDK:
+      1. Authenticate using DefaultAzureCredential
+      2. Create a new resource group in "eastus" region
+      3. List all resource groups in the subscription
+      4. Get details of the created resource group
+      5. Add a tag to the resource group
+      6. Delete the resource group
+      
+      Show required Maven dependencies and include proper exception handling.
+      Use the modern azure-resourcemanager SDK.
     tags:
       service: resource-manager
       plane: management-plane
       language: java
       category: crud
     graders:
-      - type: run-command
-        name: prompt/source-manifest
+      - type: panel
+        name: prompt/full-case-review
         weight: 1
         config:
-          command: node
-          args:
-            - .vally/scenarios/resource-manager-java-resource-group-crud/tools/check-resource-manager-java.mjs
-            - prompt/source-manifest
-      - type: run-command
-        name: prompt/authentication
-        weight: 1
-        config:
-          command: node
-          args:
-            - .vally/scenarios/resource-manager-java-resource-group-crud/tools/check-resource-manager-java.mjs
-            - prompt/authentication
-      - type: run-command
-        name: prompt/create-resource-group
-        weight: 1
-        config:
-          command: node
-          args:
-            - .vally/scenarios/resource-manager-java-resource-group-crud/tools/check-resource-manager-java.mjs
-            - prompt/create-resource-group
-      - type: run-command
-        name: prompt/list-resource-groups
-        weight: 1
-        config:
-          command: node
-          args:
-            - .vally/scenarios/resource-manager-java-resource-group-crud/tools/check-resource-manager-java.mjs
-            - prompt/list-resource-groups
-      - type: run-command
-        name: prompt/get-resource-group
-        weight: 1
-        config:
-          command: node
-          args:
-            - .vally/scenarios/resource-manager-java-resource-group-crud/tools/check-resource-manager-java.mjs
-            - prompt/get-resource-group
-      - type: run-command
-        name: prompt/update-resource-group
-        weight: 1
-        config:
-          command: node
-          args:
-            - .vally/scenarios/resource-manager-java-resource-group-crud/tools/check-resource-manager-java.mjs
-            - prompt/update-resource-group
-      - type: run-command
-        name: prompt/delete-resource-group
-        weight: 1
-        config:
-          command: node
-          args:
-            - .vally/scenarios/resource-manager-java-resource-group-crud/tools/check-resource-manager-java.mjs
-            - prompt/delete-resource-group
-      - type: run-command
-        name: prompt/delete-confirmation
-        weight: 1
-        config:
-          command: node
-          args:
-            - .vally/scenarios/resource-manager-java-resource-group-crud/tools/check-resource-manager-java.mjs
-            - prompt/delete-confirmation
-      - type: run-command
-        name: prompt/exception-handling
-        weight: 1
-        config:
-          command: node
-          args:
-            - .vally/scenarios/resource-manager-java-resource-group-crud/tools/check-resource-manager-java.mjs
-            - prompt/exception-handling
-    environment:
-      files:
-        - src: tools/check-resource-manager-java.mjs
-          dest: .vally/scenarios/resource-manager-java-resource-group-crud/tools/check-resource-manager-java.mjs
-        - src: tools/resource-manager-java-rules.mjs
-          dest: .vally/scenarios/resource-manager-java-resource-group-crud/tools/resource-manager-java-rules.mjs
-        - src: ../../languages/java/checks.mjs
-          dest: .vally/languages/java/checks.mjs
+          prompt: |-
+            Review the generated implementation against every criterion.
+            Score each criterion independently. Accept equivalent valid
+            implementations and judge code behavior rather than syntax.
+          models:
+            - gpt-5.6-sol
+          aggregation: unanimous
+          scoring: binary
+          threshold: 1
+          overall_threshold: 1
+          evidence:
+            - diff
+          criteria:
+            - name: prompt/maven-dependency-for-azure-resourcemanager-and-azure-ide
+              description: |-
+                Maven dependency for `azure-resourcemanager` and `azure-identity`
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: prompt/azureresourcemanager-authenticate-with-credential-and-pr
+              description: |-
+                `AzureResourceManager.authenticate()` with credential and profile
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: prompt/resourcegroups-define-withregion-create
+              description: |-
+                `resourceGroups().define().withRegion().create()`
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: prompt/resourcegroups-list-iteration
+              description: |-
+                `resourceGroups().list()` iteration
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: prompt/resourcegroups-getbyname-for-details
+              description: |-
+                `resourceGroups().getByName()` for details
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: prompt/tag-management-via-update-withtag-apply
+              description: |-
+                Tag management via `update().withTag().apply()`
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: prompt/resourcegroups-deletebyname-for-cleanup
+              description: |-
+                `resourceGroups().deleteByName()` for cleanup
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: language/correct-dependencies-com-azure-not-com-microsoft-azure
+              description: |-
+                Uses com.azure group ID for all Azure SDK packages. No com.microsoft.azure (legacy SDK) dependencies. Includes azure-identity for authentication.
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: language/azure-sdk-bom-for-version-management
+              description: |-
+                Uses azure-sdk-bom in dependencyManagement to manage Azure SDK versions instead of hardcoding individual artifact versions. Dependencies should omit <version> tags when managed by the BOM.
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: language/correct-imports-no-legacy-no-internal-packages
+              description: |-
+                All imports use com.azure.* packages. No com.microsoft.azure.* (legacy) or com.azure.*.implementation.* (internal API) imports.
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: language/defaultazurecredential-authentication
+              description: |-
+                Uses DefaultAzureCredential or another com.azure.identity credential. No hardcoded connection strings, account keys, SAS tokens, or secrets.
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: language/client-builder-pattern
+              description: |-
+                SDK clients constructed using *ClientBuilder classes with .endpoint() or .vaultUrl() and .credential(). No legacy constructors (CloudStorageAccount, DocumentClient, KeyVaultClient).
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: language/no-deprecated-legacy-classes
+              description: |-
+                No deprecated classes from the old SDK (CloudStorageAccount, CloudBlobClient, DocumentClient, QueueClient, ApplicationTokenCredentials, MSICredentials, ConnectionStringBuilder).
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: language/pagination-pagediterable-pagedflux
+              description: |-
+                List/query operations return PagedIterable (sync) or PagedFlux (async). Does not flatten all pages into a raw List or Stream in memory.
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: language/lro-pattern-syncpoller-pollerflux
+              description: |-
+                Long-running operations use SyncPoller (sync) or PollerFlux (async) with begin* method prefix. No Thread.sleep() polling loops.
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: language/async-uses-project-reactor-mono-flux
+              description: |-
+                Async code uses Project Reactor types (Mono, Flux). Not CompletableFuture (wrong), not RxJava (wrong), not sync wrapped in ExecutorService. No .block() inside async service implementations.
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: language/service-specific-exception-handling
+              description: |-
+                Catches service-specific exceptions (BlobStorageException, CosmosException, ServiceBusException, HttpResponseException) with status code inspection. Not just generic Exception catches.
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: language/code-compiles-mvn-compile-gradle-compilejava
+              description: |-
+                The generated code compiles without errors. Attempt build verification if build tools are available.
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: language/try-with-resources-for-clients
+              description: |-
+                All Azure SDK client instances that implement AutoCloseable are used within try-with-resources blocks or explicitly closed in a finally block.
+              weight: 1
+              pass_threshold: 1
+              required: true
 artifacts:
   include:
     - "**/*.java"

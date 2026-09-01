@@ -13,116 +13,108 @@ defaults:
 stimuli:
   - name: cosmos-db-dp-dotnet-pagination
     prompt: |-
-      Write a runnable C# console application that queries items in an Azure Cosmos DB NoSQL container with proper pagination.
-
-      Write the code to files. Do not reply with code blocks.
-
-      1. Query items whose category is "electronics" using `SELECT * FROM c WHERE c.category = ...`. A parameterized `QueryDefinition` is preferred.
-      2. Process results page by page with `FeedIterator<T>` and `ReadNextAsync()`.
-      3. Set `QueryRequestOptions.MaxItemCount` to 50 for the iterator.
-      4. Print the continuation token returned by every page.
-      5. Accept a previously saved continuation token and pass it to `GetItemQueryIterator<T>` so the query can resume.
-      6. Accumulate and print the total request charge across all pages.
-      7. Briefly explain when direct `FeedIterator<T>` pagination is preferable to starting from `GetItemLinqQueryable<T>()`.
-
-      Target net8.0 and use Microsoft.Azure.Cosmos version 3.62.1 and
-      Newtonsoft.Json version 13.0.4 exactly.
+      Write a C# program that queries
+      items in a Cosmos DB container with proper pagination:
+      1. Execute a SQL query "SELECT * FROM c WHERE c.category = 'electronics'" against a container
+      2. Process results page-by-page using FeedIterator, limiting each page to 50 items
+      3. Print the continuation token after each page
+      4. Implement a "resume from token" pattern where the query can restart from a saved token
+      5. Track total RU consumption across all pages
+      
+      Use the Microsoft.Azure.Cosmos SDK v3. Show how to configure MaxItemCount
+      and explain the difference between FeedIterator and LINQ-based queries.
     tags:
       service: cosmos-db
       plane: data-plane
       language: dotnet
       category: pagination
     graders:
-      - type: run-command
-        name: prompt/cosmos-manifest
+      - type: panel
+        name: prompt/full-case-review
         weight: 1
         config:
-          command: node
-          args:
-            - .vally/scenarios/cosmos-db-dotnet-pagination-query-items/tools/check-cosmos-dotnet-pagination.mjs
-            - prompt/cosmos-manifest
-      - type: run-command
-        name: prompt/category-query
-        weight: 1
-        config:
-          command: node
-          args:
-            - .vally/scenarios/cosmos-db-dotnet-pagination-query-items/tools/check-cosmos-dotnet-pagination.mjs
-            - prompt/category-query
-      - type: run-command
-        name: prompt/page-size
-        weight: 1
-        config:
-          command: node
-          args:
-            - .vally/scenarios/cosmos-db-dotnet-pagination-query-items/tools/check-cosmos-dotnet-pagination.mjs
-            - prompt/page-size
-      - type: run-command
-        name: prompt/feed-pagination
-        weight: 1
-        config:
-          command: node
-          args:
-            - .vally/scenarios/cosmos-db-dotnet-pagination-query-items/tools/check-cosmos-dotnet-pagination.mjs
-            - prompt/feed-pagination
-      - type: run-command
-        name: prompt/continuation-resume
-        weight: 1
-        config:
-          command: node
-          args:
-            - .vally/scenarios/cosmos-db-dotnet-pagination-query-items/tools/check-cosmos-dotnet-pagination.mjs
-            - prompt/continuation-resume
-      - type: run-command
-        name: prompt/request-charge-total
-        weight: 1
-        config:
-          command: node
-          args:
-            - .vally/scenarios/cosmos-db-dotnet-pagination-query-items/tools/check-cosmos-dotnet-pagination.mjs
-            - prompt/request-charge-total
-      - type: run-command
-        name: language/project-manifest
-        weight: 1
-        config:
-          command: node
-          args:
-            - .vally/languages/dotnet/check.mjs
-            - language/project-manifest
-      - type: run-command
-        name: language/current-azure-packages
-        weight: 1
-        config:
-          command: node
-          args:
-            - .vally/languages/dotnet/check.mjs
-            - language/current-azure-packages
-      - type: run-command
-        name: language/async-await
-        weight: 1
-        config:
-          command: node
-          args:
-            - .vally/languages/dotnet/check.mjs
-            - language/async-await
-      - type: run-command
-        name: language/client-lifecycle
-        weight: 1
-        config:
-          command: node
-          args:
-            - .vally/languages/dotnet/check.mjs
-            - language/client-lifecycle
-    environment:
-      files:
-        - src: tools/check-cosmos-dotnet-pagination.mjs
-          dest: .vally/scenarios/cosmos-db-dotnet-pagination-query-items/tools/check-cosmos-dotnet-pagination.mjs
-        - src: tools/cosmos-dotnet-pagination-rules.mjs
-          dest: .vally/scenarios/cosmos-db-dotnet-pagination-query-items/tools/cosmos-dotnet-pagination-rules.mjs
-        - src: ../../languages/dotnet/check.mjs
-          dest: .vally/languages/dotnet/check.mjs
-        - src: ../../languages/dotnet/checks.mjs
-          dest: .vally/languages/dotnet/checks.mjs
+          prompt: |-
+            Review the generated implementation against every criterion.
+            Score each criterion independently. Accept equivalent valid
+            implementations and judge code behavior rather than syntax.
+          models:
+            - gpt-5.6-sol
+          aggregation: unanimous
+          scoring: binary
+          threshold: 1
+          overall_threshold: 1
+          evidence:
+            - diff
+          criteria:
+            - name: prompt/container-getitemqueryiterator-t-with-querydefinition
+              description: |-
+                `Container.GetItemQueryIterator<T>()` with `QueryDefinition`
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: prompt/queryrequestoptions-maxitemcount-for-page-size-control
+              description: |-
+                `QueryRequestOptions.MaxItemCount` for page size control
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: prompt/feediterator-t-hasmoreresults-and-readnextasync-loop-pat
+              description: |-
+                `FeedIterator<T>.HasMoreResults` and `ReadNextAsync()` loop pattern
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: prompt/feedresponse-t-continuationtoken-for-resumable-paginatio
+              description: |-
+                `FeedResponse<T>.ContinuationToken` for resumable pagination
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: prompt/passing-continuation-token-to-resume-a-query
+              description: |-
+                Passing continuation token to resume a query
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: prompt/feedresponse-t-requestcharge-for-ru-tracking
+              description: |-
+                `FeedResponse<T>.RequestCharge` for RU tracking
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: prompt/cross-partition-query-considerations
+              description: |-
+                Cross-partition query considerations
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: prompt/linq-alternative-via-getitemlinqqueryable-t
+              description: |-
+                LINQ alternative via `GetItemLinqQueryable<T>()`
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: language/azure-identity-authentication
+              description: |-
+                Check that authentication follows the prompt and uses the appropriate modern .NET Azure SDK mechanism.
+                When token-based authentication is requested, uses an appropriate credential from Azure.Identity and passes it to the SDK client. When the prompt explicitly requests a connection string, connection-string construction is valid. Credentials, connection strings, and secrets are not hardcoded.
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: language/sdk-specific-exception-handling
+              description: |-
+                Check that requested error handling uses the exception model of the selected .NET Azure SDK package.
+                When error handling is requested, catches the appropriate SDK exception, such as RequestFailedException for many Azure.* and ARM clients, CosmosException for Microsoft.Azure.Cosmos, ServiceBusException for Service Bus, EventHubsException for Event Hubs, or AuthenticationFailedException and CredentialUnavailableException for Azure Identity. Inspects status codes, error codes, or retry details when relevant instead of relying only on a generic Exception catch.
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: language/asynchronous-sdk-usage
+              description: |-
+                Check that asynchronous .NET Azure SDK calls use normal asynchronous control flow.
+                When asynchronous SDK APIs are used, awaits them with async and await rather than blocking through .Result, .Wait(), or GetAwaiter().GetResult().
+              weight: 1
+              pass_threshold: 1
+              required: true
 artifacts:
   include:
     - "**/*.cs"
