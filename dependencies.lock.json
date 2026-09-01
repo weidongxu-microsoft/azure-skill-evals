@@ -12,8 +12,9 @@
     }
   ],
   "packages": {
-    "@microsoft/vally-cli": "0.12.0",
+    "@microsoft/vally-cli": "0.14.0",
     "@azure/mcp": "3.0.0-beta.38",
-    "@github/copilot": "1.0.71"
+    "@github/copilot": "1.0.71",
+    "@github/copilot-sdk": "1.0.7"
   }
 }

@@ -30,9 +30,9 @@ language correctness checks; the number of checks can vary by scenario.
 
 ## Run evaluations in GitHub Actions
 
-Pull requests targeting `main` run deterministic tests, strict evaluation
-linting, and dry-runs of all four language experiments. Agent evaluations
-remain manual.
+Pull requests targeting `main` run harness and model-grader configuration
+tests, strict evaluation linting, and dry-runs of all four language
+experiments. Agent and judge evaluations remain manual.
 
 The `Vally evaluations` workflow supports manual runs of all evaluations,
 evaluations matching tags, or one suite from `.vally.yaml`. Tag clauses are
@@ -67,21 +67,23 @@ scenarios/<name>/
 │   ├── application source
 │   └── dependency manifest
 └── tools/
-    ├── grader entrypoint
-    └── deterministic rules
+    └── retired deterministic grader implementation
 
 languages/<language>/
-├── check entrypoint
-├── reusable deterministic checks
-└── grader tests
+└── retired deterministic checks and tests
 
 experiments/<language>/
 └── experiment.yaml
 ```
 
-Scenario evals stage the applicable shared language checker and declare each
-check separately so Vally reports independent one-point results. Language
-experiments own the three environment variants and can run multiple evals.
+Each scenario uses one single-model Vally panel. The panel contains the exact
+Hyoka scenario criteria and every Hyoka model-based language criterion, with
+one required point per criterion. Language experiments own the three
+environment variants and can run multiple evals. Each workspace starts with a
+shared `.gitignore` and `AGENTS.md`. The instructions require complete runnable
+projects with root-level manifests, while the ignore rules keep installed
+dependencies and build outputs out of generated workspaces. Judges receive both
+the response trajectory and a bounded snapshot of the complete workspace.
 
 ## Scoring
 
@@ -95,9 +97,9 @@ activation remain available in Vally trajectories as diagnostic evidence, but
 they do not affect correctness scores. Checker entrypoints require at least one
 top-level Python file without imposing a specific filename.
 
-The golden application proves that the deterministic grader suite has at least
-one valid solution without requiring generated code to match one exact
-implementation.
+Golden applications remain runnable reference implementations. Live
+model-grader oracle coverage will verify them separately from ordinary unit
+tests.
 
 The third arm exposes every skill from the applicable `microsoft/skills`
 language plugin. Scores measure whether adding that complete suite improves

@@ -19,7 +19,7 @@ async function main(): Promise<void> {
 `,
 };
 
-test("shared TypeScript checks accept a current async SDK application", () => {
+test.skip("shared TypeScript checks accept a current async SDK application", () => {
   for (const check of [
     "language/package-manifest",
     "language/current-azure-packages",
@@ -30,7 +30,7 @@ test("shared TypeScript checks accept a current async SDK application", () => {
   }
 });
 
-test("legacy packages and missing TypeScript configuration fail", () => {
+test.skip("legacy packages and missing TypeScript configuration fail", () => {
   const workspace = {
     ...completeWorkspace,
     packageJson: JSON.stringify({

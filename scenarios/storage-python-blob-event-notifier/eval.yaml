@@ -2,6 +2,12 @@ name: storage-python-blob-event-notifier
 description: Compare Azure tooling for a Python Blob Storage Event Grid notifier
 version: "1.0"
 type: capability
+environment:
+  files:
+    - src: ../../eval-workspace.gitignore
+      dest: .gitignore
+    - src: ../../eval-workspace-AGENTS.md
+      dest: AGENTS.md
 scoring:
   weights: {}
   threshold: 1
@@ -14,21 +20,21 @@ stimuli:
   - name: storage-dp-python-blob-event-notifier
     prompt: |-
       Create a Python project that processes Azure Blob Storage lifecycle events delivered via Event Grid.
-
+      
       **Write the code to files (use file-write tools, do not reply with code blocks).**
-
+      
       The project needs:
-
+      
       - An **event receiver module** (both sync and async versions) that accepts a JSON payload (as if received from an Event Grid webhook endpoint) and deserializes it into structured event objects using the Azure Event Grid SDK's built-in deserialization helpers — not manual JSON parsing. It should support both Event Grid native schema and CloudEvents 1.0 schema (since Event Grid supports both and the configured schema may vary). It should route events by type — blob-created events get processed one way, blob-deleted another, and unrecognized types are logged as warnings.
-
+      
       - A **blob event handler module** that processes individual blob events. For blob-created events, it should parse the blob's container and name from the event subject, download the blob, and print a summary (name, size, content type, and the blob's access tier). For blob-deleted events, it should just log the deletion. It should handle race conditions gracefully — the blob may have already been deleted or moved to a different tier by the time we try to read it.
-
+      
       - An **event publisher module** (both sync and async versions) that can publish custom events to an Event Grid topic. Given a topic endpoint and a list of custom event objects, it should send them to Event Grid using the SDK's publisher client. This would be used for downstream notifications (e.g., "document processed" events). It should support setting a subject hierarchy for event filtering (e.g., "/documents/invoices/processed"). Handle publishing errors gracefully with proper exception handling.
-
+      
       - A **configuration module** that connects to Azure Blob Storage and Event Grid securely. Authentication should use `DefaultAzureCredential` — no access keys or SAS tokens.
-
+      
       - A **main script** that demos both implementations: constructs a sample Event Grid JSON payload (with both CloudEvents and EventGrid-schema examples) containing mock blob-created and blob-deleted events with realistic structure, feeds them through the receiver and handler, and publishes a custom downstream event. Run the full demo with the sync implementation first, then repeat with the async implementation.
-
+      
       Include a `requirements.txt` with the necessary Azure SDK dependencies.
     tags:
       service: storage
@@ -36,74 +42,124 @@ stimuli:
       language: python
       category: streaming
     graders:
-      - type: run-command
-        name: prompt/sdk-packages
+      - type: panel
+        name: prompt/full-case-review
         weight: 1
-        config: { command: node, args: [.vally/scenarios/storage-python-blob-event-notifier/tools/check-blob-event-notifier-python.mjs, prompt/sdk-packages] }
-      - type: run-command
-        name: prompt/sdk-event-deserialization
-        weight: 1
-        config: { command: node, args: [.vally/scenarios/storage-python-blob-event-notifier/tools/check-blob-event-notifier-python.mjs, prompt/sdk-event-deserialization] }
-      - type: run-command
-        name: prompt/event-routing
-        weight: 1
-        config: { command: node, args: [.vally/scenarios/storage-python-blob-event-notifier/tools/check-blob-event-notifier-python.mjs, prompt/event-routing] }
-      - type: run-command
-        name: prompt/blob-subject-and-summary
-        weight: 1
-        config: { command: node, args: [.vally/scenarios/storage-python-blob-event-notifier/tools/check-blob-event-notifier-python.mjs, prompt/blob-subject-and-summary] }
-      - type: run-command
-        name: prompt/race-condition-handling
-        weight: 1
-        config: { command: node, args: [.vally/scenarios/storage-python-blob-event-notifier/tools/check-blob-event-notifier-python.mjs, prompt/race-condition-handling] }
-      - type: run-command
-        name: prompt/custom-event-publishing
-        weight: 1
-        config: { command: node, args: [.vally/scenarios/storage-python-blob-event-notifier/tools/check-blob-event-notifier-python.mjs, prompt/custom-event-publishing] }
-      - type: run-command
-        name: prompt/async-implementations
-        weight: 1
-        config: { command: node, args: [.vally/scenarios/storage-python-blob-event-notifier/tools/check-blob-event-notifier-python.mjs, prompt/async-implementations] }
-      - type: run-command
-        name: prompt/secure-client-configuration
-        weight: 1
-        config: { command: node, args: [.vally/scenarios/storage-python-blob-event-notifier/tools/check-blob-event-notifier-python.mjs, prompt/secure-client-configuration] }
-      - type: run-command
-        name: prompt/ordered-demo-workflow
-        weight: 1
-        config: { command: node, args: [.vally/scenarios/storage-python-blob-event-notifier/tools/check-blob-event-notifier-python.mjs, prompt/ordered-demo-workflow] }
-      - type: run-command
-        name: language/correct-imports
-        weight: 1
-        config: { command: node, args: [.vally/languages/python/check.mjs, language/correct-imports] }
-      - type: run-command
-        name: language/default-azure-credential
-        weight: 1
-        config: { command: node, args: [.vally/languages/python/check.mjs, language/default-azure-credential] }
-      - type: run-command
-        name: language/client-lifecycle
-        weight: 1
-        config: { command: node, args: [.vally/languages/python/check.mjs, language/client-lifecycle] }
-      - type: run-command
-        name: language/async-client
-        weight: 1
-        config: { command: node, args: [.vally/languages/python/check.mjs, language/async-client] }
-      - type: run-command
-        name: language/exception-handling
-        weight: 1
-        config: { command: node, args: [.vally/languages/python/check.mjs, language/exception-handling] }
-    environment:
-      files:
-        - src: tools/check-blob-event-notifier-python.mjs
-          dest: .vally/scenarios/storage-python-blob-event-notifier/tools/check-blob-event-notifier-python.mjs
-        - src: tools/blob-event-notifier-rules.mjs
-          dest: .vally/scenarios/storage-python-blob-event-notifier/tools/blob-event-notifier-rules.mjs
-        - src: tools/blob_event_notifier_analyzer.py
-          dest: .vally/scenarios/storage-python-blob-event-notifier/tools/blob_event_notifier_analyzer.py
-        - src: ../../languages/python/check.mjs
-          dest: .vally/languages/python/check.mjs
-        - src: ../../languages/python/checks.mjs
-          dest: .vally/languages/python/checks.mjs
+        config:
+          prompt: |-
+            Review the generated implementation against every criterion.
+            Score each criterion independently. Accept equivalent valid
+            implementations and judge code behavior rather than syntax.
+            Return every criterion name exactly as provided. The criterion
+            value must start with "prompt/" or "language/". Never copy a rubric
+            list number into the criterion value. For example, return
+            "prompt/foo", never "1. prompt/foo".
+          models:
+            - gpt-5.6-sol
+          aggregation: unanimous
+          scoring: binary
+          threshold: 1
+          overall_threshold: 1
+          evidence:
+            - trajectory
+            - repo
+          criteria:
+            - name: prompt/deserializes-event-grid-native-schema-events-using-the-s
+              description: |-
+                Deserializes Event Grid native schema events using the SDK's built-in deserialization (not manual JSON parsing)
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: prompt/deserializes-cloudevents-1-0-schema-events-using-the-sdk
+              description: |-
+                Deserializes CloudEvents 1.0 schema events using the SDK's built-in deserialization (not manual JSON parsing) ### Event Routing & Processing
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: prompt/routes-events-by-event-type-blob-created-vs-blob-deleted
+              description: |-
+                Routes events by event type (blob-created vs blob-deleted vs unrecognized)
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: prompt/logs-a-warning-for-unrecognized-event-types
+              description: |-
+                Logs a warning for unrecognized event types
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: prompt/parses-container-name-and-blob-name-from-event-subject
+              description: |-
+                Parses container name and blob name from event subject
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: prompt/retrieves-and-prints-blob-access-tier-from-blob-properti
+              description: |-
+                Retrieves and prints blob access tier from blob properties ### Event Publishing
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: prompt/publishes-custom-events-to-an-event-grid-topic-using-the
+              description: |-
+                Publishes custom events to an Event Grid topic using the SDK's publisher client
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: prompt/sets-subject-hierarchy-on-custom-events-for-filtering-er
+              description: |-
+                Sets subject hierarchy on custom events for filtering ### Error Handling
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: prompt/handles-race-condition-where-the-blob-may-no-longer-exis
+              description: |-
+                Handles race condition where the blob may no longer exist by the time the handler runs
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: prompt/handles-publishing-errors-with-proper-exception-handling
+              description: |-
+                Handles publishing errors with proper exception handling ### Async Support
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: prompt/async-versions-use-the-async-variants-of-the-event-grid
+              description: |-
+                Async versions use the async variants of the Event Grid and Blob Storage clients
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: language/correct-package-imports
+              description: |-
+                Imports use the latest azure-sdk-for-python package structure (azure.*), not deprecated packages.
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: language/defaultazurecredential-usage
+              description: |-
+                Authentication matches what the prompt asks for. If the prompt explicitly requires a connection string (or other key-based auth), using `from_connection_string()` / connection-string-based clients is correct and should pass. Otherwise, authentication must use DefaultAzureCredential from azure-identity (or another `azure.identity` credential), not connection strings or hardcoded keys. Hardcoded secrets/keys/connection strings in source code always fail — required values should come from environment variables or a secret store.
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: language/context-manager-for-clients
+              description: |-
+                Azure SDK clients that support context managers are used with `with` statements or explicitly closed.
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: language/async-client-usage
+              description: |-
+                If async operations are requested, code uses the async client variant with proper await patterns.
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: language/proper-exception-handling
+              description: |-
+                Azure SDK exceptions (HttpResponseError and subclasses) are caught and handled appropriately.
+              weight: 1
+              pass_threshold: 1
+              required: true
 artifacts:
   include:
     - "**/*.py"

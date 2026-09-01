@@ -2,6 +2,12 @@ name: resource-manager-python-resource-group-crud
 description: Compare Azure tooling for a Python resource group lifecycle
 version: "1.0"
 type: capability
+environment:
+  files:
+    - src: ../../eval-workspace.gitignore
+      dest: .gitignore
+    - src: ../../eval-workspace-AGENTS.md
+      dest: AGENTS.md
 scoring:
   weights: {}
   threshold: 1
@@ -13,105 +19,116 @@ defaults:
 stimuli:
   - name: resource-manager-mp-python-rg-crud
     prompt: |-
-      Write a complete, runnable Python script that performs one Azure Resource Group lifecycle.
-
-      Write the code to files. Do not reply with code blocks.
-
-      1. Show the required pip packages for Azure Identity and Resource Manager.
-      2. Read the subscription ID, resource group name, and location from AZURE_SUBSCRIPTION_ID, AZURE_RESOURCE_GROUP_NAME, and AZURE_LOCATION. Use eastus as the location default.
-      3. Authenticate one ResourceManagementClient with DefaultAzureCredential and that subscription ID.
-      4. Create the resource group with ResourceGroup and create_or_update, completing the operation in eastus.
-      5. List all resource groups, iterate the returned collection, and print data from each result.
-      6. Get the created resource group and print data from the returned result.
-      7. Update that resource group's tags to include environment=development and print the observed update result.
-      8. Begin deleting the same resource group, wait for that exact poller's result, and print a deletion confirmation only after completion.
-      9. Handle HttpResponseError meaningfully without swallowing unrelated failures.
+      Write a Python script that manages Azure Resource Groups using the management plane SDK.
+      
+      **Write the code to files (use file-write tools, do not reply with code blocks).**
+      
+      3. List all resource groups in the subscription
+      4. Get details of the created resource group
+      5. Add a tag to the resource group
+      6. Delete the resource group
+      
+      Show required pip packages and include proper error handling.
     tags:
       service: resource-manager
       plane: management-plane
       language: python
       category: crud
     graders:
-      - type: run-command
-        name: prompt/sdk-packages
+      - type: panel
+        name: prompt/full-case-review
         weight: 1
         config:
-          command: node
-          args:
-            - .vally/scenarios/resource-manager-python-resource-group-crud/tools/check-resource-group-python.mjs
-            - prompt/sdk-packages
-      - type: run-command
-        name: prompt/configuration
-        weight: 1
-        config:
-          command: node
-          args:
-            - .vally/scenarios/resource-manager-python-resource-group-crud/tools/check-resource-group-python.mjs
-            - prompt/configuration
-      - type: run-command
-        name: prompt/authenticated-management-client
-        weight: 1
-        config:
-          command: node
-          args:
-            - .vally/scenarios/resource-manager-python-resource-group-crud/tools/check-resource-group-python.mjs
-            - prompt/authenticated-management-client
-      - type: run-command
-        name: prompt/create-resource-group
-        weight: 1
-        config:
-          command: node
-          args:
-            - .vally/scenarios/resource-manager-python-resource-group-crud/tools/check-resource-group-python.mjs
-            - prompt/create-resource-group
-      - type: run-command
-        name: prompt/list-resource-groups
-        weight: 1
-        config:
-          command: node
-          args:
-            - .vally/scenarios/resource-manager-python-resource-group-crud/tools/check-resource-group-python.mjs
-            - prompt/list-resource-groups
-      - type: run-command
-        name: prompt/get-resource-group
-        weight: 1
-        config:
-          command: node
-          args:
-            - .vally/scenarios/resource-manager-python-resource-group-crud/tools/check-resource-group-python.mjs
-            - prompt/get-resource-group
-      - type: run-command
-        name: prompt/update-tags
-        weight: 1
-        config:
-          command: node
-          args:
-            - .vally/scenarios/resource-manager-python-resource-group-crud/tools/check-resource-group-python.mjs
-            - prompt/update-tags
-      - type: run-command
-        name: prompt/delete-resource-group
-        weight: 1
-        config:
-          command: node
-          args:
-            - .vally/scenarios/resource-manager-python-resource-group-crud/tools/check-resource-group-python.mjs
-            - prompt/delete-resource-group
-      - type: run-command
-        name: prompt/sdk-error-handling
-        weight: 1
-        config:
-          command: node
-          args:
-            - .vally/scenarios/resource-manager-python-resource-group-crud/tools/check-resource-group-python.mjs
-            - prompt/sdk-error-handling
-    environment:
-      files:
-        - src: tools/check-resource-group-python.mjs
-          dest: .vally/scenarios/resource-manager-python-resource-group-crud/tools/check-resource-group-python.mjs
-        - src: tools/resource-group-rules.mjs
-          dest: .vally/scenarios/resource-manager-python-resource-group-crud/tools/resource-group-rules.mjs
-        - src: tools/resource_group_analyzer.py
-          dest: .vally/scenarios/resource-manager-python-resource-group-crud/tools/resource_group_analyzer.py
+          prompt: |-
+            Review the generated implementation against every criterion.
+            Score each criterion independently. Accept equivalent valid
+            implementations and judge code behavior rather than syntax.
+            Return every criterion name exactly as provided. The criterion
+            value must start with "prompt/" or "language/". Never copy a rubric
+            list number into the criterion value. For example, return
+            "prompt/foo", never "1. prompt/foo".
+          models:
+            - gpt-5.6-sol
+          aggregation: unanimous
+          scoring: binary
+          threshold: 1
+          overall_threshold: 1
+          evidence:
+            - trajectory
+            - repo
+          criteria:
+            - name: prompt/azure-mgmt-resource-and-azure-identity-pip-packages
+              description: |-
+                `azure-mgmt-resource` and `azure-identity` pip packages
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: prompt/resourcemanagementclient-creation-with-credential-and-su
+              description: |-
+                `ResourceManagementClient` creation with credential and subscription_id
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: prompt/resource-groups-create-or-update-with-resourcegroup-mode
+              description: |-
+                `resource_groups.create_or_update()` with `ResourceGroup` model
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: prompt/resource-groups-list-iteration
+              description: |-
+                `resource_groups.list()` iteration
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: prompt/resource-groups-get-for-details
+              description: |-
+                `resource_groups.get()` for details
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: prompt/tag-updates-via-resource-groups-update
+              description: |-
+                Tag updates via `resource_groups.update()`
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: prompt/resource-groups-begin-delete-with-poller
+              description: |-
+                `resource_groups.begin_delete()` with poller
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: language/correct-package-imports
+              description: |-
+                Imports use the latest azure-sdk-for-python package structure (azure.*), not deprecated packages.
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: language/defaultazurecredential-usage
+              description: |-
+                Authentication matches what the prompt asks for. If the prompt explicitly requires a connection string (or other key-based auth), using `from_connection_string()` / connection-string-based clients is correct and should pass. Otherwise, authentication must use DefaultAzureCredential from azure-identity (or another `azure.identity` credential), not connection strings or hardcoded keys. Hardcoded secrets/keys/connection strings in source code always fail — required values should come from environment variables or a secret store.
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: language/context-manager-for-clients
+              description: |-
+                Azure SDK clients that support context managers are used with `with` statements or explicitly closed.
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: language/async-client-usage
+              description: |-
+                If async operations are requested, code uses the async client variant with proper await patterns.
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: language/proper-exception-handling
+              description: |-
+                Azure SDK exceptions (HttpResponseError and subclasses) are caught and handled appropriately.
+              weight: 1
+              pass_threshold: 1
+              required: true
 artifacts:
   include:
     - "**/*.py"

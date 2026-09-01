@@ -2,6 +2,12 @@ name: storage-typescript-crud-blobs
 description: Compare Azure tooling for a Blob Storage TypeScript CRUD task
 version: "1.0"
 type: capability
+environment:
+  files:
+    - src: ../../eval-workspace.gitignore
+      dest: .gitignore
+    - src: ../../eval-workspace-AGENTS.md
+      dest: AGENTS.md
 scoring:
   weights: {}
   threshold: 1
@@ -13,130 +19,153 @@ defaults:
 stimuli:
   - name: storage-dp-typescript-crud-blobs
     prompt: |-
-      Write a TypeScript program that performs CRUD operations on Azure Blob Storage:
-      1. Create a BlobServiceClient using DefaultAzureCredential.
-      2. Create a container named "my-container" if it doesn't exist.
-      3. Upload the string "Hello Azure!" as a block blob named "greeting.txt".
-      4. List all blobs in the container and log their names.
-      5. Download the blob and print its content as a string.
-      6. Delete the blob and then delete the container.
-
-      Show the required npm packages and proper error handling with RestError.
+      Write a TypeScript program that
+      performs CRUD operations on Azure Blob Storage:
+      1. Create a BlobServiceClient using DefaultAzureCredential
+      2. Create a container named "my-container" if it doesn't exist
+      3. Upload a string "Hello Azure!" as a block blob named "greeting.txt"
+      4. List all blobs in the container and log their names
+      5. Download the blob and print its content as a string
+      6. Delete the blob and then delete the container
+      
+      Show required npm packages and proper error handling with RestError.
       Use async/await throughout.
-
-      Write the code to files. Do not reply with code blocks.
     tags:
       service: storage
       plane: data-plane
       language: typescript
       category: crud
     graders:
-      - type: run-command
-        name: prompt/packages
+      - type: panel
+        name: prompt/full-case-review
         weight: 1
         config:
-          command: node
-          args:
-            - .vally/scenarios/storage-typescript-crud-blobs/tools/check-storage-typescript.mjs
-            - prompt/packages
-      - type: run-command
-        name: prompt/authenticated-client
-        weight: 1
-        config:
-          command: node
-          args:
-            - .vally/scenarios/storage-typescript-crud-blobs/tools/check-storage-typescript.mjs
-            - prompt/authenticated-client
-      - type: run-command
-        name: prompt/container-create
-        weight: 1
-        config:
-          command: node
-          args:
-            - .vally/scenarios/storage-typescript-crud-blobs/tools/check-storage-typescript.mjs
-            - prompt/container-create
-      - type: run-command
-        name: prompt/upload
-        weight: 1
-        config:
-          command: node
-          args:
-            - .vally/scenarios/storage-typescript-crud-blobs/tools/check-storage-typescript.mjs
-            - prompt/upload
-      - type: run-command
-        name: prompt/list-and-output
-        weight: 1
-        config:
-          command: node
-          args:
-            - .vally/scenarios/storage-typescript-crud-blobs/tools/check-storage-typescript.mjs
-            - prompt/list-and-output
-      - type: run-command
-        name: prompt/download-and-output
-        weight: 1
-        config:
-          command: node
-          args:
-            - .vally/scenarios/storage-typescript-crud-blobs/tools/check-storage-typescript.mjs
-            - prompt/download-and-output
-      - type: run-command
-        name: prompt/delete-lifecycle
-        weight: 1
-        config:
-          command: node
-          args:
-            - .vally/scenarios/storage-typescript-crud-blobs/tools/check-storage-typescript.mjs
-            - prompt/delete-lifecycle
-      - type: run-command
-        name: prompt/rest-error
-        weight: 1
-        config:
-          command: node
-          args:
-            - .vally/scenarios/storage-typescript-crud-blobs/tools/check-storage-typescript.mjs
-            - prompt/rest-error
-      - type: run-command
-        name: language/package-manifest
-        weight: 1
-        config:
-          command: node
-          args:
-            - .vally/languages/typescript/check.mjs
-            - language/package-manifest
-      - type: run-command
-        name: language/current-azure-packages
-        weight: 1
-        config:
-          command: node
-          args:
-            - .vally/languages/typescript/check.mjs
-            - language/current-azure-packages
-      - type: run-command
-        name: language/async-await
-        weight: 1
-        config:
-          command: node
-          args:
-            - .vally/languages/typescript/check.mjs
-            - language/async-await
-      - type: run-command
-        name: language/typescript-config
-        weight: 1
-        config:
-          command: node
-          args:
-            - .vally/languages/typescript/check.mjs
-            - language/typescript-config
-    environment:
-      files:
-        - src: tools/check-storage-typescript.mjs
-          dest: .vally/scenarios/storage-typescript-crud-blobs/tools/check-storage-typescript.mjs
-        - src: tools/storage-typescript-rules.mjs
-          dest: .vally/scenarios/storage-typescript-crud-blobs/tools/storage-typescript-rules.mjs
-        - src: ../../languages/typescript/check.mjs
-          dest: .vally/languages/typescript/check.mjs
-        - src: ../../languages/typescript/checks.mjs
-          dest: .vally/languages/typescript/checks.mjs
+          prompt: |-
+            Review the generated implementation against every criterion.
+            Score each criterion independently. Accept equivalent valid
+            implementations and judge code behavior rather than syntax.
+            Return every criterion name exactly as provided. The criterion
+            value must start with "prompt/" or "language/". Never copy a rubric
+            list number into the criterion value. For example, return
+            "prompt/foo", never "1. prompt/foo".
+          models:
+            - gpt-5.6-sol
+          aggregation: unanimous
+          scoring: binary
+          threshold: 1
+          overall_threshold: 1
+          evidence:
+            - trajectory
+            - repo
+          criteria:
+            - name: prompt/installing-azure-storage-blob-and-azure-identity-package
+              description: |-
+                Installing `@azure/storage-blob` and `@azure/identity` packages
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: prompt/blobserviceclient-construction-with-defaultazurecredenti
+              description: |-
+                `BlobServiceClient` construction with `DefaultAzureCredential`
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: prompt/containerclient-createifnotexists
+              description: |-
+                `ContainerClient.createIfNotExists()`
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: prompt/blockblobclient-upload-or-uploaddata-for-string-content
+              description: |-
+                `BlockBlobClient.upload()` or `uploadData()` for string content
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: prompt/containerclient-listblobsflat-async-iteration
+              description: |-
+                `ContainerClient.listBlobsFlat()` async iteration
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: prompt/blobclient-download-and-reading-the-response-stream
+              description: |-
+                `BlobClient.download()` and reading the response stream
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: prompt/blobclient-delete-and-containerclient-delete
+              description: |-
+                `BlobClient.delete()` and `ContainerClient.delete()`
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: prompt/resterror-handling-with-statuscode
+              description: |-
+                `RestError` handling with `statusCode`
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: language/correct-azure-scoped-packages
+              description: |-
+                All Azure SDK dependencies use @azure/ scoped packages (e.g., @azure/storage-blob, @azure/keyvault-secrets, @azure/identity). No deprecated unscoped packages (azure-storage, azure-arm-*, ms-rest-azure, @azure/ms-rest-*).
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: language/azure-identity-for-authentication
+              description: |-
+                Includes @azure/identity as a dependency. For local development, DefaultAzureCredential is acceptable. For production code, uses a specific Entra token credential (e.g., ManagedIdentityCredential, ClientSecretCredential, WorkloadIdentityCredential) or configures DefaultAzureCredential with the AZURE_TOKEN_CREDENTIALS environment variable set to "prod" or a specific token credential. No hardcoded connection strings, account keys, SAS tokens, or secrets in code.
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: language/client-constructor-with-endpoint-and-credential
+              description: |-
+                SDK clients constructed with endpoint URL and credential object, e.g. new BlobServiceClient(url, credential) or new SecretClient(vaultUrl, credential). No legacy constructor patterns or connection string-based construction when identity-based auth is available.
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: language/async-await-pattern
+              description: |-
+                Uses async/await for all asynchronous operations. No raw .then()/.catch() chains when await is cleaner. No callback-based patterns. Top-level async function or IIFE for entry point.
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: language/pagination-with-for-await-of
+              description: |-
+                List/query operations use for-await-of iteration over the PagedAsyncIterableIterator returned by SDK methods. Does not collect all pages into an array in memory (e.g., no Array.from() or manual page accumulation). Uses byPage() when per-page control is needed.
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: language/lro-pattern-beginxxx-polluntildone
+              description: |-
+                Long-running operations use the begin* method prefix (e.g., beginDeleteSecret, beginCreateOrUpdate) and await poller.pollUntilDone(). No manual setTimeout/setInterval polling loops.
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: language/resterror-exception-handling
+              description: |-
+                Catches RestError (from @azure/core-rest-pipeline or the service package) with statusCode inspection for error-specific handling. Not just generic Error or try/catch without type checking.
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: language/no-deprecated-packages
+              description: |-
+                No deprecated or legacy Azure packages in package.json: azure-storage, azure-arm-*, ms-rest-azure, @azure/ms-rest-js, @azure/ms-rest-nodeauth, @azure/ms-rest-azure-js. All dependencies use the current @azure/* track.
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: language/logging-via-azure-logger
+              description: |-
+                Uses @azure/logger with setLogLevel() or the AZURE_LOG_LEVEL environment variable for SDK diagnostic logging. No custom logging wrappers around SDK internals.
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: language/package-json-with-correct-dependencies
+              description: |-
+                Includes a valid package.json with all required @azure/* dependencies listed. TypeScript projects include tsconfig.json and appropriate @types/* packages or use a recent TypeScript version with built-in types.
+              weight: 1
+              pass_threshold: 1
+              required: true
 artifacts:
   include:
     - "**/*.ts"

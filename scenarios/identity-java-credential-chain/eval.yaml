@@ -2,6 +2,12 @@ name: identity-java-credential-chain
 description: Compare Azure tooling for environment-specific Java credential chains
 version: "1.0"
 type: capability
+environment:
+  files:
+    - src: ../../eval-workspace.gitignore
+      dest: .gitignore
+    - src: ../../eval-workspace-AGENTS.md
+      dest: AGENTS.md
 scoring:
   weights: {}
   threshold: 1
@@ -13,99 +19,203 @@ defaults:
 stimuli:
   - name: identity-dp-java-credential-chain
     prompt: |-
-      Create a complete, runnable Java 17 Maven project that builds Azure credential chains for local development, CI, and production.
-
-      Write the code to files. Do not reply with code blocks.
-
-      1. Auto-detect CI from CI, TF_BUILD, BUILD_SOURCESDIRECTORY, or AZURE_PIPELINE_WORKSPACE; detect production from IDENTITY_ENDPOINT or MSI_ENDPOINT; otherwise select development.
-      2. Use ChainedTokenCredentialBuilder and addLast for every environment. The development chain must include AzureCliCredential. The CI chain must use EnvironmentCredential or AzurePipelinesCredential and must not use DefaultAzureCredential. The production chain must add ManagedIdentityCredential first and WorkloadIdentityCredential second, supporting both system-assigned identity and a user-assigned client ID from AZURE_CLIENT_ID.
-      3. Test the selected TokenCredential synchronously and asynchronously against https://management.azure.com/.default. Enable CAE with TokenRequestContext.setCaeEnabled(true), print AccessToken.getExpiresAt(), and report ClientAuthenticationException details.
-      4. The asynchronous test must preserve the reactive Mono returned by TokenCredential.getToken rather than replacing it with a fake result.
-      5. A Main class must print the detected environment and selected strategy, run the synchronous test, then run and await the asynchronous test.
-
-      Include a complete pom.xml with exact dependency versions. Do not hard-code credentials.
+      Create a small Java 17 Maven project that demonstrates how to correctly build Azure credential chains tailored to different deployment environments — local development, CI/CD pipelines, and production.
+      
+      The project needs:
+      
+      - A **credential factory class** that builds the appropriate Azure credential for each environment. For local development, it should chain together credentials that work from developer tools (CLI, IDE plugins, etc.). For CI pipelines, it should support credentials sourced from pipeline environment variables or Azure Pipelines service connections. For production, it should prefer managed identity (supporting both system-assigned and user-assigned, where the user-assigned identity's client ID comes from an environment variable), with workload identity as a fallback for Kubernetes scenarios. The factory should also support enabling Continuous Access Evaluation (CAE) on the credentials, which lets Azure revoke tokens mid-session for security events.
+      
+      - An **environment detector class** that auto-detects which environment the app is running in by probing for well-known environment variables (e.g., CI pipeline workspace variables, managed identity endpoint availability). It should classify the environment as dev, CI, or production.
+      
+      - A **connectivity tester class** (both sync and async versions) that verifies a credential works by requesting a token for a given Azure scope. It should print success/failure, the token's expiry time, and whether the token is CAE-enabled. It should handle and report the specific failure reason if authentication fails (expired cert, wrong tenant, no identity available, etc.) rather than just printing a generic error.
+      
+      - A **Main class** that detects the current environment, builds the right credential, and runs the connectivity test against Azure Resource Manager using the sync tester first, then repeats with the async tester. Print the detected environment, the selected credential strategy, and the test results from both.
+      
+      Include a complete `pom.xml` with the necessary Azure SDK dependencies.
     tags:
       service: identity
       plane: data-plane
       language: java
       category: authentication
     graders:
-      - type: run-command
-        name: prompt/identity-package
+      - type: panel
+        name: prompt/full-case-review
         weight: 1
         config:
-          command: node
-          args: [.vally/scenarios/identity-java-credential-chain/tools/check-credential-chain-java.mjs, prompt/identity-package]
-      - type: run-command
-        name: prompt/environment-detection
-        weight: 1
-        config:
-          command: node
-          args: [.vally/scenarios/identity-java-credential-chain/tools/check-credential-chain-java.mjs, prompt/environment-detection]
-      - type: run-command
-        name: prompt/dev-credential-chain
-        weight: 1
-        config:
-          command: node
-          args: [.vally/scenarios/identity-java-credential-chain/tools/check-credential-chain-java.mjs, prompt/dev-credential-chain]
-      - type: run-command
-        name: prompt/ci-credential-chain
-        weight: 1
-        config:
-          command: node
-          args: [.vally/scenarios/identity-java-credential-chain/tools/check-credential-chain-java.mjs, prompt/ci-credential-chain]
-      - type: run-command
-        name: prompt/production-credential-chain
-        weight: 1
-        config:
-          command: node
-          args: [.vally/scenarios/identity-java-credential-chain/tools/check-credential-chain-java.mjs, prompt/production-credential-chain]
-      - type: run-command
-        name: prompt/cae-token-tests
-        weight: 1
-        config:
-          command: node
-          args: [.vally/scenarios/identity-java-credential-chain/tools/check-credential-chain-java.mjs, prompt/cae-token-tests]
-      - type: run-command
-        name: prompt/auth-failure-details
-        weight: 1
-        config:
-          command: node
-          args: [.vally/scenarios/identity-java-credential-chain/tools/check-credential-chain-java.mjs, prompt/auth-failure-details]
-      - type: run-command
-        name: prompt/application-flow
-        weight: 1
-        config:
-          command: node
-          args: [.vally/scenarios/identity-java-credential-chain/tools/check-credential-chain-java.mjs, prompt/application-flow]
-      - type: run-command
-        name: language/build-manifest
-        weight: 1
-        config:
-          command: node
-          args: [.vally/languages/java/check.mjs, language/build-manifest]
-      - type: run-command
-        name: language/current-azure-dependencies
-        weight: 1
-        config:
-          command: node
-          args: [.vally/languages/java/check.mjs, language/current-azure-dependencies]
-      - type: run-command
-        name: language/current-imports
-        weight: 1
-        config:
-          command: node
-          args: [.vally/languages/java/check.mjs, language/current-imports]
-    environment:
-      files:
-        - src: tools/check-credential-chain-java.mjs
-          dest: .vally/scenarios/identity-java-credential-chain/tools/check-credential-chain-java.mjs
-        - src: tools/credential-chain-java-rules.mjs
-          dest: .vally/scenarios/identity-java-credential-chain/tools/credential-chain-java-rules.mjs
-        - src: ../../languages/java/check.mjs
-          dest: .vally/languages/java/check.mjs
-        - src: ../../languages/java/checks.mjs
-          dest: .vally/languages/java/checks.mjs
+          prompt: |-
+            Review the generated implementation against every criterion.
+            Score each criterion independently. Accept equivalent valid
+            implementations and judge code behavior rather than syntax.
+            Return every criterion name exactly as provided. The criterion
+            value must start with "prompt/" or "language/". Never copy a rubric
+            list number into the criterion value. For example, return
+            "prompt/foo", never "1. prompt/foo".
+          models:
+            - gpt-5.6-sol
+          aggregation: unanimous
+          scoring: binary
+          threshold: 1
+          overall_threshold: 1
+          evidence:
+            - trajectory
+            - repo
+          criteria:
+            - name: prompt/uses-chainedtokencredentialbuilder-to-compose-multiple-c
+              description: |-
+                Uses `ChainedTokenCredentialBuilder` to compose multiple credentials
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: prompt/credentials-added-via-addlast-order-matters-environment
+              description: |-
+                Credentials added via `.addLast()` — order matters ### Environment-Specific Chains
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: prompt/dev-chain-includes-azureclicredential-may-include-intell
+              description: |-
+                **Dev chain**: includes `AzureCliCredential`; may include `IntelliJCredential`, `VisualStudioCodeCredential`, `AzurePowerShellCredential`
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: prompt/ci-chain-uses-environmentcredential-or-azurepipelinescre
+              description: |-
+                **CI chain**: uses `EnvironmentCredential` or `AzurePipelinesCredential` (not just `DefaultAzureCredential`)
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: prompt/production-chain-managedidentitycredential-first-support
+              description: |-
+                **Production chain**: `ManagedIdentityCredential` first (supports user-assigned via `clientId()`), `WorkloadIdentityCredential` as fallback ### CAE Support
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: prompt/enables-cae-via-tokenrequestcontext-setcaeenabled-true-o
+              description: |-
+                Enables CAE via `TokenRequestContext.setCaeEnabled(true)` or `enableCae()` on credential builders ### Environment Detection
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: prompt/detects-ci-checks-ci-tf-build-azure-pipeline-workspace-o
+              description: |-
+                Detects CI (checks `CI`, `TF_BUILD`, `AZURE_PIPELINE_WORKSPACE`, or similar)
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: prompt/detects-production-managed-identity-checks-identity-endp
+              description: |-
+                Detects production/managed identity (checks `IDENTITY_ENDPOINT`, `MSI_ENDPOINT`, or similar)
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: prompt/falls-back-to-dev-if-neither-detected-token-request-test
+              description: |-
+                Falls back to dev if neither detected ### Token Request & Testing
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: prompt/creates-tokenrequestcontext-with-correct-scope-https-man
+              description: |-
+                Creates `TokenRequestContext` with correct scope (`https://management.azure.com/.default`)
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: prompt/calls-gettoken-and-prints-token-expiry-from-accesstoken
+              description: |-
+                Calls `getToken()` and prints token expiry from `AccessToken.getExpiresAt()`
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: prompt/handles-failure-with-specific-exception-info-scenario-sp
+              description: |-
+                Handles failure with specific exception info ### Scenario-Specific Async
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: prompt/async-tester-uses-reactive-gettoken-returning-mono-acces
+              description: |-
+                Async tester uses reactive `getToken()` returning `Mono<AccessToken>` ### Anti-Patterns (scenario-specific)
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: prompt/not-using-defaultazurecredential-as-the-ci-credential-to
+              description: |-
+                NOT using `DefaultAzureCredential` as the CI credential (too broad)
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: language/correct-dependencies-com-azure-not-com-microsoft-azure
+              description: |-
+                Uses com.azure group ID for all Azure SDK packages. No com.microsoft.azure (legacy SDK) dependencies. Includes azure-identity for authentication.
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: language/azure-sdk-bom-for-version-management
+              description: |-
+                Uses azure-sdk-bom in dependencyManagement to manage Azure SDK versions instead of hardcoding individual artifact versions. Dependencies should omit <version> tags when managed by the BOM.
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: language/correct-imports-no-legacy-no-internal-packages
+              description: |-
+                All imports use com.azure.* packages. No com.microsoft.azure.* (legacy) or com.azure.*.implementation.* (internal API) imports.
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: language/defaultazurecredential-authentication
+              description: |-
+                Uses DefaultAzureCredential or another com.azure.identity credential. No hardcoded connection strings, account keys, SAS tokens, or secrets.
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: language/client-builder-pattern
+              description: |-
+                SDK clients constructed using *ClientBuilder classes with .endpoint() or .vaultUrl() and .credential(). No legacy constructors (CloudStorageAccount, DocumentClient, KeyVaultClient).
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: language/no-deprecated-legacy-classes
+              description: |-
+                No deprecated classes from the old SDK (CloudStorageAccount, CloudBlobClient, DocumentClient, QueueClient, ApplicationTokenCredentials, MSICredentials, ConnectionStringBuilder).
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: language/pagination-pagediterable-pagedflux
+              description: |-
+                List/query operations return PagedIterable (sync) or PagedFlux (async). Does not flatten all pages into a raw List or Stream in memory.
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: language/lro-pattern-syncpoller-pollerflux
+              description: |-
+                Long-running operations use SyncPoller (sync) or PollerFlux (async) with begin* method prefix. No Thread.sleep() polling loops.
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: language/async-uses-project-reactor-mono-flux
+              description: |-
+                Async code uses Project Reactor types (Mono, Flux). Not CompletableFuture (wrong), not RxJava (wrong), not sync wrapped in ExecutorService. No .block() inside async service implementations.
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: language/service-specific-exception-handling
+              description: |-
+                Catches service-specific exceptions (BlobStorageException, CosmosException, ServiceBusException, HttpResponseException) with status code inspection. Not just generic Exception catches.
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: language/code-compiles-mvn-compile-gradle-compilejava
+              description: |-
+                The generated code compiles without errors. Attempt build verification if build tools are available.
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: language/try-with-resources-for-clients
+              description: |-
+                All Azure SDK client instances that implement AutoCloseable are used within try-with-resources blocks or explicitly closed in a finally block.
+              weight: 1
+              pass_threshold: 1
+              required: true
 artifacts:
   include:
     - "**/*.java"

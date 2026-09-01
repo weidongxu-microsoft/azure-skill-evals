@@ -2,6 +2,12 @@ name: app-configuration-java-feature-flags
 description: Compare Azure tooling for an App Configuration Java feature-flag task
 version: "1.0"
 type: capability
+environment:
+  files:
+    - src: ../../eval-workspace.gitignore
+      dest: .gitignore
+    - src: ../../eval-workspace-AGENTS.md
+      dest: AGENTS.md
 scoring:
   weights: {}
   threshold: 1
@@ -14,108 +20,172 @@ stimuli:
   - name: app-configuration-dp-java-feature-flags
     prompt: |-
       Create a small Java 17 Maven project that implements a feature flag and configuration management system backed by Azure App Configuration.
-
-      **Write the code to files (use file-write tools, do not reply with code blocks).**
-
+      
       The project needs:
-
+      
       - A **configuration service class** (both sync and async versions) that retrieves settings from App Configuration. It should support fetching a single setting by key, fetching a setting with a specific label (to distinguish between environments like "production" vs "staging"), and listing all settings that match a key prefix (returned as a map). It should also avoid re-downloading values that haven't changed since the last read — minimize unnecessary network traffic when polling for config changes.
-
+      
       - A **feature flag evaluator class** that reads feature flags from App Configuration. Feature flags in App Configuration use a special key prefix and store their state as a JSON payload. The evaluator should be able to check if a flag is enabled, and also support percentage-based rollout — if a flag is configured for a percentage rollout (e.g., 30% of users), the evaluator should deterministically decide whether a given user ID falls within the rollout percentage using a consistent hash, so the same user always gets the same result.
-
+      
       - A **configuration watcher class** that periodically polls for configuration changes. It should accept a list of "sentinel" keys to watch and a polling interval. When a sentinel key's value changes, the watcher should trigger a full refresh of all cached configuration. This is the recommended pattern for coordinating config updates in App Configuration.
-
+      
       - A **Main class** that demos both implementations: connecting to App Configuration (endpoint from environment variable, authenticated with managed identity), reading some config values with labels, evaluating feature flags for a few sample user IDs with percentage rollout, and starting the config watcher to detect a change. Run the full demo with the sync implementation first, then repeat with the async implementation.
-
-      Include a complete `pom.xml` with the necessary Azure SDK dependencies. Pin `com.azure:azure-data-appconfiguration` to `1.10.1` and `com.azure:azure-identity` to `1.18.5`.
+      
+      Include a complete `pom.xml` with the necessary Azure SDK dependencies.
     tags:
       service: app-configuration
       plane: data-plane
       language: java
       category: crud
     graders:
-      - type: run-command
-        name: prompt/source-manifest
+      - type: panel
+        name: prompt/full-case-review
         weight: 1
         config:
-          command: node
-          args: [.vally/scenarios/app-configuration-java-feature-flags/tools/check-app-configuration-feature-flags-java.mjs, prompt/source-manifest]
-      - type: run-command
-        name: prompt/managed-identity-clients
-        weight: 1
-        config:
-          command: node
-          args: [.vally/scenarios/app-configuration-java-feature-flags/tools/check-app-configuration-feature-flags-java.mjs, prompt/managed-identity-clients]
-      - type: run-command
-        name: prompt/configuration-reads
-        weight: 1
-        config:
-          command: node
-          args: [.vally/scenarios/app-configuration-java-feature-flags/tools/check-app-configuration-feature-flags-java.mjs, prompt/configuration-reads]
-      - type: run-command
-        name: prompt/conditional-etag-reads
-        weight: 1
-        config:
-          command: node
-          args: [.vally/scenarios/app-configuration-java-feature-flags/tools/check-app-configuration-feature-flags-java.mjs, prompt/conditional-etag-reads]
-      - type: run-command
-        name: prompt/feature-flag-json
-        weight: 1
-        config:
-          command: node
-          args: [.vally/scenarios/app-configuration-java-feature-flags/tools/check-app-configuration-feature-flags-java.mjs, prompt/feature-flag-json]
-      - type: run-command
-        name: prompt/deterministic-rollout
-        weight: 1
-        config:
-          command: node
-          args: [.vally/scenarios/app-configuration-java-feature-flags/tools/check-app-configuration-feature-flags-java.mjs, prompt/deterministic-rollout]
-      - type: run-command
-        name: prompt/sentinel-refresh
-        weight: 1
-        config:
-          command: node
-          args: [.vally/scenarios/app-configuration-java-feature-flags/tools/check-app-configuration-feature-flags-java.mjs, prompt/sentinel-refresh]
-      - type: run-command
-        name: prompt/connected-sync-async-demo
-        weight: 1
-        config:
-          command: node
-          args: [.vally/scenarios/app-configuration-java-feature-flags/tools/check-app-configuration-feature-flags-java.mjs, prompt/connected-sync-async-demo]
-      - type: run-command
-        name: language/build-manifest
-        weight: 1
-        config:
-          command: node
-          args: [.vally/languages/java/check.mjs, language/build-manifest]
-      - type: run-command
-        name: language/current-azure-dependencies
-        weight: 1
-        config:
-          command: node
-          args: [.vally/languages/java/check.mjs, language/current-azure-dependencies]
-      - type: run-command
-        name: language/current-imports
-        weight: 1
-        config:
-          command: node
-          args: [.vally/languages/java/check.mjs, language/current-imports]
-      - type: run-command
-        name: language/client-builder
-        weight: 1
-        config:
-          command: node
-          args: [.vally/languages/java/check.mjs, language/client-builder]
-    environment:
-      files:
-        - src: tools/check-app-configuration-feature-flags-java.mjs
-          dest: .vally/scenarios/app-configuration-java-feature-flags/tools/check-app-configuration-feature-flags-java.mjs
-        - src: tools/app-configuration-feature-flags-java-rules.mjs
-          dest: .vally/scenarios/app-configuration-java-feature-flags/tools/app-configuration-feature-flags-java-rules.mjs
-        - src: ../../languages/java/check.mjs
-          dest: .vally/languages/java/check.mjs
-        - src: ../../languages/java/checks.mjs
-          dest: .vally/languages/java/checks.mjs
+          prompt: |-
+            Review the generated implementation against every criterion.
+            Score each criterion independently. Accept equivalent valid
+            implementations and judge code behavior rather than syntax.
+            Return every criterion name exactly as provided. The criterion
+            value must start with "prompt/" or "language/". Never copy a rubric
+            list number into the criterion value. For example, return
+            "prompt/foo", never "1. prompt/foo".
+          models:
+            - gpt-5.6-sol
+          aggregation: unanimous
+          scoring: binary
+          threshold: 1
+          overall_threshold: 1
+          evidence:
+            - trajectory
+            - repo
+          criteria:
+            - name: prompt/retrieves-settings-with-a-specific-label-parameter-using
+              description: |-
+                Retrieves settings with a specific label parameter using `SettingSelector`
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: prompt/lists-settings-filtered-by-key-prefix-using-setkeyfilter
+              description: |-
+                Lists settings filtered by key prefix using `setKeyFilter()`
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: prompt/implements-conditional-reads-with-matchconditions-setifn
+              description: |-
+                Implements conditional reads with `matchConditions` / `setIfNoneMatch()` using the setting's ETag
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: prompt/handles-304-not-modified-setting-unchanged-since-last-re
+              description: |-
+                Handles 304 Not Modified (setting unchanged since last read)
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: prompt/uses-appconfig-featureflag-prefix-for-feature-flag-keys
+              description: |-
+                Uses `.appconfig.featureflag/` prefix for feature flag keys
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: prompt/parses-the-json-payload-in-feature-flag-setting-values
+              description: |-
+                Parses the JSON payload in feature flag setting values
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: prompt/implements-deterministic-percentage-rollout-consistent-h
+              description: |-
+                Implements deterministic percentage rollout (consistent hash, not `Math.random()`)
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: prompt/implements-sentinel-key-watching-with-configurable-polli
+              description: |-
+                Implements sentinel key watching with configurable polling interval
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: prompt/detects-sentinel-value-change-via-etag-or-value-comparis
+              description: |-
+                Detects sentinel value change via ETag or value comparison and triggers full refresh
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: language/correct-dependencies-com-azure-not-com-microsoft-azure
+              description: |-
+                Uses com.azure group ID for all Azure SDK packages. No com.microsoft.azure (legacy SDK) dependencies. Includes azure-identity for authentication.
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: language/azure-sdk-bom-for-version-management
+              description: |-
+                Uses azure-sdk-bom in dependencyManagement to manage Azure SDK versions instead of hardcoding individual artifact versions. Dependencies should omit <version> tags when managed by the BOM.
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: language/correct-imports-no-legacy-no-internal-packages
+              description: |-
+                All imports use com.azure.* packages. No com.microsoft.azure.* (legacy) or com.azure.*.implementation.* (internal API) imports.
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: language/defaultazurecredential-authentication
+              description: |-
+                Uses DefaultAzureCredential or another com.azure.identity credential. No hardcoded connection strings, account keys, SAS tokens, or secrets.
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: language/client-builder-pattern
+              description: |-
+                SDK clients constructed using *ClientBuilder classes with .endpoint() or .vaultUrl() and .credential(). No legacy constructors (CloudStorageAccount, DocumentClient, KeyVaultClient).
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: language/no-deprecated-legacy-classes
+              description: |-
+                No deprecated classes from the old SDK (CloudStorageAccount, CloudBlobClient, DocumentClient, QueueClient, ApplicationTokenCredentials, MSICredentials, ConnectionStringBuilder).
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: language/pagination-pagediterable-pagedflux
+              description: |-
+                List/query operations return PagedIterable (sync) or PagedFlux (async). Does not flatten all pages into a raw List or Stream in memory.
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: language/lro-pattern-syncpoller-pollerflux
+              description: |-
+                Long-running operations use SyncPoller (sync) or PollerFlux (async) with begin* method prefix. No Thread.sleep() polling loops.
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: language/async-uses-project-reactor-mono-flux
+              description: |-
+                Async code uses Project Reactor types (Mono, Flux). Not CompletableFuture (wrong), not RxJava (wrong), not sync wrapped in ExecutorService. No .block() inside async service implementations.
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: language/service-specific-exception-handling
+              description: |-
+                Catches service-specific exceptions (BlobStorageException, CosmosException, ServiceBusException, HttpResponseException) with status code inspection. Not just generic Exception catches.
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: language/code-compiles-mvn-compile-gradle-compilejava
+              description: |-
+                The generated code compiles without errors. Attempt build verification if build tools are available.
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: language/try-with-resources-for-clients
+              description: |-
+                All Azure SDK client instances that implement AutoCloseable are used within try-with-resources blocks or explicitly closed in a finally block.
+              weight: 1
+              pass_threshold: 1
+              required: true
 artifacts:
   include:
     - "**/*.java"

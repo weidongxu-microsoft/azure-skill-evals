@@ -2,6 +2,12 @@ name: key-vault-typescript-secret-config
 description: Compare Azure tooling for a TypeScript Key Vault-backed configuration provider
 version: "1.0"
 type: capability
+environment:
+  files:
+    - src: ../../eval-workspace.gitignore
+      dest: .gitignore
+    - src: ../../eval-workspace-AGENTS.md
+      dest: AGENTS.md
 scoring:
   weights: {}
   threshold: 1
@@ -14,86 +20,186 @@ stimuli:
   - name: key-vault-dp-js-ts-secret-config
     prompt: |-
       Create a TypeScript Node.js project that implements an application configuration provider backed by Azure Key Vault.
-
-      Write the code to files. Do not reply with code blocks.
-
-      Implement a provider using SecretClient that gets the latest secret or a requested version with getSecret(name, { version }), returns a caller-provided default for a RestError with statusCode 404, and exposes properties.expiresOn. Add an in-memory cache that bulk-loads required keys, reads cached values, refreshes one key on demand, and automatically refreshes secrets whose expiry is inside a configurable warning window.
-
-      Build the client from an environment-provided vault URL with DefaultAzureCredential and no embedded credentials. Implement version-based rotation with setSecret(name, value, { expiresOn }). Also demonstrate safe full cleanup: beginDeleteSecret, await the returned poller's pollUntilDone(), purge the completed deletion, and only then recreate the secret if the name is reused.
-
-      The main script must demonstrate the connected flow: bulk load, cached reads, one-key refresh, near-expiry warning/refresh, version rotation, and delete-wait-purge-recreate cleanup.
-
-      Include package.json and tsconfig.json with exact pins:
-      @azure/core-rest-pipeline 1.25.0,
-      @azure/identity 4.13.2,
-      @azure/keyvault-secrets 4.11.2,
-      TypeScript 5.9.2, and @types/node 26.2.0.
+      
+      The project needs:
+      
+      - A **secret provider class** that retrieves secrets from Key Vault by name, with graceful handling when a secret doesn't exist (return a default value instead of crashing). It should also be able to retrieve a specific version of a secret (not just the latest), and inspect a secret's expiry date so the caller can tell if a secret is about to expire.
+      
+      - A **caching layer** on top of the provider that stores secret values in memory after first retrieval. It should support bulk-loading a predefined set of required config keys at startup, on-demand refresh of individual keys, and automatic re-fetch of any secret whose expiry date is within a configurable warning window (e.g., 7 days out).
+      
+      - A **configuration module** that connects securely to the Key Vault using the vault URL from an environment variable. The application runs in Azure and should authenticate using managed identity — no client secrets or certificates in code.
+      
+      - A **secret rotation helper** that safely rotates a secret: create a new version of the secret with an updated value and expiry date (since Key Vault supports multiple versions per secret name), then optionally clean up old versions by deleting and purging the previous secret if full name reuse is needed. The cleanup must be safe — use the long-running delete operation and wait for completion before purging, since Key Vault's soft-delete feature means the secret is not immediately gone.
+      
+      - A **main script** that demos the full flow: loading several config keys at startup, reading them from cache, refreshing one, printing a warning if any secret is near expiry, and performing a secret rotation (creating a new version, then demonstrating the delete-and-purge cleanup flow). Print results at each step.
+      
+      Include a complete `package.json` with the necessary Azure SDK dependencies and a `tsconfig.json`.
     tags:
       service: key-vault
       plane: data-plane
       language: typescript
       category: crud
     graders:
-      - type: run-command
-        name: prompt/packages
+      - type: panel
+        name: prompt/full-case-review
         weight: 1
-        config: { command: node, args: [.vally/scenarios/key-vault-typescript-secret-config/tools/check-secret-config-typescript.mjs, prompt/packages] }
-      - type: run-command
-        name: prompt/managed-identity-configuration
-        weight: 1
-        config: { command: node, args: [.vally/scenarios/key-vault-typescript-secret-config/tools/check-secret-config-typescript.mjs, prompt/managed-identity-configuration] }
-      - type: run-command
-        name: prompt/versioned-provider
-        weight: 1
-        config: { command: node, args: [.vally/scenarios/key-vault-typescript-secret-config/tools/check-secret-config-typescript.mjs, prompt/versioned-provider] }
-      - type: run-command
-        name: prompt/not-found-default
-        weight: 1
-        config: { command: node, args: [.vally/scenarios/key-vault-typescript-secret-config/tools/check-secret-config-typescript.mjs, prompt/not-found-default] }
-      - type: run-command
-        name: prompt/expiry-aware-cache
-        weight: 1
-        config: { command: node, args: [.vally/scenarios/key-vault-typescript-secret-config/tools/check-secret-config-typescript.mjs, prompt/expiry-aware-cache] }
-      - type: run-command
-        name: prompt/version-based-rotation
-        weight: 1
-        config: { command: node, args: [.vally/scenarios/key-vault-typescript-secret-config/tools/check-secret-config-typescript.mjs, prompt/version-based-rotation] }
-      - type: run-command
-        name: prompt/safe-delete-purge-recreate
-        weight: 1
-        config: { command: node, args: [.vally/scenarios/key-vault-typescript-secret-config/tools/check-secret-config-typescript.mjs, prompt/safe-delete-purge-recreate] }
-      - type: run-command
-        name: prompt/connected-demo
-        weight: 1
-        config: { command: node, args: [.vally/scenarios/key-vault-typescript-secret-config/tools/check-secret-config-typescript.mjs, prompt/connected-demo] }
-      - type: run-command
-        name: language/package-manifest
-        weight: 1
-        config: { command: node, args: [.vally/languages/typescript/check.mjs, language/package-manifest] }
-      - type: run-command
-        name: language/current-azure-packages
-        weight: 1
-        config: { command: node, args: [.vally/languages/typescript/check.mjs, language/current-azure-packages] }
-      - type: run-command
-        name: language/async-await
-        weight: 1
-        config: { command: node, args: [.vally/languages/typescript/check.mjs, language/async-await] }
-      - type: run-command
-        name: language/typescript-config
-        weight: 1
-        config: { command: node, args: [.vally/languages/typescript/check.mjs, language/typescript-config] }
-    environment:
-      files:
-        - src: tools/check-secret-config-typescript.mjs
-          dest: .vally/scenarios/key-vault-typescript-secret-config/tools/check-secret-config-typescript.mjs
-        - src: tools/source-manifest.mjs
-          dest: .vally/scenarios/key-vault-typescript-secret-config/tools/source-manifest.mjs
-        - src: tools/secret-config-typescript-rules.mjs
-          dest: .vally/scenarios/key-vault-typescript-secret-config/tools/secret-config-typescript-rules.mjs
-        - src: ../../languages/typescript/check.mjs
-          dest: .vally/languages/typescript/check.mjs
-        - src: ../../languages/typescript/checks.mjs
-          dest: .vally/languages/typescript/checks.mjs
+        config:
+          prompt: |-
+            Review the generated implementation against every criterion.
+            Score each criterion independently. Accept equivalent valid
+            implementations and judge code behavior rather than syntax.
+            Return every criterion name exactly as provided. The criterion
+            value must start with "prompt/" or "language/". Never copy a rubric
+            list number into the criterion value. For example, return
+            "prompt/foo", never "1. prompt/foo".
+          models:
+            - gpt-5.6-sol
+          aggregation: unanimous
+          scoring: binary
+          threshold: 1
+          overall_threshold: 1
+          evidence:
+            - trajectory
+            - repo
+          criteria:
+            - name: prompt/secret-versioning-retrieves-specific-version-via-client
+              description: |-
+                Secret versioning: retrieves specific version via `client.getSecret(name, { version })`
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: prompt/secret-expiry-accesses-properties-expireson-on-the-secre
+              description: |-
+                Secret expiry: accesses `properties.expiresOn` on the secret response
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: prompt/configurable-warning-window-for-near-expiry-detection-co
+              description: |-
+                Configurable warning window for near-expiry detection (compares expiresOn to current date)
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: prompt/in-memory-caching-e-g-map-string-keyvaultsecret-with-bul
+              description: |-
+                In-memory caching (e.g., `Map<string, KeyVaultSecret>`) with bulk-load and single-key refresh
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: prompt/version-based-rotation-calls-client-setsecret-name-newva
+              description: |-
+                Version-based rotation: calls `client.setSecret(name, newValue, { expiresOn })` to create a new version
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: prompt/cleanup-uses-client-begindeletesecret-name-as-a-long-run
+              description: |-
+                Cleanup uses `client.beginDeleteSecret(name)` as a long-running operation
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: prompt/awaits-poller-polluntildone-before-calling-client-purged
+              description: |-
+                Awaits `poller.pollUntilDone()` before calling `client.purgeDeletedSecret(name)`
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: prompt/creates-new-secret-only-after-delete-purge-completes-not
+              description: |-
+                Creates new secret only after delete+purge completes (not concurrently) ### Scenario-Specific Error Handling
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: prompt/returns-a-default-value-when-secret-is-not-found-404-doe
+              description: |-
+                Returns a default value when secret is not found (404), does not crash
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: prompt/handles-resterror-with-statuscode-check-for-not-found-sc
+              description: |-
+                Handles RestError with statusCode check for not-found scenarios ### Anti-Patterns (scenario-specific)
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: prompt/not-using-fire-and-forget-deletesecret-without-waiting-f
+              description: |-
+                NOT using fire-and-forget `deleteSecret()` without waiting for completion
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: prompt/not-assuming-deletion-is-instantaneous-must-use-poller
+              description: |-
+                NOT assuming deletion is instantaneous (must use poller)
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: prompt/not-hardcoding-vault-url-or-credentials
+              description: |-
+                NOT hardcoding vault URL or credentials
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: language/correct-azure-scoped-packages
+              description: |-
+                All Azure SDK dependencies use @azure/ scoped packages (e.g., @azure/storage-blob, @azure/keyvault-secrets, @azure/identity). No deprecated unscoped packages (azure-storage, azure-arm-*, ms-rest-azure, @azure/ms-rest-*).
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: language/azure-identity-for-authentication
+              description: |-
+                Includes @azure/identity as a dependency. For local development, DefaultAzureCredential is acceptable. For production code, uses a specific Entra token credential (e.g., ManagedIdentityCredential, ClientSecretCredential, WorkloadIdentityCredential) or configures DefaultAzureCredential with the AZURE_TOKEN_CREDENTIALS environment variable set to "prod" or a specific token credential. No hardcoded connection strings, account keys, SAS tokens, or secrets in code.
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: language/client-constructor-with-endpoint-and-credential
+              description: |-
+                SDK clients constructed with endpoint URL and credential object, e.g. new BlobServiceClient(url, credential) or new SecretClient(vaultUrl, credential). No legacy constructor patterns or connection string-based construction when identity-based auth is available.
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: language/async-await-pattern
+              description: |-
+                Uses async/await for all asynchronous operations. No raw .then()/.catch() chains when await is cleaner. No callback-based patterns. Top-level async function or IIFE for entry point.
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: language/pagination-with-for-await-of
+              description: |-
+                List/query operations use for-await-of iteration over the PagedAsyncIterableIterator returned by SDK methods. Does not collect all pages into an array in memory (e.g., no Array.from() or manual page accumulation). Uses byPage() when per-page control is needed.
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: language/lro-pattern-beginxxx-polluntildone
+              description: |-
+                Long-running operations use the begin* method prefix (e.g., beginDeleteSecret, beginCreateOrUpdate) and await poller.pollUntilDone(). No manual setTimeout/setInterval polling loops.
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: language/resterror-exception-handling
+              description: |-
+                Catches RestError (from @azure/core-rest-pipeline or the service package) with statusCode inspection for error-specific handling. Not just generic Error or try/catch without type checking.
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: language/no-deprecated-packages
+              description: |-
+                No deprecated or legacy Azure packages in package.json: azure-storage, azure-arm-*, ms-rest-azure, @azure/ms-rest-js, @azure/ms-rest-nodeauth, @azure/ms-rest-azure-js. All dependencies use the current @azure/* track.
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: language/logging-via-azure-logger
+              description: |-
+                Uses @azure/logger with setLogLevel() or the AZURE_LOG_LEVEL environment variable for SDK diagnostic logging. No custom logging wrappers around SDK internals.
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: language/package-json-with-correct-dependencies
+              description: |-
+                Includes a valid package.json with all required @azure/* dependencies listed. TypeScript projects include tsconfig.json and appropriate @types/* packages or use a recent TypeScript version with built-in types.
+              weight: 1
+              pass_threshold: 1
+              required: true
 artifacts:
   include:
     - "**/*.ts"

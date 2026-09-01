@@ -2,6 +2,12 @@ name: cosmos-db-python-crud-items
 description: Compare Azure tooling for a Cosmos DB Python CRUD task
 version: "1.0"
 type: capability
+environment:
+  files:
+    - src: ../../eval-workspace.gitignore
+      dest: .gitignore
+    - src: ../../eval-workspace-AGENTS.md
+      dest: AGENTS.md
 scoring:
   weights: {}
   threshold: 1
@@ -14,114 +20,113 @@ stimuli:
   - name: cosmos-db-dp-python-crud
     prompt: |-
       Write a Python script that performs CRUD operations on items in an Azure Cosmos DB NoSQL container.
-
-      Write the code to files. Do not reply with code blocks.
-
-      1. Create a CosmosClient.
-      2. Create a database "TestDB" and container "Items" with partition key "/category".
-      3. Upsert an item dict with keys: id, category, name, quantity.
-      4. Read the item back using read_item() with id and partition key.
-      5. Query items where category equals "electronics" using a parameterized query.
-      6. Replace the item with an updated quantity.
-      7. Delete the item.
-
+      
+      **Write the code to files (use file-write tools, do not reply with code blocks).**
+      
+      1. Create a CosmosClient
+      2. Create a database "TestDB" and container "Items" with partition key "/category"
+      3. Upsert an item dict with keys: id, category, name, quantity
+      4. Read the item back using read_item() with id and partition key
+      5. Query items where category equals "electronics" using parameterized query
+      6. Replace the item with updated quantity
+      7. Delete the item
+      
       Show required pip packages and handle exceptions from azure.cosmos.exceptions.
     tags:
       service: cosmos-db
       plane: data-plane
       language: python
       category: crud
+      scenario: cosmos-db-python-crud-items
     graders:
-      - type: run-command
-        name: prompt/azure-cosmos-package
+      - type: panel
+        name: prompt/full-case-review
         weight: 1
         config:
-          command: node
-          args:
-            - .vally/scenarios/cosmos-db-python-crud/tools/check-cosmos-python.mjs
-            - prompt/azure-cosmos-package
-      - type: run-command
-        name: prompt/cosmos-client
-        weight: 1
-        config:
-          command: node
-          args:
-            - .vally/scenarios/cosmos-db-python-crud/tools/check-cosmos-python.mjs
-            - prompt/cosmos-client
-      - type: run-command
-        name: prompt/create-database
-        weight: 1
-        config:
-          command: node
-          args:
-            - .vally/scenarios/cosmos-db-python-crud/tools/check-cosmos-python.mjs
-            - prompt/create-database
-      - type: run-command
-        name: prompt/create-container
-        weight: 1
-        config:
-          command: node
-          args:
-            - .vally/scenarios/cosmos-db-python-crud/tools/check-cosmos-python.mjs
-            - prompt/create-container
-      - type: run-command
-        name: prompt/cross-partition-query
-        weight: 1
-        config:
-          command: node
-          args:
-            - .vally/scenarios/cosmos-db-python-crud/tools/check-cosmos-python.mjs
-            - prompt/cross-partition-query
-      - type: run-command
-        name: prompt/cosmos-exception
-        weight: 1
-        config:
-          command: node
-          args:
-            - .vally/scenarios/cosmos-db-python-crud/tools/check-cosmos-python.mjs
-            - prompt/cosmos-exception
-      - type: run-command
-        name: language/correct-imports
-        weight: 1
-        config:
-          command: node
-          args:
-            - .vally/languages/python/check.mjs
-            - language/correct-imports
-      - type: run-command
-        name: language/client-lifecycle
-        weight: 1
-        config:
-          command: node
-          args:
-            - .vally/languages/python/check.mjs
-            - language/client-lifecycle
-      - type: run-command
-        name: language/async-client
-        weight: 1
-        config:
-          command: node
-          args:
-            - .vally/languages/python/check.mjs
-            - language/async-client
-      - type: run-command
-        name: language/exception-handling
-        weight: 1
-        config:
-          command: node
-          args:
-            - .vally/languages/python/check.mjs
-            - language/exception-handling
-    environment:
-      files:
-        - src: tools/check-cosmos-python.mjs
-          dest: .vally/scenarios/cosmos-db-python-crud/tools/check-cosmos-python.mjs
-        - src: tools/cosmos-python-rules.mjs
-          dest: .vally/scenarios/cosmos-db-python-crud/tools/cosmos-python-rules.mjs
-        - src: ../../languages/python/check.mjs
-          dest: .vally/languages/python/check.mjs
-        - src: ../../languages/python/checks.mjs
-          dest: .vally/languages/python/checks.mjs
+          prompt: |-
+            Review the generated implementation against every criterion.
+            Score each criterion independently. Accept equivalent valid
+            implementations and judge code behavior rather than syntax.
+            Return every criterion name exactly as provided. The criterion
+            value must start with "prompt/" or "language/". Never copy a rubric
+            list number into the criterion value. For example, return
+            "prompt/foo", never "1. prompt/foo".
+          models:
+            - gpt-5.6-sol
+          aggregation: unanimous
+          scoring: binary
+          threshold: 1
+          overall_threshold: 1
+          evidence:
+            - trajectory
+            - repo
+          criteria:
+            - name: prompt/azure-cosmos-pip-package
+              description: |-
+                `azure-cosmos` pip package
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: prompt/cosmosclient-creation
+              description: |-
+                `CosmosClient` creation
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: prompt/database-client-create-database-if-not-exists
+              description: |-
+                `database_client.create_database_if_not_exists()`
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: prompt/database-create-container-if-not-exists-with-partitionke
+              description: |-
+                `database.create_container_if_not_exists()` with `PartitionKey`
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: prompt/container-query-items-with-enable-cross-partition-query
+              description: |-
+                `container.query_items()` with `enable_cross_partition_query`
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: prompt/cosmoshttpresponseerror-exception-handling
+              description: |-
+                `CosmosHttpResponseError` exception handling
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: language/correct-package-imports
+              description: |-
+                Imports use the latest azure-sdk-for-python package structure (azure.*), not deprecated packages.
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: language/defaultazurecredential-usage
+              description: |-
+                Authentication matches what the prompt asks for. If the prompt explicitly requires a connection string (or other key-based auth), using `from_connection_string()` / connection-string-based clients is correct and should pass. Otherwise, authentication must use DefaultAzureCredential from azure-identity (or another `azure.identity` credential), not connection strings or hardcoded keys. Hardcoded secrets/keys/connection strings in source code always fail — required values should come from environment variables or a secret store.
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: language/context-manager-for-clients
+              description: |-
+                Azure SDK clients that support context managers are used with `with` statements or explicitly closed.
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: language/async-client-usage
+              description: |-
+                If async operations are requested, code uses the async client variant with proper await patterns.
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: language/proper-exception-handling
+              description: |-
+                Azure SDK exceptions (HttpResponseError and subclasses) are caught and handled appropriately.
+              weight: 1
+              pass_threshold: 1
+              required: true
 artifacts:
   include:
     - "**/*.py"

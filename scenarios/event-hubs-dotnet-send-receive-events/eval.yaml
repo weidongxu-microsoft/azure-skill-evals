@@ -2,6 +2,12 @@ name: event-hubs-dotnet-send-receive-events
 description: Compare Azure tooling for a .NET Event Hubs send and receive task
 version: "1.0"
 type: capability
+environment:
+  files:
+    - src: ../../eval-workspace.gitignore
+      dest: .gitignore
+    - src: ../../eval-workspace-AGENTS.md
+      dest: AGENTS.md
 scoring:
   weights: {}
   threshold: 1
@@ -13,132 +19,110 @@ defaults:
 stimuli:
   - name: event-hubs-dp-dotnet-send-receive
     prompt: |-
-      Write a C# program that sends and receives events with Azure Event Hubs.
-
-      Write the code to files. Do not reply with code blocks.
-
-      1. Add the current Azure Event Hubs, Event Hubs processor, and Blob Storage NuGet packages.
-      2. Create an EventHubProducerClient from a connection string and event hub name.
-      3. Create an EventDataBatch and add exactly 10 events. Give each event a body and a custom application property, and handle TryAdd returning false.
-      4. Send the batch.
-      5. Create a BlobContainerClient checkpoint store and an EventProcessorClient for the default consumer group.
-      6. Register event and error handlers. Print each received event body and processing errors.
-      7. Update the checkpoint after processing each event.
-      8. Start the processor, wait long enough to receive events, and always stop it. Remove named handlers and dispose the producer and batch.
-
-      Read connection details from environment variables and explain how to run the application.
+      Write a C# program that demonstrates
+      sending and receiving events with Azure Event Hubs:
+      1. Create an EventHubProducerClient using a connection string
+      2. Create a batch of events using CreateBatchAsync()
+      3. Add 10 events with custom properties to the batch
+      4. Send the batch to the event hub
+      5. Create an EventProcessorClient with a BlobContainerClient for checkpointing
+      6. Register ProcessEventAsync and ProcessErrorAsync handlers
+      7. Start processing events and print received event bodies
+      8. Implement proper checkpointing with ProcessEventArgs.UpdateCheckpointAsync()
+      
+      Show required NuGet packages (Azure.Messaging.EventHubs and
+      Azure.Messaging.EventHubs.Processor) and proper disposal patterns.
     tags:
       service: event-hubs
       plane: data-plane
       language: dotnet
       category: send-receive
     graders:
-      - type: run-command
-        name: prompt/event-hubs-packages
+      - type: panel
+        name: prompt/full-case-review
         weight: 1
         config:
-          command: node
-          args:
-            - .vally/scenarios/event-hubs-dotnet-send-receive-events/tools/check-event-hubs-dotnet.mjs
-            - prompt/event-hubs-packages
-      - type: run-command
-        name: prompt/producer-client
-        weight: 1
-        config:
-          command: node
-          args:
-            - .vally/scenarios/event-hubs-dotnet-send-receive-events/tools/check-event-hubs-dotnet.mjs
-            - prompt/producer-client
-      - type: run-command
-        name: prompt/event-batch
-        weight: 1
-        config:
-          command: node
-          args:
-            - .vally/scenarios/event-hubs-dotnet-send-receive-events/tools/check-event-hubs-dotnet.mjs
-            - prompt/event-batch
-      - type: run-command
-        name: prompt/send-batch
-        weight: 1
-        config:
-          command: node
-          args:
-            - .vally/scenarios/event-hubs-dotnet-send-receive-events/tools/check-event-hubs-dotnet.mjs
-            - prompt/send-batch
-      - type: run-command
-        name: prompt/checkpointed-consumer
-        weight: 1
-        config:
-          command: node
-          args:
-            - .vally/scenarios/event-hubs-dotnet-send-receive-events/tools/check-event-hubs-dotnet.mjs
-            - prompt/checkpointed-consumer
-      - type: run-command
-        name: prompt/receive-handlers
-        weight: 1
-        config:
-          command: node
-          args:
-            - .vally/scenarios/event-hubs-dotnet-send-receive-events/tools/check-event-hubs-dotnet.mjs
-            - prompt/receive-handlers
-      - type: run-command
-        name: prompt/update-checkpoint
-        weight: 1
-        config:
-          command: node
-          args:
-            - .vally/scenarios/event-hubs-dotnet-send-receive-events/tools/check-event-hubs-dotnet.mjs
-            - prompt/update-checkpoint
-      - type: run-command
-        name: prompt/client-lifecycle
-        weight: 1
-        config:
-          command: node
-          args:
-            - .vally/scenarios/event-hubs-dotnet-send-receive-events/tools/check-event-hubs-dotnet.mjs
-            - prompt/client-lifecycle
-      - type: run-command
-        name: language/project-manifest
-        weight: 1
-        config:
-          command: node
-          args:
-            - .vally/languages/dotnet/check.mjs
-            - language/project-manifest
-      - type: run-command
-        name: language/current-azure-packages
-        weight: 1
-        config:
-          command: node
-          args:
-            - .vally/languages/dotnet/check.mjs
-            - language/current-azure-packages
-      - type: run-command
-        name: language/async-await
-        weight: 1
-        config:
-          command: node
-          args:
-            - .vally/languages/dotnet/check.mjs
-            - language/async-await
-      - type: run-command
-        name: language/client-lifecycle
-        weight: 1
-        config:
-          command: node
-          args:
-            - .vally/languages/dotnet/check.mjs
-            - language/client-lifecycle
-    environment:
-      files:
-        - src: tools/check-event-hubs-dotnet.mjs
-          dest: .vally/scenarios/event-hubs-dotnet-send-receive-events/tools/check-event-hubs-dotnet.mjs
-        - src: tools/event-hubs-dotnet-rules.mjs
-          dest: .vally/scenarios/event-hubs-dotnet-send-receive-events/tools/event-hubs-dotnet-rules.mjs
-        - src: ../../languages/dotnet/check.mjs
-          dest: .vally/languages/dotnet/check.mjs
-        - src: ../../languages/dotnet/checks.mjs
-          dest: .vally/languages/dotnet/checks.mjs
+          prompt: |-
+            Review the generated implementation against every criterion.
+            Score each criterion independently. Accept equivalent valid
+            implementations and judge code behavior rather than syntax.
+            Return every criterion name exactly as provided. The criterion
+            value must start with "prompt/" or "language/". Never copy a rubric
+            list number into the criterion value. For example, return
+            "prompt/foo", never "1. prompt/foo".
+          models:
+            - gpt-5.6-sol
+          aggregation: unanimous
+          scoring: binary
+          threshold: 1
+          overall_threshold: 1
+          evidence:
+            - trajectory
+            - repo
+          criteria:
+            - name: prompt/azure-messaging-eventhubs-and-azure-messaging-eventhubs
+              description: |-
+                `Azure.Messaging.EventHubs` and `Azure.Messaging.EventHubs.Processor` NuGet packages
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: prompt/eventhubproducerclient-and-eventhubconsumerclient
+              description: |-
+                `EventHubProducerClient` and `EventHubConsumerClient`
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: prompt/createbatchasync-and-eventdatabatch-tryadd
+              description: |-
+                `CreateBatchAsync()` and `EventDataBatch.TryAdd()`
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: prompt/sendasync-for-publishing-events
+              description: |-
+                `SendAsync()` for publishing events
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: prompt/eventprocessorclient-with-blobcontainerclient-for-checkp
+              description: |-
+                `EventProcessorClient` with `BlobContainerClient` for checkpointing
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: prompt/event-handler-delegates-and-processeventargs
+              description: |-
+                Event handler delegates and `ProcessEventArgs`
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: prompt/updatecheckpointasync-for-reliable-processing
+              description: |-
+                `UpdateCheckpointAsync()` for reliable processing
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: language/azure-identity-authentication
+              description: |-
+                Check that authentication follows the prompt and uses the appropriate modern .NET Azure SDK mechanism.
+                When token-based authentication is requested, uses an appropriate credential from Azure.Identity and passes it to the SDK client. When the prompt explicitly requests a connection string, connection-string construction is valid. Credentials, connection strings, and secrets are not hardcoded.
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: language/sdk-specific-exception-handling
+              description: |-
+                Check that requested error handling uses the exception model of the selected .NET Azure SDK package.
+                When error handling is requested, catches the appropriate SDK exception, such as RequestFailedException for many Azure.* and ARM clients, CosmosException for Microsoft.Azure.Cosmos, ServiceBusException for Service Bus, EventHubsException for Event Hubs, or AuthenticationFailedException and CredentialUnavailableException for Azure Identity. Inspects status codes, error codes, or retry details when relevant instead of relying only on a generic Exception catch.
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: language/asynchronous-sdk-usage
+              description: |-
+                Check that asynchronous .NET Azure SDK calls use normal asynchronous control flow.
+                When asynchronous SDK APIs are used, awaits them with async and await rather than blocking through .Result, .Wait(), or GetAwaiter().GetResult().
+              weight: 1
+              pass_threshold: 1
+              required: true
 artifacts:
   include:
     - "**/*.cs"

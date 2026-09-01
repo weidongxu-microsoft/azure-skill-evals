@@ -2,6 +2,12 @@ name: app-configuration-python-config-values
 description: Compare Azure tooling for an App Configuration Python CRUD task
 version: "1.0"
 type: capability
+environment:
+  files:
+    - src: ../../eval-workspace.gitignore
+      dest: .gitignore
+    - src: ../../eval-workspace-AGENTS.md
+      dest: AGENTS.md
 scoring:
   weights: {}
   threshold: 1
@@ -14,17 +20,17 @@ stimuli:
   - name: app-configuration-dp-python-crud
     prompt: |-
       Write a Python script that manages configuration settings in Azure App Configuration.
-
-      Write the code to files. Do not reply with code blocks.
-
-      1. Create an AzureAppConfigurationClient.
-      2. Set a configuration setting with key "app:Settings:FontSize" and value "24".
-      3. Set a setting with label "Production".
-      4. Get the setting by key and print its value.
-      5. List all settings matching the key filter "app:Settings:*".
-      6. Create an enabled FeatureFlagConfigurationSetting for "BetaFeature".
-      7. Delete the setting by key.
-
+      
+      **Write the code to files (use file-write tools, do not reply with code blocks).**
+      
+      1. Create an `AzureAppConfigurationClient`.
+      2. Set a configuration setting with key "app:Settings:FontSize" and value "24"
+      3. Set a setting with label "Production"
+      4. Get the setting by key and print its value
+      5. List all settings matching the key filter "app:Settings:*"
+      6. Create a FeatureFlagConfigurationSetting for "BetaFeature" that is enabled
+      7. Delete the setting by key
+      
       Show required pip packages and proper error handling with HttpResponseError.
     tags:
       service: app-configuration
@@ -32,104 +38,94 @@ stimuli:
       language: python
       category: crud
     graders:
-      - type: run-command
-        name: prompt/app-configuration-package
+      - type: panel
+        name: prompt/full-case-review
         weight: 1
         config:
-          command: node
-          args:
-            - .vally/scenarios/app-configuration-python-config-values/tools/check-app-configuration-python.mjs
-            - prompt/app-configuration-package
-      - type: run-command
-        name: prompt/configuration-client
-        weight: 1
-        config:
-          command: node
-          args:
-            - .vally/scenarios/app-configuration-python-config-values/tools/check-app-configuration-python.mjs
-            - prompt/configuration-client
-      - type: run-command
-        name: prompt/set-settings
-        weight: 1
-        config:
-          command: node
-          args:
-            - .vally/scenarios/app-configuration-python-config-values/tools/check-app-configuration-python.mjs
-            - prompt/set-settings
-      - type: run-command
-        name: prompt/production-label
-        weight: 1
-        config:
-          command: node
-          args:
-            - .vally/scenarios/app-configuration-python-config-values/tools/check-app-configuration-python.mjs
-            - prompt/production-label
-      - type: run-command
-        name: prompt/get-list-settings
-        weight: 1
-        config:
-          command: node
-          args:
-            - .vally/scenarios/app-configuration-python-config-values/tools/check-app-configuration-python.mjs
-            - prompt/get-list-settings
-      - type: run-command
-        name: prompt/enabled-feature-flag
-        weight: 1
-        config:
-          command: node
-          args:
-            - .vally/scenarios/app-configuration-python-config-values/tools/check-app-configuration-python.mjs
-            - prompt/enabled-feature-flag
-      - type: run-command
-        name: prompt/delete-error
-        weight: 1
-        config:
-          command: node
-          args:
-            - .vally/scenarios/app-configuration-python-config-values/tools/check-app-configuration-python.mjs
-            - prompt/delete-error
-      - type: run-command
-        name: language/correct-imports
-        weight: 1
-        config:
-          command: node
-          args:
-            - .vally/languages/python/check.mjs
-            - language/correct-imports
-      - type: run-command
-        name: language/client-lifecycle
-        weight: 1
-        config:
-          command: node
-          args:
-            - .vally/languages/python/check.mjs
-            - language/client-lifecycle
-      - type: run-command
-        name: language/async-client
-        weight: 1
-        config:
-          command: node
-          args:
-            - .vally/languages/python/check.mjs
-            - language/async-client
-      - type: run-command
-        name: language/exception-handling
-        weight: 1
-        config:
-          command: node
-          args:
-            - .vally/languages/python/check.mjs
-            - language/exception-handling
-    environment:
-      files:
-        - src: tools/check-app-configuration-python.mjs
-          dest: .vally/scenarios/app-configuration-python-config-values/tools/check-app-configuration-python.mjs
-        - src: tools/app-configuration-python-rules.mjs
-          dest: .vally/scenarios/app-configuration-python-config-values/tools/app-configuration-python-rules.mjs
-        - src: ../../languages/python/check.mjs
-          dest: .vally/languages/python/check.mjs
-        - src: ../../languages/python/checks.mjs
-          dest: .vally/languages/python/checks.mjs
+          prompt: |-
+            Review the generated implementation against every criterion.
+            Score each criterion independently. Accept equivalent valid
+            implementations and judge code behavior rather than syntax.
+            Return every criterion name exactly as provided. The criterion
+            value must start with "prompt/" or "language/". Never copy a rubric
+            list number into the criterion value. For example, return
+            "prompt/foo", never "1. prompt/foo".
+          models:
+            - gpt-5.6-sol
+          aggregation: unanimous
+          scoring: binary
+          threshold: 1
+          overall_threshold: 1
+          evidence:
+            - trajectory
+            - repo
+          criteria:
+            - name: prompt/azure-appconfiguration-pip-package
+              description: |-
+                `azure-appconfiguration` pip package
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: prompt/set-configuration-setting-with-configurationsetting-obje
+              description: |-
+                `set_configuration_setting()` with `ConfigurationSetting` objects
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: prompt/get-configuration-setting-by-key
+              description: |-
+                `get_configuration_setting()` by key
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: prompt/list-configuration-settings-with-key-filter
+              description: |-
+                `list_configuration_settings()` with key_filter
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: prompt/featureflagconfigurationsetting-for-feature-flags
+              description: |-
+                `FeatureFlagConfigurationSetting` for feature flags
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: prompt/delete-configuration-setting-and-httpresponseerror-handl
+              description: |-
+                `delete_configuration_setting()` and `HttpResponseError` handling
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: language/correct-package-imports
+              description: |-
+                Imports use the latest azure-sdk-for-python package structure (azure.*), not deprecated packages.
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: language/defaultazurecredential-usage
+              description: |-
+                Authentication matches what the prompt asks for. If the prompt explicitly requires a connection string (or other key-based auth), using `from_connection_string()` / connection-string-based clients is correct and should pass. Otherwise, authentication must use DefaultAzureCredential from azure-identity (or another `azure.identity` credential), not connection strings or hardcoded keys. Hardcoded secrets/keys/connection strings in source code always fail — required values should come from environment variables or a secret store.
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: language/context-manager-for-clients
+              description: |-
+                Azure SDK clients that support context managers are used with `with` statements or explicitly closed.
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: language/async-client-usage
+              description: |-
+                If async operations are requested, code uses the async client variant with proper await patterns.
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: language/proper-exception-handling
+              description: |-
+                Azure SDK exceptions (HttpResponseError and subclasses) are caught and handled appropriately.
+              weight: 1
+              pass_threshold: 1
+              required: true
 artifacts:
   include:
     - "**/*.py"

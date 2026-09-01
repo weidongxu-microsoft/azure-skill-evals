@@ -2,6 +2,12 @@ name: service-bus-python-order-processor
 description: Compare Azure tooling for a production-style Service Bus Python order processor
 version: "1.0"
 type: capability
+environment:
+  files:
+    - src: ../../eval-workspace.gitignore
+      dest: .gitignore
+    - src: ../../eval-workspace-AGENTS.md
+      dest: AGENTS.md
 scoring:
   weights: {}
   threshold: 1
@@ -13,122 +19,163 @@ defaults:
 stimuli:
   - name: service-bus-dp-python-order-processor
     prompt: |-
-      Create a complete, runnable Python project that implements an order processing system using Azure Service Bus.
-
-      Write the code to files. Do not reply with code blocks.
-
-      1. Use azure-servicebus==7.14.3 and azure-identity==1.25.3. Read the fully qualified Service Bus namespace and queue name from environment variables, authenticate with DefaultAzureCredential, and do not hard-code credentials.
-      2. Define an Order model with order ID, customer name, product, quantity, total price, and a pending/processing/completed/failed status. Support JSON serialization and deserialization.
-      3. Implement synchronous and azure.servicebus.aio asynchronous senders. Each must send one order and efficiently send multiple orders with ServiceBusMessageBatch. Check add_message and, when an order does not fit, send the current batch and retry that order in a new batch. Set correlation_id to the order ID and session_id to the customer name.
-      4. Mark orders above a documented price threshold as high priority and schedule them approximately 30 seconds in the future with scheduled_enqueue_time_utc or schedule_messages.
-      5. Implement synchronous and asynchronous session-aware processors. Deserialize and process each received order, complete that same message only after success, and explicitly dead-letter deserialization or non-transient processing failures with a useful reason. Abandon transient ServiceBusError failures so Service Bus can retry them.
-      6. Read the queue's dead-letter subqueue, inspect and deserialize failed orders, republish valid orders through the matching sender, and complete the same dead-letter message only after republishing succeeds.
-      7. Log ServiceBusError details, including the entity name, and distinguish transient from non-transient failures.
-      8. A main program must run a connected synchronous send/process/dead-letter-reprocess cycle first, then run and await the equivalent asynchronous cycle. Reliably close every credential, client, sender, and receiver with with or async with.
-
-      Use SERVICE_BUS_FULLY_QUALIFIED_NAMESPACE and SERVICE_BUS_QUEUE_NAME.
+      Create a Python project that implements an order processing system using Azure Service Bus.
+      
+      **Write the code to files (use file-write tools, do not reply with code blocks).**
+      
+      The project needs:
+      
+      - A **model** for an Order with fields for order ID, customer name, product, quantity, total price, and status (pending/processing/completed/failed). It should be serializable to and from JSON. Use a dataclass or dictionary.
+      
+      - A **sender module** (both sync and async versions) that publishes order messages to a Service Bus queue. It should support sending individual orders and sending a batch of orders efficiently (using `ServiceBusMessageBatch` and checking `add_message()` to respect the maximum batch size so messages aren't rejected). Each message should carry the order ID as a correlation property, and orders above a certain dollar threshold should be sent as high-priority with a scheduled delivery time of 30 seconds in the future (to allow for fraud review before processing).
+      
+      - A **processor module** (both sync and async versions) that receives and processes orders from the queue. It should handle messages as they arrive, deserialize them, and log the results. If processing fails (e.g., a deserialization error), the message should be sent to the dead-letter queue with a reason string using `dead_letter_message()` rather than being silently abandoned. The processor should also be able to read from the dead-letter queue so failed messages can be inspected and reprocessed. It should guarantee that orders from the same customer are processed in sequence, not interleaved with other customers' orders.
+      
+      - A **main script** that demos both implementations: connects to the Service Bus namespace (from an environment variable) with `DefaultAzureCredential`, runs the full send/receive/dead-letter cycle using the sync implementation first, then repeats with the async implementation.
+      
+      Include a `requirements.txt` with the necessary Azure SDK dependencies.
     tags:
       service: service-bus
       plane: data-plane
       language: python
       category: streaming
     graders:
-      - type: run-command
-        name: prompt/sdk-dependencies
+      - type: panel
+        name: prompt/full-case-review
         weight: 1
         config:
-          command: node
-          args: [.vally/scenarios/service-bus-python-order-processor/tools/check-order-processor-python.mjs, prompt/sdk-dependencies]
-      - type: run-command
-        name: prompt/order-model
-        weight: 1
-        config:
-          command: node
-          args: [.vally/scenarios/service-bus-python-order-processor/tools/check-order-processor-python.mjs, prompt/order-model]
-      - type: run-command
-        name: prompt/sync-sender
-        weight: 1
-        config:
-          command: node
-          args: [.vally/scenarios/service-bus-python-order-processor/tools/check-order-processor-python.mjs, prompt/sync-sender]
-      - type: run-command
-        name: prompt/async-sender
-        weight: 1
-        config:
-          command: node
-          args: [.vally/scenarios/service-bus-python-order-processor/tools/check-order-processor-python.mjs, prompt/async-sender]
-      - type: run-command
-        name: prompt/sync-processing-settlement
-        weight: 1
-        config:
-          command: node
-          args: [.vally/scenarios/service-bus-python-order-processor/tools/check-order-processor-python.mjs, prompt/sync-processing-settlement]
-      - type: run-command
-        name: prompt/async-processing-settlement
-        weight: 1
-        config:
-          command: node
-          args: [.vally/scenarios/service-bus-python-order-processor/tools/check-order-processor-python.mjs, prompt/async-processing-settlement]
-      - type: run-command
-        name: prompt/dead-letter-reprocessing
-        weight: 1
-        config:
-          command: node
-          args: [.vally/scenarios/service-bus-python-order-processor/tools/check-order-processor-python.mjs, prompt/dead-letter-reprocessing]
-      - type: run-command
-        name: prompt/error-classification
-        weight: 1
-        config:
-          command: node
-          args: [.vally/scenarios/service-bus-python-order-processor/tools/check-order-processor-python.mjs, prompt/error-classification]
-      - type: run-command
-        name: prompt/connected-demo
-        weight: 1
-        config:
-          command: node
-          args: [.vally/scenarios/service-bus-python-order-processor/tools/check-order-processor-python.mjs, prompt/connected-demo]
-      - type: run-command
-        name: language/correct-imports
-        weight: 1
-        config:
-          command: node
-          args: [.vally/languages/python/check.mjs, language/correct-imports]
-      - type: run-command
-        name: language/default-azure-credential
-        weight: 1
-        config:
-          command: node
-          args: [.vally/languages/python/check.mjs, language/default-azure-credential]
-      - type: run-command
-        name: language/client-lifecycle
-        weight: 1
-        config:
-          command: node
-          args: [.vally/languages/python/check.mjs, language/client-lifecycle]
-      - type: run-command
-        name: language/async-client
-        weight: 1
-        config:
-          command: node
-          args: [.vally/languages/python/check.mjs, language/async-client]
-      - type: run-command
-        name: language/exception-handling
-        weight: 1
-        config:
-          command: node
-          args: [.vally/languages/python/check.mjs, language/exception-handling]
-    environment:
-      files:
-        - src: tools/check-order-processor-python.mjs
-          dest: .vally/scenarios/service-bus-python-order-processor/tools/check-order-processor-python.mjs
-        - src: tools/order-processor-python-rules.mjs
-          dest: .vally/scenarios/service-bus-python-order-processor/tools/order-processor-python-rules.mjs
-        - src: tools/order_processor_analyzer.py
-          dest: .vally/scenarios/service-bus-python-order-processor/tools/order_processor_analyzer.py
-        - src: ../../languages/python/check.mjs
-          dest: .vally/languages/python/check.mjs
-        - src: ../../languages/python/checks.mjs
-          dest: .vally/languages/python/checks.mjs
+          prompt: |-
+            Review the generated implementation against every criterion.
+            Score each criterion independently. Accept equivalent valid
+            implementations and judge code behavior rather than syntax.
+            Return every criterion name exactly as provided. The criterion
+            value must start with "prompt/" or "language/". Never copy a rubric
+            list number into the criterion value. For example, return
+            "prompt/foo", never "1. prompt/foo".
+          models:
+            - gpt-5.6-sol
+          aggregation: unanimous
+          scoring: binary
+          threshold: 1
+          overall_threshold: 1
+          evidence:
+            - trajectory
+            - repo
+          criteria:
+            - name: prompt/sender-uses-servicebusclient-get-queue-sender-or-async-e
+              description: |-
+                Sender uses `ServiceBusClient.get_queue_sender()` (or async equivalent)
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: prompt/processor-uses-servicebusclient-get-queue-receiver-or-se
+              description: |-
+                Processor uses `ServiceBusClient.get_queue_receiver()` or session-enabled receiver ### Scenario-Specific Patterns
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: prompt/batch-sending-creates-servicebusmessagebatch-checks-add
+              description: |-
+                Batch sending: creates `ServiceBusMessageBatch`, checks `add_message()` return or catches `MessageSizeExceededError`
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: prompt/handles-the-case-where-a-message-doesnt-fit-in-the-curre
+              description: |-
+                Handles the case where a message doesn't fit in the current batch
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: prompt/scheduled-delivery-uses-schedule-messages-or-servicebusm
+              description: |-
+                Scheduled delivery: uses `schedule_messages()` or `ServiceBusMessage(scheduled_enqueue_time_utc=...)` (~30s delay)
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: prompt/correlation-sets-order-id-via-correlation-id-property-on
+              description: |-
+                Correlation: sets order ID via `correlation_id` property on `ServiceBusMessage`
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: prompt/dead-letter-explicitly-dead-letters-failed-messages-with
+              description: |-
+                Dead-letter: explicitly dead-letters failed messages with `receiver.dead_letter_message()` and a reason string
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: prompt/dead-letter-queue-reading-uses-sub-queue-servicebussubqu
+              description: |-
+                Dead-letter queue reading: uses `sub_queue=ServiceBusSubQueue.DEAD_LETTER` on receiver
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: prompt/session-aware-processing-uses-session-id-on-messages-and
+              description: |-
+                Session-aware processing: uses `session_id` on messages and session-enabled receiver
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: prompt/session-id-keyed-by-customer-name-for-ordered-processing
+              description: |-
+                Session ID keyed by customer name for ordered processing
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: prompt/context-manager-pattern-with-statements-for-all-clients
+              description: |-
+                Context manager pattern (`with` statements) for all clients, senders, and receivers ### Scenario-Specific Error Handling
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: prompt/catches-servicebuserror-and-distinguishes-transient-vs-n
+              description: |-
+                Catches `ServiceBusError` and distinguishes transient vs non-transient errors
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: prompt/error-handler-logs-entity-name-and-error-details-async-s
+              description: |-
+                Error handler logs entity name and error details ### Async Support
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: prompt/async-versions-use-azure-servicebus-aio-module
+              description: |-
+                Async versions use `azure.servicebus.aio` module
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: language/correct-package-imports
+              description: |-
+                Imports use the latest azure-sdk-for-python package structure (azure.*), not deprecated packages.
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: language/defaultazurecredential-usage
+              description: |-
+                Authentication matches what the prompt asks for. If the prompt explicitly requires a connection string (or other key-based auth), using `from_connection_string()` / connection-string-based clients is correct and should pass. Otherwise, authentication must use DefaultAzureCredential from azure-identity (or another `azure.identity` credential), not connection strings or hardcoded keys. Hardcoded secrets/keys/connection strings in source code always fail — required values should come from environment variables or a secret store.
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: language/context-manager-for-clients
+              description: |-
+                Azure SDK clients that support context managers are used with `with` statements or explicitly closed.
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: language/async-client-usage
+              description: |-
+                If async operations are requested, code uses the async client variant with proper await patterns.
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: language/proper-exception-handling
+              description: |-
+                Azure SDK exceptions (HttpResponseError and subclasses) are caught and handled appropriately.
+              weight: 1
+              pass_threshold: 1
+              required: true
 artifacts:
   include:
     - "**/*.py"

@@ -2,6 +2,12 @@ name: storage-python-account-mgmt
 description: Compare Azure tooling for a Python storage account lifecycle
 version: "1.0"
 type: capability
+environment:
+  files:
+    - src: ../../eval-workspace.gitignore
+      dest: .gitignore
+    - src: ../../eval-workspace-AGENTS.md
+      dest: AGENTS.md
 scoring:
   weights: {}
   threshold: 1
@@ -13,107 +19,122 @@ defaults:
 stimuli:
   - name: storage-mp-python-account-mgmt
     prompt: |-
-      Write a complete, runnable Python script that performs one Azure Storage account management lifecycle.
-
-      Write the code to files. Do not reply with code blocks.
-
-      1. Show the required pip packages for Azure Identity and Azure Storage management.
-      2. Read the subscription ID, resource group name, storage account name, and location from AZURE_SUBSCRIPTION_ID, AZURE_RESOURCE_GROUP_NAME, AZURE_STORAGE_ACCOUNT_NAME, and AZURE_LOCATION. Use eastus as the location default.
-      3. Authenticate one StorageManagementClient with DefaultAzureCredential and that subscription ID.
-      4. Create the storage account in the existing resource group with Standard_LRS, StorageV2, and the configured location. Wait for the exact begin_create poller's result.
-      5. List storage accounts with list_by_resource_group, iterate the returned collection, and print each account name.
-      6. Get the created account with get_properties and print one nonsecret property from the returned result.
-      7. Enable blob versioning on the default blob service with is_versioning_enabled=True and print the observed setting from the returned result.
-      8. Begin deleting the same account, wait for that exact poller's result, and print a deletion confirmation only after completion.
-      9. Handle HttpResponseError and authentication errors meaningfully without swallowing unrelated failures.
-
-      Do not create or delete the resource group, request account keys, or set an access tier.
+      Write a Python script that manages
+      Azure Storage Accounts using the management plane SDK:
+      1. Authenticate using DefaultAzureCredential
+      2. Create a new Storage Account with Standard_LRS SKU in "eastus"
+      3. List all Storage Accounts in a resource group
+      4. Get the properties of the created Storage Account
+      5. Update the account to enable blob versioning
+      6. Delete the Storage Account
+      
+      Show required pip packages and include proper error handling.
     tags:
       service: storage
       plane: management-plane
       language: python
       category: crud
     graders:
-      - type: run-command
-        name: prompt/sdk-packages
+      - type: panel
+        name: prompt/full-case-review
         weight: 1
         config:
-          command: node
-          args:
-            - .vally/scenarios/storage-python-account-mgmt/tools/check-storage-account-python.mjs
-            - prompt/sdk-packages
-      - type: run-command
-        name: prompt/configuration
-        weight: 1
-        config:
-          command: node
-          args:
-            - .vally/scenarios/storage-python-account-mgmt/tools/check-storage-account-python.mjs
-            - prompt/configuration
-      - type: run-command
-        name: prompt/authenticated-management-client
-        weight: 1
-        config:
-          command: node
-          args:
-            - .vally/scenarios/storage-python-account-mgmt/tools/check-storage-account-python.mjs
-            - prompt/authenticated-management-client
-      - type: run-command
-        name: prompt/create-storage-account
-        weight: 1
-        config:
-          command: node
-          args:
-            - .vally/scenarios/storage-python-account-mgmt/tools/check-storage-account-python.mjs
-            - prompt/create-storage-account
-      - type: run-command
-        name: prompt/list-storage-accounts
-        weight: 1
-        config:
-          command: node
-          args:
-            - .vally/scenarios/storage-python-account-mgmt/tools/check-storage-account-python.mjs
-            - prompt/list-storage-accounts
-      - type: run-command
-        name: prompt/get-storage-account-properties
-        weight: 1
-        config:
-          command: node
-          args:
-            - .vally/scenarios/storage-python-account-mgmt/tools/check-storage-account-python.mjs
-            - prompt/get-storage-account-properties
-      - type: run-command
-        name: prompt/enable-blob-versioning
-        weight: 1
-        config:
-          command: node
-          args:
-            - .vally/scenarios/storage-python-account-mgmt/tools/check-storage-account-python.mjs
-            - prompt/enable-blob-versioning
-      - type: run-command
-        name: prompt/delete-storage-account
-        weight: 1
-        config:
-          command: node
-          args:
-            - .vally/scenarios/storage-python-account-mgmt/tools/check-storage-account-python.mjs
-            - prompt/delete-storage-account
-      - type: run-command
-        name: prompt/sdk-error-handling
-        weight: 1
-        config:
-          command: node
-          args:
-            - .vally/scenarios/storage-python-account-mgmt/tools/check-storage-account-python.mjs
-            - prompt/sdk-error-handling
-    environment:
-      files:
-        - src: tools/check-storage-account-python.mjs
-          dest: .vally/scenarios/storage-python-account-mgmt/tools/check-storage-account-python.mjs
-        - src: tools/storage-account-rules.mjs
-          dest: .vally/scenarios/storage-python-account-mgmt/tools/storage-account-rules.mjs
-        - src: tools/storage_account_analyzer.py
-          dest: .vally/scenarios/storage-python-account-mgmt/tools/storage_account_analyzer.py
+          prompt: |-
+            Review the generated implementation against every criterion.
+            Score each criterion independently. Accept equivalent valid
+            implementations and judge code behavior rather than syntax.
+            Return every criterion name exactly as provided. The criterion
+            value must start with "prompt/" or "language/". Never copy a rubric
+            list number into the criterion value. For example, return
+            "prompt/foo", never "1. prompt/foo".
+          models:
+            - gpt-5.6-sol
+          aggregation: unanimous
+          scoring: binary
+          threshold: 1
+          overall_threshold: 1
+          evidence:
+            - trajectory
+            - repo
+          criteria:
+            - name: prompt/includes-the-required-azure-management-and-identity-sdk
+              description: |-
+                Includes the required Azure management and identity SDK packages
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: prompt/creates-a-management-client-authenticated-with-credentia
+              description: |-
+                Creates a management client authenticated with credential and subscription ID
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: prompt/creates-a-storage-account-as-a-long-running-operation-wi
+              description: |-
+                Creates a storage account as a long-running operation with the correct SKU and kind
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: prompt/lists-all-storage-accounts-in-the-resource-group
+              description: |-
+                Lists all storage accounts in the resource group
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: prompt/retrieves-detailed-properties-of-a-specific-storage-acco
+              description: |-
+                Retrieves detailed properties of a specific storage account
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: prompt/enables-blob-versioning-on-the-account-via-account-updat
+              description: |-
+                Enables blob versioning on the account (via account update or blob service properties)
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: prompt/deletes-the-storage-account
+              description: |-
+                Deletes the storage account
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: prompt/code-builds-and-runs-without-import-errors-or-api-misuse
+              description: |-
+                Code builds and runs without import errors or API misuse
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: language/correct-package-imports
+              description: |-
+                Imports use the latest azure-sdk-for-python package structure (azure.*), not deprecated packages.
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: language/defaultazurecredential-usage
+              description: |-
+                Authentication matches what the prompt asks for. If the prompt explicitly requires a connection string (or other key-based auth), using `from_connection_string()` / connection-string-based clients is correct and should pass. Otherwise, authentication must use DefaultAzureCredential from azure-identity (or another `azure.identity` credential), not connection strings or hardcoded keys. Hardcoded secrets/keys/connection strings in source code always fail — required values should come from environment variables or a secret store.
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: language/context-manager-for-clients
+              description: |-
+                Azure SDK clients that support context managers are used with `with` statements or explicitly closed.
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: language/async-client-usage
+              description: |-
+                If async operations are requested, code uses the async client variant with proper await patterns.
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: language/proper-exception-handling
+              description: |-
+                Azure SDK exceptions (HttpResponseError and subclasses) are caught and handled appropriately.
+              weight: 1
+              pass_threshold: 1
+              required: true
 artifacts:
   include:
     - "**/*.py"

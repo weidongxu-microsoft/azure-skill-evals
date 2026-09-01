@@ -2,6 +2,12 @@ name: storage-java-crud-blobs
 description: Compare Azure tooling for an Azure Blob Storage Java CRUD task
 version: "1.0"
 type: capability
+environment:
+  files:
+    - src: ../../eval-workspace.gitignore
+      dest: .gitignore
+    - src: ../../eval-workspace-AGENTS.md
+      dest: AGENTS.md
 scoring:
   weights: {}
   threshold: 1
@@ -13,140 +19,158 @@ defaults:
 stimuli:
   - name: storage-dp-java-crud
     prompt: |-
-      Write a Java 17 application that performs one connected CRUD lifecycle
-      against Azure Blob Storage.
-
-      Write the code to files. Do not reply with code blocks.
-
-      Read the storage account blob-service endpoint from
-      AZURE_STORAGE_ACCOUNT_URL. Use DefaultAzureCredential with
-      BlobServiceClientBuilder to create the Blob Storage client.
-
-      1. Get the container named "my-container" and create it only when it
-         does not already exist.
-      2. Upload the local file "data.txt" as "uploads/data.txt".
-      3. List the container's blobs and print each blob's name and size.
-      4. Download the same blob to "data-downloaded.txt".
-      5. Delete the same blob, then delete the same container.
-
-      Include an active Maven or Gradle runtime manifest with
-      com.azure:azure-identity:1.18.5 and
-      com.azure:azure-storage-blob:12.35.1. Handle BlobStorageException
-      meaningfully, including its status code, without swallowing failures.
-      Equivalent synchronous, asynchronous, or helper-based SDK forms are
-      valid when the operations remain connected and execute in order.
+      Write a Java application that performs
+      CRUD operations on Azure Blob Storage:
+      1. Create a BlobServiceClient using DefaultAzureCredential
+      2. Create a container named "my-container" if it doesn't exist
+      3. Upload a local file "data.txt" as a blob named "uploads/data.txt"
+      4. List all blobs in the container and print their names and sizes
+      5. Download the blob back to a local file "data-downloaded.txt"
+      6. Delete the blob and then delete the container
+      
+      Show required Maven dependencies and proper error handling with BlobStorageException.
     tags:
       service: storage
       plane: data-plane
       language: java
       category: crud
     graders:
-      - type: run-command
-        name: prompt/sdk-dependencies
+      - type: panel
+        name: prompt/full-case-review
         weight: 1
         config:
-          command: node
-          args:
-            - .vally/scenarios/storage-java-crud-blobs/tools/check-storage-java.mjs
-            - prompt/sdk-dependencies
-      - type: run-command
-        name: prompt/client-authentication
-        weight: 1
-        config:
-          command: node
-          args:
-            - .vally/scenarios/storage-java-crud-blobs/tools/check-storage-java.mjs
-            - prompt/client-authentication
-      - type: run-command
-        name: prompt/container-create
-        weight: 1
-        config:
-          command: node
-          args:
-            - .vally/scenarios/storage-java-crud-blobs/tools/check-storage-java.mjs
-            - prompt/container-create
-      - type: run-command
-        name: prompt/upload-blob
-        weight: 1
-        config:
-          command: node
-          args:
-            - .vally/scenarios/storage-java-crud-blobs/tools/check-storage-java.mjs
-            - prompt/upload-blob
-      - type: run-command
-        name: prompt/list-blobs
-        weight: 1
-        config:
-          command: node
-          args:
-            - .vally/scenarios/storage-java-crud-blobs/tools/check-storage-java.mjs
-            - prompt/list-blobs
-      - type: run-command
-        name: prompt/download-blob
-        weight: 1
-        config:
-          command: node
-          args:
-            - .vally/scenarios/storage-java-crud-blobs/tools/check-storage-java.mjs
-            - prompt/download-blob
-      - type: run-command
-        name: prompt/delete-lifecycle
-        weight: 1
-        config:
-          command: node
-          args:
-            - .vally/scenarios/storage-java-crud-blobs/tools/check-storage-java.mjs
-            - prompt/delete-lifecycle
-      - type: run-command
-        name: prompt/blob-storage-exception
-        weight: 1
-        config:
-          command: node
-          args:
-            - .vally/scenarios/storage-java-crud-blobs/tools/check-storage-java.mjs
-            - prompt/blob-storage-exception
-      - type: run-command
-        name: language/build-manifest
-        weight: 1
-        config:
-          command: node
-          args:
-            - .vally/languages/java/check.mjs
-            - language/build-manifest
-      - type: run-command
-        name: language/current-azure-dependencies
-        weight: 1
-        config:
-          command: node
-          args:
-            - .vally/languages/java/check.mjs
-            - language/current-azure-dependencies
-      - type: run-command
-        name: language/current-imports
-        weight: 1
-        config:
-          command: node
-          args:
-            - .vally/languages/java/check.mjs
-            - language/current-imports
-      - type: run-command
-        name: language/client-builder
-        weight: 1
-        config:
-          command: node
-          args:
-            - .vally/languages/java/check.mjs
-            - language/client-builder
-    environment:
-      files:
-        - src: tools/check-storage-java.mjs
-          dest: .vally/scenarios/storage-java-crud-blobs/tools/check-storage-java.mjs
-        - src: tools/storage-java-rules.mjs
-          dest: .vally/scenarios/storage-java-crud-blobs/tools/storage-java-rules.mjs
-        - src: ../../languages/java/check.mjs
-          dest: .vally/languages/java/check.mjs
-        - src: ../../languages/java/checks.mjs
-          dest: .vally/languages/java/checks.mjs
+          prompt: |-
+            Review the generated implementation against every criterion.
+            Score each criterion independently. Accept equivalent valid
+            implementations and judge code behavior rather than syntax.
+            Return every criterion name exactly as provided. The criterion
+            value must start with "prompt/" or "language/". Never copy a rubric
+            list number into the criterion value. For example, return
+            "prompt/foo", never "1. prompt/foo".
+          models:
+            - gpt-5.6-sol
+          aggregation: unanimous
+          scoring: binary
+          threshold: 1
+          overall_threshold: 1
+          evidence:
+            - trajectory
+            - repo
+          criteria:
+            - name: prompt/maven-dependency-for-azure-storage-blob-and-azure-identi
+              description: |-
+                Maven dependency for `azure-storage-blob` and `azure-identity`
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: prompt/blobserviceclientbuilder-with-defaultazurecredential
+              description: |-
+                `BlobServiceClientBuilder` with `DefaultAzureCredential`
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: prompt/blobcontainerclient-create-and-exists-check
+              description: |-
+                `BlobContainerClient.create()` and `exists()` check
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: prompt/blobclient-uploadfromfile-and-downloadtofile
+              description: |-
+                `BlobClient.uploadFromFile()` and `downloadToFile()`
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: prompt/blobcontainerclient-listblobs-iteration
+              description: |-
+                `BlobContainerClient.listBlobs()` iteration
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: prompt/blobclient-delete-and-blobcontainerclient-delete
+              description: |-
+                `BlobClient.delete()` and `BlobContainerClient.delete()`
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: prompt/blobstorageexception-handling-with-status-codes
+              description: |-
+                `BlobStorageException` handling with status codes
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: language/correct-dependencies-com-azure-not-com-microsoft-azure
+              description: |-
+                Uses com.azure group ID for all Azure SDK packages. No com.microsoft.azure (legacy SDK) dependencies. Includes azure-identity for authentication.
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: language/azure-sdk-bom-for-version-management
+              description: |-
+                Uses azure-sdk-bom in dependencyManagement to manage Azure SDK versions instead of hardcoding individual artifact versions. Dependencies should omit <version> tags when managed by the BOM.
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: language/correct-imports-no-legacy-no-internal-packages
+              description: |-
+                All imports use com.azure.* packages. No com.microsoft.azure.* (legacy) or com.azure.*.implementation.* (internal API) imports.
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: language/defaultazurecredential-authentication
+              description: |-
+                Uses DefaultAzureCredential or another com.azure.identity credential. No hardcoded connection strings, account keys, SAS tokens, or secrets.
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: language/client-builder-pattern
+              description: |-
+                SDK clients constructed using *ClientBuilder classes with .endpoint() or .vaultUrl() and .credential(). No legacy constructors (CloudStorageAccount, DocumentClient, KeyVaultClient).
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: language/no-deprecated-legacy-classes
+              description: |-
+                No deprecated classes from the old SDK (CloudStorageAccount, CloudBlobClient, DocumentClient, QueueClient, ApplicationTokenCredentials, MSICredentials, ConnectionStringBuilder).
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: language/pagination-pagediterable-pagedflux
+              description: |-
+                List/query operations return PagedIterable (sync) or PagedFlux (async). Does not flatten all pages into a raw List or Stream in memory.
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: language/lro-pattern-syncpoller-pollerflux
+              description: |-
+                Long-running operations use SyncPoller (sync) or PollerFlux (async) with begin* method prefix. No Thread.sleep() polling loops.
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: language/async-uses-project-reactor-mono-flux
+              description: |-
+                Async code uses Project Reactor types (Mono, Flux). Not CompletableFuture (wrong), not RxJava (wrong), not sync wrapped in ExecutorService. No .block() inside async service implementations.
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: language/service-specific-exception-handling
+              description: |-
+                Catches service-specific exceptions (BlobStorageException, CosmosException, ServiceBusException, HttpResponseException) with status code inspection. Not just generic Exception catches.
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: language/code-compiles-mvn-compile-gradle-compilejava
+              description: |-
+                The generated code compiles without errors. Attempt build verification if build tools are available.
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: language/try-with-resources-for-clients
+              description: |-
+                All Azure SDK client instances that implement AutoCloseable are used within try-with-resources blocks or explicitly closed in a finally block.
+              weight: 1
+              pass_threshold: 1
+              required: true
 artifacts:
   include:
     - "**/*.java"

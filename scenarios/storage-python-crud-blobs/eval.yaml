@@ -2,6 +2,12 @@ name: storage-python-crud-blobs
 description: Compare Azure tooling for an Azure Blob Storage Python CRUD lifecycle
 version: "1.0"
 type: capability
+environment:
+  files:
+    - src: ../../eval-workspace.gitignore
+      dest: .gitignore
+    - src: ../../eval-workspace-AGENTS.md
+      dest: AGENTS.md
 scoring:
   weights: {}
   threshold: 1
@@ -13,142 +19,125 @@ defaults:
 stimuli:
   - name: storage-dp-python-crud
     prompt: |-
-      Write a complete, runnable Python script that performs one Azure Blob Storage lifecycle.
-
-      Write the code to files. Do not reply with code blocks.
-
-      1. Show the required pip packages for Azure Storage Blobs and Azure Identity.
-      2. Create a BlobServiceClient using DefaultAzureCredential.
-      3. Create a container named "my-container" if it does not exist.
-      4. Upload the local file "report.csv" as "reports/report.csv" with overwrite enabled.
-      5. List all blobs in the container and print each blob's name and content length.
-      6. Download that blob and save it as "report-downloaded.csv".
-      7. Delete that blob, then delete the container.
-      8. Handle ResourceExistsError for container creation and HttpResponseError for Azure request failures.
-
-      Read the storage account URL from configuration rather than hard-coding credentials.
+      Write a Python script that performs
+      CRUD operations on Azure Blob Storage:
+      
+      **Write the code to files (use file-write tools, do not reply with code blocks).**
+      
+      1. Create a BlobServiceClient using DefaultAzureCredential
+      2. Create a container named "my-container" if it doesn't exist
+      3. Upload a local file "report.csv" as a blob named "reports/report.csv"
+      4. List all blobs in the container and print each blob's name and content length
+      5. Download the blob and save it to "report-downloaded.csv"
+      6. Delete the blob and then delete the container
+      
+      Include a `requirements.txt` with `azure-storage-blob` and `azure-identity`, and add proper error handling with `HttpResponseError` and `ResourceExistsError`.
     tags:
       service: storage
       plane: data-plane
       language: python
       category: crud
     graders:
-      - type: run-command
-        name: prompt/sdk-packages
+      - type: panel
+        name: prompt/full-case-review
         weight: 1
         config:
-          command: node
-          args:
-            - .vally/scenarios/storage-python-crud-blobs/tools/check-storage-blobs-python.mjs
-            - prompt/sdk-packages
-      - type: run-command
-        name: prompt/authenticated-blob-service-client
-        weight: 1
-        config:
-          command: node
-          args:
-            - .vally/scenarios/storage-python-crud-blobs/tools/check-storage-blobs-python.mjs
-            - prompt/authenticated-blob-service-client
-      - type: run-command
-        name: prompt/create-container
-        weight: 1
-        config:
-          command: node
-          args:
-            - .vally/scenarios/storage-python-crud-blobs/tools/check-storage-blobs-python.mjs
-            - prompt/create-container
-      - type: run-command
-        name: prompt/upload-blob
-        weight: 1
-        config:
-          command: node
-          args:
-            - .vally/scenarios/storage-python-crud-blobs/tools/check-storage-blobs-python.mjs
-            - prompt/upload-blob
-      - type: run-command
-        name: prompt/list-blobs
-        weight: 1
-        config:
-          command: node
-          args:
-            - .vally/scenarios/storage-python-crud-blobs/tools/check-storage-blobs-python.mjs
-            - prompt/list-blobs
-      - type: run-command
-        name: prompt/download-blob
-        weight: 1
-        config:
-          command: node
-          args:
-            - .vally/scenarios/storage-python-crud-blobs/tools/check-storage-blobs-python.mjs
-            - prompt/download-blob
-      - type: run-command
-        name: prompt/delete-blob-and-container
-        weight: 1
-        config:
-          command: node
-          args:
-            - .vally/scenarios/storage-python-crud-blobs/tools/check-storage-blobs-python.mjs
-            - prompt/delete-blob-and-container
-      - type: run-command
-        name: prompt/sdk-error-handling
-        weight: 1
-        config:
-          command: node
-          args:
-            - .vally/scenarios/storage-python-crud-blobs/tools/check-storage-blobs-python.mjs
-            - prompt/sdk-error-handling
-      - type: run-command
-        name: language/correct-imports
-        weight: 1
-        config:
-          command: node
-          args:
-            - .vally/languages/python/check.mjs
-            - language/correct-imports
-      - type: run-command
-        name: language/default-azure-credential
-        weight: 1
-        config:
-          command: node
-          args:
-            - .vally/languages/python/check.mjs
-            - language/default-azure-credential
-      - type: run-command
-        name: language/client-lifecycle
-        weight: 1
-        config:
-          command: node
-          args:
-            - .vally/languages/python/check.mjs
-            - language/client-lifecycle
-      - type: run-command
-        name: language/async-client
-        weight: 1
-        config:
-          command: node
-          args:
-            - .vally/languages/python/check.mjs
-            - language/async-client
-      - type: run-command
-        name: language/exception-handling
-        weight: 1
-        config:
-          command: node
-          args:
-            - .vally/languages/python/check.mjs
-            - language/exception-handling
-    environment:
-      files:
-        - src: tools/check-storage-blobs-python.mjs
-          dest: .vally/scenarios/storage-python-crud-blobs/tools/check-storage-blobs-python.mjs
-        - src: tools/storage-blobs-rules.mjs
-          dest: .vally/scenarios/storage-python-crud-blobs/tools/storage-blobs-rules.mjs
-        - src: tools/storage_blobs_analyzer.py
-          dest: .vally/scenarios/storage-python-crud-blobs/tools/storage_blobs_analyzer.py
-        - src: ../../languages/python/check.mjs
-          dest: .vally/languages/python/check.mjs
-        - src: ../../languages/python/checks.mjs
-          dest: .vally/languages/python/checks.mjs
+          prompt: |-
+            Review the generated implementation against every criterion.
+            Score each criterion independently. Accept equivalent valid
+            implementations and judge code behavior rather than syntax.
+            Return every criterion name exactly as provided. The criterion
+            value must start with "prompt/" or "language/". Never copy a rubric
+            list number into the criterion value. For example, return
+            "prompt/foo", never "1. prompt/foo".
+          models:
+            - gpt-5.6-sol
+          aggregation: unanimous
+          scoring: binary
+          threshold: 1
+          overall_threshold: 1
+          evidence:
+            - trajectory
+            - repo
+          criteria:
+            - name: prompt/includes-required-azure-storage-and-identity-sdk-package
+              description: |-
+                Includes required Azure Storage and Identity SDK packages (via requirements.txt or install instructions)
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: prompt/authenticates-the-blob-service-client-with-defaultazurec
+              description: |-
+                Authenticates the blob service client with DefaultAzureCredential
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: prompt/creates-a-container-handling-the-case-where-it-already-e
+              description: |-
+                Creates a container (handling the case where it already exists)
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: prompt/uploads-a-file-as-a-blob-with-overwrite-support
+              description: |-
+                Uploads a file as a blob with overwrite support
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: prompt/lists-blobs-in-the-container-with-their-properties
+              description: |-
+                Lists blobs in the container with their properties
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: prompt/downloads-a-blob-to-a-local-file
+              description: |-
+                Downloads a blob to a local file
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: prompt/deletes-the-blob-and-the-container
+              description: |-
+                Deletes the blob and the container
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: prompt/catches-azure-specific-errors-both-general-http-errors-a
+              description: |-
+                Catches Azure-specific errors (both general HTTP errors and resource-exists errors)
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: language/correct-package-imports
+              description: |-
+                Imports use the latest azure-sdk-for-python package structure (azure.*), not deprecated packages.
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: language/defaultazurecredential-usage
+              description: |-
+                Authentication matches what the prompt asks for. If the prompt explicitly requires a connection string (or other key-based auth), using `from_connection_string()` / connection-string-based clients is correct and should pass. Otherwise, authentication must use DefaultAzureCredential from azure-identity (or another `azure.identity` credential), not connection strings or hardcoded keys. Hardcoded secrets/keys/connection strings in source code always fail — required values should come from environment variables or a secret store.
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: language/context-manager-for-clients
+              description: |-
+                Azure SDK clients that support context managers are used with `with` statements or explicitly closed.
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: language/async-client-usage
+              description: |-
+                If async operations are requested, code uses the async client variant with proper await patterns.
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: language/proper-exception-handling
+              description: |-
+                Azure SDK exceptions (HttpResponseError and subclasses) are caught and handled appropriately.
+              weight: 1
+              pass_threshold: 1
+              required: true
 artifacts:
   include:
     - "**/*.py"

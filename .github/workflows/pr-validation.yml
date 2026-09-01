@@ -53,11 +53,11 @@ jobs:
       - name: Run deterministic validation
         run: |
           pnpm test
-          vally lint --eval-spec scenarios --strict --verbose
+          pnpm exec vally lint --eval-spec scenarios --strict --verbose
 
       - name: Dry-run experiments
         run: |
-          vally experiment run experiments/python/experiment.yaml --output-dir reports --dry-run
-          vally experiment run experiments/dotnet/experiment.yaml --output-dir reports --dry-run
-          vally experiment run experiments/java/experiment.yaml --output-dir reports --dry-run
-          vally experiment run experiments/typescript/experiment.yaml --output-dir reports --dry-run
+          pnpm exec vally experiment run experiments/python/experiment.yaml --output-dir reports --dry-run
+          pnpm exec vally experiment run experiments/dotnet/experiment.yaml --output-dir reports --dry-run
+          pnpm exec vally experiment run experiments/java/experiment.yaml --output-dir reports --dry-run
+          pnpm exec vally experiment run experiments/typescript/experiment.yaml --output-dir reports --dry-run

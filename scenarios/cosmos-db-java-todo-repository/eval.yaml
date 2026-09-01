@@ -2,6 +2,12 @@ name: cosmos-db-java-todo-repository
 description: Compare Azure tooling for a production-oriented Cosmos DB Java repository
 version: "1.0"
 type: capability
+environment:
+  files:
+    - src: ../../eval-workspace.gitignore
+      dest: .gitignore
+    - src: ../../eval-workspace-AGENTS.md
+      dest: AGENTS.md
 scoring:
   weights: {}
   threshold: 1
@@ -14,90 +20,204 @@ stimuli:
   - name: cosmos-db-dp-java-todo-repository
     prompt: |-
       Create a small Java 17 Maven project that implements a ToDo item CRUD repository backed by Azure Cosmos DB (NoSQL API).
-
-      **Write the code to files (use file-write tools, do not reply with code blocks).**
-
+      
       The project needs:
-
+      
       - A **model class** (shared by both implementations) for a ToDo item with fields for id, title, description, completed status, created timestamp, and category (where category is the partition key).
-
+      
       - A **synchronous repository class** that performs CRUD operations against Cosmos DB. It should support create, read, update, delete, and a query-by-category method. Each operation should log the request charge (RU cost consumed). The update operation should prevent lost updates — if another process modified the item since it was last read, the update should fail with a clear conflict error rather than silently overwriting the other process's changes. The query method should use safe, parameterized queries and must handle large result sets properly — paginate through results rather than loading everything into memory at once, and log progress as each page is retrieved.
-
+      
       - An **asynchronous repository class** that provides the same CRUD operations. The query method should return results as a stream of pages, and the caller should be able to process each page as it arrives.
-
+      
       - A **configuration/factory class** that connects to the Cosmos DB account using its endpoint from an environment variable. Authentication must use managed identity (no master keys). It should create the database and container if they don't already exist, setting a default TTL (time-to-live) of 90 days on the container and configuring the indexing policy to exclude the `description` field from indexing (since it's never queried on).
-
-      - A **Main class** that demos both implementations: runs the full CRUD cycle using the sync repository first (including paginated query output showing page-by-page results), then runs the same operations using the async repository.
-
-      Include a complete `pom.xml` that targets Java 17 and pins `com.azure:azure-cosmos` to `4.82.0` and `com.azure:azure-identity` to `1.18.5`.
+      
+      - A **Main class** that demos both implementations: runs the full CRUD cycle using the sync repository first (including paginated query output showing page-by-page results), then runs the same operations using the async repository. Print RU costs and results to the console.
+      
+      Include a complete `pom.xml` with the necessary Azure SDK dependencies.
     tags:
       service: cosmos-db
       plane: data-plane
       language: java
       category: crud
     graders:
-      - type: run-command
-        name: prompt/source-manifest
+      - type: panel
+        name: prompt/full-case-review
         weight: 1
-        config: { command: node, args: [.vally/scenarios/cosmos-db-java-todo-repository/tools/check-todo-repository-java.mjs, prompt/source-manifest] }
-      - type: run-command
-        name: prompt/todo-model
-        weight: 1
-        config: { command: node, args: [.vally/scenarios/cosmos-db-java-todo-repository/tools/check-todo-repository-java.mjs, prompt/todo-model] }
-      - type: run-command
-        name: prompt/secure-container-factory
-        weight: 1
-        config: { command: node, args: [.vally/scenarios/cosmos-db-java-todo-repository/tools/check-todo-repository-java.mjs, prompt/secure-container-factory] }
-      - type: run-command
-        name: prompt/sync-crud-request-charges
-        weight: 1
-        config: { command: node, args: [.vally/scenarios/cosmos-db-java-todo-repository/tools/check-todo-repository-java.mjs, prompt/sync-crud-request-charges] }
-      - type: run-command
-        name: prompt/async-crud-request-charges
-        weight: 1
-        config: { command: node, args: [.vally/scenarios/cosmos-db-java-todo-repository/tools/check-todo-repository-java.mjs, prompt/async-crud-request-charges] }
-      - type: run-command
-        name: prompt/etag-conflict-handling
-        weight: 1
-        config: { command: node, args: [.vally/scenarios/cosmos-db-java-todo-repository/tools/check-todo-repository-java.mjs, prompt/etag-conflict-handling] }
-      - type: run-command
-        name: prompt/sync-parameterized-pagination
-        weight: 1
-        config: { command: node, args: [.vally/scenarios/cosmos-db-java-todo-repository/tools/check-todo-repository-java.mjs, prompt/sync-parameterized-pagination] }
-      - type: run-command
-        name: prompt/async-parameterized-pagination
-        weight: 1
-        config: { command: node, args: [.vally/scenarios/cosmos-db-java-todo-repository/tools/check-todo-repository-java.mjs, prompt/async-parameterized-pagination] }
-      - type: run-command
-        name: prompt/connected-sync-then-async-demo
-        weight: 1
-        config: { command: node, args: [.vally/scenarios/cosmos-db-java-todo-repository/tools/check-todo-repository-java.mjs, prompt/connected-sync-then-async-demo] }
-      - type: run-command
-        name: language/build-manifest
-        weight: 1
-        config: { command: node, args: [.vally/languages/java/check.mjs, language/build-manifest] }
-      - type: run-command
-        name: language/current-azure-dependencies
-        weight: 1
-        config: { command: node, args: [.vally/languages/java/check.mjs, language/current-azure-dependencies] }
-      - type: run-command
-        name: language/current-imports
-        weight: 1
-        config: { command: node, args: [.vally/languages/java/check.mjs, language/current-imports] }
-      - type: run-command
-        name: language/client-builder
-        weight: 1
-        config: { command: node, args: [.vally/languages/java/check.mjs, language/client-builder] }
-    environment:
-      files:
-        - src: tools/check-todo-repository-java.mjs
-          dest: .vally/scenarios/cosmos-db-java-todo-repository/tools/check-todo-repository-java.mjs
-        - src: tools/todo-repository-java-rules.mjs
-          dest: .vally/scenarios/cosmos-db-java-todo-repository/tools/todo-repository-java-rules.mjs
-        - src: ../../languages/java/check.mjs
-          dest: .vally/languages/java/check.mjs
-        - src: ../../languages/java/checks.mjs
-          dest: .vally/languages/java/checks.mjs
+        config:
+          prompt: |-
+            Review the generated implementation against every criterion.
+            Score each criterion independently. Accept equivalent valid
+            implementations and judge code behavior rather than syntax.
+            Return every criterion name exactly as provided. The criterion
+            value must start with "prompt/" or "language/". Never copy a rubric
+            list number into the criterion value. For example, return
+            "prompt/foo", never "1. prompt/foo".
+          models:
+            - gpt-5.6-sol
+          aggregation: unanimous
+          scoring: binary
+          threshold: 1
+          overall_threshold: 1
+          evidence:
+            - trajectory
+            - repo
+          criteria:
+            - name: prompt/correct-partition-key-usage-category-path-partitionkey-i
+              description: |-
+                Correct partition key usage: `/category` path, `PartitionKey` in all point operations
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: prompt/etag-based-optimistic-concurrency-captures-etag-from-rea
+              description: |-
+                ETag-based optimistic concurrency: captures ETag from read, passes `ifMatchETag` on update
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: prompt/handles-412-precondition-failed-as-a-specific-error-case
+              description: |-
+                Handles 412 Precondition Failed as a specific error case for conflicts
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: prompt/parameterized-queries-using-sqlqueryspec-with-sqlparamet
+              description: |-
+                Parameterized queries using `SqlQuerySpec` with `SqlParameter` (no string concatenation)
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: prompt/page-by-page-iteration-using-iterablebypage-or-cosmospag
+              description: |-
+                Page-by-page iteration using `iterableByPage()` or `CosmosPagedIterable`
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: prompt/configurable-page-size-via-queryrequestoptions-setmaxite
+              description: |-
+                Configurable page size via `QueryRequestOptions.setMaxItemCount`
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: prompt/logs-continuation-token-and-item-count-per-page
+              description: |-
+                Logs continuation token and item count per page
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: prompt/async-query-uses-cosmospagedflux-returning-pages-as-a-st
+              description: |-
+                Async query uses `CosmosPagedFlux` returning pages as a stream
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: prompt/ttl-configured-at-90-days-7776000-seconds-via-containerp
+              description: |-
+                TTL configured at 90 days (7776000 seconds) via `ContainerProperties.setDefaultTimeToLiveInSeconds()`
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: prompt/indexing-policy-excludes-description-path
+              description: |-
+                Indexing policy excludes `/description` path
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: prompt/ru-cost-extracted-from-response-via-getrequestcharge-and
+              description: |-
+                RU cost extracted from response via `getRequestCharge()` and logged per operation ### Scenario-Specific Error Handling
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: prompt/catches-cosmosexception-with-status-code-checks-404-409
+              description: |-
+                Catches `CosmosException` with status code checks (404, 409, 412)
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: prompt/handles-412-separately-for-etag-conflicts-anti-patterns
+              description: |-
+                Handles 412 separately for ETag conflicts ### Anti-Patterns (scenario-specific)
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: prompt/does-not-flatten-query-results-stream-foreach-without-pa
+              description: |-
+                Does NOT flatten query results (`.stream()` / `.forEach()` without page iteration)
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: language/correct-dependencies-com-azure-not-com-microsoft-azure
+              description: |-
+                Uses com.azure group ID for all Azure SDK packages. No com.microsoft.azure (legacy SDK) dependencies. Includes azure-identity for authentication.
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: language/azure-sdk-bom-for-version-management
+              description: |-
+                Uses azure-sdk-bom in dependencyManagement to manage Azure SDK versions instead of hardcoding individual artifact versions. Dependencies should omit <version> tags when managed by the BOM.
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: language/correct-imports-no-legacy-no-internal-packages
+              description: |-
+                All imports use com.azure.* packages. No com.microsoft.azure.* (legacy) or com.azure.*.implementation.* (internal API) imports.
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: language/defaultazurecredential-authentication
+              description: |-
+                Uses DefaultAzureCredential or another com.azure.identity credential. No hardcoded connection strings, account keys, SAS tokens, or secrets.
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: language/client-builder-pattern
+              description: |-
+                SDK clients constructed using *ClientBuilder classes with .endpoint() or .vaultUrl() and .credential(). No legacy constructors (CloudStorageAccount, DocumentClient, KeyVaultClient).
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: language/no-deprecated-legacy-classes
+              description: |-
+                No deprecated classes from the old SDK (CloudStorageAccount, CloudBlobClient, DocumentClient, QueueClient, ApplicationTokenCredentials, MSICredentials, ConnectionStringBuilder).
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: language/pagination-pagediterable-pagedflux
+              description: |-
+                List/query operations return PagedIterable (sync) or PagedFlux (async). Does not flatten all pages into a raw List or Stream in memory.
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: language/lro-pattern-syncpoller-pollerflux
+              description: |-
+                Long-running operations use SyncPoller (sync) or PollerFlux (async) with begin* method prefix. No Thread.sleep() polling loops.
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: language/async-uses-project-reactor-mono-flux
+              description: |-
+                Async code uses Project Reactor types (Mono, Flux). Not CompletableFuture (wrong), not RxJava (wrong), not sync wrapped in ExecutorService. No .block() inside async service implementations.
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: language/service-specific-exception-handling
+              description: |-
+                Catches service-specific exceptions (BlobStorageException, CosmosException, ServiceBusException, HttpResponseException) with status code inspection. Not just generic Exception catches.
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: language/code-compiles-mvn-compile-gradle-compilejava
+              description: |-
+                The generated code compiles without errors. Attempt build verification if build tools are available.
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: language/try-with-resources-for-clients
+              description: |-
+                All Azure SDK client instances that implement AutoCloseable are used within try-with-resources blocks or explicitly closed in a finally block.
+              weight: 1
+              pass_threshold: 1
+              required: true
 artifacts:
   include:
     - "**/*.java"

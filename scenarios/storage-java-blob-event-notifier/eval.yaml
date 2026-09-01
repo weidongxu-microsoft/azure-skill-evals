@@ -2,6 +2,12 @@ name: storage-java-blob-event-notifier
 description: Compare Azure tooling for a Java Blob Storage Event Grid notifier task
 version: "1.0"
 type: capability
+environment:
+  files:
+    - src: ../../eval-workspace.gitignore
+      dest: .gitignore
+    - src: ../../eval-workspace-AGENTS.md
+      dest: AGENTS.md
 scoring:
   weights: {}
   threshold: 1
@@ -14,125 +20,180 @@ stimuli:
   - name: storage-dp-java-blob-event-notifier
     prompt: |-
       Create a small Java 17 Maven project that processes Azure Blob Storage lifecycle events delivered via Event Grid.
-
-      Write the code to files. Do not reply with code blocks.
-
+      
       The project needs:
-
-      - An event receiver class, with synchronous and asynchronous implementations, that accepts a JSON webhook payload and deserializes it with the Azure SDK. Support both the Event Grid schema through EventGridEvent.fromString() and CloudEvents 1.0 through CloudEvent.fromString(). Route Microsoft.Storage.BlobCreated and Microsoft.Storage.BlobDeleted events to different handler operations, and log a warning for unrecognized event types.
-
-      - A blob event handler, with synchronous and asynchronous implementations. For blob-created events, parse the container and complete nested blob name from the Event Grid subject path /blobServices/default/containers/{container}/blobs/{blob}, download the blob, and print its name, size, content type, and access tier. For blob-deleted events, log the deletion. Handle the race where the blob no longer exists by treating BlobStorageException status 404 as a warning while preserving other failures.
-
-      - An event publisher, with synchronous and asynchronous implementations, that accepts an Event Grid topic endpoint and a list of custom notification objects, creates EventGridEvent instances, and publishes them. Use a subject hierarchy such as /documents/invoices/processed for filtering. Log publishing failures and preserve the Event Grid HTTP failure for the caller.
-
-      - A configuration class that builds Blob Storage and Event Grid clients with DefaultAzureCredential and service endpoints read from AZURE_STORAGE_ACCOUNT_URL and AZURE_EVENT_GRID_TOPIC_ENDPOINT. Do not use connection strings, access keys, shared-key credentials, or SAS credentials.
-
-      - A Main class containing realistic Event Grid-schema and CloudEvents 1.0 sample JSON. Each schema example must include blob-created and blob-deleted events. Run a connected synchronous receive, handle, and publish demo first, then run and block the connected asynchronous demo.
-
-      Include a complete Maven manifest with active runtime dependencies pinned to:
-      com.azure:azure-identity:1.18.5,
-      com.azure:azure-storage-blob:12.35.1, and
-      com.azure:azure-messaging-eventgrid:4.31.8.
+      
+      - An **event receiver class** (both sync and async versions) that accepts a JSON payload (as if received from an Event Grid webhook endpoint) and deserializes it into structured event objects. It should support both Event Grid schema and CloudEvents 1.0 schema (since Event Grid supports both and the configured schema may vary). It should route events by type — blob-created events get processed one way, blob-deleted another, and unrecognized types are logged as warnings.
+      
+      - A **blob event handler class** that processes individual blob events. For blob-created events, it should parse the blob's container and name from the event subject, download the blob, and print a summary (name, size, content type, and the blob's access tier). For blob-deleted events, it should just log the deletion. It should handle race conditions gracefully — the blob may have already been deleted or moved to a different tier by the time we try to read it.
+      
+      - An **event publisher class** (both sync and async versions) that can publish custom events to an Event Grid topic. Given a topic endpoint and a list of custom event objects, it should send them to Event Grid. This would be used for downstream notifications (e.g., "document processed" events). It should support setting a subject hierarchy for event filtering (e.g., "/documents/invoices/processed").
+      
+      - A **configuration class** that connects to Azure Blob Storage and Event Grid securely. Authentication should use managed identity — no access keys or SAS tokens.
+      
+      - A **Main class** that demos both implementations: constructs a sample Event Grid JSON payload (with both CloudEvents and EventGrid-schema examples) containing mock blob-created and blob-deleted events with realistic structure, feeds them through the receiver and handler, and publishes a custom downstream event. Run the full demo with the sync implementation first, then repeat with the async implementation.
+      
+      Include a complete `pom.xml` with the necessary Azure SDK dependencies.
     tags:
       service: storage
       plane: data-plane
       language: java
       category: streaming
     graders:
-      - type: run-command
-        name: prompt/source-manifest
+      - type: panel
+        name: prompt/full-case-review
         weight: 1
         config:
-          command: node
-          args: [.vally/scenarios/storage-java-blob-event-notifier/tools/check-storage-java.mjs, prompt/source-manifest]
-      - type: run-command
-        name: prompt/secure-client-configuration
-        weight: 1
-        config:
-          command: node
-          args: [.vally/scenarios/storage-java-blob-event-notifier/tools/check-storage-java.mjs, prompt/secure-client-configuration]
-      - type: run-command
-        name: prompt/dual-schema-receivers
-        weight: 1
-        config:
-          command: node
-          args: [.vally/scenarios/storage-java-blob-event-notifier/tools/check-storage-java.mjs, prompt/dual-schema-receivers]
-      - type: run-command
-        name: prompt/event-routing
-        weight: 1
-        config:
-          command: node
-          args: [.vally/scenarios/storage-java-blob-event-notifier/tools/check-storage-java.mjs, prompt/event-routing]
-      - type: run-command
-        name: prompt/blob-subject-parsing
-        weight: 1
-        config:
-          command: node
-          args: [.vally/scenarios/storage-java-blob-event-notifier/tools/check-storage-java.mjs, prompt/blob-subject-parsing]
-      - type: run-command
-        name: prompt/blob-created-summary
-        weight: 1
-        config:
-          command: node
-          args: [.vally/scenarios/storage-java-blob-event-notifier/tools/check-storage-java.mjs, prompt/blob-created-summary]
-      - type: run-command
-        name: prompt/blob-race-handling
-        weight: 1
-        config:
-          command: node
-          args: [.vally/scenarios/storage-java-blob-event-notifier/tools/check-storage-java.mjs, prompt/blob-race-handling]
-      - type: run-command
-        name: prompt/custom-event-publishing
-        weight: 1
-        config:
-          command: node
-          args: [.vally/scenarios/storage-java-blob-event-notifier/tools/check-storage-java.mjs, prompt/custom-event-publishing]
-      - type: run-command
-        name: prompt/publish-error-handling
-        weight: 1
-        config:
-          command: node
-          args: [.vally/scenarios/storage-java-blob-event-notifier/tools/check-storage-java.mjs, prompt/publish-error-handling]
-      - type: run-command
-        name: prompt/connected-demo
-        weight: 1
-        config:
-          command: node
-          args: [.vally/scenarios/storage-java-blob-event-notifier/tools/check-storage-java.mjs, prompt/connected-demo]
-      - type: run-command
-        name: language/build-manifest
-        weight: 1
-        config:
-          command: node
-          args: [.vally/languages/java/check.mjs, language/build-manifest]
-      - type: run-command
-        name: language/current-azure-dependencies
-        weight: 1
-        config:
-          command: node
-          args: [.vally/languages/java/check.mjs, language/current-azure-dependencies]
-      - type: run-command
-        name: language/current-imports
-        weight: 1
-        config:
-          command: node
-          args: [.vally/languages/java/check.mjs, language/current-imports]
-      - type: run-command
-        name: language/client-builder
-        weight: 1
-        config:
-          command: node
-          args: [.vally/languages/java/check.mjs, language/client-builder]
-    environment:
-      files:
-        - src: tools/check-storage-java.mjs
-          dest: .vally/scenarios/storage-java-blob-event-notifier/tools/check-storage-java.mjs
-        - src: tools/storage-java-rules.mjs
-          dest: .vally/scenarios/storage-java-blob-event-notifier/tools/storage-java-rules.mjs
-        - src: ../../languages/java/check.mjs
-          dest: .vally/languages/java/check.mjs
-        - src: ../../languages/java/checks.mjs
-          dest: .vally/languages/java/checks.mjs
+          prompt: |-
+            Review the generated implementation against every criterion.
+            Score each criterion independently. Accept equivalent valid
+            implementations and judge code behavior rather than syntax.
+            Return every criterion name exactly as provided. The criterion
+            value must start with "prompt/" or "language/". Never copy a rubric
+            list number into the criterion value. For example, return
+            "prompt/foo", never "1. prompt/foo".
+          models:
+            - gpt-5.6-sol
+          aggregation: unanimous
+          scoring: binary
+          threshold: 1
+          overall_threshold: 1
+          evidence:
+            - trajectory
+            - repo
+          criteria:
+            - name: prompt/handles-event-grid-native-schema-via-eventgridevent-from
+              description: |-
+                Handles Event Grid native schema via `EventGridEvent.fromString()` deserialization
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: prompt/handles-cloudevents-1-0-schema-via-cloudevent-fromstring
+              description: |-
+                Handles CloudEvents 1.0 schema via `CloudEvent.fromString()` deserialization
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: prompt/does-not-manually-parse-json-without-the-sdks-deserializ
+              description: |-
+                Does NOT manually parse JSON without the SDK's deserialization helpers
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: prompt/routes-events-based-on-event-type-string-microsoft-stora
+              description: |-
+                Routes events based on event type string (`Microsoft.Storage.BlobCreated`, `Microsoft.Storage.BlobDeleted`)
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: prompt/logs-a-warning-for-unrecognized-event-types
+              description: |-
+                Logs a warning for unrecognized event types
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: prompt/parses-container-name-and-blob-name-from-event-subject-b
+              description: |-
+                Parses container name and blob name from event subject (`/blobServices/default/containers/{container}/blobs/{blob}`)
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: prompt/publishes-custom-events-with-subject-hierarchy-for-filte
+              description: |-
+                Publishes custom events with subject hierarchy for filtering
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: prompt/retrieves-and-prints-blob-access-tier-from-blob-properti
+              description: |-
+                Retrieves and prints blob access tier from blob properties ### Scenario-Specific Error Handling
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: prompt/handles-race-condition-blob-may-no-longer-exist-catches
+              description: |-
+                Handles race condition: blob may no longer exist (catches `BlobStorageException` with 404 status)
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: prompt/catches-event-grid-specific-exceptions-for-publishing-er
+              description: |-
+                Catches Event Grid-specific exceptions for publishing errors
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: language/correct-dependencies-com-azure-not-com-microsoft-azure
+              description: |-
+                Uses com.azure group ID for all Azure SDK packages. No com.microsoft.azure (legacy SDK) dependencies. Includes azure-identity for authentication.
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: language/azure-sdk-bom-for-version-management
+              description: |-
+                Uses azure-sdk-bom in dependencyManagement to manage Azure SDK versions instead of hardcoding individual artifact versions. Dependencies should omit <version> tags when managed by the BOM.
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: language/correct-imports-no-legacy-no-internal-packages
+              description: |-
+                All imports use com.azure.* packages. No com.microsoft.azure.* (legacy) or com.azure.*.implementation.* (internal API) imports.
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: language/defaultazurecredential-authentication
+              description: |-
+                Uses DefaultAzureCredential or another com.azure.identity credential. No hardcoded connection strings, account keys, SAS tokens, or secrets.
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: language/client-builder-pattern
+              description: |-
+                SDK clients constructed using *ClientBuilder classes with .endpoint() or .vaultUrl() and .credential(). No legacy constructors (CloudStorageAccount, DocumentClient, KeyVaultClient).
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: language/no-deprecated-legacy-classes
+              description: |-
+                No deprecated classes from the old SDK (CloudStorageAccount, CloudBlobClient, DocumentClient, QueueClient, ApplicationTokenCredentials, MSICredentials, ConnectionStringBuilder).
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: language/pagination-pagediterable-pagedflux
+              description: |-
+                List/query operations return PagedIterable (sync) or PagedFlux (async). Does not flatten all pages into a raw List or Stream in memory.
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: language/lro-pattern-syncpoller-pollerflux
+              description: |-
+                Long-running operations use SyncPoller (sync) or PollerFlux (async) with begin* method prefix. No Thread.sleep() polling loops.
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: language/async-uses-project-reactor-mono-flux
+              description: |-
+                Async code uses Project Reactor types (Mono, Flux). Not CompletableFuture (wrong), not RxJava (wrong), not sync wrapped in ExecutorService. No .block() inside async service implementations.
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: language/service-specific-exception-handling
+              description: |-
+                Catches service-specific exceptions (BlobStorageException, CosmosException, ServiceBusException, HttpResponseException) with status code inspection. Not just generic Exception catches.
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: language/code-compiles-mvn-compile-gradle-compilejava
+              description: |-
+                The generated code compiles without errors. Attempt build verification if build tools are available.
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: language/try-with-resources-for-clients
+              description: |-
+                All Azure SDK client instances that implement AutoCloseable are used within try-with-resources blocks or explicitly closed in a finally block.
+              weight: 1
+              pass_threshold: 1
+              required: true
 artifacts:
   include:
     - "**/*.java"

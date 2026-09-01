@@ -2,6 +2,12 @@ name: storage-dotnet-batch-blob-operations
 description: Compare Azure tooling for Blob Storage batch operations in .NET
 version: "1.0"
 type: capability
+environment:
+  files:
+    - src: ../../eval-workspace.gitignore
+      dest: .gitignore
+    - src: ../../eval-workspace-AGENTS.md
+      dest: AGENTS.md
 scoring:
   weights: {}
   threshold: 1
@@ -13,79 +19,113 @@ defaults:
 stimuli:
   - name: storage-dp-dotnet-batch
     prompt: |-
-      Write a complete C# console application that performs Azure Blob Storage batch operations with Azure.Storage.Blobs.Batch.
-
-      Write the code to files. Do not reply with code blocks.
-
-      1. Target .NET 8 and pin Azure.Identity 1.21.0, Azure.Storage.Blobs 12.29.2, and Azure.Storage.Blobs.Batch 12.26.0 exactly.
-      2. Read an absolute Blob service endpoint from AZURE_STORAGE_BLOB_ENDPOINT and a container name from AZURE_STORAGE_CONTAINER. Authenticate with DefaultAzureCredential and create a BlobBatchClient connected to that account.
-      3. Prepare 500 blob URIs for deletion and 200 blob URIs for changing from Hot to Cool. Use DeleteBlobsAsync and SetBlobsAccessTierAsync.
-      4. Respect the service limit of 256 subrequests and the 4 MiB batch-body limit. A 500-item delete cannot be one request, so partition it into requests of at most 256 operations. Keep every request within one storage account.
-      5. Also show fine-grained batching with CreateBatch, DeleteBlob or SetBlobAccessTier, and SubmitBatchAsync. Inspect each suboperation Response only after its batch is submitted.
-      6. Inspect successful Response status values. Handle partial suboperation failures from AggregateException by examining its RequestFailedException instances, including Status and ErrorCode. Separately handle a RequestFailedException that prevents the batch request itself from being submitted.
-      7. Include concise run instructions and explain that BlobServiceClient requests the https://storage.azure.com/.default scope for DefaultAzureCredential; do not request or hard-code access tokens.
-
-      The application may use well-factored helper methods and equivalent valid SDK forms.
+      How do I perform batch operations on Azure Blob Storage in .NET?
+      I have a container with thousands of blobs and need to:
+      1. Bulk delete 500 blobs in a single batched HTTP request
+      2. Bulk set the access tier of 200 blobs from Hot to Cool
+      3. Handle partial failures where some operations in the batch succeed and others fail
+      4. Understand the limits — max operations per batch and size restrictions
+      
+      Show me how to use BlobBatchClient to submit batch requests with
+      the Azure.Storage.Blobs.Batch package. Include proper error handling
+      for partial batch failures.
     tags:
       service: storage
       plane: data-plane
       language: dotnet
       category: batch
     graders:
-      - type: run-command
-        name: prompt/storage-batch-manifest
+      - type: panel
+        name: prompt/full-case-review
         weight: 1
-        config: { command: node, args: [.vally/scenarios/storage-dotnet-batch-blob-operations/tools/check-storage-dotnet-batch.mjs, prompt/storage-batch-manifest] }
-      - type: run-command
-        name: prompt/authenticated-batch-client
-        weight: 1
-        config: { command: node, args: [.vally/scenarios/storage-dotnet-batch-blob-operations/tools/check-storage-dotnet-batch.mjs, prompt/authenticated-batch-client] }
-      - type: run-command
-        name: prompt/delete-batches
-        weight: 1
-        config: { command: node, args: [.vally/scenarios/storage-dotnet-batch-blob-operations/tools/check-storage-dotnet-batch.mjs, prompt/delete-batches] }
-      - type: run-command
-        name: prompt/tier-batch
-        weight: 1
-        config: { command: node, args: [.vally/scenarios/storage-dotnet-batch-blob-operations/tools/check-storage-dotnet-batch.mjs, prompt/tier-batch] }
-      - type: run-command
-        name: prompt/custom-batch-responses
-        weight: 1
-        config: { command: node, args: [.vally/scenarios/storage-dotnet-batch-blob-operations/tools/check-storage-dotnet-batch.mjs, prompt/custom-batch-responses] }
-      - type: run-command
-        name: prompt/partial-failure-handling
-        weight: 1
-        config: { command: node, args: [.vally/scenarios/storage-dotnet-batch-blob-operations/tools/check-storage-dotnet-batch.mjs, prompt/partial-failure-handling] }
-      - type: run-command
-        name: prompt/batch-limits
-        weight: 1
-        config: { command: node, args: [.vally/scenarios/storage-dotnet-batch-blob-operations/tools/check-storage-dotnet-batch.mjs, prompt/batch-limits] }
-      - type: run-command
-        name: language/project-manifest
-        weight: 1
-        config: { command: node, args: [.vally/languages/dotnet/check.mjs, language/project-manifest] }
-      - type: run-command
-        name: language/current-azure-packages
-        weight: 1
-        config: { command: node, args: [.vally/languages/dotnet/check.mjs, language/current-azure-packages] }
-      - type: run-command
-        name: language/async-await
-        weight: 1
-        config: { command: node, args: [.vally/languages/dotnet/check.mjs, language/async-await] }
-      - type: run-command
-        name: language/client-lifecycle
-        weight: 1
-        config: { command: node, args: [.vally/languages/dotnet/check.mjs, language/client-lifecycle] }
-    environment:
-      files:
-        - src: tools/check-storage-dotnet-batch.mjs
-          dest: .vally/scenarios/storage-dotnet-batch-blob-operations/tools/check-storage-dotnet-batch.mjs
-        - src: tools/storage-dotnet-batch-rules.mjs
-          dest: .vally/scenarios/storage-dotnet-batch-blob-operations/tools/storage-dotnet-batch-rules.mjs
-        - src: ../../languages/dotnet/check.mjs
-          dest: .vally/languages/dotnet/check.mjs
-        - src: ../../languages/dotnet/checks.mjs
-          dest: .vally/languages/dotnet/checks.mjs
+        config:
+          prompt: |-
+            Review the generated implementation against every criterion.
+            Score each criterion independently. Accept equivalent valid
+            implementations and judge code behavior rather than syntax.
+            Return every criterion name exactly as provided. The criterion
+            value must start with "prompt/" or "language/". Never copy a rubric
+            list number into the criterion value. For example, return
+            "prompt/foo", never "1. prompt/foo".
+          models:
+            - gpt-5.6-sol
+          aggregation: unanimous
+          scoring: binary
+          threshold: 1
+          overall_threshold: 1
+          evidence:
+            - trajectory
+            - repo
+          criteria:
+            - name: prompt/blobbatchclient-from-azure-storage-blobs-batch-package
+              description: |-
+                `BlobBatchClient` from `Azure.Storage.Blobs.Batch` package
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: prompt/blobbatchclient-deleteblobsasync-for-bulk-delete
+              description: |-
+                `BlobBatchClient.DeleteBlobsAsync()` for bulk delete
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: prompt/blobbatchclient-setblobsaccesstierasync-for-bulk-tier-ch
+              description: |-
+                `BlobBatchClient.SetBlobsAccessTierAsync()` for bulk tier changes
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: prompt/custom-batch-via-blobbatchclient-createbatch-and-submitb
+              description: |-
+                Custom batch via `BlobBatchClient.CreateBatch()` and `SubmitBatchAsync()`
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: prompt/batch-size-limits-256-operations-per-batch
+              description: |-
+                Batch size limits (256 operations per batch)
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: prompt/partial-failure-handling-aggregateexception-with-per-ope
+              description: |-
+                Partial failure handling: `AggregateException` with per-operation status
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: prompt/requestfailedexception-for-individual-operation-failures
+              description: |-
+                `RequestFailedException` for individual operation failures within a batch
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: prompt/authentication-scopes-for-batch-operations
+              description: |-
+                Authentication scopes for batch operations
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: language/azure-identity-authentication
+              description: |-
+                Check that authentication follows the prompt and uses the appropriate modern .NET Azure SDK mechanism.
+                When token-based authentication is requested, uses an appropriate credential from Azure.Identity and passes it to the SDK client. When the prompt explicitly requests a connection string, connection-string construction is valid. Credentials, connection strings, and secrets are not hardcoded.
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: language/sdk-specific-exception-handling
+              description: |-
+                Check that requested error handling uses the exception model of the selected .NET Azure SDK package.
+                When error handling is requested, catches the appropriate SDK exception, such as RequestFailedException for many Azure.* and ARM clients, CosmosException for Microsoft.Azure.Cosmos, ServiceBusException for Service Bus, EventHubsException for Event Hubs, or AuthenticationFailedException and CredentialUnavailableException for Azure Identity. Inspects status codes, error codes, or retry details when relevant instead of relying only on a generic Exception catch.
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: language/asynchronous-sdk-usage
+              description: |-
+                Check that asynchronous .NET Azure SDK calls use normal asynchronous control flow.
+                When asynchronous SDK APIs are used, awaits them with async and await rather than blocking through .Result, .Wait(), or GetAwaiter().GetResult().
+              weight: 1
+              pass_threshold: 1
+              required: true
 artifacts:
   include:
     - "**/*.cs"
