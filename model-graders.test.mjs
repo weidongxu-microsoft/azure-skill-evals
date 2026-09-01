@@ -62,7 +62,7 @@ test("every eval uses one complete model review", () => {
     );
     assert.match(
       source,
-      /^environment:\r?\n\s+files:\r?\n\s+- src: \.\.\/\.\.\/eval-workspace\.gitignore\r?\n\s+dest: \.gitignore$/m,
+      /^environment:\r?\n\s+files:\r?\n\s+- src: \.\.\/\.\.\/eval-workspace\.gitignore\r?\n\s+dest: \.gitignore\r?\n\s+- src: \.\.\/\.\.\/eval-workspace-AGENTS\.md\r?\n\s+dest: AGENTS\.md$/m,
       evalPath,
     );
     assert.doesNotMatch(source, /^    environment:/m, evalPath);

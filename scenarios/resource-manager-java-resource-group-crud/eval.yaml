@@ -6,6 +6,8 @@ environment:
   files:
     - src: ../../eval-workspace.gitignore
       dest: .gitignore
+    - src: ../../eval-workspace-AGENTS.md
+      dest: AGENTS.md
 scoring:
   weights: {}
   threshold: 1

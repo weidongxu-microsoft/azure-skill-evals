@@ -34,6 +34,12 @@ Each judge receives both the agent trajectory and generated source diff. This
 preserves answer-style implementations returned in Markdown while retaining
 the final file state for tasks that write code into the workspace.
 
+Every evaluation workspace also receives a shared `AGENTS.md` instruction that
+requires code requests to produce complete runnable projects with root-level
+dependency or project manifests. This preserves the originating Hyoka task
+prompt while making generated workspaces suitable for deterministic compile and
+lint graders.
+
 Grader names preserve two independent result groups:
 
 | Prefix | Responsibility |

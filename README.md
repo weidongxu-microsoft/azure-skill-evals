@@ -80,10 +80,10 @@ Each scenario uses one single-model Vally panel. The panel contains the exact
 Hyoka scenario criteria and every Hyoka model-based language criterion, with
 one required point per criterion. Language experiments own the three
 environment variants and can run multiple evals. Each workspace starts with a
-shared `.gitignore` so installed dependencies and build outputs do not exhaust
-Vally's diff-evidence buffer. Judges receive both the response trajectory and
-the generated source diff so answer-style and file-writing tasks are evaluated
-consistently.
+shared `.gitignore` and `AGENTS.md`. The instructions require complete runnable
+projects with root-level manifests, while the ignore rules keep installed
+dependencies and build outputs from exhausting Vally's diff-evidence buffer.
+Judges receive both the response trajectory and generated source diff.
 
 ## Scoring
 

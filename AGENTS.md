@@ -59,6 +59,9 @@ single-model panel configuration.
 - `eval-workspace.gitignore` is staged as `.gitignore` in every evaluation
   workspace so dependency installs, lockfiles, and build output stay out of
   judge diffs.
+- `eval-workspace-AGENTS.md` is staged as `AGENTS.md` in every evaluation
+  workspace so code requests produce complete runnable projects with manifests
+  at the workspace root.
 - `scenarios/<name>/tools/`, `scenarios/<name>/*.test.mjs`, and
   `languages/<language>/` retain the retired deterministic implementation
   during the transition; their grader tests are skipped.
