@@ -51,8 +51,8 @@ stimuli:
             - gpt-5.6-sol
           aggregation: unanimous
           scoring: binary
-          threshold: 1
-          overall_threshold: 1
+          threshold: 0
+          overall_threshold: 0
           evidence:
             - trajectory
             - repo
@@ -62,61 +62,51 @@ stimuli:
                 `azure-identity` package with `ClientSecretCredential` class
               weight: 1
               pass_threshold: 1
-              required: true
             - name: prompt/constructor-keyword-arguments-tenant-id-client-id-client
               description: |-
                 Constructor keyword arguments: tenant_id, client_id, client_secret
               weight: 1
               pass_threshold: 1
-              required: true
             - name: prompt/passing-credential-to-azure-sdk-clients
               description: |-
                 Passing credential to Azure SDK clients
               weight: 1
               pass_threshold: 1
-              required: true
             - name: prompt/os-environ-or-python-dotenv-patterns
               description: |-
                 `os.environ` or python-dotenv patterns
               weight: 1
               pass_threshold: 1
-              required: true
             - name: prompt/clientauthenticationerror-exception-handling
               description: |-
                 `ClientAuthenticationError` exception handling
               weight: 1
               pass_threshold: 1
-              required: true
             - name: language/correct-package-imports
               description: |-
                 Imports use the latest azure-sdk-for-python package structure (azure.*), not deprecated packages.
               weight: 1
               pass_threshold: 1
-              required: true
             - name: language/defaultazurecredential-usage
               description: |-
                 Authentication matches what the prompt asks for. If the prompt explicitly requires a connection string (or other key-based auth), using `from_connection_string()` / connection-string-based clients is correct and should pass. Otherwise, authentication must use DefaultAzureCredential from azure-identity (or another `azure.identity` credential), not connection strings or hardcoded keys. Hardcoded secrets/keys/connection strings in source code always fail — required values should come from environment variables or a secret store.
               weight: 1
               pass_threshold: 1
-              required: true
             - name: language/context-manager-for-clients
               description: |-
                 Azure SDK clients that support context managers are used with `with` statements or explicitly closed.
               weight: 1
               pass_threshold: 1
-              required: true
             - name: language/async-client-usage
               description: |-
                 If async operations are requested, code uses the async client variant with proper await patterns.
               weight: 1
               pass_threshold: 1
-              required: true
             - name: language/proper-exception-handling
               description: |-
                 Azure SDK exceptions (HttpResponseError and subclasses) are caught and handled appropriately.
               weight: 1
               pass_threshold: 1
-              required: true
       - type: run-command
         name: program/python-source-compiles
         config:

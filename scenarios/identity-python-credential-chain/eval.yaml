@@ -55,8 +55,8 @@ stimuli:
             - gpt-5.6-sol
           aggregation: unanimous
           scoring: binary
-          threshold: 1
-          overall_threshold: 1
+          threshold: 0
+          overall_threshold: 0
           evidence:
             - trajectory
             - repo
@@ -66,115 +66,96 @@ stimuli:
                 Uses `ChainedTokenCredential` to compose multiple credentials
               weight: 1
               pass_threshold: 1
-              required: true
             - name: prompt/credentials-passed-in-order-to-the-constructor-order-mat
               description: |-
                 Credentials passed in order to the constructor — order matters ### Environment-Specific Chains
               weight: 1
               pass_threshold: 1
-              required: true
             - name: prompt/dev-chain-includes-azureclicredential-may-include-visual
               description: |-
                 **Dev chain**: includes `AzureCliCredential`; may include `VisualStudioCodeCredential`, `AzurePowerShellCredential`
               weight: 1
               pass_threshold: 1
-              required: true
             - name: prompt/ci-chain-uses-environmentcredential-or-azurepipelinescre
               description: |-
                 **CI chain**: uses `EnvironmentCredential` or `AzurePipelinesCredential` (not just `DefaultAzureCredential`)
               weight: 1
               pass_threshold: 1
-              required: true
             - name: prompt/production-chain-managedidentitycredential-first-support
               description: |-
                 **Production chain**: `ManagedIdentityCredential` first (supports user-assigned via `client_id` kwarg), `WorkloadIdentityCredential` as fallback ### CAE Support
               weight: 1
               pass_threshold: 1
-              required: true
             - name: prompt/enables-cae-via-enable-cae-true-in-get-token-call-or-tok
               description: |-
                 Enables CAE via `enable_cae=True` in `get_token()` call or token request context ### Environment Detection
               weight: 1
               pass_threshold: 1
-              required: true
             - name: prompt/detects-ci-checks-ci-tf-build-build-sourcesdirectory-or
               description: |-
                 Detects CI (checks `CI`, `TF_BUILD`, `BUILD_SOURCESDIRECTORY`, or similar env vars)
               weight: 1
               pass_threshold: 1
-              required: true
             - name: prompt/detects-production-managed-identity-checks-identity-endp
               description: |-
                 Detects production/managed identity (checks `IDENTITY_ENDPOINT`, `MSI_ENDPOINT`, or similar)
               weight: 1
               pass_threshold: 1
-              required: true
             - name: prompt/falls-back-to-dev-if-neither-detected-token-request-test
               description: |-
                 Falls back to dev if neither detected ### Token Request & Testing
               weight: 1
               pass_threshold: 1
-              required: true
             - name: prompt/calls-get-token-with-correct-scope-https-management-azur
               description: |-
                 Calls `get_token()` with correct scope (`https://management.azure.com/.default`)
               weight: 1
               pass_threshold: 1
-              required: true
             - name: prompt/prints-token-expiry-from-accesstoken-expires-on
               description: |-
                 Prints token expiry from `AccessToken.expires_on`
               weight: 1
               pass_threshold: 1
-              required: true
             - name: prompt/handles-failure-with-specific-exception-info-from-client
               description: |-
                 Handles failure with specific exception info from `ClientAuthenticationError` ### Async Support
               weight: 1
               pass_threshold: 1
-              required: true
             - name: prompt/async-tester-uses-azure-identity-aio-async-credentials-a
               description: |-
                 Async tester uses `azure.identity.aio` async credentials and `await get_token()` ### Anti-Patterns (scenario-specific)
               weight: 1
               pass_threshold: 1
-              required: true
             - name: prompt/not-using-defaultazurecredential-as-the-ci-credential-to
               description: |-
                 NOT using `DefaultAzureCredential` as the CI credential (too broad)
               weight: 1
               pass_threshold: 1
-              required: true
             - name: language/correct-package-imports
               description: |-
                 Imports use the latest azure-sdk-for-python package structure (azure.*), not deprecated packages.
               weight: 1
               pass_threshold: 1
-              required: true
             - name: language/defaultazurecredential-usage
               description: |-
                 Authentication matches what the prompt asks for. If the prompt explicitly requires a connection string (or other key-based auth), using `from_connection_string()` / connection-string-based clients is correct and should pass. Otherwise, authentication must use DefaultAzureCredential from azure-identity (or another `azure.identity` credential), not connection strings or hardcoded keys. Hardcoded secrets/keys/connection strings in source code always fail — required values should come from environment variables or a secret store.
               weight: 1
               pass_threshold: 1
-              required: true
             - name: language/context-manager-for-clients
               description: |-
                 Azure SDK clients that support context managers are used with `with` statements or explicitly closed.
               weight: 1
               pass_threshold: 1
-              required: true
             - name: language/async-client-usage
               description: |-
                 If async operations are requested, code uses the async client variant with proper await patterns.
               weight: 1
               pass_threshold: 1
-              required: true
             - name: language/proper-exception-handling
               description: |-
                 Azure SDK exceptions (HttpResponseError and subclasses) are caught and handled appropriately.
               weight: 1
               pass_threshold: 1
-              required: true
       - type: run-command
         name: program/python-source-compiles
         config:

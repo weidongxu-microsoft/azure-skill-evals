@@ -52,8 +52,8 @@ stimuli:
             - gpt-5.6-sol
           aggregation: unanimous
           scoring: binary
-          threshold: 1
-          overall_threshold: 1
+          threshold: 0
+          overall_threshold: 0
           evidence:
             - trajectory
             - repo
@@ -63,55 +63,46 @@ stimuli:
                 `github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/storage/armstorage` module
               weight: 1
               pass_threshold: 1
-              required: true
             - name: prompt/default-azure-credential
               description: |-
                 `azidentity.NewDefaultAzureCredential()` for authentication
               weight: 1
               pass_threshold: 1
-              required: true
             - name: prompt/accounts-client
               description: |-
                 `armstorage.NewAccountsClient()` with subscription ID and credential
               weight: 1
               pass_threshold: 1
-              required: true
             - name: prompt/begin-create
               description: |-
                 `BeginCreate()` with `armstorage.AccountCreateParameters` (SKU, Kind, Location)
               weight: 1
               pass_threshold: 1
-              required: true
             - name: prompt/poll-until-done
               description: |-
                 `PollUntilDone()` for waiting on the LRO
               weight: 1
               pass_threshold: 1
-              required: true
             - name: prompt/list-by-resource-group-pager
               description: |-
                 `NewListByResourceGroupPager()` with pager iteration pattern
               weight: 1
               pass_threshold: 1
-              required: true
             - name: prompt/get-properties
               description: |-
                 `GetProperties()` for account details
               weight: 1
               pass_threshold: 1
-              required: true
             - name: prompt/update-account
               description: |-
                 `Update()` with `AccountUpdateParameters`
               weight: 1
               pass_threshold: 1
-              required: true
             - name: prompt/delete-account
               description: |-
                 `Delete()` for removal
               weight: 1
               pass_threshold: 1
-              required: true
       - type: run-command
         name: program/go-project-tests
         config:

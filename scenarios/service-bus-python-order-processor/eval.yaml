@@ -55,8 +55,8 @@ stimuli:
             - gpt-5.6-sol
           aggregation: unanimous
           scoring: binary
-          threshold: 1
-          overall_threshold: 1
+          threshold: 0
+          overall_threshold: 0
           evidence:
             - trajectory
             - repo
@@ -66,115 +66,96 @@ stimuli:
                 Sender uses `ServiceBusClient.get_queue_sender()` (or async equivalent)
               weight: 1
               pass_threshold: 1
-              required: true
             - name: prompt/processor-uses-servicebusclient-get-queue-receiver-or-se
               description: |-
                 Processor uses `ServiceBusClient.get_queue_receiver()` or session-enabled receiver ### Scenario-Specific Patterns
               weight: 1
               pass_threshold: 1
-              required: true
             - name: prompt/batch-sending-creates-servicebusmessagebatch-checks-add
               description: |-
                 Batch sending: creates `ServiceBusMessageBatch`, checks `add_message()` return or catches `MessageSizeExceededError`
               weight: 1
               pass_threshold: 1
-              required: true
             - name: prompt/handles-the-case-where-a-message-doesnt-fit-in-the-curre
               description: |-
                 Handles the case where a message doesn't fit in the current batch
               weight: 1
               pass_threshold: 1
-              required: true
             - name: prompt/scheduled-delivery-uses-schedule-messages-or-servicebusm
               description: |-
                 Scheduled delivery: uses `schedule_messages()` or `ServiceBusMessage(scheduled_enqueue_time_utc=...)` (~30s delay)
               weight: 1
               pass_threshold: 1
-              required: true
             - name: prompt/correlation-sets-order-id-via-correlation-id-property-on
               description: |-
                 Correlation: sets order ID via `correlation_id` property on `ServiceBusMessage`
               weight: 1
               pass_threshold: 1
-              required: true
             - name: prompt/dead-letter-explicitly-dead-letters-failed-messages-with
               description: |-
                 Dead-letter: explicitly dead-letters failed messages with `receiver.dead_letter_message()` and a reason string
               weight: 1
               pass_threshold: 1
-              required: true
             - name: prompt/dead-letter-queue-reading-uses-sub-queue-servicebussubqu
               description: |-
                 Dead-letter queue reading: uses `sub_queue=ServiceBusSubQueue.DEAD_LETTER` on receiver
               weight: 1
               pass_threshold: 1
-              required: true
             - name: prompt/session-aware-processing-uses-session-id-on-messages-and
               description: |-
                 Session-aware processing: uses `session_id` on messages and session-enabled receiver
               weight: 1
               pass_threshold: 1
-              required: true
             - name: prompt/session-id-keyed-by-customer-name-for-ordered-processing
               description: |-
                 Session ID keyed by customer name for ordered processing
               weight: 1
               pass_threshold: 1
-              required: true
             - name: prompt/context-manager-pattern-with-statements-for-all-clients
               description: |-
                 Context manager pattern (`with` statements) for all clients, senders, and receivers ### Scenario-Specific Error Handling
               weight: 1
               pass_threshold: 1
-              required: true
             - name: prompt/catches-servicebuserror-and-distinguishes-transient-vs-n
               description: |-
                 Catches `ServiceBusError` and distinguishes transient vs non-transient errors
               weight: 1
               pass_threshold: 1
-              required: true
             - name: prompt/error-handler-logs-entity-name-and-error-details-async-s
               description: |-
                 Error handler logs entity name and error details ### Async Support
               weight: 1
               pass_threshold: 1
-              required: true
             - name: prompt/async-versions-use-azure-servicebus-aio-module
               description: |-
                 Async versions use `azure.servicebus.aio` module
               weight: 1
               pass_threshold: 1
-              required: true
             - name: language/correct-package-imports
               description: |-
                 Imports use the latest azure-sdk-for-python package structure (azure.*), not deprecated packages.
               weight: 1
               pass_threshold: 1
-              required: true
             - name: language/defaultazurecredential-usage
               description: |-
                 Authentication matches what the prompt asks for. If the prompt explicitly requires a connection string (or other key-based auth), using `from_connection_string()` / connection-string-based clients is correct and should pass. Otherwise, authentication must use DefaultAzureCredential from azure-identity (or another `azure.identity` credential), not connection strings or hardcoded keys. Hardcoded secrets/keys/connection strings in source code always fail — required values should come from environment variables or a secret store.
               weight: 1
               pass_threshold: 1
-              required: true
             - name: language/context-manager-for-clients
               description: |-
                 Azure SDK clients that support context managers are used with `with` statements or explicitly closed.
               weight: 1
               pass_threshold: 1
-              required: true
             - name: language/async-client-usage
               description: |-
                 If async operations are requested, code uses the async client variant with proper await patterns.
               weight: 1
               pass_threshold: 1
-              required: true
             - name: language/proper-exception-handling
               description: |-
                 Azure SDK exceptions (HttpResponseError and subclasses) are caught and handled appropriately.
               weight: 1
               pass_threshold: 1
-              required: true
       - type: run-command
         name: program/python-source-compiles
         config:

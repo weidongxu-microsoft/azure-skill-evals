@@ -50,8 +50,8 @@ stimuli:
             - gpt-5.6-sol
           aggregation: unanimous
           scoring: binary
-          threshold: 1
-          overall_threshold: 1
+          threshold: 0
+          overall_threshold: 0
           evidence:
             - trajectory
             - repo
@@ -61,49 +61,41 @@ stimuli:
                 `go get` for `github.com/Azure/azure-sdk-for-go/sdk/storage/azblob` and `azidentity`
               weight: 1
               pass_threshold: 1
-              required: true
             - name: prompt/blob-client-with-default-credential
               description: |-
                 `azblob.NewClient()` with `azidentity.NewDefaultAzureCredential()`
               weight: 1
               pass_threshold: 1
-              required: true
             - name: prompt/create-container
               description: |-
                 `Client.CreateContainer()` and container operations
               weight: 1
               pass_threshold: 1
-              required: true
             - name: prompt/upload-blob
               description: |-
                 `Client.UploadBuffer()` or `UploadStream()`
               weight: 1
               pass_threshold: 1
-              required: true
             - name: prompt/list-blobs-pager
               description: |-
                 `Client.NewListBlobsFlatPager()` with pager iteration pattern
               weight: 1
               pass_threshold: 1
-              required: true
             - name: prompt/download-blob
               description: |-
                 `Client.DownloadStream()` and reading the response body
               weight: 1
               pass_threshold: 1
-              required: true
             - name: prompt/delete-blob-and-container
               description: |-
                 `Client.DeleteBlob()` and `Client.DeleteContainer()`
               weight: 1
               pass_threshold: 1
-              required: true
             - name: prompt/response-error
               description: |-
                 `*azcore.ResponseError` type assertion for error details
               weight: 1
               pass_threshold: 1
-              required: true
       - type: run-command
         name: program/go-project-tests
         config:

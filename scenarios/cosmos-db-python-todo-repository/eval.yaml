@@ -57,8 +57,8 @@ stimuli:
             - gpt-5.6-sol
           aggregation: unanimous
           scoring: binary
-          threshold: 1
-          overall_threshold: 1
+          threshold: 0
+          overall_threshold: 0
           evidence:
             - trajectory
             - repo
@@ -68,109 +68,91 @@ stimuli:
                 Correct partition key usage: `/category` path, `partition_key` in all point operations
               weight: 1
               pass_threshold: 1
-              required: true
             - name: prompt/etag-based-optimistic-concurrency-captures-etag-from-rea
               description: |-
                 ETag-based optimistic concurrency: captures `_etag` from read response, passes `if_match` on replace
               weight: 1
               pass_threshold: 1
-              required: true
             - name: prompt/handles-412-precondition-failed-as-a-specific-error-case
               description: |-
                 Handles 412 Precondition Failed as a specific error case for conflicts
               weight: 1
               pass_threshold: 1
-              required: true
             - name: prompt/parameterized-queries-using-parameters-list-no-f-string
               description: |-
                 Parameterized queries using `parameters` list (no f-string or format-string concatenation)
               weight: 1
               pass_threshold: 1
-              required: true
             - name: prompt/page-by-page-iteration-using-query-items-by-page-with-ma
               description: |-
                 Page-by-page iteration using `query_items(...).by_page()` with `max_item_count`
               weight: 1
               pass_threshold: 1
-              required: true
             - name: prompt/logs-continuation-token-and-item-count-per-page
               description: |-
                 Logs continuation token and item count per page
               weight: 1
               pass_threshold: 1
-              required: true
             - name: prompt/async-version-uses-azure-cosmos-aio-cosmosclient
               description: |-
                 Async version uses `azure.cosmos.aio.CosmosClient`
               weight: 1
               pass_threshold: 1
-              required: true
             - name: prompt/ttl-configured-at-90-days-7776000-seconds-via-default-tt
               description: |-
                 TTL configured at 90 days (7776000 seconds) via `default_ttl` in container properties
               weight: 1
               pass_threshold: 1
-              required: true
             - name: prompt/indexing-policy-excludes-description-path-using-excluded
               description: |-
                 Indexing policy excludes `/description` path using `excludedPaths`
               weight: 1
               pass_threshold: 1
-              required: true
             - name: prompt/ru-cost-extracted-from-response-headers-via-x-ms-request
               description: |-
                 RU cost extracted from response headers via `x-ms-request-charge` or `response_headers` ### Scenario-Specific Error Handling
               weight: 1
               pass_threshold: 1
-              required: true
             - name: prompt/catches-cosmoshttpresponseerror-with-status-code-checks
               description: |-
                 Catches `CosmosHttpResponseError` with status code checks (404, 409, 412)
               weight: 1
               pass_threshold: 1
-              required: true
             - name: prompt/handles-412-separately-for-etag-conflicts-anti-patterns
               description: |-
                 Handles 412 separately for ETag conflicts ### Anti-Patterns (scenario-specific)
               weight: 1
               pass_threshold: 1
-              required: true
             - name: prompt/does-not-flatten-query-results-by-calling-list-without-p
               description: |-
                 Does NOT flatten query results by calling `list()` without page iteration
               weight: 1
               pass_threshold: 1
-              required: true
             - name: language/correct-package-imports
               description: |-
                 Imports use the latest azure-sdk-for-python package structure (azure.*), not deprecated packages.
               weight: 1
               pass_threshold: 1
-              required: true
             - name: language/defaultazurecredential-usage
               description: |-
                 Authentication matches what the prompt asks for. If the prompt explicitly requires a connection string (or other key-based auth), using `from_connection_string()` / connection-string-based clients is correct and should pass. Otherwise, authentication must use DefaultAzureCredential from azure-identity (or another `azure.identity` credential), not connection strings or hardcoded keys. Hardcoded secrets/keys/connection strings in source code always fail — required values should come from environment variables or a secret store.
               weight: 1
               pass_threshold: 1
-              required: true
             - name: language/context-manager-for-clients
               description: |-
                 Azure SDK clients that support context managers are used with `with` statements or explicitly closed.
               weight: 1
               pass_threshold: 1
-              required: true
             - name: language/async-client-usage
               description: |-
                 If async operations are requested, code uses the async client variant with proper await patterns.
               weight: 1
               pass_threshold: 1
-              required: true
             - name: language/proper-exception-handling
               description: |-
                 Azure SDK exceptions (HttpResponseError and subclasses) are caught and handled appropriately.
               weight: 1
               pass_threshold: 1
-              required: true
       - type: run-command
         name: program/python-source-compiles
         config:

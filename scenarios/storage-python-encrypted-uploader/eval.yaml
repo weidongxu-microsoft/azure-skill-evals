@@ -55,8 +55,8 @@ stimuli:
             - gpt-5.6-sol
           aggregation: unanimous
           scoring: binary
-          threshold: 1
-          overall_threshold: 1
+          threshold: 0
+          overall_threshold: 0
           evidence:
             - trajectory
             - repo
@@ -66,145 +66,121 @@ stimuli:
                 Uses the Key Vault Keys SDK (NOT Secrets) — critical distinction
               weight: 1
               pass_threshold: 1
-              required: true
             - name: prompt/uses-a-cryptography-library-for-local-aes-gcm-encryption
               description: |-
                 Uses a cryptography library for local AES-GCM encryption ### Key Vault Integration
               weight: 1
               pass_threshold: 1
-              required: true
             - name: prompt/uses-key-vaults-cryptographic-client-for-key-wrap-and-un
               description: |-
                 Uses Key Vault's cryptographic client for key wrap and unwrap operations (NOT a secrets client)
               weight: 1
               pass_threshold: 1
-              required: true
             - name: prompt/specifies-an-rsa-key-wrap-algorithm-for-protecting-the-d
               description: |-
                 Specifies an RSA key wrap algorithm for protecting the DEK
               weight: 1
               pass_threshold: 1
-              required: true
             - name: prompt/key-material-never-leaves-key-vault-wrap-unwrap-happens
               description: |-
                 Key material never leaves Key Vault — wrap/unwrap happens server-side ### Envelope Encryption
               weight: 1
               pass_threshold: 1
-              required: true
             - name: prompt/generates-a-random-256-bit-data-encryption-key-dek-local
               description: |-
                 Generates a random 256-bit data encryption key (DEK) locally
               weight: 1
               pass_threshold: 1
-              required: true
             - name: prompt/encrypts-data-locally-with-aes-gcm-using-the-dek
               description: |-
                 Encrypts data locally with AES-GCM using the DEK
               weight: 1
               pass_threshold: 1
-              required: true
             - name: prompt/wraps-the-dek-via-key-vault-before-storing
               description: |-
                 Wraps the DEK via Key Vault before storing
               weight: 1
               pass_threshold: 1
-              required: true
             - name: prompt/stores-the-wrapped-dek-nonce-iv-and-vault-key-identifier
               description: |-
                 Stores the wrapped DEK, nonce/IV, and vault key identifier as blob metadata
               weight: 1
               pass_threshold: 1
-              required: true
             - name: prompt/decryption-retrieves-metadata-unwraps-the-dek-via-key-va
               description: |-
                 Decryption retrieves metadata, unwraps the DEK via Key Vault, and decrypts locally
               weight: 1
               pass_threshold: 1
-              required: true
             - name: prompt/uses-aes-gcm-specifically-not-cbc-ecb-or-other-modes
               description: |-
                 Uses AES-GCM specifically (not CBC, ECB, or other modes)
               weight: 1
               pass_threshold: 1
-              required: true
             - name: prompt/generates-a-fresh-random-nonce-for-each-encryption-error
               description: |-
                 Generates a fresh random nonce for each encryption ### Error Handling
               weight: 1
               pass_threshold: 1
-              required: true
             - name: prompt/handles-key-vault-errors-key-disabled-key-not-found
               description: |-
                 Handles Key Vault errors (key disabled, key not found)
               weight: 1
               pass_threshold: 1
-              required: true
             - name: prompt/handles-blob-not-found
               description: |-
                 Handles blob not found
               weight: 1
               pass_threshold: 1
-              required: true
             - name: prompt/code-must-build-and-run-without-import-errors-or-runtime
               description: |-
                 Code must build and run without import errors or runtime crashes ### Async Support
               weight: 1
               pass_threshold: 1
-              required: true
             - name: prompt/async-versions-use-the-async-variants-of-blob-storage-an
               description: |-
                 Async versions use the async variants of Blob Storage and Key Vault clients ### Anti-Patterns
               weight: 1
               pass_threshold: 1
-              required: true
             - name: prompt/does-not-use-a-secrets-client-instead-of-a-keys-crypto-c
               description: |-
                 Does NOT use a secrets client instead of a keys/crypto client
               weight: 1
               pass_threshold: 1
-              required: true
             - name: prompt/does-not-encrypt-data-directly-with-the-vault-key-must-b
               description: |-
                 Does NOT encrypt data directly with the vault key (must be envelope encryption)
               weight: 1
               pass_threshold: 1
-              required: true
             - name: prompt/does-not-store-the-raw-dek-in-plaintext
               description: |-
                 Does NOT store the raw DEK in plaintext
               weight: 1
               pass_threshold: 1
-              required: true
             - name: language/correct-package-imports
               description: |-
                 Imports use the latest azure-sdk-for-python package structure (azure.*), not deprecated packages.
               weight: 1
               pass_threshold: 1
-              required: true
             - name: language/defaultazurecredential-usage
               description: |-
                 Authentication matches what the prompt asks for. If the prompt explicitly requires a connection string (or other key-based auth), using `from_connection_string()` / connection-string-based clients is correct and should pass. Otherwise, authentication must use DefaultAzureCredential from azure-identity (or another `azure.identity` credential), not connection strings or hardcoded keys. Hardcoded secrets/keys/connection strings in source code always fail — required values should come from environment variables or a secret store.
               weight: 1
               pass_threshold: 1
-              required: true
             - name: language/context-manager-for-clients
               description: |-
                 Azure SDK clients that support context managers are used with `with` statements or explicitly closed.
               weight: 1
               pass_threshold: 1
-              required: true
             - name: language/async-client-usage
               description: |-
                 If async operations are requested, code uses the async client variant with proper await patterns.
               weight: 1
               pass_threshold: 1
-              required: true
             - name: language/proper-exception-handling
               description: |-
                 Azure SDK exceptions (HttpResponseError and subclasses) are caught and handled appropriately.
               weight: 1
               pass_threshold: 1
-              required: true
       - type: run-command
         name: program/python-source-compiles
         config:

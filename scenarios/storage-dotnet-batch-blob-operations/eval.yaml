@@ -50,8 +50,8 @@ stimuli:
             - gpt-5.6-sol
           aggregation: unanimous
           scoring: binary
-          threshold: 1
-          overall_threshold: 1
+          threshold: 0
+          overall_threshold: 0
           evidence:
             - trajectory
             - repo
@@ -61,70 +61,59 @@ stimuli:
                 `BlobBatchClient` from `Azure.Storage.Blobs.Batch` package
               weight: 1
               pass_threshold: 1
-              required: true
             - name: prompt/blobbatchclient-deleteblobsasync-for-bulk-delete
               description: |-
                 `BlobBatchClient.DeleteBlobsAsync()` for bulk delete
               weight: 1
               pass_threshold: 1
-              required: true
             - name: prompt/blobbatchclient-setblobsaccesstierasync-for-bulk-tier-ch
               description: |-
                 `BlobBatchClient.SetBlobsAccessTierAsync()` for bulk tier changes
               weight: 1
               pass_threshold: 1
-              required: true
             - name: prompt/custom-batch-via-blobbatchclient-createbatch-and-submitb
               description: |-
                 Custom batch via `BlobBatchClient.CreateBatch()` and `SubmitBatchAsync()`
               weight: 1
               pass_threshold: 1
-              required: true
             - name: prompt/batch-size-limits-256-operations-per-batch
               description: |-
                 Batch size limits (256 operations per batch)
               weight: 1
               pass_threshold: 1
-              required: true
             - name: prompt/partial-failure-handling-aggregateexception-with-per-ope
               description: |-
                 Partial failure handling: `AggregateException` with per-operation status
               weight: 1
               pass_threshold: 1
-              required: true
             - name: prompt/requestfailedexception-for-individual-operation-failures
               description: |-
                 `RequestFailedException` for individual operation failures within a batch
               weight: 1
               pass_threshold: 1
-              required: true
             - name: prompt/authentication-scopes-for-batch-operations
               description: |-
                 Authentication scopes for batch operations
               weight: 1
               pass_threshold: 1
-              required: true
             - name: language/azure-identity-authentication
               description: |-
                 Check that authentication follows the prompt and uses the appropriate modern .NET Azure SDK mechanism.
                 When token-based authentication is requested, uses an appropriate credential from Azure.Identity and passes it to the SDK client. When the prompt explicitly requests a connection string, connection-string construction is valid. Credentials, connection strings, and secrets are not hardcoded.
               weight: 1
               pass_threshold: 1
-              required: true
             - name: language/sdk-specific-exception-handling
               description: |-
                 Check that requested error handling uses the exception model of the selected .NET Azure SDK package.
                 When error handling is requested, catches the appropriate SDK exception, such as RequestFailedException for many Azure.* and ARM clients, CosmosException for Microsoft.Azure.Cosmos, ServiceBusException for Service Bus, EventHubsException for Event Hubs, or AuthenticationFailedException and CredentialUnavailableException for Azure Identity. Inspects status codes, error codes, or retry details when relevant instead of relying only on a generic Exception catch.
               weight: 1
               pass_threshold: 1
-              required: true
             - name: language/asynchronous-sdk-usage
               description: |-
                 Check that asynchronous .NET Azure SDK calls use normal asynchronous control flow.
                 When asynchronous SDK APIs are used, awaits them with async and await rather than blocking through .Result, .Wait(), or GetAwaiter().GetResult().
               weight: 1
               pass_threshold: 1
-              required: true
       - type: run-command
         name: program/dotnet-project-builds
         config:

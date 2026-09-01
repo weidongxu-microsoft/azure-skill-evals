@@ -50,8 +50,8 @@ stimuli:
             - gpt-5.6-sol
           aggregation: unanimous
           scoring: binary
-          threshold: 1
-          overall_threshold: 1
+          threshold: 0
+          overall_threshold: 0
           evidence:
             - trajectory
             - repo
@@ -61,31 +61,26 @@ stimuli:
                 `azidentity` module import
               weight: 1
               pass_threshold: 1
-              required: true
             - name: prompt/default-azure-credential
               description: |-
                 `azidentity.NewDefaultAzureCredential()` function
               weight: 1
               pass_threshold: 1
-              required: true
             - name: prompt/credential-chain-order
               description: |-
                 Credential chain order in Go SDK
               weight: 1
               pass_threshold: 1
-              required: true
             - name: prompt/credential-client-constructor
               description: |-
                 Passing credential to client constructors
               weight: 1
               pass_threshold: 1
-              required: true
             - name: prompt/response-error
               description: |-
                 Error handling with `*azcore.ResponseError`
               weight: 1
               pass_threshold: 1
-              required: true
       - type: run-command
         name: program/go-project-tests
         config:

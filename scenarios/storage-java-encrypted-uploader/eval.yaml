@@ -55,8 +55,8 @@ stimuli:
             - gpt-5.6-sol
           aggregation: unanimous
           scoring: binary
-          threshold: 1
-          overall_threshold: 1
+          threshold: 0
+          overall_threshold: 0
           evidence:
             - trajectory
             - repo
@@ -66,193 +66,161 @@ stimuli:
                 Uses `com.azure:azure-security-keyvault-keys` (Keys, NOT Secrets) — critical distinction
               weight: 1
               pass_threshold: 1
-              required: true
             - name: prompt/uses-javax-crypto-or-java-security-for-local-aes-gcm-enc
               description: |-
                 Uses `javax.crypto` or `java.security` for local AES-GCM encryption ### Client Construction (scenario-specific)
               weight: 1
               pass_threshold: 1
-              required: true
             - name: prompt/uses-keyclient-cryptographyclient-builder-for-key-vault
               description: |-
                 Uses `KeyClient` / `CryptographyClient` builder for Key Vault Keys (NOT `SecretClient`) ### Key Vault Keys Patterns (critical)
               weight: 1
               pass_threshold: 1
-              required: true
             - name: prompt/uses-cryptographyclient-for-wrapkey-and-unwrapkey-operat
               description: |-
                 Uses `CryptographyClient` for `wrapKey()` and `unwrapKey()` operations
               weight: 1
               pass_threshold: 1
-              required: true
             - name: prompt/specifies-rsa-key-wrap-algorithm-keywrapalgorithm-rsa-oa
               description: |-
                 Specifies RSA key wrap algorithm (`KeyWrapAlgorithm.RSA_OAEP` or `RSA_OAEP_256`)
               weight: 1
               pass_threshold: 1
-              required: true
             - name: prompt/key-material-never-leaves-key-vault-wrap-unwrap-is-serve
               description: |-
                 Key material never leaves Key Vault (wrap/unwrap is server-side) ### Envelope Encryption Patterns (critical)
               weight: 1
               pass_threshold: 1
-              required: true
             - name: prompt/generates-a-random-aes-256-dek-locally-32-bytes
               description: |-
                 Generates a random AES-256 DEK locally (32 bytes)
               weight: 1
               pass_threshold: 1
-              required: true
             - name: prompt/encrypts-data-with-aes-gcm-locally-using-the-dek
               description: |-
                 Encrypts data with AES-GCM locally using the DEK
               weight: 1
               pass_threshold: 1
-              required: true
             - name: prompt/wraps-the-dek-via-key-vault-wrapkey
               description: |-
                 Wraps the DEK via Key Vault `wrapKey()`
               weight: 1
               pass_threshold: 1
-              required: true
             - name: prompt/stores-wrapped-dek-as-blob-metadata
               description: |-
                 Stores wrapped DEK as blob metadata
               weight: 1
               pass_threshold: 1
-              required: true
             - name: prompt/stores-iv-initialization-vector-in-blob-metadata
               description: |-
                 Stores IV (initialization vector) in blob metadata
               weight: 1
               pass_threshold: 1
-              required: true
             - name: prompt/stores-vault-key-identifier-in-blob-metadata
               description: |-
                 Stores vault key identifier in blob metadata
               weight: 1
               pass_threshold: 1
-              required: true
             - name: prompt/for-decryption-retrieves-wrapped-dek-from-metadata-unwra
               description: |-
                 For decryption: retrieves wrapped DEK from metadata, unwraps via Key Vault, decrypts locally ### AES-GCM
               weight: 1
               pass_threshold: 1
-              required: true
             - name: prompt/uses-aes-gcm-not-aes-cbc-aes-ecb-or-other-modes
               description: |-
                 Uses AES-GCM (not AES-CBC, AES-ECB, or other modes)
               weight: 1
               pass_threshold: 1
-              required: true
             - name: prompt/generates-random-iv-for-each-encryption-typically-12-byt
               description: |-
                 Generates random IV for each encryption (typically 12 bytes for GCM) ### Scenario-Specific Error Handling
               weight: 1
               pass_threshold: 1
-              required: true
             - name: prompt/handles-key-vault-errors-key-disabled-key-not-found-scen
               description: |-
                 Handles Key Vault errors (key disabled, key not found) ### Scenario-Specific Async
               weight: 1
               pass_threshold: 1
-              required: true
             - name: prompt/uses-blobasyncclient-and-cryptographyasyncclient-for-asy
               description: |-
                 Uses `BlobAsyncClient` and `CryptographyAsyncClient` for async ### Anti-Patterns (scenario-specific)
               weight: 1
               pass_threshold: 1
-              required: true
             - name: prompt/not-using-secretclient-instead-of-keyclient-cryptography
               description: |-
                 NOT using `SecretClient` instead of `KeyClient`/`CryptographyClient`
               weight: 1
               pass_threshold: 1
-              required: true
             - name: prompt/not-encrypting-data-directly-with-the-vault-key-should-b
               description: |-
                 NOT encrypting data directly with the vault key (should be envelope encryption)
               weight: 1
               pass_threshold: 1
-              required: true
             - name: prompt/not-storing-raw-dek-in-plaintext
               description: |-
                 NOT storing raw DEK in plaintext
               weight: 1
               pass_threshold: 1
-              required: true
             - name: language/correct-dependencies-com-azure-not-com-microsoft-azure
               description: |-
                 Uses com.azure group ID for all Azure SDK packages. No com.microsoft.azure (legacy SDK) dependencies. Includes azure-identity for authentication.
               weight: 1
               pass_threshold: 1
-              required: true
             - name: language/azure-sdk-bom-for-version-management
               description: |-
                 Uses azure-sdk-bom in dependencyManagement to manage Azure SDK versions instead of hardcoding individual artifact versions. Dependencies should omit <version> tags when managed by the BOM.
               weight: 1
               pass_threshold: 1
-              required: true
             - name: language/correct-imports-no-legacy-no-internal-packages
               description: |-
                 All imports use com.azure.* packages. No com.microsoft.azure.* (legacy) or com.azure.*.implementation.* (internal API) imports.
               weight: 1
               pass_threshold: 1
-              required: true
             - name: language/defaultazurecredential-authentication
               description: |-
                 Uses DefaultAzureCredential or another com.azure.identity credential. No hardcoded connection strings, account keys, SAS tokens, or secrets.
               weight: 1
               pass_threshold: 1
-              required: true
             - name: language/client-builder-pattern
               description: |-
                 SDK clients constructed using *ClientBuilder classes with .endpoint() or .vaultUrl() and .credential(). No legacy constructors (CloudStorageAccount, DocumentClient, KeyVaultClient).
               weight: 1
               pass_threshold: 1
-              required: true
             - name: language/no-deprecated-legacy-classes
               description: |-
                 No deprecated classes from the old SDK (CloudStorageAccount, CloudBlobClient, DocumentClient, QueueClient, ApplicationTokenCredentials, MSICredentials, ConnectionStringBuilder).
               weight: 1
               pass_threshold: 1
-              required: true
             - name: language/pagination-pagediterable-pagedflux
               description: |-
                 List/query operations return PagedIterable (sync) or PagedFlux (async). Does not flatten all pages into a raw List or Stream in memory.
               weight: 1
               pass_threshold: 1
-              required: true
             - name: language/lro-pattern-syncpoller-pollerflux
               description: |-
                 Long-running operations use SyncPoller (sync) or PollerFlux (async) with begin* method prefix. No Thread.sleep() polling loops.
               weight: 1
               pass_threshold: 1
-              required: true
             - name: language/async-uses-project-reactor-mono-flux
               description: |-
                 Async code uses Project Reactor types (Mono, Flux). Not CompletableFuture (wrong), not RxJava (wrong), not sync wrapped in ExecutorService. No .block() inside async service implementations.
               weight: 1
               pass_threshold: 1
-              required: true
             - name: language/service-specific-exception-handling
               description: |-
                 Catches service-specific exceptions (BlobStorageException, CosmosException, ServiceBusException, HttpResponseException) with status code inspection. Not just generic Exception catches.
               weight: 1
               pass_threshold: 1
-              required: true
             - name: language/code-compiles-mvn-compile-gradle-compilejava
               description: |-
                 The generated code compiles without errors. Attempt build verification if build tools are available.
               weight: 1
               pass_threshold: 1
-              required: true
             - name: language/try-with-resources-for-clients
               description: |-
                 All Azure SDK client instances that implement AutoCloseable are used within try-with-resources blocks or explicitly closed in a finally block.
               weight: 1
               pass_threshold: 1
-              required: true
       - type: run-command
         name: program/java-project-compiles
         config:

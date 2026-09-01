@@ -93,8 +93,10 @@ experiments/<language>/
 
 Each scenario uses one single-model Vally panel. The panel contains the exact
 Hyoka scenario criteria and every Hyoka model-based language criterion, with
-one required point per criterion. Independent program graders compile, build,
-or type-check the generated project. Language experiments own the three
+one reported point per criterion. Panel thresholds are zero so every criterion
+vote is retained as observational data without gating the evaluation.
+Independent program graders compile, build, or type-check the generated
+project. Language experiments own the three
 environment variants and can run multiple evals. Each workspace starts with a
 shared `.gitignore` and `AGENTS.md`. The instructions require complete runnable
 projects with root-level manifests, while the ignore rules keep installed
@@ -110,8 +112,9 @@ Every criterion has weight 1. Grader names identify the source of each check:
 - `program/*`: deterministic compile, build, dependency, or type checks.
 
 Fan-in aggregates these groups independently and does not calculate a combined
-weighted score. An evaluation passes only when its panel and every program
-grader pass. MCP calls and skill activation remain available in Vally
+weighted score. Quality and program-check failures remain report data rather
+than failing an evaluation shard; fan-in still fails on missing, malformed, or
+incomplete results. MCP calls and skill activation remain available in Vally
 trajectories as diagnostic evidence, but they do not affect correctness
 results. Checker entrypoints require at least one top-level source file without
 imposing a specific filename.

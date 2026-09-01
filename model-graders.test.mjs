@@ -116,11 +116,9 @@ test("every eval uses one complete model review and program checks", () => {
     for (const programGrader of expectedProgramGraders[language]) {
       assert.ok(source.includes(programGrader), evalPath);
     }
-    assert.equal(
-      (source.match(/^\s+required: true$/gm) ?? []).length,
-      criterionNames.length,
-      evalPath,
-    );
+    assert.doesNotMatch(source, /^\s+required:/m, evalPath);
+    assert.match(source, /^\s+threshold: 0$/m, evalPath);
+    assert.match(source, /^\s+overall_threshold: 0$/m, evalPath);
     assert.equal(
       languageCriteria.length,
       expectedLanguageCriteria[language],

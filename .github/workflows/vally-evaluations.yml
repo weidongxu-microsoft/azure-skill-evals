@@ -150,6 +150,7 @@ jobs:
 
       - name: Run selected evaluations
         id: evaluation
+        continue-on-error: true
         env:
           GITHUB_TOKEN: ${{ github.token }}
           SELECTION: ${{ inputs.selection }}

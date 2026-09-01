@@ -51,8 +51,8 @@ stimuli:
             - gpt-5.6-sol
           aggregation: unanimous
           scoring: binary
-          threshold: 1
-          overall_threshold: 1
+          threshold: 0
+          overall_threshold: 0
           evidence:
             - trajectory
             - repo
@@ -62,67 +62,56 @@ stimuli:
                 `ManagedIdentityCredential` class from `azure.identity`
               weight: 1
               pass_threshold: 1
-              required: true
             - name: prompt/system-assigned-no-parameters-needed
               description: |-
                 System-assigned: no parameters needed
               weight: 1
               pass_threshold: 1
-              required: true
             - name: prompt/user-assigned-passing-client-id-keyword-argument
               description: |-
                 User-assigned: passing `client_id` keyword argument
               weight: 1
               pass_threshold: 1
-              required: true
             - name: prompt/integration-with-defaultazurecredential-chain
               description: |-
                 Integration with `DefaultAzureCredential` chain
               weight: 1
               pass_threshold: 1
-              required: true
             - name: prompt/credentialunavailableerror-when-not-running-in-azure
               description: |-
                 `CredentialUnavailableError` when not running in Azure
               weight: 1
               pass_threshold: 1
-              required: true
             - name: prompt/chainedtokencredential-for-local-development-fallback
               description: |-
                 `ChainedTokenCredential` for local development fallback
               weight: 1
               pass_threshold: 1
-              required: true
             - name: language/correct-package-imports
               description: |-
                 Imports use the latest azure-sdk-for-python package structure (azure.*), not deprecated packages.
               weight: 1
               pass_threshold: 1
-              required: true
             - name: language/defaultazurecredential-usage
               description: |-
                 Authentication matches what the prompt asks for. If the prompt explicitly requires a connection string (or other key-based auth), using `from_connection_string()` / connection-string-based clients is correct and should pass. Otherwise, authentication must use DefaultAzureCredential from azure-identity (or another `azure.identity` credential), not connection strings or hardcoded keys. Hardcoded secrets/keys/connection strings in source code always fail — required values should come from environment variables or a secret store.
               weight: 1
               pass_threshold: 1
-              required: true
             - name: language/context-manager-for-clients
               description: |-
                 Azure SDK clients that support context managers are used with `with` statements or explicitly closed.
               weight: 1
               pass_threshold: 1
-              required: true
             - name: language/async-client-usage
               description: |-
                 If async operations are requested, code uses the async client variant with proper await patterns.
               weight: 1
               pass_threshold: 1
-              required: true
             - name: language/proper-exception-handling
               description: |-
                 Azure SDK exceptions (HttpResponseError and subclasses) are caught and handled appropriately.
               weight: 1
               pass_threshold: 1
-              required: true
       - type: run-command
         name: program/python-source-compiles
         config:

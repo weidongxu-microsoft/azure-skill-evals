@@ -53,8 +53,8 @@ stimuli:
             - gpt-5.6-sol
           aggregation: unanimous
           scoring: binary
-          threshold: 1
-          overall_threshold: 1
+          threshold: 0
+          overall_threshold: 0
           evidence:
             - trajectory
             - repo
@@ -64,211 +64,176 @@ stimuli:
                 Uses `@azure/keyvault-keys` (Keys, NOT Secrets) — critical distinction
               weight: 1
               pass_threshold: 1
-              required: true
             - name: prompt/uses-node-js-built-in-crypto-module-for-local-aes-gcm-en
               description: |-
                 Uses Node.js built-in `crypto` module for local AES-GCM encryption ### Client Construction (scenario-specific)
               weight: 1
               pass_threshold: 1
-              required: true
             - name: prompt/uses-keyclient-for-key-management-and-cryptographyclient
               description: |-
                 Uses `KeyClient` for key management and `CryptographyClient` for wrap/unwrap operations (NOT `SecretClient`)
               weight: 1
               pass_threshold: 1
-              required: true
             - name: prompt/constructs-cryptographyclient-with-the-key-id-or-key-nam
               description: |-
                 Constructs `CryptographyClient` with the key ID or key name ### Key Vault Keys Patterns (critical)
               weight: 1
               pass_threshold: 1
-              required: true
             - name: prompt/uses-cryptographyclient-for-wrapkey-and-unwrapkey-operat
               description: |-
                 Uses `CryptographyClient` for `wrapKey()` and `unwrapKey()` operations
               weight: 1
               pass_threshold: 1
-              required: true
             - name: prompt/specifies-rsa-key-wrap-algorithm-e-g-rsa-oaep-or-rsa-oae
               description: |-
                 Specifies RSA key wrap algorithm (e.g., `"RSA-OAEP"` or `"RSA-OAEP-256"`)
               weight: 1
               pass_threshold: 1
-              required: true
             - name: prompt/key-material-never-leaves-key-vault-wrap-unwrap-is-serve
               description: |-
                 Key material never leaves Key Vault (wrap/unwrap is server-side) ### Envelope Encryption Patterns (critical)
               weight: 1
               pass_threshold: 1
-              required: true
             - name: prompt/generates-a-random-aes-256-dek-locally-32-bytes-via-cryp
               description: |-
                 Generates a random AES-256 DEK locally (32 bytes via `crypto.randomBytes`)
               weight: 1
               pass_threshold: 1
-              required: true
             - name: prompt/encrypts-data-with-aes-gcm-locally-using-the-dek-crypto
               description: |-
                 Encrypts data with AES-GCM locally using the DEK (`crypto.createCipheriv("aes-256-gcm", ...)`)
               weight: 1
               pass_threshold: 1
-              required: true
             - name: prompt/wraps-the-dek-via-key-vault-wrapkey
               description: |-
                 Wraps the DEK via Key Vault `wrapKey()`
               weight: 1
               pass_threshold: 1
-              required: true
             - name: prompt/stores-wrapped-dek-as-blob-metadata-base64-encoded
               description: |-
                 Stores wrapped DEK as blob metadata (base64-encoded)
               weight: 1
               pass_threshold: 1
-              required: true
             - name: prompt/stores-iv-initialization-vector-in-blob-metadata-base64
               description: |-
                 Stores IV (initialization vector) in blob metadata (base64-encoded)
               weight: 1
               pass_threshold: 1
-              required: true
             - name: prompt/stores-gcm-auth-tag-in-blob-metadata-base64-encoded-in-n
               description: |-
                 Stores GCM auth tag in blob metadata (base64-encoded) — in Node.js the auth tag is separate from ciphertext
               weight: 1
               pass_threshold: 1
-              required: true
             - name: prompt/stores-vault-key-identifier-in-blob-metadata
               description: |-
                 Stores vault key identifier in blob metadata
               weight: 1
               pass_threshold: 1
-              required: true
             - name: prompt/for-decryption-retrieves-wrapped-dek-from-metadata-unwra
               description: |-
                 For decryption: retrieves wrapped DEK from metadata, unwraps via Key Vault, sets auth tag via `decipher.setAuthTag()`, decrypts locally ### AES-GCM (Node.js specific)
               weight: 1
               pass_threshold: 1
-              required: true
             - name: prompt/uses-aes-gcm-not-aes-cbc-aes-ecb-or-other-modes
               description: |-
                 Uses AES-GCM (not AES-CBC, AES-ECB, or other modes)
               weight: 1
               pass_threshold: 1
-              required: true
             - name: prompt/generates-random-iv-for-each-encryption-typically-12-byt
               description: |-
                 Generates random IV for each encryption (typically 12 bytes for GCM)
               weight: 1
               pass_threshold: 1
-              required: true
             - name: prompt/retrieves-auth-tag-via-cipher-getauthtag-after-encryptio
               description: |-
                 Retrieves auth tag via `cipher.getAuthTag()` after encryption finalize
               weight: 1
               pass_threshold: 1
-              required: true
             - name: prompt/sets-auth-tag-via-decipher-setauthtag-before-decryption
               description: |-
                 Sets auth tag via `decipher.setAuthTag()` before decryption finalize ### Scenario-Specific Error Handling
               weight: 1
               pass_threshold: 1
-              required: true
             - name: prompt/handles-key-vault-errors-key-disabled-key-not-found-via
               description: |-
                 Handles Key Vault errors (key disabled, key not found) via RestError
               weight: 1
               pass_threshold: 1
-              required: true
             - name: prompt/handles-storage-errors-blob-not-found-via-resterror-with
               description: |-
                 Handles Storage errors (blob not found) via RestError with statusCode ### Anti-Patterns (scenario-specific)
               weight: 1
               pass_threshold: 1
-              required: true
             - name: prompt/not-using-secretclient-instead-of-keyclient-cryptography
               description: |-
                 NOT using `SecretClient` instead of `KeyClient`/`CryptographyClient`
               weight: 1
               pass_threshold: 1
-              required: true
             - name: prompt/not-encrypting-data-directly-with-the-vault-key-should-b
               description: |-
                 NOT encrypting data directly with the vault key (should be envelope encryption)
               weight: 1
               pass_threshold: 1
-              required: true
             - name: prompt/not-storing-raw-dek-in-plaintext
               description: |-
                 NOT storing raw DEK in plaintext
               weight: 1
               pass_threshold: 1
-              required: true
             - name: prompt/not-omitting-the-gcm-auth-tag-from-blob-metadata-decrypt
               description: |-
                 NOT omitting the GCM auth tag from blob metadata (decryption will fail)
               weight: 1
               pass_threshold: 1
-              required: true
             - name: language/correct-azure-scoped-packages
               description: |-
                 All Azure SDK dependencies use @azure/ scoped packages (e.g., @azure/storage-blob, @azure/keyvault-secrets, @azure/identity). No deprecated unscoped packages (azure-storage, azure-arm-*, ms-rest-azure, @azure/ms-rest-*).
               weight: 1
               pass_threshold: 1
-              required: true
             - name: language/azure-identity-for-authentication
               description: |-
                 Includes @azure/identity as a dependency. For local development, DefaultAzureCredential is acceptable. For production code, uses a specific Entra token credential (e.g., ManagedIdentityCredential, ClientSecretCredential, WorkloadIdentityCredential) or configures DefaultAzureCredential with the AZURE_TOKEN_CREDENTIALS environment variable set to "prod" or a specific token credential. No hardcoded connection strings, account keys, SAS tokens, or secrets in code.
               weight: 1
               pass_threshold: 1
-              required: true
             - name: language/client-constructor-with-endpoint-and-credential
               description: |-
                 SDK clients constructed with endpoint URL and credential object, e.g. new BlobServiceClient(url, credential) or new SecretClient(vaultUrl, credential). No legacy constructor patterns or connection string-based construction when identity-based auth is available.
               weight: 1
               pass_threshold: 1
-              required: true
             - name: language/async-await-pattern
               description: |-
                 Uses async/await for all asynchronous operations. No raw .then()/.catch() chains when await is cleaner. No callback-based patterns. Top-level async function or IIFE for entry point.
               weight: 1
               pass_threshold: 1
-              required: true
             - name: language/pagination-with-for-await-of
               description: |-
                 List/query operations use for-await-of iteration over the PagedAsyncIterableIterator returned by SDK methods. Does not collect all pages into an array in memory (e.g., no Array.from() or manual page accumulation). Uses byPage() when per-page control is needed.
               weight: 1
               pass_threshold: 1
-              required: true
             - name: language/lro-pattern-beginxxx-polluntildone
               description: |-
                 Long-running operations use the begin* method prefix (e.g., beginDeleteSecret, beginCreateOrUpdate) and await poller.pollUntilDone(). No manual setTimeout/setInterval polling loops.
               weight: 1
               pass_threshold: 1
-              required: true
             - name: language/resterror-exception-handling
               description: |-
                 Catches RestError (from @azure/core-rest-pipeline or the service package) with statusCode inspection for error-specific handling. Not just generic Error or try/catch without type checking.
               weight: 1
               pass_threshold: 1
-              required: true
             - name: language/no-deprecated-packages
               description: |-
                 No deprecated or legacy Azure packages in package.json: azure-storage, azure-arm-*, ms-rest-azure, @azure/ms-rest-js, @azure/ms-rest-nodeauth, @azure/ms-rest-azure-js. All dependencies use the current @azure/* track.
               weight: 1
               pass_threshold: 1
-              required: true
             - name: language/logging-via-azure-logger
               description: |-
                 Uses @azure/logger with setLogLevel() or the AZURE_LOG_LEVEL environment variable for SDK diagnostic logging. No custom logging wrappers around SDK internals.
               weight: 1
               pass_threshold: 1
-              required: true
             - name: language/package-json-with-correct-dependencies
               description: |-
                 Includes a valid package.json with all required @azure/* dependencies listed. TypeScript projects include tsconfig.json and appropriate @types/* packages or use a recent TypeScript version with built-in types.
               weight: 1
               pass_threshold: 1
-              required: true
       - type: run-command
         name: program/typescript-dependencies-install
         config:
