@@ -12,16 +12,82 @@ const expectedLanguageCriteria = {
   typescript: 10,
 };
 
+const expectedProgramGraders = {
+  dotnet: [
+    `      - type: run-command
+        name: program/dotnet-project-builds
+        config:
+          command: dotnet
+          args:
+            - build
+            - --nologo
+          timeout: 3m`,
+  ],
+  go: [
+    `      - type: run-command
+        name: program/go-project-tests
+        config:
+          command: go
+          args:
+            - test
+            - -mod=readonly
+            - ./...
+          timeout: 3m`,
+  ],
+  java: [
+    `      - type: run-command
+        name: program/java-project-compiles
+        config:
+          command: node
+          args:
+            - .vally/program-checks/java.mjs
+          timeout: 3m`,
+  ],
+  python: [
+    `      - type: run-command
+        name: program/python-source-compiles
+        config:
+          command: python
+          args:
+            - -m
+            - compileall
+            - -q
+            - .
+          timeout: 30s`,
+  ],
+  typescript: [
+    `      - type: run-command
+        name: program/typescript-dependencies-install
+        config:
+          command: npm
+          args:
+            - install
+            - --ignore-scripts
+            - --no-audit
+            - --no-fund
+          timeout: 3m`,
+    `      - type: run-command
+        name: program/typescript-type-checks
+        config:
+          command: npx
+          args:
+            - --no-install
+            - tsc
+            - --noEmit
+          timeout: 2m`,
+  ],
+};
+
 const scenarioRoot = fileURLToPath(new URL("./scenarios/", import.meta.url));
 const evalPaths = readdirSync(scenarioRoot, { withFileTypes: true })
   .filter((entry) => entry.isDirectory())
   .map((entry) => join(scenarioRoot, entry.name, "eval.yaml"));
 
-test("every eval uses one complete model review", () => {
+test("every eval uses one complete model review and program checks", () => {
   assert.equal(evalPaths.length, 79);
 
   for (const evalPath of evalPaths) {
-    const source = readFileSync(evalPath, "utf8");
+    const source = readFileSync(evalPath, "utf8").replaceAll("\r\n", "\n");
     const language = source.match(/^\s+language:\s*(\S+)$/m)?.[1];
     const criterionNames = [
       ...source.matchAll(/^\s+- name: ((?:prompt|language)\/.+)$/gm),
@@ -36,10 +102,20 @@ test("every eval uses one complete model review", () => {
       evalPath,
     );
     assert.equal(
-      (source.match(/^\s+- type: (?:run-command|program)$/gm) ?? []).length,
+      (source.match(/^\s+- type: run-command$/gm) ?? []).length,
+      expectedProgramGraders[language].length,
+      evalPath,
+    );
+    assert.equal(
+      (source.match(/^\s+- type: program$/gm) ?? []).length,
       0,
       evalPath,
     );
+    assert.match(source, /^scoring:\n  weights: \{\}\n/m, evalPath);
+    assert.doesNotMatch(source, /^  threshold:/m, evalPath);
+    for (const programGrader of expectedProgramGraders[language]) {
+      assert.ok(source.includes(programGrader), evalPath);
+    }
     assert.equal(
       (source.match(/^\s+required: true$/gm) ?? []).length,
       criterionNames.length,
@@ -63,9 +139,18 @@ test("every eval uses one complete model review", () => {
     );
     assert.match(
       source,
-      /^environment:\r?\n\s+files:\r?\n\s+- src: \.\.\/\.\.\/eval-workspace\.gitignore\r?\n\s+dest: \.gitignore\r?\n\s+- src: \.\.\/\.\.\/eval-workspace-AGENTS\.md\r?\n\s+dest: AGENTS\.md$/m,
+      /^environment:\n\s+files:\n\s+- src: \.\.\/\.\.\/eval-workspace\.gitignore\n\s+dest: \.gitignore\n\s+- src: \.\.\/\.\.\/eval-workspace-AGENTS\.md\n\s+dest: AGENTS\.md/m,
       evalPath,
     );
+    if (language === "java") {
+      assert.match(
+        source,
+        /^\s+- src: \.\.\/\.\.\/scripts\/program-checks\/java\.mjs\n\s+dest: \.vally\/program-checks\/java\.mjs$/m,
+        evalPath,
+      );
+    } else {
+      assert.doesNotMatch(source, /scripts\/program-checks\/java\.mjs/, evalPath);
+    }
     assert.doesNotMatch(source, /^    environment:/m, evalPath);
   }
 });

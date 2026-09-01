@@ -10,7 +10,6 @@ environment:
       dest: AGENTS.md
 scoring:
   weights: {}
-  threshold: 1
 defaults:
   runs: 1
   timeout: 30m
@@ -86,6 +85,15 @@ stimuli:
               weight: 1
               pass_threshold: 1
               required: true
+      - type: run-command
+        name: program/go-project-tests
+        config:
+          command: go
+          args:
+            - test
+            - -mod=readonly
+            - ./...
+          timeout: 3m
 artifacts:
   include:
     - "**/*.go"

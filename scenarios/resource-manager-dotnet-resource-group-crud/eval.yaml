@@ -10,7 +10,6 @@ environment:
       dest: AGENTS.md
 scoring:
   weights: {}
-  threshold: 1
 defaults:
   runs: 1
   timeout: 30m
@@ -115,6 +114,14 @@ stimuli:
               weight: 1
               pass_threshold: 1
               required: true
+      - type: run-command
+        name: program/dotnet-project-builds
+        config:
+          command: dotnet
+          args:
+            - build
+            - --nologo
+          timeout: 3m
 artifacts:
   include:
     - "**/*.cs"

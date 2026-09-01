@@ -117,6 +117,9 @@ jobs:
           distribution: temurin
           java-version: "17"
 
+      - uses: gradle/actions/setup-gradle@v4
+        if: ${{ matrix.language == 'java' }}
+
       - uses: actions/setup-go@v6
         if: ${{ matrix.language == 'go' }}
         with:

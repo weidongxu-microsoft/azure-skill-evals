@@ -10,7 +10,6 @@ environment:
       dest: AGENTS.md
 scoring:
   weights: {}
-  threshold: 1
 defaults:
   runs: 1
   timeout: 30m
@@ -148,6 +147,25 @@ stimuli:
               weight: 1
               pass_threshold: 1
               required: true
+      - type: run-command
+        name: program/typescript-dependencies-install
+        config:
+          command: npm
+          args:
+            - install
+            - --ignore-scripts
+            - --no-audit
+            - --no-fund
+          timeout: 3m
+      - type: run-command
+        name: program/typescript-type-checks
+        config:
+          command: npx
+          args:
+            - --no-install
+            - tsc
+            - --noEmit
+          timeout: 2m
 artifacts:
   include:
     - "**/*.ts"
