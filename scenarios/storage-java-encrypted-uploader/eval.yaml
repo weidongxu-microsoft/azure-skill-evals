@@ -2,6 +2,10 @@ name: storage-java-encrypted-uploader
 description: Compare Azure tooling for a Java client-side encrypted Blob uploader task
 version: "1.0"
 type: capability
+environment:
+  files:
+    - src: ../../eval-workspace.gitignore
+      dest: .gitignore
 scoring:
   weights: {}
   threshold: 1
@@ -40,8 +44,10 @@ stimuli:
             Review the generated implementation against every criterion.
             Score each criterion independently. Accept equivalent valid
             implementations and judge code behavior rather than syntax.
-            Return every criterion name exactly as provided. Do not add list
-            numbers, prefixes, suffixes, or other formatting to criterion names.
+            Return every criterion name exactly as provided. The criterion
+            value must start with "prompt/" or "language/". Never copy a rubric
+            list number into the criterion value. For example, return
+            "prompt/foo", never "1. prompt/foo".
           models:
             - gpt-5.6-sol
           aggregation: unanimous

@@ -56,6 +56,8 @@ single-model panel configuration.
   application.
 - `model-graders.test.mjs` validates the active panel structure across all
   evaluations.
+- `eval-workspace.gitignore` is staged as `.gitignore` in every evaluation
+  workspace so dependency installs and build output stay out of judge diffs.
 - `scenarios/<name>/tools/`, `scenarios/<name>/*.test.mjs`, and
   `languages/<language>/` retain the retired deterministic implementation
   during the transition; their grader tests are skipped.

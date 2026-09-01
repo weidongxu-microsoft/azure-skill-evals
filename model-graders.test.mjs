@@ -53,7 +53,12 @@ test("every eval uses one complete model review", () => {
     assert.match(source, /^\s+evidence:\r?\n\s+- diff$/m, evalPath);
     assert.match(
       source,
-      /Return every criterion name exactly as provided\. Do not add list\r?\n\s+numbers, prefixes, suffixes, or other formatting to criterion names\./,
+      /value must start with "prompt\/" or "language\/"\. Never copy a rubric\r?\n\s+list number into the criterion value\./,
+      evalPath,
+    );
+    assert.match(
+      source,
+      /^environment:\r?\n\s+files:\r?\n\s+- src: \.\.\/\.\.\/eval-workspace\.gitignore\r?\n\s+dest: \.gitignore$/m,
       evalPath,
     );
     assert.doesNotMatch(source, /^    environment:/m, evalPath);

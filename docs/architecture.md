@@ -26,7 +26,9 @@ between arms.
 External skill repositories and npm packages are pinned in
 `dependencies.lock.json`. `scripts/bootstrap-dependencies.ps1` materializes the
 repositories under `.work/dependencies/`; generated dependencies and reports
-stay outside Git.
+stay outside Git. Every eval stages `eval-workspace.gitignore` into its
+workspace before execution so package installs and build outputs do not enter
+the generated diff.
 
 Grader names preserve two independent result groups:
 
@@ -110,8 +112,9 @@ least three trials per arm before drawing comparative quality conclusions.
 - **Likelihood:** Medium
 - **Impact:** High
 - **Mitigation:** Vally 0.12 grades the generated diff, which is capped at
-  20,000 characters. Treat large-output cases as an upgrade trigger for
-  workspace-backed repository evidence.
+  20,000 characters. Shared workspace ignore rules exclude dependencies and
+  build outputs before Vally computes the diff. Treat large source-only cases
+  as an upgrade trigger for workspace-backed repository evidence.
 
 ### Skill loading differs from plugin loading
 

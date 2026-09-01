@@ -1,0 +1,12 @@
+node_modules/
+.pnpm-store/
+.npm/
+bin/
+obj/
+target/
+dist/
+build/
+.venv/
+venv/
+__pycache__/
+*.pyc
