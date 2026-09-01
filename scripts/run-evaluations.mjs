@@ -9,6 +9,7 @@ const languageExperiments = [
   ["dotnet", "experiments/dotnet/experiment.yaml"],
   ["java", "experiments/java/experiment.yaml"],
   ["typescript", "experiments/typescript/experiment.yaml"],
+  ["go", "experiments/go/experiment.yaml"],
 ];
 
 const variants = [
@@ -16,6 +17,10 @@ const variants = [
   "azure-skill-mcp",
   "azure-skill-mcp-microsoft-skill",
 ];
+
+const supportedVariants = new Map([
+  ["go", new Set(["baseline", "azure-skill-mcp"])],
+]);
 
 function unquote(value) {
   const trimmed = value.trim();
@@ -239,16 +244,22 @@ export function selectEvaluations(catalog, options) {
 }
 
 export function buildShardMatrix(groups, variant) {
-  const selectedVariants = variant === "all" ? variants : [variant];
-  return {
-    include: groups.flatMap((group) =>
-      selectedVariants.map((selectedVariant) => ({
+  const include = groups.flatMap((group) => {
+    const allowed = supportedVariants.get(group.language) ?? new Set(variants);
+    const selectedVariants =
+      variant === "all" ? variants.filter((item) => allowed.has(item)) : [variant];
+    return selectedVariants
+      .filter((item) => allowed.has(item))
+      .map((selectedVariant) => ({
         language: group.language,
         variant: selectedVariant,
         evaluations: group.filters.length,
-      })),
-    ),
-  };
+      }));
+  });
+  if (include.length === 0) {
+    throw new Error("The selected evaluations do not support the requested variant.");
+  }
+  return { include };
 }
 
 export function parseArguments(argv) {
@@ -402,6 +413,18 @@ export async function main(argv = process.argv.slice(2)) {
     if (groups.length === 0) {
       throw new Error(
         `The requested selection contains no ${options.language} evaluations.`,
+      );
+    }
+  }
+  if (options.variant !== "all") {
+    groups = groups.filter(
+      (group) =>
+        !supportedVariants.has(group.language) ||
+        supportedVariants.get(group.language).has(options.variant),
+    );
+    if (groups.length === 0) {
+      throw new Error(
+        "The selected evaluations do not support the requested variant.",
       );
     }
   }

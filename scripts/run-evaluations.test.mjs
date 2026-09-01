@@ -79,6 +79,38 @@ test("builds one shard per selected language and variant", () => {
   });
 });
 
+test("builds only the two supported Go variants", () => {
+  const groups = selectEvaluations(catalog, {
+    mode: "tags",
+    tags: "language=go",
+  });
+
+  assert.deepEqual(buildShardMatrix(groups, "all"), {
+    include: [
+      { language: "go", variant: "baseline", evaluations: 7 },
+      { language: "go", variant: "azure-skill-mcp", evaluations: 7 },
+    ],
+  });
+  assert.throws(
+    () => buildShardMatrix(groups, "azure-skill-mcp-microsoft-skill"),
+    /do not support/,
+  );
+});
+
+test("omits Go when a mixed selection requests the unsupported third variant", () => {
+  const groups = selectEvaluations(catalog, {
+    mode: "suite",
+    suite: "identity-default-azure-credential",
+  });
+
+  assert.deepEqual(
+    buildShardMatrix(groups, "azure-skill-mcp-microsoft-skill").include.map(
+      ({ language }) => language,
+    ),
+    ["python", "dotnet", "java", "typescript"],
+  );
+});
+
 test("rejects malformed tag filters", () => {
   assert.throws(
     () => parseTagFilters("service"),

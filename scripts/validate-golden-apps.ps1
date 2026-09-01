@@ -66,6 +66,27 @@ foreach ($goldenRoot in $goldenRoots) {
         $validated = $true
     }
 
+    $goModule = Join-Path $goldenRoot "go.mod"
+    if (Test-Path $goModule -PathType Leaf) {
+        Push-Location $goldenRoot
+        try {
+            go test -mod=readonly ./...
+            if ($LASTEXITCODE -ne 0) {
+                throw "Go golden application tests failed: $goldenRoot"
+            }
+
+            go vet ./...
+            if ($LASTEXITCODE -ne 0) {
+                throw "Go golden application vet failed: $goldenRoot"
+            }
+        }
+        finally {
+            Pop-Location
+        }
+
+        $validated = $true
+    }
+
     if (-not $validated) {
         throw "No supported golden application found: $goldenRoot"
     }

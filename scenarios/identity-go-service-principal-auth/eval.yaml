@@ -1,0 +1,103 @@
+name: identity-go-service-principal-auth
+description: Compare Azure tooling for service principal authentication in Go
+version: "1.0"
+type: capability
+environment:
+  files:
+    - src: ../../eval-workspace.gitignore
+      dest: .gitignore
+    - src: ../../eval-workspace-AGENTS.md
+      dest: AGENTS.md
+scoring:
+  weights: {}
+  threshold: 1
+defaults:
+  runs: 1
+  timeout: 30m
+  model: gpt-5.6-sol
+  judge_model: gpt-5.6-sol
+stimuli:
+  - name: identity-dp-go-service-principal
+    prompt: |-
+      Show me how to authenticate
+      to Azure using a Service Principal with client secret in Go. I need:
+      1. Required Go modules
+      2. How to create a ClientSecretCredential with NewClientSecretCredential
+      3. Using it with an Azure SDK client
+      4. Best practices for secret management in Go
+      5. Error handling for authentication failures
+
+      Provide a complete Go example with proper error handling.
+    tags:
+      service: identity
+      plane: data-plane
+      language: go
+      category: auth
+    graders:
+      - type: panel
+        name: prompt/full-case-review
+        weight: 1
+        config:
+          prompt: |-
+            Review the generated implementation against every criterion.
+            Score each criterion independently. Accept equivalent valid
+            implementations and judge code behavior rather than syntax.
+            Return every criterion name exactly as provided. The criterion
+            value must start with "prompt/" or "language/". Never copy a rubric
+            list number into the criterion value. For example, return
+            "prompt/foo", never "1. prompt/foo".
+          models:
+            - gpt-5.6-sol
+          aggregation: unanimous
+          scoring: binary
+          threshold: 1
+          overall_threshold: 1
+          evidence:
+            - trajectory
+            - repo
+          criteria:
+            - name: prompt/client-secret-credential
+              description: |-
+                `azidentity` module with `NewClientSecretCredential()` function
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: prompt/credential-parameters
+              description: |-
+                Parameters: tenantID, clientID, clientSecret, options
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: prompt/credential-client-constructor
+              description: |-
+                Passing credential to Azure SDK client constructors
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: prompt/environment-variables
+              description: |-
+                Environment variable patterns with `os.Getenv()`
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: prompt/error-handling
+              description: |-
+                Error handling patterns
+              weight: 1
+              pass_threshold: 1
+              required: true
+artifacts:
+  include:
+    - "**/*.go"
+    - "**/go.mod"
+    - "**/go.sum"
+    - "**/README.md"
+  exclude:
+    - "**/.vally/**"
+    - "**/bin/**"
+    - "**/build/**"
+    - "**/dist/**"
+    - "**/vendor/**"
+    - "**/.cache/**"
+    - "**/*.test"
+    - "**/coverage.out"

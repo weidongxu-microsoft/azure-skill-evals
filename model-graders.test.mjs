@@ -6,6 +6,7 @@ import test from "node:test";
 
 const expectedLanguageCriteria = {
   dotnet: 3,
+  go: 0,
   java: 12,
   python: 5,
   typescript: 10,
@@ -17,7 +18,7 @@ const evalPaths = readdirSync(scenarioRoot, { withFileTypes: true })
   .map((entry) => join(scenarioRoot, entry.name, "eval.yaml"));
 
 test("every eval uses one complete model review", () => {
-  assert.equal(evalPaths.length, 72);
+  assert.equal(evalPaths.length, 79);
 
   for (const evalPath of evalPaths) {
     const source = readFileSync(evalPath, "utf8");

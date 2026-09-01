@@ -1,0 +1,124 @@
+name: resource-manager-go-resource-group-crud
+description: Compare Azure tooling for an Azure Resource Manager Go resource group CRUD task
+version: "1.0"
+type: capability
+environment:
+  files:
+    - src: ../../eval-workspace.gitignore
+      dest: .gitignore
+    - src: ../../eval-workspace-AGENTS.md
+      dest: AGENTS.md
+scoring:
+  weights: {}
+  threshold: 1
+defaults:
+  runs: 1
+  timeout: 30m
+  model: gpt-5.6-sol
+  judge_model: gpt-5.6-sol
+stimuli:
+  - name: resource-manager-mp-go-rg-crud
+    prompt: |-
+      Write a Go program that manages
+      Azure Resource Groups using the management plane SDK:
+      1. Authenticate using DefaultAzureCredential from azidentity
+      2. Create a ResourceGroupsClient
+      3. Create a new resource group in "eastus" region
+      4. List all resource groups in the subscription
+      5. Get details of the created resource group
+      6. Update the resource group by adding a tag
+      7. Delete the resource group
+
+      Show required Go module imports and proper error handling.
+      Use the armresources package from the azure-sdk-for-go/sdk module.
+    tags:
+      service: resource-manager
+      plane: management-plane
+      language: go
+      category: crud
+    graders:
+      - type: panel
+        name: prompt/full-case-review
+        weight: 1
+        config:
+          prompt: |-
+            Review the generated implementation against every criterion.
+            Score each criterion independently. Accept equivalent valid
+            implementations and judge code behavior rather than syntax.
+            Return every criterion name exactly as provided. The criterion
+            value must start with "prompt/" or "language/". Never copy a rubric
+            list number into the criterion value. For example, return
+            "prompt/foo", never "1. prompt/foo".
+          models:
+            - gpt-5.6-sol
+          aggregation: unanimous
+          scoring: binary
+          threshold: 1
+          overall_threshold: 1
+          evidence:
+            - trajectory
+            - repo
+          criteria:
+            - name: prompt/armresources-module
+              description: |-
+                `github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/resources/armresources` module
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: prompt/default-azure-credential
+              description: |-
+                `azidentity.NewDefaultAzureCredential()` for authentication
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: prompt/resource-groups-client
+              description: |-
+                `armresources.NewResourceGroupsClient()` with subscription ID and credential
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: prompt/create-or-update
+              description: |-
+                `CreateOrUpdate()` with `armresources.ResourceGroup` and location
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: prompt/list-pager
+              description: |-
+                `NewListPager()` for listing with pager iteration
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: prompt/get-resource-group
+              description: |-
+                `Get()` for fetching resource group details
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: prompt/begin-delete-poller
+              description: |-
+                `BeginDelete()` and poller pattern for long-running operations
+              weight: 1
+              pass_threshold: 1
+              required: true
+            - name: prompt/tags-map
+              description: |-
+                Tags as `map[string]*string`
+              weight: 1
+              pass_threshold: 1
+              required: true
+artifacts:
+  include:
+    - "**/*.go"
+    - "**/go.mod"
+    - "**/go.sum"
+    - "**/README.md"
+  exclude:
+    - "**/.vally/**"
+    - "**/bin/**"
+    - "**/build/**"
+    - "**/dist/**"
+    - "**/vendor/**"
+    - "**/.cache/**"
+    - "**/*.test"
+    - "**/coverage.out"

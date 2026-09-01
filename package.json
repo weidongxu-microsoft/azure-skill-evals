@@ -12,6 +12,7 @@
     "experiment": "pnpm experiment:python",
     "experiment:python": "vally experiment run experiments/python/experiment.yaml --output-dir reports",
     "experiment:dotnet": "vally experiment run experiments/dotnet/experiment.yaml --output-dir reports",
+    "experiment:go": "vally experiment run experiments/go/experiment.yaml --output-dir reports",
     "experiment:java": "vally experiment run experiments/java/experiment.yaml --output-dir reports",
     "experiment:typescript": "vally experiment run experiments/typescript/experiment.yaml --output-dir reports"
   },

@@ -44,12 +44,13 @@ suites:
       - scenarios/event-hubs-java-send-receive-events/eval.yaml
       - scenarios/event-hubs-typescript-send-receive-events/eval.yaml
   key-vault-crud-secrets:
-    description: Key Vault secrets CRUD evaluation across four languages
+    description: Key Vault secrets CRUD evaluation across five languages
     evals:
       - scenarios/key-vault-python-crud-secrets/eval.yaml
       - scenarios/key-vault-dotnet-crud-secrets/eval.yaml
       - scenarios/key-vault-java-crud-secrets/eval.yaml
       - scenarios/key-vault-typescript-crud-secrets/eval.yaml
+      - scenarios/key-vault-go-crud-secrets/eval.yaml
   key-vault-secret-config:
     description: Key Vault-backed configuration provider evaluation across Python, Java, and TypeScript
     evals:
@@ -69,38 +70,42 @@ suites:
     evals:
       - scenarios/key-vault-dotnet-polling-create-vault/eval.yaml
   identity-default-azure-credential:
-    description: DefaultAzureCredential evaluation across four languages
+    description: DefaultAzureCredential evaluation across five languages
     evals:
       - scenarios/identity-python-default-azure-credential/eval.yaml
       - scenarios/identity-dotnet-default-azure-credential/eval.yaml
       - scenarios/identity-java-default-azure-credential/eval.yaml
       - scenarios/identity-typescript-default-azure-credential/eval.yaml
+      - scenarios/identity-go-default-azure-credential/eval.yaml
   identity-managed-identity-auth:
-    description: Managed identity authentication evaluation across four languages
+    description: Managed identity authentication evaluation across five languages
     evals:
       - scenarios/identity-python-managed-identity-auth/eval.yaml
       - scenarios/identity-dotnet-managed-identity-auth/eval.yaml
       - scenarios/identity-java-managed-identity-auth/eval.yaml
       - scenarios/identity-typescript-managed-identity-auth/eval.yaml
+      - scenarios/identity-go-managed-identity-auth/eval.yaml
   identity-credential-chain:
     description: Environment-specific credential chain evaluation across Python and Java
     evals:
       - scenarios/identity-python-credential-chain/eval.yaml
       - scenarios/identity-java-credential-chain/eval.yaml
   identity-service-principal-auth:
-    description: Service principal authentication evaluation across four languages
+    description: Service principal authentication evaluation across five languages
     evals:
       - scenarios/identity-python-service-principal-auth/eval.yaml
       - scenarios/identity-dotnet-service-principal-auth/eval.yaml
       - scenarios/identity-java-service-principal-auth/eval.yaml
       - scenarios/identity-typescript-service-principal-auth/eval.yaml
+      - scenarios/identity-go-service-principal-auth/eval.yaml
   resource-manager-resource-group-crud:
-    description: Resource Manager resource group CRUD evaluation across four languages
+    description: Resource Manager resource group CRUD evaluation across five languages
     evals:
       - scenarios/resource-manager-python-resource-group-crud/eval.yaml
       - scenarios/resource-manager-dotnet-resource-group-crud/eval.yaml
       - scenarios/resource-manager-java-resource-group-crud/eval.yaml
       - scenarios/resource-manager-typescript-resource-group-crud/eval.yaml
+      - scenarios/resource-manager-go-resource-group-crud/eval.yaml
   service-bus-send-receive-messages:
     description: Service Bus send and receive messages evaluation across four languages
     evals:
@@ -114,12 +119,13 @@ suites:
       - scenarios/service-bus-python-order-processor/eval.yaml
       - scenarios/service-bus-java-order-processor/eval.yaml
   storage-account-mgmt:
-    description: Storage account management evaluation across four languages
+    description: Storage account management evaluation across five languages
     evals:
       - scenarios/storage-python-account-mgmt/eval.yaml
       - scenarios/storage-dotnet-account-mgmt/eval.yaml
       - scenarios/storage-java-account-mgmt/eval.yaml
       - scenarios/storage-typescript-account-mgmt/eval.yaml
+      - scenarios/storage-go-account-mgmt/eval.yaml
   storage-dotnet-authentication:
     description: Blob Storage authentication evaluation for .NET
     evals:
@@ -152,6 +158,7 @@ suites:
       - scenarios/storage-python-crud-blobs/eval.yaml
       - scenarios/storage-java-crud-blobs/eval.yaml
       - scenarios/storage-typescript-crud-blobs/eval.yaml
+      - scenarios/storage-go-crud-blobs/eval.yaml
   storage-encrypted-uploader:
     description: Encrypted Blob uploader evaluation across Python, Java, and TypeScript
     evals:

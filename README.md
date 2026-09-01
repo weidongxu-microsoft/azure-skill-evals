@@ -2,12 +2,15 @@
 
 This repository measures Azure coding-agent behavior with
 [Vally](https://microsoft.github.io/vally/). It compares the same prompt and
-graders across three environments:
+graders across up to three environments:
 
 1. No Azure MCP server or skills.
 2. Azure MCP plus general Azure skills.
 3. Azure MCP plus general Azure skills and the complete language-specific SDK
    skill suite.
+
+Go uses only the first two environments because `microsoft/skills` does not
+provide a Go Azure SDK plugin.
 
 ## Run the evaluations
 
@@ -19,19 +22,22 @@ pnpm lint:evals
 pnpm test
 pnpm experiment:python
 pnpm experiment:dotnet
+pnpm experiment:go
 pnpm experiment:java
 pnpm experiment:typescript
 ```
 
 Each language experiment runs every migrated scenario once per arm. Vally
 writes timestamped output under `reports/`. The repository covers Python,
-.NET, Java, and TypeScript. Each evaluation has scenario-specific and reusable
-language correctness checks; the number of checks can vary by scenario.
+.NET, Java, TypeScript, and Go. Go has two arms because `microsoft/skills`
+does not provide a Go Azure SDK plugin; the other languages have three. Each
+evaluation has scenario-specific and reusable language correctness checks; the
+number of checks can vary by scenario.
 
 ## Run evaluations in GitHub Actions
 
 Pull requests targeting `main` run harness and model-grader configuration
-tests, strict evaluation linting, and dry-runs of all four language
+tests, strict evaluation linting, and dry-runs of all five language
 experiments. Agent and judge evaluations remain manual.
 
 The `Vally evaluations` workflow supports manual runs of all evaluations,
@@ -103,8 +109,8 @@ Every criterion has weight 1. Grader names identify the source of each check:
 
 Scores measure only the generated application and code. MCP calls and skill
 activation remain available in Vally trajectories as diagnostic evidence, but
-they do not affect correctness scores. Checker entrypoints require at least one
-top-level Python file without imposing a specific filename.
+they do not affect correctness scores. Checker entrypoints require at least one top-level source file without imposing
+a specific filename.
 
 Golden applications remain runnable reference implementations. Live
 model-grader oracle coverage will verify them separately from ordinary unit
