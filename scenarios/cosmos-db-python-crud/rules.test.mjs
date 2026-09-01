@@ -41,19 +41,21 @@ test("eval uses one full-case model review with ten required criteria", () => {
   assert.match(evalSpec, /^\s+evidence:\r?\n\s+- diff$/m);
 });
 
-test("lint-clean reference application passes every prompt rule", () => {
+// These checks cover graders that are no longer active in this evaluation.
+// Keep them available until live golden-oracle coverage replaces them.
+test.skip("lint-clean reference application passes every prompt rule", () => {
   for (const rule of ruleNames()) {
     assert.equal(evaluateRule(rule, completeWorkspace), true, rule);
   }
 });
 
-test("lint-clean reference application passes every Python check", () => {
+test.skip("lint-clean reference application passes every Python check", () => {
   for (const check of pythonCheckNames()) {
     assert.equal(evaluatePythonCheck(check, completeWorkspace), true, check);
   }
 });
 
-test("missing cross-partition option fails only its prompt rule", () => {
+test.skip("missing cross-partition option fails only its prompt rule", () => {
   const workspace = {
     ...completeWorkspace,
     python: completeWorkspace.python.replace(
@@ -69,7 +71,7 @@ test("missing cross-partition option fails only its prompt rule", () => {
   assert.equal(evaluateRule("prompt/cosmos-client", workspace), true);
 });
 
-test("container rule accepts a constant partition-key path", () => {
+test.skip("container rule accepts a constant partition-key path", () => {
   const workspace = {
     ...completeWorkspace,
     python: completeWorkspace.python
@@ -86,7 +88,7 @@ test("container rule accepts a constant partition-key path", () => {
   assert.equal(evaluateRule("prompt/create-container", workspace), true);
 });
 
-test("workspace loading ignores Python files injected by skills", () => {
+test.skip("workspace loading ignores Python files injected by skills", () => {
   const root = mkdtempSync(join(tmpdir(), "azure-skill-evals-"));
   const skillDirectory = join(root, "injected-skill");
   mkdirSync(skillDirectory);
