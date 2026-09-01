@@ -2,6 +2,11 @@ $ErrorActionPreference = "Stop"
 
 $root = Split-Path -Parent $PSScriptRoot
 $scenariosRoot = Join-Path $root "scenarios"
+$npmRegistry = if ($env:GITHUB_ACTIONS -eq "true") {
+    "https://registry.npmjs.org/"
+} else {
+    "https://pkgs.dev.azure.com/azure-sdk/public/_packaging/azure-sdk-for-js/npm/registry/"
+}
 
 $goldenRoots = Get-ChildItem $scenariosRoot -Directory |
     ForEach-Object { Join-Path $_.FullName "golden" } |
@@ -48,7 +53,7 @@ foreach ($goldenRoot in $goldenRoots) {
     $package = Join-Path $goldenRoot "package.json"
     if (Test-Path $package -PathType Leaf) {
         pnpm --dir $goldenRoot install --frozen-lockfile --ignore-scripts `
-            --registry=https://pkgs.dev.azure.com/azure-sdk/public/_packaging/azure-sdk-for-js/npm/registry/
+            --registry=$npmRegistry
         if ($LASTEXITCODE -ne 0) {
             throw "TypeScript golden application dependency restore failed: $goldenRoot"
         }
