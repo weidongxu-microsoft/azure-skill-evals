@@ -1,0 +1,25 @@
+{
+  "name": "azure-client-side-encrypted-blob",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Client-side envelope encryption for Azure Blob Storage using Azure Key Vault keys",
+  "type": "module",
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/main.js",
+    "demo": "npm run build && npm start"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "dependencies": {
+    "@azure/core-auth": "1.11.0",
+    "@azure/identity": "4.13.2",
+    "@azure/keyvault-keys": "4.10.2",
+    "@azure/storage-blob": "12.33.0"
+  },
+  "devDependencies": {
+    "@types/node": "22.20.1",
+    "typescript": "5.9.3"
+  }
+}

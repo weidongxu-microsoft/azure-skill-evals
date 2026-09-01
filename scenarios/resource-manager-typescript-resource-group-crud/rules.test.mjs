@@ -18,6 +18,11 @@ import {
 
 const goldenPath = fileURLToPath(new URL("./golden", import.meta.url));
 const golden = loadSourceManifest(goldenPath);
+const baseline33441637671 = loadSourceManifest(
+  fileURLToPath(
+    new URL("./fixtures/baseline-33441637671", import.meta.url),
+  ),
+);
 
 function withSource(source, packageJson = golden.packageJson, path = "src/app.ts") {
   return {
@@ -90,6 +95,140 @@ test("reference has exactly nine passing prompt criteria", () => {
 test("reference passes reusable TypeScript checks", () => {
   for (const check of typeScriptCheckNames()) {
     assert.equal(evaluateTypeScriptCheck(check, golden), true, check);
+  }
+});
+
+test("baseline run 33441637671 retains only its genuine environment failure", () => {
+  const expected = new Map([
+    ["prompt/packages", true],
+    ["prompt/environment", false],
+    ["prompt/authenticated-client", true],
+    ["prompt/create-and-output", true],
+    ["prompt/list-and-output", true],
+    ["prompt/get-and-output", true],
+    ["prompt/update-and-output", true],
+    ["prompt/delete-wait-confirm", true],
+    ["prompt/error-handling", true],
+  ]);
+  for (const [rule, result] of expected) {
+    assert.equal(evaluateRule(rule, baseline33441637671), result, rule);
+  }
+  for (const check of typeScriptCheckNames()) {
+    assert.equal(
+      evaluateTypeScriptCheck(check, baseline33441637671),
+      true,
+      check,
+    );
+  }
+});
+
+test("corrected baseline environment name passes all nine prompt criteria", () => {
+  const corrected = {
+    ...baseline33441637671,
+    documents: baseline33441637671.documents.map((document) => ({
+      ...document,
+      source: document.source.replace(
+        '"RESOURCE_GROUP_NAME"',
+        '"AZURE_RESOURCE_GROUP_NAME"',
+      ),
+    })),
+  };
+  for (const rule of ruleNames()) {
+    assert.equal(evaluateRule(rule, corrected), true, rule);
+  }
+});
+
+test("reachable output helpers preserve exact operation-result provenance", () => {
+  const source = baseline33441637671.documents[0].source;
+  const changed = (replacement) =>
+    withSource(replacement, baseline33441637671.packageJson, "index.ts");
+  for (const [label, mutation] of [
+    [
+      "ignored",
+      source.replace(
+        'printResource("Created resource group", created);',
+        "void created;",
+      ),
+    ],
+    [
+      "hardcoded",
+      source.replace(
+        'printResource("Created resource group", created);',
+        'printResource("Created resource group", { name: "fixed" });',
+      ),
+    ],
+    [
+      "overwritten helper parameter",
+      source.replace(
+        "function printResource(label: string, resource: unknown): void {",
+        `function printResource(label: string, resource: unknown): void {
+  resource = { name: "fixed" };`,
+      ),
+    ],
+    [
+      "unreachable helper call",
+      source.replace(
+        'printResource("Created resource group", created);',
+        'if (false) printResource("Created resource group", created);',
+      ),
+    ],
+  ]) {
+    assert.equal(
+      evaluateRule("prompt/create-and-output", changed(mutation)),
+      false,
+      label,
+    );
+  }
+
+  const wrongList = source.replace(
+    'printResource("Resource group", resourceGroup);',
+    'printResource("Resource group", { name: "fixed" });',
+  );
+  assert.equal(
+    evaluateRule("prompt/list-and-output", changed(wrongList)),
+    false,
+  );
+});
+
+test("terminal promise catch requires guarded details, failure exit, and causal rethrow", () => {
+  const source = baseline33441637671.documents[0].source;
+  const changed = (replacement) =>
+    withSource(replacement, baseline33441637671.packageJson, "index.ts");
+  const causal = source.replace(
+    "  throw error;",
+    '  throw new Error("Resource group lifecycle failed", { cause: error });',
+  );
+  assert.equal(evaluateRule("prompt/error-handling", changed(causal)), true);
+
+  const terminalStart = source.indexOf("void main().catch");
+  for (const [label, mutation] of [
+    [
+      "console shortcut",
+      source.slice(0, terminalStart) + "main().catch(console.error);",
+    ],
+    [
+      "fixed diagnostics",
+      source
+        .replace(
+          "console.error(`Azure authentication failed: ${error.message}`);",
+          'console.error("Authentication failed");',
+        )
+        .replace(
+          "console.error(`Azure resource request failed${status}${code}: ${error.message}`);",
+          'console.error("Resource request failed");',
+        ),
+    ],
+    [
+      "missing failure status",
+      source.replace(/\s*process\.exitCode = 1;\r?\n/g, "\n"),
+    ],
+    ["swallowed unknown", source.replace("  throw error;", "  return;")],
+  ]) {
+    assert.equal(
+      evaluateRule("prompt/error-handling", changed(mutation)),
+      false,
+      label,
+    );
   }
 });
 

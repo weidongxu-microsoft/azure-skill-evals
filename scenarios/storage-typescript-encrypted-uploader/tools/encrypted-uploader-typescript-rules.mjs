@@ -540,10 +540,7 @@ function resolvesToAlgorithm(expression, expected, constants) {
 function resolvesToRsaOaepAlgorithm(expression, constants) {
   return (
     resolvesToAlgorithm(expression, "RSA-OAEP", constants) ||
-    resolvesToAlgorithm(expression, "RSA-OAEP-256", constants) ||
-    /^(?:[A-Za-z_$][\w$]*\s*\.\s*)?RSA(?:_)?OAEP(?:_?256)?$/i.test(
-      expression.trim(),
-    )
+    resolvesToAlgorithm(expression, "RSA-OAEP-256", constants)
   );
 }
 
@@ -2371,19 +2368,7 @@ function hasUploadProvenance(app, keys) {
   return false;
 }
 
-function metadataVariables(app, unit, assignments) {
-  const source = unit.body;
-  const properties = new Set();
-  for (const call of callsIn(source)) {
-    if (
-      ["download", "getProperties"].includes(
-        call.callee.split(".").at(-1),
-      ) &&
-      isRealBlobOperation(app, unit, call)
-    ) {
-      for (const value of boundValues(source, call)) properties.add(value);
-    }
-  }
+function metadataVariablesForResults(unit, assignments, properties) {
   const metadata = new Set();
   for (const [name, expression] of assignments) {
     if (
@@ -2393,7 +2378,330 @@ function metadataVariables(app, unit, assignments) {
       metadata.add(name);
     }
   }
-  return derivedNames(metadata, assignments);
+  let changed = true;
+  while (changed) {
+    changed = false;
+    for (const [name, expression] of assignments) {
+      const value = unwrappedValue(expression);
+      if (metadata.has(value) && !metadata.has(name)) {
+        metadata.add(name);
+        changed = true;
+      }
+    }
+  }
+  return metadata;
+}
+
+function metadataVariables(app, unit, assignments) {
+  const properties = new Set();
+  for (const call of callsIn(unit.body)) {
+    if (
+      ["download", "getProperties"].includes(
+        call.callee.split(".").at(-1),
+      ) &&
+      isRealBlobOperation(app, unit, call)
+    ) {
+      for (const value of boundValues(unit.body, call)) properties.add(value);
+    }
+  }
+  return metadataVariablesForResults(unit, assignments, properties);
+}
+
+function metadataFieldDescriptor(
+  app,
+  unit,
+  expression,
+  metadataParameters,
+  parameterDescriptors = new Map(),
+  seen = new Set(),
+) {
+  const value = unwrappedValue(expression);
+  if (/^[A-Za-z_$][\w$]*$/.test(value)) {
+    if (parameterDescriptors.has(value)) return parameterDescriptors.get(value);
+    if (metadataParameters.has(value)) return { object: true };
+    const identity = `${unit.key}:${value}`;
+    if (seen.has(identity)) return null;
+    const assignment = assignmentsIn(unit.body).get(value);
+    return assignment === undefined
+      ? null
+      : metadataFieldDescriptor(
+          app,
+          unit,
+          assignment,
+          metadataParameters,
+          parameterDescriptors,
+          new Set(seen).add(identity),
+        );
+  }
+
+  const literal = /^(["'])([\s\S]*)\1$/.exec(value);
+  if (literal) return { literal: literal[2] };
+
+  const property = /^([A-Za-z_$][\w$]*)\s*(?:\.|\?\.)\s*([A-Za-z_$][\w$]*)$/.exec(
+    value,
+  );
+  if (
+    property &&
+    (
+      metadataParameters.has(property[1]) ||
+      parameterDescriptors.get(property[1])?.object
+    )
+  ) {
+    return { decoded: false, field: property[2] };
+  }
+  const indexed = /^([A-Za-z_$][\w$]*)\s*\[\s*([\s\S]+)\s*\]$/.exec(
+    value,
+  );
+  if (
+    indexed &&
+    (
+      metadataParameters.has(indexed[1]) ||
+      parameterDescriptors.get(indexed[1])?.object
+    )
+  ) {
+    const key = metadataFieldDescriptor(
+      app,
+      unit,
+      indexed[2],
+      metadataParameters,
+      parameterDescriptors,
+      seen,
+    );
+    return key?.literal
+      ? { decoded: false, field: key.literal }
+      : null;
+  }
+
+  const buffer = /^Buffer\s*\.\s*from\s*\(([\s\S]*)\)$/.exec(value);
+  if (buffer) {
+    const [input, encoding] = splitArguments(buffer[1]);
+    const descriptor = input && metadataFieldDescriptor(
+      app,
+      unit,
+      input,
+      metadataParameters,
+      parameterDescriptors,
+      seen,
+    );
+    return descriptor &&
+        encoding &&
+        resolvesToAlgorithm(encoding, "base64", app.constants)
+      ? { ...descriptor, decoded: true }
+      : null;
+  }
+
+  const helperCall = /^([A-Za-z_$][\w$]*)\s*\(/.exec(value);
+  const helper = helperCall && functionNamed(app, helperCall[1]);
+  if (!helper || seen.has(helper.key)) return null;
+  const open = value.indexOf("(", helperCall.index);
+  const close = matchingDelimiter(maskLiterals(value), open, "(", ")");
+  if (close < 0) return null;
+  const argumentsList = splitArguments(value.slice(open + 1, close));
+  const descriptors = new Map();
+  helper.parameters.forEach((parameter, index) => {
+    const descriptor = metadataFieldDescriptor(
+      app,
+      unit,
+      argumentsList[index] ?? "",
+      metadataParameters,
+      parameterDescriptors,
+      seen,
+    );
+    if (descriptor) descriptors.set(parameter, descriptor);
+  });
+  const returned = [...helper.body.matchAll(/\breturn\s+([\s\S]*?);/g)]
+    .map((match) =>
+      metadataFieldDescriptor(
+        app,
+        helper,
+        match[1],
+        new Set(),
+        descriptors,
+        new Set(seen).add(helper.key),
+      )
+    )
+    .filter(Boolean);
+  return returned.length > 0 &&
+      returned.every(
+        (descriptor) =>
+          descriptor.field === returned[0].field &&
+          descriptor.decoded === returned[0].decoded &&
+          descriptor.literal === returned[0].literal &&
+          descriptor.object === returned[0].object,
+      )
+    ? returned[0]
+    : null;
+}
+
+function metadataParserContracts(app) {
+  const contracts = [];
+  for (const unit of app.units.values()) {
+    if (unit.kind !== "function") continue;
+    for (const metadataParameter of unit.parameters) {
+      const properties = new Map();
+      for (const match of unit.body.matchAll(/\breturn\s+([\s\S]*?);/g)) {
+        const expression = match[1].trim();
+        if (!expression.startsWith("{")) continue;
+        const close = matchingDelimiter(maskLiterals(expression), 0);
+        if (close < 0) continue;
+        for (const [name, value] of objectProperties(
+          expression.slice(1, close),
+        )) {
+          const descriptor = metadataFieldDescriptor(
+            app,
+            unit,
+            value,
+            new Set([metadataParameter]),
+          );
+          if (descriptor) properties.set(name, descriptor);
+        }
+      }
+      if (properties.size > 0) {
+        contracts.push({ metadataParameter, properties, unit });
+      }
+    }
+  }
+  return contracts;
+}
+
+function metadataParserLinks(app, unit, metadata, assignments) {
+  const links = [];
+  for (const contract of metadataParserContracts(app)) {
+    for (const call of callsIn(unit.body)) {
+      if (
+        call.callee.split(".").at(-1) !== contract.unit.name ||
+        !callTargetsContract(app, unit, call, contract)
+      ) {
+        continue;
+      }
+      const parameterIndex = contract.unit.parameters.indexOf(
+        contract.metadataParameter,
+      );
+      if (
+        parameterIndex < 0 ||
+        !derivesExactValue(
+          call.arguments[parameterIndex] ?? "",
+          metadata,
+          assignmentsBefore(unit.body, call.index),
+        )
+      ) {
+        continue;
+      }
+      for (const output of boundValues(unit.body, call)) {
+        links.push({ output, properties: contract.properties });
+      }
+    }
+  }
+  return links;
+}
+
+function parserMetadataDescriptor(
+  expression,
+  links,
+  assignments,
+  seen = new Set(),
+) {
+  const value = unwrappedValue(expression);
+  for (const link of links) {
+    const property = new RegExp(
+      `^${escapeExpression(link.output)}\\s*(?:\\.|\\?\\.)\\s*([A-Za-z_$][\\w$]*)$`,
+    ).exec(value);
+    if (property && link.properties.has(property[1])) {
+      return link.properties.get(property[1]);
+    }
+  }
+  if (
+    !/^[A-Za-z_$][\w$]*$/.test(value) ||
+    seen.has(value) ||
+    !assignments.has(value)
+  ) {
+    return null;
+  }
+  return parserMetadataDescriptor(
+    assignments.get(value),
+    links,
+    assignments,
+    new Set(seen).add(value),
+  );
+}
+
+function decodesMetadataValue(
+  expression,
+  pattern,
+  metadata,
+  assignments,
+  constants,
+  parserLinks,
+) {
+  if (
+    decodesMetadataField(
+      expression,
+      pattern,
+      metadata,
+      assignments,
+      constants,
+    )
+  ) {
+    return true;
+  }
+  let descriptor = parserMetadataDescriptor(
+    expression,
+    parserLinks,
+    assignments,
+  );
+  if (!descriptor) {
+    const value = unwrappedValue(expression);
+    const buffer = /^Buffer\s*\.\s*from\s*\(([\s\S]*)\)$/.exec(value);
+    if (buffer) {
+      const [input, encoding] = splitArguments(buffer[1]);
+      const inputDescriptor = input && parserMetadataDescriptor(
+        input,
+        parserLinks,
+        assignments,
+      );
+      if (
+        inputDescriptor &&
+        encoding &&
+        resolvesToAlgorithm(encoding, "base64", constants)
+      ) {
+        descriptor = { ...inputDescriptor, decoded: true };
+      }
+    }
+  }
+  return Boolean(
+    descriptor?.decoded && new RegExp(pattern.source, pattern.flags).test(
+      descriptor.field,
+    ),
+  );
+}
+
+function exactMetadataValue(
+  expression,
+  pattern,
+  metadata,
+  assignments,
+  parserLinks,
+) {
+  if (
+    derivesExactlyFromMetadataField(
+      expression,
+      pattern,
+      metadata,
+      assignments,
+    )
+  ) {
+    return true;
+  }
+  const descriptor = parserMetadataDescriptor(
+    expression,
+    parserLinks,
+    assignments,
+  );
+  return Boolean(
+    descriptor &&
+      !descriptor.decoded &&
+      new RegExp(pattern.source, pattern.flags).test(descriptor.field),
+  );
 }
 
 function derivesFromMetadataField(expression, pattern, metadata, assignments, seen = new Set()) {
@@ -2692,19 +3000,27 @@ function hasDownloadProvenance(app, keys) {
     const unit = app.units.get(key);
     if (!unit) continue;
     const assignments = assignmentsIn(unit.body);
-    const metadata = metadataVariables(app, unit, assignments);
-    const downloads = new Set();
-    for (const call of callsIn(unit.body)) {
-      if (
-        call.callee.split(".").at(-1) === "download" &&
-        isRealBlobOperation(app, unit, call)
-      ) {
-        for (const value of boundValues(unit.body, call)) downloads.add(value);
-      }
-    }
+    const operationReceiver = (call) => {
+      const parts = call.callee.split(".");
+      const receiver = parts.length > 1
+        ? parts.slice(0, -1).join(".")
+        : receiverBeforeCall(unit.body, call);
+      return unwrappedValue(receiver).replace(/\s+/g, "");
+    };
+    const downloadResults = callsIn(unit.body)
+      .filter(
+        (call) =>
+          call.callee.split(".").at(-1) === "download" &&
+          isRealBlobOperation(app, unit, call),
+      )
+      .flatMap((call) =>
+        [...boundValues(unit.body, call)].map((result) => ({
+          receiver: operationReceiver(call),
+          result,
+        }))
+      );
     if (
-      metadata.size === 0 ||
-      downloads.size === 0 ||
+      downloadResults.length === 0 ||
       !callsIn(unit.body).some(
         (call) =>
           call.callee.split(".").at(-1) === "getBlockBlobClient" &&
@@ -2718,104 +3034,136 @@ function hasDownloadProvenance(app, keys) {
       continue;
     }
 
-    for (const decipherCall of callsIn(unit.body)) {
-      if (
-        !decipherNames.has(decipherCall.callee) ||
-        !resolvesToAlgorithm(decipherCall.arguments[0] ?? "", "aes-256-gcm", app.constants) ||
-        !decodesMetadataField(
-          decipherCall.arguments[2] ?? "",
-          /(?:iv|initializationVector)\w*/i,
-          metadata,
-          assignments,
-          app.constants,
-        )
-      ) {
-        continue;
-      }
-
-      for (const decipher of boundValues(unit.body, decipherCall)) {
-        const finalCall = callsIn(unit.body).find(
-          (call) => call.callee === `${decipher}.final`,
-        );
-        const tagCall = finalCall && callsIn(unit.body)
-          .filter(
-            (call) =>
-              call.callee === `${decipher}.setAuthTag` &&
-              call.index < finalCall.index,
-          )
-          .at(-1);
-        const hasMetadataAuthenticationTag = Boolean(
-          tagCall &&
-            decodesMetadataField(
-              tagCall.arguments[0] ?? "",
-              /(?:auth(?:entication)?Tag|tag)\w*/i,
-              metadata,
-              assignments,
-              app.constants,
-            ),
-        );
-        const updatesDownloadedCiphertext = callsIn(unit.body).some(
-          (call) =>
-            call.callee === `${decipher}.update` &&
-            derivesExactDownloadedCiphertext(
-              call.arguments[0] ?? "",
-              downloads,
-              assignments,
-            ),
-        );
+    for (const downloadResult of downloadResults) {
+      const downloads = new Set([downloadResult.result]);
+      const metadataProperties = new Set(downloads);
+      for (const call of callsIn(unit.body)) {
         if (
-          !hasMetadataAuthenticationTag ||
-          !finalCall ||
-          !updatesDownloadedCiphertext
+          call.callee.split(".").at(-1) === "getProperties" &&
+          isRealBlobOperation(app, unit, call) &&
+          operationReceiver(call) === downloadResult.receiver
         ) {
-          continue;
+          for (const value of boundValues(unit.body, call)) {
+            metadataProperties.add(value);
+          }
         }
+      }
+      const metadata = metadataVariablesForResults(
+        unit,
+        assignments,
+        metadataProperties,
+      );
+      if (metadata.size === 0) continue;
+      const parserLinks = metadataParserLinks(
+        app,
+        unit,
+        metadata,
+        assignments,
+      );
+
+      for (const decipherCall of callsIn(unit.body)) {
         if (
-          !returnsCipherOutput(
-            unit,
-            decipher,
+          !decipherNames.has(decipherCall.callee) ||
+          !resolvesToAlgorithm(decipherCall.arguments[0] ?? "", "aes-256-gcm", app.constants) ||
+          !decodesMetadataValue(
+            decipherCall.arguments[2] ?? "",
+            /(?:iv|initializationVector)\w*/i,
+            metadata,
             assignments,
             app.constants,
-            (expression) =>
-              derivesExactDownloadedCiphertext(
-                expression,
-                downloads,
-                assignments,
-              ),
+            parserLinks,
           )
         ) {
           continue;
         }
 
-        for (const contract of contracts) {
-          for (const link of operationLinks(
-            app,
-            unit,
-            contract,
-            (expression) =>
-              decodesMetadataField(
-                expression,
-                /(?:wrapped|encrypted)\w*/i,
+        for (const decipher of boundValues(unit.body, decipherCall)) {
+          const finalCall = callsIn(unit.body).find(
+            (call) => call.callee === `${decipher}.final`,
+          );
+          const tagCall = finalCall && callsIn(unit.body)
+            .filter(
+              (call) =>
+                call.callee === `${decipher}.setAuthTag` &&
+                call.index < finalCall.index,
+            )
+            .at(-1);
+          const hasMetadataAuthenticationTag = Boolean(
+            tagCall &&
+              decodesMetadataValue(
+                tagCall.arguments[0] ?? "",
+                /(?:auth(?:entication)?Tag|tag)\w*/i,
                 metadata,
                 assignments,
                 app.constants,
+                parserLinks,
               ),
-            (expression) =>
-              derivesExactlyFromMetadataField(
-                expression,
-                /(?:keyId|vaultKeyId)\w*/i,
-                metadata,
+          );
+          const updatesDownloadedCiphertext = callsIn(unit.body).some(
+            (call) =>
+              call.callee === `${decipher}.update` &&
+              derivesExactDownloadedCiphertext(
+                call.arguments[0] ?? "",
+                downloads,
                 assignments,
               ),
-          )) {
-            if (
-              derivesExactBufferValue(
-                decipherCall.arguments[1] ?? "",
-                link.outputs,
-                assignments,
-              )
-            ) {
-              return true;
+          );
+          if (
+            !hasMetadataAuthenticationTag ||
+            !finalCall ||
+            !updatesDownloadedCiphertext
+          ) {
+            continue;
+          }
+          if (
+            !returnsCipherOutput(
+              unit,
+              decipher,
+              assignments,
+              app.constants,
+              (expression) =>
+                derivesExactDownloadedCiphertext(
+                  expression,
+                  downloads,
+                  assignments,
+                ),
+            )
+          ) {
+            continue;
+          }
+
+          for (const contract of contracts) {
+            for (const link of operationLinks(
+              app,
+              unit,
+              contract,
+              (expression) =>
+                decodesMetadataValue(
+                  expression,
+                  /(?:wrapped|encrypted)\w*/i,
+                  metadata,
+                  assignments,
+                  app.constants,
+                  parserLinks,
+                ),
+              (expression) =>
+                exactMetadataValue(
+                  expression,
+                  /(?:keyId|vaultKeyId)\w*/i,
+                  metadata,
+                  assignments,
+                  parserLinks,
+                ),
+            )) {
+              if (
+                derivesExactBufferValue(
+                  decipherCall.arguments[1] ?? "",
+                  link.outputs,
+                  assignments,
+                )
+              ) {
+                return true;
+              }
             }
           }
         }

@@ -84,6 +84,7 @@ function literalAwareCode(source) {
     const contentStart = index + 1;
     let value = "";
     let closeIndex = -1;
+    let interpolationDepth = 0;
     for (let cursor = contentStart; cursor < source.length; cursor += 1) {
       if (verbatim && source[cursor] === '"' && source[cursor + 1] === '"') {
         value += '"';
@@ -94,7 +95,22 @@ function literalAwareCode(source) {
           { n: "\n", r: "\r", t: "\t", "\\": "\\", '"': '"' }[escaped] ??
             escaped;
         cursor += 1;
-      } else if (source[cursor] === '"') {
+      } else if (
+        interpolated &&
+        source[cursor] === "{" &&
+        source[cursor + 1] !== "{"
+      ) {
+        interpolationDepth += 1;
+        value += source[cursor];
+      } else if (
+        interpolated &&
+        source[cursor] === "}" &&
+        source[cursor + 1] !== "}" &&
+        interpolationDepth > 0
+      ) {
+        interpolationDepth -= 1;
+        value += source[cursor];
+      } else if (source[cursor] === '"' && interpolationDepth === 0) {
         closeIndex = cursor;
         break;
       } else {
@@ -724,7 +740,251 @@ function constructorBindings(source, type) {
   return results;
 }
 
-function analyzeBindings(source, literals) {
+function unwrapExpression(expression) {
+  let value = expression.trim().replace(/!\s*$/, "").trim();
+  while (value.startsWith("(") && value.endsWith(")")) {
+    const close = matchingDelimiter(value, 0, "(", ")");
+    if (close !== value.length - 1) break;
+    value = value.slice(1, -1).trim();
+  }
+  return value;
+}
+
+function expressionAssignments(source) {
+  const assignments = new Map();
+  for (const match of source.matchAll(
+    /\b(?:var|string\??|(?:global::)?System\s*\.\s*Uri\??|Uri\??)\s+(\w+)\s*=\s*([^;]+);/g,
+  )) {
+    assignments.set(match[1], match[2].trim());
+  }
+  return assignments;
+}
+
+function calledMethodExpression(expression, methods) {
+  const value = unwrapExpression(expression);
+  const call = /^(\w+)\s*\(/.exec(value);
+  if (!call) return null;
+  const open = value.indexOf("(", call.index);
+  const close = matchingDelimiter(value, open, "(", ")");
+  if (close !== value.length - 1) return null;
+  const argumentsSource = splitArguments(value.slice(open + 1, close));
+  const candidates = methods.filter(
+    (method) =>
+      method.name === call[1] && methodAccepts(method, argumentsSource),
+  );
+  return candidates.length === 1
+    ? { argumentsSource, method: candidates[0] }
+    : null;
+}
+
+function endpointStringExpression(
+  expression,
+  method,
+  methods,
+  endpointMarkers,
+  parameters = new Map(),
+  seen = new Set(),
+) {
+  const assignments = expressionAssignments(method?.body ?? "");
+  const substituted = (candidate, substitutedSeen = new Set()) => {
+    const value = unwrapExpression(candidate);
+    if (!/^\w+$/.test(value) || substitutedSeen.has(value)) return value;
+    if (parameters.has(value)) {
+      return substituted(
+        parameters.get(value),
+        new Set(substitutedSeen).add(value),
+      );
+    }
+    if (assignments.has(value)) {
+      return substituted(
+        assignments.get(value),
+        new Set(substitutedSeen).add(value),
+      );
+    }
+    return value;
+  };
+  const resolve = (candidate, nextSeen = seen) => {
+    const value = unwrapExpression(candidate);
+    if (endpointMarkers.has(value)) return { direct: false, valid: true };
+    const literal = /^"([^"]+)"$/.exec(value);
+    if (literal && endpointMarkers.has(literal[1])) {
+      return { direct: false, valid: true };
+    }
+    if (/^\w+$/.test(value)) {
+      if (parameters.has(value)) return resolve(parameters.get(value), nextSeen);
+      if (assignments.has(value) && !nextSeen.has(value)) {
+        return resolve(
+          assignments.get(value),
+          new Set(nextSeen).add(value),
+        );
+      }
+    }
+    const environment = /^(?:(?:global::)?System\s*\.\s*)?Environment\s*\.\s*GetEnvironmentVariable\s*\(\s*([\s\S]+)\s*\)$/.exec(
+      value,
+    );
+    if (environment) {
+      const name = resolve(environment[1], nextSeen);
+      return name?.valid ? { direct: true, valid: true } : null;
+    }
+    const invocation = calledMethodExpression(value, methods);
+    if (!invocation || seen.has(invocation.method.start)) return null;
+    const bindings = new Map(
+      invocation.method.parameters.map((parameter, index) => [
+        parameter,
+        substituted(invocation.argumentsSource[index] ?? ""),
+      ]),
+    );
+    return endpointStringMethod(
+      invocation.method,
+      methods,
+      endpointMarkers,
+      bindings,
+      new Set(seen).add(invocation.method.start),
+    );
+  };
+  return resolve(expression);
+}
+
+function endpointStringMethod(
+  method,
+  methods,
+  endpointMarkers,
+  parameters,
+  seen,
+) {
+  const returns = [...method.body.matchAll(/\breturn\s+([^;]+);/g)];
+  if (returns.length === 0) return null;
+  let readsDirectly = false;
+  for (const returned of returns) {
+    const resolved = endpointStringExpression(
+      returned[1],
+      method,
+      methods,
+      endpointMarkers,
+      parameters,
+      seen,
+    );
+    if (!resolved?.valid) return null;
+    readsDirectly ||= resolved.direct;
+  }
+  if (!readsDirectly) return { direct: false, valid: true };
+
+  const assignments = expressionAssignments(method.body);
+  const environmentValues = [...assignments]
+    .filter(([, expression]) =>
+      /Environment\s*\.\s*GetEnvironmentVariable\s*\(/.test(expression)
+    )
+    .map(([name]) => name);
+  const validatesEveryRead = environmentValues.every((name) => {
+    const escaped = escapeRegExp(name);
+    return new RegExp(
+      String.raw`(?:IsNullOrWhiteSpace\s*\(\s*${escaped}\s*\)|${escaped}\s*(?:is|==)\s*null)[\s\S]{0,300}?\bthrow\b`,
+    ).test(method.body);
+  });
+  return validatesEveryRead ? { direct: true, valid: true } : null;
+}
+
+function endpointUriExpression(
+  expression,
+  method,
+  methods,
+  endpointMarkers,
+  parameters = new Map(),
+  seen = new Set(),
+) {
+  const assignments = expressionAssignments(method?.body ?? "");
+  const substituted = (candidate, substitutedSeen = new Set()) => {
+    const value = unwrapExpression(candidate);
+    if (!/^\w+$/.test(value) || substitutedSeen.has(value)) return value;
+    if (parameters.has(value)) {
+      return substituted(
+        parameters.get(value),
+        new Set(substitutedSeen).add(value),
+      );
+    }
+    if (assignments.has(value)) {
+      return substituted(
+        assignments.get(value),
+        new Set(substitutedSeen).add(value),
+      );
+    }
+    return value;
+  };
+  const resolve = (candidate, nextSeen = seen) => {
+    const value = unwrapExpression(candidate);
+    if (/^\w+$/.test(value)) {
+      if (parameters.has(value)) return resolve(parameters.get(value), nextSeen);
+      if (assignments.has(value) && !nextSeen.has(value)) {
+        return resolve(
+          assignments.get(value),
+          new Set(nextSeen).add(value),
+        );
+      }
+      const escaped = escapeRegExp(value);
+      for (const match of method?.body.matchAll(
+        /\bUri\s*\.\s*TryCreate\s*\(\s*([^,]+)\s*,\s*UriKind\s*\.\s*Absolute\s*,\s*out\s+(?:(?:var|Uri\??)\s+)?(\w+)\s*\)/g,
+      ) ?? []) {
+        if (
+          match[2] === value &&
+          endpointStringExpression(
+            match[1],
+            method,
+            methods,
+            endpointMarkers,
+            parameters,
+            nextSeen,
+          )?.valid &&
+          new RegExp(
+            String.raw`!\s*Uri\s*\.\s*TryCreate\s*\([\s\S]{0,300}?\bout\s+(?:(?:var|Uri\??)\s+)?${escaped}\b[\s\S]{0,500}?\bthrow\b`,
+          ).test(method.body)
+        ) {
+          return true;
+        }
+      }
+    }
+    const constructor = /^new\s+(?:(?:global::)?System\s*\.\s*)?Uri\s*\(\s*([\s\S]+)\s*,\s*UriKind\s*\.\s*Absolute\s*\)$/.exec(
+      value,
+    );
+    if (
+      constructor &&
+      endpointStringExpression(
+        constructor[1],
+        method,
+        methods,
+        endpointMarkers,
+        parameters,
+        nextSeen,
+      )?.valid
+    ) {
+      return true;
+    }
+    const invocation = calledMethodExpression(value, methods);
+    if (!invocation || seen.has(invocation.method.start)) return false;
+    const bindings = new Map(
+      invocation.method.parameters.map((parameter, index) => [
+        parameter,
+        substituted(invocation.argumentsSource[index] ?? ""),
+      ]),
+    );
+    const returns = [...invocation.method.body.matchAll(
+      /\breturn\s+([^;]+);/g,
+    )];
+    return returns.length > 0 &&
+      returns.every((returned) =>
+        endpointUriExpression(
+          returned[1],
+          invocation.method,
+          methods,
+          endpointMarkers,
+          bindings,
+          new Set(seen).add(invocation.method.start),
+        )
+      );
+  };
+  return resolve(expression);
+}
+
+function analyzeBindings(source, literals, methods = []) {
   const retryConfigured = (text) =>
     /\bMaxRetries\s*=\s*[1-9]\d*/.test(text) &&
     /\bMode\s*=\s*(?:RetryMode\s*\.\s*)?Exponential\b/.test(text) &&
@@ -797,6 +1057,20 @@ function analyzeBindings(source, literals) {
     if (leaseMarkers.has(match[2])) leaseSettings.add(match[1]);
   }
   const endpoints = new Set();
+  for (const match of source.matchAll(
+    /\b(?:var|(?:(?:global::)?System\s*\.\s*)?Uri)\s+(\w+)\s*=\s*([^;]+);/g,
+  )) {
+    if (
+      endpointUriExpression(
+        match[2],
+        null,
+        methods,
+        endpointMarkers,
+      )
+    ) {
+      endpoints.add(match[1]);
+    }
+  }
   for (const match of source.matchAll(
     /\b(?:var|(?:global::)?System\s*\.\s*Uri)\s+(\w+)\s*=\s*new(?:\s+(?:(?:global::)?System\s*\.\s*)?Uri)?\s*\(\s*(\w+)\s*!?\s*,\s*UriKind\s*\.\s*Absolute\s*\)/g,
   )) {
@@ -1094,6 +1368,58 @@ function statusRegionForName(caught, status, failureName) {
     return next ? rest.slice(0, next.index) : rest;
   }
 
+  for (const switchMatch of caught.body.matchAll(
+    new RegExp(
+      String.raw`\b${name}\s*\.\s*Status\s+switch\s*\{`,
+      "g",
+    ),
+  )) {
+    const open = caught.body.indexOf("{", switchMatch.index);
+    const close = matchingDelimiter(caught.body, open, "{", "}");
+    if (close < 0) continue;
+    const prefix = caught.body.slice(
+      Math.max(0, caught.body.lastIndexOf(";", switchMatch.index - 1) + 1),
+      switchMatch.index,
+    );
+    const result = /\b(?:var|string)\s+(\w+)\s*=\s*$/.exec(prefix)?.[1];
+    if (!result) continue;
+    const aliases = new Set([result]);
+    let changed = true;
+    while (changed) {
+      changed = false;
+      for (const assignment of caught.body.matchAll(
+        /\b(?:var|string\??)\s+(\w+)\s*=\s*([^;]+);/g,
+      )) {
+        if (
+          [...aliases].some((alias) =>
+            new RegExp(String.raw`\b${escapeRegExp(alias)}\b`).test(
+              assignment[2],
+            )
+          ) &&
+          !aliases.has(assignment[1])
+        ) {
+          aliases.add(assignment[1]);
+          changed = true;
+        }
+      }
+    }
+    const output = diagnosticOutputArguments(caught.body);
+    if (
+      ![...aliases].some((alias) =>
+        new RegExp(String.raw`\b${escapeRegExp(alias)}\b`).test(output)
+      )
+    ) {
+      continue;
+    }
+    const arms = splitArguments(caught.body.slice(open + 1, close));
+    const arm = arms.find((candidate) =>
+      new RegExp(String.raw`^\s*${token}\s*=>`).test(candidate)
+    );
+    if (!arm) continue;
+    const expression = arm.slice(arm.indexOf("=>") + 2).trim();
+    return `Console.WriteLine(${expression});`;
+  }
+
   for (const ifMatch of caught.body.matchAll(/\bif\s*\(/g)) {
     const open = caught.body.indexOf("(", ifMatch.index);
     const close = matchingDelimiter(caught.body, open, "(", ")");
@@ -1281,9 +1607,29 @@ function catchUsesResponseHeader(caught, property) {
           "g",
         ),
       )) {
-        if (
-          new RegExp(String.raw`\b${escapeRegExp(alias[1])}\b`).test(output)
-        ) {
+        const derived = new Set([alias[1]]);
+        let changed = true;
+        while (changed) {
+          changed = false;
+          for (const assignment of caught.body.matchAll(
+            /\b(?:var|string\??)\s+(\w+)\s*=\s*([^;]+);/g,
+          )) {
+            if (
+              [...derived].some((name) =>
+                new RegExp(String.raw`\b${escapeRegExp(name)}\b`).test(
+                  assignment[2],
+                )
+              ) &&
+              !derived.has(assignment[1])
+            ) {
+              derived.add(assignment[1]);
+              changed = true;
+            }
+          }
+        }
+        if ([...derived].some((name) =>
+          new RegExp(String.raw`\b${escapeRegExp(name)}\b`).test(output)
+        )) {
           return true;
         }
       }
@@ -1415,12 +1761,13 @@ function conditionBindings(workflow) {
       ).test(workflow.tryBody);
     const hasLease = [...workflow.bindings.leaseSettings].some((lease) => {
       const leaseValue = escapeRegExp(lease);
+      const acceptedLease = String.raw`(?:${leaseValue}|(?:(?:string|String)\s*\.\s*)?IsNullOrWhiteSpace\s*\(\s*${leaseValue}\s*\)\s*\?\s*null\s*:\s*${leaseValue})`;
       return (
-        new RegExp(String.raw`\bLeaseId\s*=\s*${leaseValue}\b`).test(
+        new RegExp(String.raw`\bLeaseId\s*=\s*${acceptedLease}\b`).test(
           initializer,
         ) ||
         new RegExp(
-          String.raw`\b${escapeRegExp(name)}\s*\.\s*LeaseId\s*=\s*${leaseValue}\b`,
+          String.raw`\b${escapeRegExp(name)}\s*\.\s*LeaseId\s*=\s*${acceptedLease}\b`,
         ).test(workflow.tryBody)
       );
     });
@@ -1463,7 +1810,11 @@ function analyzeProject(project) {
   const normalized = normalizeSdkTypes(project.source);
   if (normalized === null) return null;
   const reachable = reachableSource(normalized.source);
-  const bindings = analyzeBindings(reachable.source, normalized.literals);
+  const bindings = analyzeBindings(
+    reachable.source,
+    normalized.literals,
+    reachable.methods,
+  );
   const workflows = collectWorkflows(
     reachable.source,
     bindings,

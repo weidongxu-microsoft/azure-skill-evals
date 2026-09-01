@@ -24,6 +24,11 @@ const baseline33374429826 = loadSourceManifest(
     new URL("./fixtures/baseline-33374429826", import.meta.url),
   ),
 );
+const baseline33441637671 = loadSourceManifest(
+  fileURLToPath(
+    new URL("./fixtures/baseline-33441637671", import.meta.url),
+  ),
+);
 
 function withDocuments(documents, packageJson = golden.packageJson) {
   return { ...golden, documents, sourceFiles: documents.map(({ path }) => path), packageJson };
@@ -91,6 +96,20 @@ function changeBaselineDocument(path, transform) {
   );
 }
 
+function changeCurrentBaselineDocument(path, transform) {
+  return withDocuments(
+    baseline33441637671.documents.map((document) =>
+      document.path === path
+        ? {
+            ...document,
+            source: transform(document.source.replaceAll("\r\n", "\n")),
+          }
+        : document,
+    ),
+    baseline33441637671.packageJson,
+  );
+}
+
 test("reference passes every encrypted uploader and shared TypeScript rule", () => {
   assert.deepEqual(ruleNames(), [
     "prompt/packages",
@@ -121,6 +140,90 @@ test("baseline run 33374429826 exact output passes every grader", () => {
       check,
     );
   }
+});
+
+test("baseline run 33441637671 exact output passes every grader", () => {
+  for (const rule of ruleNames()) {
+    assert.equal(evaluateRule(rule, baseline33441637671), true, rule);
+  }
+  for (const check of typeScriptCheckNames()) {
+    assert.equal(
+      evaluateTypeScriptCheck(check, baseline33441637671),
+      true,
+      check,
+    );
+  }
+});
+
+test("metadata parser preserves the same downloaded response lineage", () => {
+  const mutations = [
+    [
+      "fabricated wrapped key",
+      (source) => source.replace(
+        "wrappedDataKey,\n    iv,",
+        'wrappedDataKey: Buffer.from("fabricated"),\n    iv,',
+      ),
+    ],
+    [
+      "swapped IV",
+      (source) => source.replace("    iv,\n    authTag", "    iv: authTag,\n    authTag"),
+    ],
+    [
+      "modified authentication tag",
+      (source) => source.replace(
+        "decipher.setAuthTag(encryption.authTag);",
+        "decipher.setAuthTag(Buffer.concat([encryption.authTag, Buffer.alloc(1)]));",
+      ),
+    ],
+    [
+      "hardcoded key ID",
+      (source) => source.replace(
+        "    keyId: metadata.keyid,",
+        '    keyId: "https://vault/keys/fabricated",',
+      ),
+    ],
+    [
+      "different download metadata",
+      (source) => source.replace(
+        "metadata = response.metadata;",
+        `const otherResponse = await this.containerClient
+        .getBlockBlobClient("other")
+        .download();
+      metadata = otherResponse.metadata;`,
+      ),
+    ],
+  ];
+  for (const [label, transform] of mutations) {
+    const workspace = changeCurrentBaselineDocument(
+      "src/encryptedBlobClient.ts",
+      transform,
+    );
+    assert.equal(evaluateRule("prompt/decrypt-path", workspace), false, label);
+    assert.equal(
+      evaluateRule("prompt/connected-round-trip", workspace),
+      false,
+      label,
+    );
+  }
+});
+
+test("typed RSA-OAEP-256 literal is accepted but invalid enum members are rejected", () => {
+  assert.equal(
+    evaluateRule("prompt/key-vault-envelope-encryption", baseline33441637671),
+    true,
+  );
+  const invalid = changeCurrentBaselineDocument(
+    "src/keyManagement.ts",
+    (source) => source.replace(
+      'const WRAP_ALGORITHM: KeyWrapAlgorithm = "RSA-OAEP-256";',
+      "const WRAP_ALGORITHM = KnownKeyExportEncryptionAlgorithm.RSAOaep999;",
+    ),
+  );
+  assert.equal(
+    evaluateRule("prompt/key-vault-envelope-encryption", invalid),
+    false,
+  );
+  assert.equal(evaluateRule("prompt/connected-round-trip", invalid), false);
 });
 
 test("baseline forms support injected KeyClient, combined wrap, download metadata, and managed identity", () => {

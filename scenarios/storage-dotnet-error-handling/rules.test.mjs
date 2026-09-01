@@ -24,6 +24,11 @@ const goldenRoot = fileURLToPath(new URL("./golden", import.meta.url));
 const scenarioRoot = fileURLToPath(new URL(".", import.meta.url));
 const completeWorkspace = loadWorkspace(goldenRoot);
 const sharedWorkspace = loadDotnetWorkspace(goldenRoot);
+const baselineRoot = fileURLToPath(
+  new URL("./fixtures/baseline-33441637671", import.meta.url),
+);
+const baseline33441637671 = loadWorkspace(baselineRoot);
+const baselineShared33441637671 = loadDotnetWorkspace(baselineRoot);
 
 function workspace(source, project = completeWorkspace.project) {
   return {
@@ -75,6 +80,19 @@ test("golden passes seven prompt rules and every shared .NET check", () => {
   }
   for (const check of dotnetCheckNames()) {
     assert.equal(evaluateDotnetCheck(check, sharedWorkspace), true, check);
+  }
+});
+
+test("baseline run 33441637671 exact output passes every grader", () => {
+  for (const rule of ruleNames()) {
+    assert.equal(evaluateRule(rule, baseline33441637671), true, rule);
+  }
+  for (const check of dotnetCheckNames()) {
+    assert.equal(
+      evaluateDotnetCheck(check, baselineShared33441637671),
+      true,
+      check,
+    );
   }
 });
 
@@ -423,4 +441,120 @@ static void ReportFailure(RequestFailedException failure)`,
     evaluateRule("prompt/common-status-handling", workspace(splitStatuses)),
     false,
   );
+});
+
+test("endpoint helpers require same-source absolute URI validation and return", () => {
+  const source = baseline33441637671.source;
+  for (const [label, mutation] of [
+    [
+      "fallback",
+      source.replace(
+        "string value = GetRequiredEnvironmentVariable(name);",
+        'string value = GetRequiredEnvironmentVariable(name) ?? "https://fallback";',
+      ),
+    ],
+    [
+      "unrelated return",
+      source.replace("return uri;", 'return new Uri("https://unrelated");'),
+    ],
+    [
+      "relative URI",
+      source.replace("UriKind.Absolute", "UriKind.Relative"),
+    ],
+  ]) {
+    assert.equal(
+      evaluateRule(
+        "prompt/configured-blob-client",
+        workspace(mutation, baseline33441637671.project),
+      ),
+      false,
+      label,
+    );
+  }
+});
+
+test("lease sanitization must preserve a recognized lease source", () => {
+  assert.equal(
+    evaluateRule(
+      "prompt/conditional-request",
+      baseline33441637671,
+    ),
+    true,
+  );
+  for (const [label, source] of [
+    [
+      "fabricated lease",
+      baseline33441637671.source.replace(
+        "string.IsNullOrWhiteSpace(leaseId) ? null : leaseId",
+        'string.IsNullOrWhiteSpace(leaseId) ? null : "fabricated"',
+      ),
+    ],
+    [
+      "unrelated source",
+      baseline33441637671.source.replace(
+        'Environment.GetEnvironmentVariable("AZURE_STORAGE_LEASE_ID")',
+        'Environment.GetEnvironmentVariable("UNRELATED_LEASE")',
+      ),
+    ],
+  ]) {
+    assert.equal(
+      evaluateRule(
+        "prompt/conditional-request",
+        workspace(source, baseline33441637671.project),
+      ),
+      false,
+      label,
+    );
+  }
+});
+
+test("request ID aliases and status switch arms retain exact diagnostics", () => {
+  const aliased = baseline33441637671.source.replace(
+    "string serviceRequestId = string.IsNullOrWhiteSpace(responseRequestId)",
+    `string? requestIdAlias = responseRequestId;
+        string serviceRequestId = string.IsNullOrWhiteSpace(requestIdAlias)`,
+  ).replace(
+    ": responseRequestId;",
+    ": requestIdAlias;",
+  );
+  assert.equal(
+    evaluateRule(
+      "prompt/exception-details",
+      workspace(aliased, baseline33441637671.project),
+    ),
+    true,
+  );
+
+  for (const [label, source] of [
+    [
+      "hardcoded header",
+      baseline33441637671.source.replace(
+        "ServiceRequestId={serviceRequestId}",
+        "ServiceRequestId=fixed",
+      ),
+    ],
+    [
+      "isolated 404 arm",
+      baseline33441637671.source.replace(
+        "The blob or container is missing. Verify both resource names and the endpoint.",
+        "The request failed.",
+      ),
+    ],
+    [
+      "unlogged switch",
+      baseline33441637671.source.replace(
+        "Console.Error.WriteLine(explanation);",
+        'Console.Error.WriteLine("failed");',
+      ),
+    ],
+  ]) {
+    const rule = label === "hardcoded header"
+      ? "prompt/exception-details"
+      : "prompt/common-status-handling";
+    assert.equal(
+      evaluateRule(rule, workspace(source, baseline33441637671.project)),
+      false,
+      label,
+    );
+  }
 });

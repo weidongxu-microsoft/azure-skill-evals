@@ -2937,9 +2937,9 @@ function printsRetrievedValue(analysis, lifecycleState) {
   return false;
 }
 
-function sameResourceName(value) {
+function environmentResourceName(value, expected = null) {
   return value?.kind === "environment" &&
-    value.name === "AZURE_RESOURCE_GROUP_NAME";
+    (expected === null || value.name === expected.name);
 }
 
 function resourceGroupOperation(operation, method, clientId = null) {
@@ -3051,13 +3051,14 @@ function resourceGroupLifecycleTrace(analysis, operations) {
     if (
       !create.awaited ||
       !resourceGroupOperation(create, "createOrUpdate") ||
-      !sameResourceName(create.resolvedArguments[0]) ||
+      !environmentResourceName(create.resolvedArguments[0]) ||
       !correctLocation(analysis, create) ||
       developmentTag(analysis, create)
     ) {
       continue;
     }
     const clientId = create.receiver.clientId;
+    const resourceName = create.resolvedArguments[0];
     const createPath = mergePathContexts(create.path);
     if (!createPath) continue;
     remember({
@@ -3065,6 +3066,7 @@ function resourceGroupLifecycleTrace(analysis, operations) {
       create,
       operations,
       path: createPath,
+      resourceName,
       stage: 1,
     });
     for (const list of operations) {
@@ -3082,6 +3084,7 @@ function resourceGroupLifecycleTrace(analysis, operations) {
         list,
         operations,
         path: listPath,
+        resourceName,
         stage: 2,
       });
       for (const get of operations) {
@@ -3089,7 +3092,7 @@ function resourceGroupLifecycleTrace(analysis, operations) {
           order(get) <= order(list) ||
           !get.awaited ||
           !resourceGroupOperation(get, "get", clientId) ||
-          !sameResourceName(get.resolvedArguments[0])
+          !environmentResourceName(get.resolvedArguments[0], resourceName)
         ) {
           continue;
         }
@@ -3102,6 +3105,7 @@ function resourceGroupLifecycleTrace(analysis, operations) {
           list,
           operations,
           path: getPath,
+          resourceName,
           stage: 3,
         });
         for (const update of operations) {
@@ -3109,7 +3113,10 @@ function resourceGroupLifecycleTrace(analysis, operations) {
             order(update) <= order(get) ||
             !update.awaited ||
             !resourceGroupOperation(update, "update", clientId) ||
-            !sameResourceName(update.resolvedArguments[0]) ||
+            !environmentResourceName(
+              update.resolvedArguments[0],
+              resourceName,
+            ) ||
             !developmentTag(analysis, update)
           ) {
             continue;
@@ -3123,6 +3130,7 @@ function resourceGroupLifecycleTrace(analysis, operations) {
             list,
             operations,
             path: updatePath,
+            resourceName,
             stage: 4,
             update,
           });
@@ -3142,6 +3150,7 @@ function resourceGroupLifecycleTrace(analysis, operations) {
               list,
               operations,
               path: completion.path,
+              resourceName,
               stage: 5,
               update,
             };
@@ -3167,7 +3176,10 @@ function deletionCompletion(
       !deletion.awaited ||
       !["beginDeleteAndWait", "beginDelete"].includes(deletion.method) ||
       !resourceGroupOperation(deletion, deletion.method, clientId) ||
-      !sameResourceName(deletion.resolvedArguments[0])
+      !environmentResourceName(
+        deletion.resolvedArguments[0],
+        update.resolvedArguments[0],
+      )
     ) {
       continue;
     }
@@ -3204,19 +3216,47 @@ function outputCalls(analysis) {
     if (!analysis.isReachable(match.index)) continue;
     const opening = match.index + match[0].lastIndexOf("(");
     const owner = ownerAt(analysis.callables, match.index);
-    const roots = owner?.kind === "module-root"
-      ? new Set([owner])
-      : new Set(
-        analysis.reachability.trace
-          .filter((call) => call.target === owner)
-          .map((call) => call.root)
-      );
+    const argument = balancedText(analysis.source, opening);
+    if (owner?.kind === "module-root") {
+      calls.push({
+        argument,
+        definitionIndex: match.index,
+        index: match.index,
+        invocation: null,
+        owner,
+        path: analysis.controlFlow.context(match.index),
+        roots: new Set([owner]),
+      });
+      continue;
+    }
+    const invocations = analysis.reachability.trace.filter(
+      (call) => call.target === owner,
+    );
     calls.push({
-      argument: balancedText(analysis.source, opening),
+      argument,
+      definitionIndex: match.index,
       index: match.index,
+      invocation: null,
+      owner,
       path: analysis.controlFlow.context(match.index),
-      roots,
+      roots: new Set(invocations.map((invocation) => invocation.root)),
     });
+    for (const invocation of invocations) {
+      const path = mergePathContexts(
+        analysis.controlFlow.context(match.index),
+        analysis.controlFlow.context(invocation.index),
+      );
+      if (!path) continue;
+      calls.push({
+        argument,
+        definitionIndex: match.index,
+        index: invocation.index,
+        invocation,
+        owner,
+        path,
+        roots: new Set([invocation.root]),
+      });
+    }
   }
   return calls;
 }
@@ -3232,6 +3272,56 @@ function outputCandidates(argument) {
   ];
 }
 
+function outputArgumentUsesName(argument, name) {
+  const pattern = new RegExp(`\\b${escapeRegExp(name)}\\b`);
+  return pattern.test(maskSource(argument)) ||
+    [...argument.matchAll(/\$\{([^}]+)\}/g)].some((match) =>
+      pattern.test(maskSource(match[1]))
+    );
+}
+
+const invalidOutputParameter = Symbol("invalid-output-parameter");
+
+function outputParameterValue(analysis, output, candidate) {
+  if (!output.invocation || !output.owner) return undefined;
+  const value = candidate.trim();
+  const parameterIndex = output.owner.parameters.indexOf(value);
+  if (parameterIndex < 0) return undefined;
+  const beforeOutput = maskSource(
+    analysis.source.slice(
+      output.owner.bodyStart,
+      output.definitionIndex,
+    ),
+  );
+  if (
+    new RegExp(
+      `(?<![\\w$.])${escapeRegExp(value)}\\s*=(?!=|>)`,
+    ).test(beforeOutput)
+  ) {
+    return invalidOutputParameter;
+  }
+  const argument = output.invocation.arguments[parameterIndex] ??
+    output.owner.parameterDefaults?.[parameterIndex];
+  return argument
+    ? analysis.resolveExpression(
+        argument,
+        output.invocation.index,
+        output.invocation.owner,
+      )
+    : invalidOutputParameter;
+}
+
+function resolveOutputCandidate(analysis, output, candidate) {
+  const parameter = outputParameterValue(analysis, output, candidate);
+  if (parameter === invalidOutputParameter) return null;
+  return parameter ??
+    analysis.resolveExpression(
+      candidate,
+      output.definitionIndex ?? output.index,
+      output.owner,
+    );
+}
+
 function printsOperationResult(
   analysis,
   operation,
@@ -3240,7 +3330,7 @@ function printsOperationResult(
 ) {
   return outputCalls(analysis).some((output) => {
     if (!output.roots.has(operation.traceRoot)) return false;
-    const outputOwner = ownerAt(analysis.callables, output.index);
+    const outputOwner = output.invocation?.owner ?? output.owner;
     const afterOperation = outputOwner === operation.owner
       ? output.index > operation.index
       : operation.invocationIndex !== null &&
@@ -3251,7 +3341,7 @@ function printsOperationResult(
     return afterOperation && beforeNext &&
       mergePathContexts(lifecyclePath, output.path) &&
       outputCandidates(output.argument).some((candidate) => {
-      const value = analysis.resolveExpression(candidate, output.index);
+      const value = resolveOutputCandidate(analysis, output, candidate);
       return ["resource", "resource-field"].includes(value?.kind) &&
         value.clientId === operation.receiver.clientId &&
         value.origin === operation.index;
@@ -3285,8 +3375,15 @@ function iteratesAndPrintsList(analysis, operation, lifecyclePath) {
       candidate.index < body.contentEnd &&
       candidate.roots.has(operation.traceRoot) &&
       mergePathContexts(lifecyclePath, candidate.path) &&
-      new RegExp(`\\b${escapeRegExp(match[1])}\\b`).test(
-        maskSource(candidate.argument),
+      (
+        outputArgumentUsesName(candidate.argument, match[1]) ||
+        (
+          candidate.invocation?.target === candidate.owner &&
+          candidate.owner.parameters.some((parameter, index) =>
+            outputArgumentUsesName(candidate.argument, parameter) &&
+            candidate.invocation.arguments[index]?.trim() === match[1]
+          )
+        )
       )
     );
     if (!output) continue;
@@ -3315,7 +3412,10 @@ function deletionConfirmation(analysis, state) {
       return false;
     }
     return outputCandidates(output.argument).some((candidate) =>
-      sameResourceName(analysis.resolveExpression(candidate, output.index))
+      environmentResourceName(
+        resolveOutputCandidate(analysis, output, candidate),
+        state.resourceName,
+      )
     );
   });
 }
@@ -3923,7 +4023,111 @@ function meaningfulErrorHandling(workspace) {
   if (prepared.modules.length === 0) return false;
   const analysis = createAnalysis({ ...workspace, prepared });
   const summary = errorHandlingSummary(analysis);
-  return summary.safe && summary.useful;
+  return summary.safe &&
+    (summary.useful || terminalErrorHandling(analysis));
+}
+
+function terminalErrorHandling(analysis) {
+  const code = maskSource(analysis.source);
+  for (const match of code.matchAll(
+    /\bvoid\s+([A-Za-z_$]\w*)\s*\(\s*\)\s*\.\s*catch\s*\(/g,
+  )) {
+    if (!analysis.isReachable(match.index)) continue;
+    const mainCall = analysis.reachability.trace.find(
+      (call) =>
+        call.index >= match.index &&
+        call.index < match.index + match[0].indexOf(".catch") &&
+        call.name === match[1] &&
+        call.target,
+    );
+    if (!mainCall?.target || !callableReachesLifecycle(mainCall.target, analysis)) {
+      continue;
+    }
+    const catchOpen = code.indexOf("(", match.index + match[0].lastIndexOf("("));
+    const catchClose = matchingClosing(code, catchOpen);
+    if (catchClose < 0) continue;
+    const callback = analysis.source.slice(catchOpen + 1, catchClose);
+    const callbackCode = maskSource(callback);
+    const arrow = /^\s*\(\s*([A-Za-z_$]\w*)[^)]*\)\s*=>\s*\{/.exec(
+      callbackCode,
+    );
+    if (!arrow) continue;
+    const error = arrow[1];
+    const bodyOpen = callbackCode.indexOf("{", arrow.index);
+    const bodyClose = matchingClosing(callbackCode, bodyOpen, "{", "}");
+    if (bodyClose < 0) continue;
+    const body = callback.slice(bodyOpen + 1, bodyClose);
+    const bodyStart = catchOpen + 1 + bodyOpen + 1;
+    const branches = [];
+    for (const ifMatch of maskSource(body).matchAll(/\bif\s*\(/g)) {
+      const conditionOpen = maskSource(body).indexOf("(", ifMatch.index);
+      const conditionClose = matchingClosing(
+        maskSource(body),
+        conditionOpen,
+      );
+      if (conditionClose < 0) continue;
+      const range = statementRange(maskSource(body), conditionClose + 1);
+      branches.push({
+        body: body.slice(range.contentStart, range.contentEnd),
+        bodyStart: bodyStart + range.contentStart,
+        condition: body.slice(conditionOpen + 1, conditionClose),
+        end: range.end,
+        start: ifMatch.index,
+      });
+    }
+    const escaped = escapeRegExp(error);
+    const exitsWithFailure = (branch) =>
+      new RegExp(
+        String.raw`\bprocess\s*\.\s*exitCode\s*=\s*[1-9]\d*\b|\bprocess\s*\.\s*exit\s*\(\s*[1-9]\d*`,
+      ).test(maskSource(branch.body));
+    const useful = (branch) =>
+      bodyHasUsefulDiagnostic(
+        branch.body,
+        new Set([error]),
+        analysis,
+        branch.bodyStart,
+      );
+    const authentication = branches.some((branch) =>
+      new RegExp(
+        String.raw`\b${escaped}\s+instanceof\s+Error\b`,
+      ).test(maskSource(branch.condition)) &&
+      /\b(?:AuthenticationError|AggregateAuthenticationError|CredentialUnavailableError)\b/.test(
+        branch.condition,
+      ) &&
+      new RegExp(
+        String.raw`\b${escaped}\s*\.\s*(?:message|name)\b`,
+      ).test(branch.body) &&
+      useful(branch) &&
+      exitsWithFailure(branch)
+    );
+    const rest = branches.some((branch) => {
+      const block = {
+        body: branch.condition,
+        bodyStart: branch.bodyStart -
+          (branch.condition.length + 20),
+      };
+      return restErrorGuard(block, analysis, new Set([error])) &&
+        new RegExp(
+          String.raw`\b${escaped}\s*\.\s*message\b`,
+        ).test(branch.body) &&
+        new RegExp(
+          String.raw`\b${escaped}\s*\.\s*(?:statusCode|code)\b`,
+        ).test(maskSource(branch.body)) &&
+        useful(branch) &&
+        exitsWithFailure(branch);
+    });
+    const lastBranchEnd = Math.max(0, ...branches.map((branch) => branch.end));
+    const unknown = body.slice(lastBranchEnd);
+    if (
+      authentication &&
+      rest &&
+      causalThrow(unknown.trim(), new Set([error])) &&
+      !/\breturn\b/.test(maskSource(unknown))
+    ) {
+      return true;
+    }
+  }
+  return false;
 }
 
 const rules = {
@@ -3945,7 +4149,9 @@ const rules = {
     analyses(workspace).some((analysis) => {
       const state = resourceGroupLifecycle(analysis);
       return state?.create &&
-        sameResourceName(state.create.resolvedArguments[0]) &&
+        state.create.resolvedArguments[0]?.kind === "environment" &&
+        state.create.resolvedArguments[0].name ===
+          "AZURE_RESOURCE_GROUP_NAME" &&
         correctLocation(analysis, state.create);
     }),
   "prompt/authenticated-client": (workspace) => {
