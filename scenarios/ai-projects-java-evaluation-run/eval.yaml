@@ -1,0 +1,206 @@
+name: ai-projects-java-evaluation-run
+description: "Can an application use the project OpenAI Evals client to run a built-in evaluator and traverse metric results?"
+version: "1.0"
+type: capability
+environment:
+  files:
+    - src: ../../eval-workspace.gitignore
+      dest: .gitignore
+    - src: ../../eval-workspace-AGENTS.md
+      dest: AGENTS.md
+    - src: ../../scripts/program-checks/java.mjs
+      dest: .vally/program-checks/java.mjs
+scoring:
+  weights: {}
+defaults:
+  runs: 1
+  timeout: 30m
+  model: gpt-5.6-sol
+  judge_model: gpt-5.6-sol
+stimuli:
+  - name: ai-projects-dp-java-evaluation-run
+    prompt: |-
+      Create a complete, runnable Java console application using
+      `com.azure:azure-ai-projects` 2.4.0 to run an OpenAI-compatible evaluation in a
+      Microsoft Foundry project.
+      
+      **Write the application to files in the workspace. Do not reply with code blocks.**
+      
+      The application must:
+      
+      - Read `FOUNDRY_PROJECT_ENDPOINT`.
+      - Obtain the project OpenAI client from `AIProjectClientBuilder`.
+      - Create an evaluation named `hyoka-f1-evaluation` with a custom item schema for
+        string fields `query`, `response`, and `ground_truth`.
+      - Configure the Azure built-in evaluator `builtin.f1_score`, mapping `response` and
+        `ground_truth` to the corresponding item fields.
+      - Create a run named `hyoka-f1-run` against an inline JSONL data source containing
+        this exact item: query `What is the capital of France?`, response `Paris`, and
+        ground truth `Paris`.
+      - Retrieve the run repeatedly until it reaches `completed` or `failed`, and fail the
+        application unless it completes successfully.
+      - Traverse every page of output items. Print each output item ID and status, then
+        print every returned metric's name, score, and passed value.
+      - Delete the created evaluation after the run.
+      - Include the project manifest and concise restore, build, and run commands.
+      
+      Use the synchronous SDK clients throughout.
+    tags:
+      service: foundry
+      plane: data-plane
+      language: java
+      category: projects
+    graders:
+      - type: panel
+        name: prompt/full-case-review
+        weight: 1
+        config:
+          prompt: |-
+            Review the generated implementation against every criterion.
+            Score each criterion independently. Accept equivalent valid
+            implementations and judge code behavior rather than syntax.
+            Return every criterion name exactly as provided. The criterion
+            value must start with "prompt/" or "language/". Never copy a rubric
+            list number into the criterion value. For example, return
+            "prompt/foo", never "1. prompt/foo".
+          models:
+            - gpt-5.6-sol
+          aggregation: unanimous
+          scoring: binary
+          threshold: 0
+          overall_threshold: 0
+          evidence:
+            - trajectory
+            - repo
+          criteria:
+            - name: prompt/calls-aiprojectclientbuilder-buildopenaiclient-rather-th
+              description: |-
+                Calls `AIProjectClientBuilder.buildOpenAIClient()` rather than inventing an AI
+                Projects evaluations client.
+              weight: 1
+              pass_threshold: 1
+            - name: prompt/builds-evalcreateparams-with-a-custom-schema-and-adapts
+              description: |-
+                Builds `EvalCreateParams` with a custom schema and adapts
+                `TestingCriterionAzureAIEvaluator` for `builtin.f1_score` through
+                `EvaluationsHelper.toTestingCriterion`.
+              weight: 1
+              pass_threshold: 1
+            - name: prompt/creates-the-run-through-openaiclient-evals-runs-create-w
+              description: |-
+                Creates the run through `openAIClient.evals().runs().create` with the created
+                evaluation ID and a typed `CreateEvalJsonlRunDataSource` file-content source
+                containing the exact item.
+              weight: 1
+              pass_threshold: 1
+            - name: prompt/polls-through-runs-retrieve-until-an-explicit-terminal-s
+              description: |-
+                Polls through `runs().retrieve` until an explicit terminal status and rejects a
+                failed run.
+              weight: 1
+              pass_threshold: 1
+            - name: prompt/uses-the-output-items-autopager-iterates-every-outputite
+              description: |-
+                Uses the output-items `autoPager`, iterates every
+                `OutputItemListResponse.Result`, and prints its name, score, and passed state.
+              weight: 1
+              pass_threshold: 1
+            - name: prompt/deletes-the-evaluation-with-its-exact-id
+              description: |-
+                Deletes the evaluation with its exact ID.
+              weight: 1
+              pass_threshold: 1
+            - name: prompt/does-not-invent-projectclient-evaluations-or-assume-the
+              description: |-
+                Does not invent `projectClient.evaluations()` or assume the create-run response is
+                terminal.
+              weight: 1
+              pass_threshold: 1
+            - name: prompt/does-not-hardcode-a-metric-name-score-or-pass-result-ins
+              description: |-
+                Does not hardcode a metric name, score, or pass result instead of traversing
+                returned result objects.
+              weight: 1
+              pass_threshold: 1
+            - name: prompt/does-not-omit-output-item-paging-or-print-only-the-run-s
+              description: |-
+                Does not omit output-item paging or print only the run's aggregate counts.
+              weight: 1
+              pass_threshold: 1
+            - name: prompt/does-not-substitute-a-chat-completion-call-or-locally-ca
+              description: |-
+                Does not substitute a chat completion call or locally calculate F1.
+              weight: 1
+              pass_threshold: 1
+            - name: language/correct-dependencies-com-azure-not-com-microsoft-azure
+              description: |-
+                Uses com.azure group ID for all Azure SDK packages. No com.microsoft.azure (legacy SDK) dependencies. Includes azure-identity for authentication.
+              weight: 1
+              pass_threshold: 1
+            - name: language/azure-sdk-bom-for-version-management
+              description: |-
+                Uses azure-sdk-bom in dependencyManagement to manage Azure SDK versions instead of hardcoding individual artifact versions. Dependencies should omit <version> tags when managed by the BOM.
+              weight: 1
+              pass_threshold: 1
+            - name: language/correct-imports-no-legacy-no-internal-packages
+              description: |-
+                All imports use com.azure.* packages. No com.microsoft.azure.* (legacy) or com.azure.*.implementation.* (internal API) imports.
+              weight: 1
+              pass_threshold: 1
+            - name: language/defaultazurecredential-authentication
+              description: |-
+                Uses DefaultAzureCredential or another com.azure.identity credential. No hardcoded connection strings, account keys, SAS tokens, or secrets.
+              weight: 1
+              pass_threshold: 1
+            - name: language/client-builder-pattern
+              description: |-
+                SDK clients constructed using *ClientBuilder classes with .endpoint() or .vaultUrl() and .credential(). No legacy constructors (CloudStorageAccount, DocumentClient, KeyVaultClient).
+              weight: 1
+              pass_threshold: 1
+            - name: language/no-deprecated-legacy-classes
+              description: |-
+                No deprecated classes from the old SDK (CloudStorageAccount, CloudBlobClient, DocumentClient, QueueClient, ApplicationTokenCredentials, MSICredentials, ConnectionStringBuilder).
+              weight: 1
+              pass_threshold: 1
+            - name: language/pagination-pagediterable-pagedflux
+              description: |-
+                List/query operations return PagedIterable (sync) or PagedFlux (async). Does not flatten all pages into a raw List or Stream in memory.
+              weight: 1
+              pass_threshold: 1
+            - name: language/lro-pattern-syncpoller-pollerflux
+              description: |-
+                Long-running operations use SyncPoller (sync) or PollerFlux (async) with begin* method prefix. No Thread.sleep() polling loops.
+              weight: 1
+              pass_threshold: 1
+            - name: language/async-uses-project-reactor-mono-flux
+              description: |-
+                Async code uses Project Reactor types (Mono, Flux). Not CompletableFuture (wrong), not RxJava (wrong), not sync wrapped in ExecutorService. No .block() inside async service implementations.
+              weight: 1
+              pass_threshold: 1
+            - name: language/service-specific-exception-handling
+              description: |-
+                Catches service-specific exceptions (BlobStorageException, CosmosException, ServiceBusException, HttpResponseException) with status code inspection. Not just generic Exception catches.
+              weight: 1
+              pass_threshold: 1
+            - name: language/try-with-resources-for-clients
+              description: |-
+                All Azure SDK client instances that implement AutoCloseable are used within try-with-resources blocks or explicitly closed in a finally block.
+              weight: 1
+              pass_threshold: 1
+      - type: run-command
+        name: program/java-project-compiles
+        config:
+          command: node
+          args:
+            - .vally/program-checks/java.mjs
+          timeout: 3m
+artifacts:
+  include:
+    - "**/*.java"
+    - "**/pom.xml"
+    - "**/build.gradle"
+    - "**/build.gradle.kts"
+    - "**/README.md"
+  exclude:
+    - "**/.vally/**"
+    - "**/target/**"

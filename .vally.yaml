@@ -4,6 +4,76 @@ paths:
   results: reports/
 
 suites:
+  ai-agents-basic-agent-lifecycle:
+    description: Foundry agent lifecycle evaluation across four languages
+    evals:
+      - scenarios/ai-agents-python-basic-agent-lifecycle/eval.yaml
+      - scenarios/ai-agents-dotnet-basic-agent-lifecycle/eval.yaml
+      - scenarios/ai-agents-java-basic-agent-lifecycle/eval.yaml
+      - scenarios/ai-agents-typescript-basic-agent-lifecycle/eval.yaml
+  ai-agents-file-search:
+    description: Foundry agent file search evaluation across four languages
+    evals:
+      - scenarios/ai-agents-python-file-search/eval.yaml
+      - scenarios/ai-agents-dotnet-file-search/eval.yaml
+      - scenarios/ai-agents-java-file-search/eval.yaml
+      - scenarios/ai-agents-typescript-file-search/eval.yaml
+  ai-agents-function-tool:
+    description: Foundry agent function tool evaluation across four languages
+    evals:
+      - scenarios/ai-agents-python-function-tool/eval.yaml
+      - scenarios/ai-agents-dotnet-function-tool/eval.yaml
+      - scenarios/ai-agents-java-function-tool/eval.yaml
+      - scenarios/ai-agents-typescript-function-tool/eval.yaml
+  ai-projects-dataset-lifecycle:
+    description: Foundry dataset lifecycle evaluation across four languages
+    evals:
+      - scenarios/ai-projects-python-dataset-lifecycle/eval.yaml
+      - scenarios/ai-projects-dotnet-dataset-lifecycle/eval.yaml
+      - scenarios/ai-projects-java-dataset-lifecycle/eval.yaml
+      - scenarios/ai-projects-typescript-dataset-lifecycle/eval.yaml
+  ai-projects-evaluation-run:
+    description: Foundry evaluation run evaluation across four languages
+    evals:
+      - scenarios/ai-projects-python-evaluation-run/eval.yaml
+      - scenarios/ai-projects-dotnet-evaluation-run/eval.yaml
+      - scenarios/ai-projects-java-evaluation-run/eval.yaml
+      - scenarios/ai-projects-typescript-evaluation-run/eval.yaml
+  ai-projects-project-resource-inventory:
+    description: Foundry project resource inventory evaluation across four languages
+    evals:
+      - scenarios/ai-projects-python-project-resource-inventory/eval.yaml
+      - scenarios/ai-projects-dotnet-project-resource-inventory/eval.yaml
+      - scenarios/ai-projects-java-project-resource-inventory/eval.yaml
+      - scenarios/ai-projects-typescript-project-resource-inventory/eval.yaml
+  document-translation-batch-container:
+    description: Foundry batch document translation evaluation across four languages
+    evals:
+      - scenarios/document-translation-python-batch-container/eval.yaml
+      - scenarios/document-translation-dotnet-batch-container/eval.yaml
+      - scenarios/document-translation-java-batch-container/eval.yaml
+      - scenarios/document-translation-typescript-batch-container/eval.yaml
+  document-translation-single-document:
+    description: Foundry single-document translation evaluation across four languages
+    evals:
+      - scenarios/document-translation-python-single-document/eval.yaml
+      - scenarios/document-translation-dotnet-single-document/eval.yaml
+      - scenarios/document-translation-java-single-document/eval.yaml
+      - scenarios/document-translation-typescript-single-document/eval.yaml
+  text-translation-multilingual-translation:
+    description: Foundry multilingual text translation evaluation across four languages
+    evals:
+      - scenarios/text-translation-python-multilingual-translation/eval.yaml
+      - scenarios/text-translation-dotnet-multilingual-translation/eval.yaml
+      - scenarios/text-translation-java-multilingual-translation/eval.yaml
+      - scenarios/text-translation-typescript-multilingual-translation/eval.yaml
+  text-translation-transliteration:
+    description: Foundry text transliteration evaluation across four languages
+    evals:
+      - scenarios/text-translation-python-transliteration/eval.yaml
+      - scenarios/text-translation-dotnet-transliteration/eval.yaml
+      - scenarios/text-translation-java-transliteration/eval.yaml
+      - scenarios/text-translation-typescript-transliteration/eval.yaml
   cosmos-db-dotnet-pagination-query-items:
     description: Cosmos DB pagination evaluation for .NET
     evals:

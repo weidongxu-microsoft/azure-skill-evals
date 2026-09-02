@@ -1,0 +1,167 @@
+name: ai-projects-dotnet-evaluation-run
+description: "Can an application use the project OpenAI Evals client to run a built-in evaluator and traverse metric results?"
+version: "1.0"
+type: capability
+environment:
+  files:
+    - src: ../../eval-workspace.gitignore
+      dest: .gitignore
+    - src: ../../eval-workspace-AGENTS.md
+      dest: AGENTS.md
+scoring:
+  weights: {}
+defaults:
+  runs: 1
+  timeout: 30m
+  model: gpt-5.6-sol
+  judge_model: gpt-5.6-sol
+stimuli:
+  - name: ai-projects-dp-dotnet-evaluation-run
+    prompt: |-
+      Create a complete, runnable .NET console application using
+      `Azure.AI.Projects` 3.0.0-beta.1 to run an OpenAI-compatible evaluation in a
+      Microsoft Foundry project.
+      
+      **Write the application to files in the workspace. Do not reply with code blocks.**
+      
+      The application must:
+      
+      - Read `FOUNDRY_PROJECT_ENDPOINT`.
+      - Obtain the project OpenAI client and its Evals client from `AIProjectClient`.
+      - Create an evaluation named `hyoka-f1-evaluation` with a custom item schema for
+        string fields `query`, `response`, and `ground_truth`.
+      - Configure the Azure built-in evaluator `builtin.f1_score`, mapping `response` and
+        `ground_truth` to the corresponding item fields.
+      - Create a run named `hyoka-f1-run` against an inline JSONL data source containing
+        this exact item: query `What is the capital of France?`, response `Paris`, and
+        ground truth `Paris`.
+      - Retrieve the run repeatedly until it reaches `completed` or `failed`, and fail the
+        application unless it completes successfully.
+      - Traverse every page of output items. Print each output item ID and status, then
+        print every returned metric's name, score, and passed value.
+      - Delete the created evaluation after the run.
+      - Include the project manifest and concise restore, build, and run commands.
+      
+      Use asynchronous SDK operations throughout.
+    tags:
+      service: foundry
+      plane: data-plane
+      language: dotnet
+      category: projects
+    graders:
+      - type: panel
+        name: prompt/full-case-review
+        weight: 1
+        config:
+          prompt: |-
+            Review the generated implementation against every criterion.
+            Score each criterion independently. Accept equivalent valid
+            implementations and judge code behavior rather than syntax.
+            Return every criterion name exactly as provided. The criterion
+            value must start with "prompt/" or "language/". Never copy a rubric
+            list number into the criterion value. For example, return
+            "prompt/foo", never "1. prompt/foo".
+          models:
+            - gpt-5.6-sol
+          aggregation: unanimous
+          scoring: binary
+          threshold: 0
+          overall_threshold: 0
+          evidence:
+            - trajectory
+            - repo
+          criteria:
+            - name: prompt/gets-evaluationclient-from-projectclient-projectopenaicl
+              description: |-
+                Gets `EvaluationClient` from
+                `projectClient.ProjectOpenAIClient.GetEvaluationClient()` rather than inventing an
+                AI Projects evaluations operation group.
+              weight: 1
+              pass_threshold: 1
+            - name: prompt/creates-the-evaluation-with-createevaluationasync-a-cust
+              description: |-
+                Creates the evaluation with `CreateEvaluationAsync`, a custom schema, and an
+                `azure_ai_evaluator` criterion whose evaluator name is `builtin.f1_score` and
+                whose data mapping references the required item fields.
+              weight: 1
+              pass_threshold: 1
+            - name: prompt/calls-createevaluationrunasync-with-the-created-evaluati
+              description: |-
+                Calls `CreateEvaluationRunAsync` with the created evaluation ID and an inline
+                `jsonl`/`file_content` source containing the exact item.
+              weight: 1
+              pass_threshold: 1
+            - name: prompt/polls-through-getevaluationrunasync-until-an-explicit-te
+              description: |-
+                Polls through `GetEvaluationRunAsync` until an explicit terminal status and
+                rejects a failed run.
+              weight: 1
+              pass_threshold: 1
+            - name: prompt/uses-getevaluationrunoutputitemsasync-pagination-and-tra
+              description: |-
+                Uses `GetEvaluationRunOutputItemsAsync` pagination and traverses each output
+                item's returned results to print metric name, score, and passed state.
+              weight: 1
+              pass_threshold: 1
+            - name: prompt/deletes-the-evaluation-with-its-exact-id
+              description: |-
+                Deletes the evaluation with its exact ID.
+              weight: 1
+              pass_threshold: 1
+            - name: prompt/does-not-invent-projectclient-evaluations-or-assume-the
+              description: |-
+                Does not invent `projectClient.Evaluations` or assume the create-run response is
+                terminal.
+              weight: 1
+              pass_threshold: 1
+            - name: prompt/does-not-hardcode-a-metric-name-score-or-pass-result-ins
+              description: |-
+                Does not hardcode a metric name, score, or pass result instead of traversing
+                returned result objects.
+              weight: 1
+              pass_threshold: 1
+            - name: prompt/does-not-omit-output-item-pagination-or-print-only-the-r
+              description: |-
+                Does not omit output-item pagination or print only the run's aggregate counts.
+              weight: 1
+              pass_threshold: 1
+            - name: prompt/does-not-substitute-a-chat-completion-call-or-locally-ca
+              description: |-
+                Does not substitute a chat completion call or locally calculate F1.
+              weight: 1
+              pass_threshold: 1
+            - name: language/azure-identity-authentication
+              description: |-
+                Check that authentication follows the prompt and uses the appropriate modern .NET Azure SDK mechanism.
+                When token-based authentication is requested, uses an appropriate credential from Azure.Identity and passes it to the SDK client. When the prompt explicitly requests a connection string, connection-string construction is valid. Credentials, connection strings, and secrets are not hardcoded.
+              weight: 1
+              pass_threshold: 1
+            - name: language/sdk-specific-exception-handling
+              description: |-
+                Check that requested error handling uses the exception model of the selected .NET Azure SDK package.
+                When error handling is requested, catches the appropriate SDK exception, such as RequestFailedException for many Azure.* and ARM clients, CosmosException for Microsoft.Azure.Cosmos, ServiceBusException for Service Bus, EventHubsException for Event Hubs, or AuthenticationFailedException and CredentialUnavailableException for Azure Identity. Inspects status codes, error codes, or retry details when relevant instead of relying only on a generic Exception catch.
+              weight: 1
+              pass_threshold: 1
+            - name: language/asynchronous-sdk-usage
+              description: |-
+                Check that asynchronous .NET Azure SDK calls use normal asynchronous control flow.
+                When asynchronous SDK APIs are used, awaits them with async and await rather than blocking through .Result, .Wait(), or GetAwaiter().GetResult().
+              weight: 1
+              pass_threshold: 1
+      - type: run-command
+        name: program/dotnet-project-builds
+        config:
+          command: dotnet
+          args:
+            - build
+            - --nologo
+          timeout: 3m
+artifacts:
+  include:
+    - "**/*.cs"
+    - "**/*.csproj"
+    - "**/README.md"
+  exclude:
+    - "**/.vally/**"
+    - "**/bin/**"
+    - "**/obj/**"

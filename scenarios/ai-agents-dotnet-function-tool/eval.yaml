@@ -1,0 +1,174 @@
+name: ai-agents-dotnet-function-tool
+description: "Can an agent implement the Azure AI Agents required-action workflow for a local function tool?"
+version: "1.0"
+type: capability
+environment:
+  files:
+    - src: ../../eval-workspace.gitignore
+      dest: .gitignore
+    - src: ../../eval-workspace-AGENTS.md
+      dest: AGENTS.md
+scoring:
+  weights: {}
+defaults:
+  runs: 1
+  timeout: 30m
+  model: gpt-5.6-sol
+  judge_model: gpt-5.6-sol
+stimuli:
+  - name: ai-agents-dp-dotnet-function-tool
+    prompt: |-
+      Create a complete, runnable .NET console application that uses
+      `Azure.AI.Agents.Persistent` to answer a weather question through a local function
+      tool.
+      
+      **Write the application to files in the workspace. Do not reply with code blocks.**
+      
+      The application must:
+      
+      - Read `PROJECT_ENDPOINT` and `MODEL_DEPLOYMENT_NAME`.
+      - Define a function tool named `get_weather` with required string parameters
+        `location` and `unit`; `unit` must allow only `c` or `f`.
+      - Implement the local function deterministically: for Seattle, return temperature
+        `21` for `c` or `70` for `f`, including the location and unit in the JSON result.
+      - Create an agent named `hyoka-weather-agent` whose instructions require using the
+        function for weather questions.
+      - Create a thread with the exact user message
+        `What is the weather in Seattle in celsius?`, then create a run.
+      - Poll the run. When it requires action, iterate its function tool calls, decode the
+        JSON arguments, invoke `get_weather`, create an output correlated with each tool
+        call ID, and submit all outputs through the SDK.
+      - Continue polling until terminal status. After successful completion, list messages
+        in chronological order and print assistant text.
+      - Delete the thread and agent.
+      - Include the project manifest and concise restore, build, and run commands.
+      
+      Use asynchronous SDK operations throughout.
+    tags:
+      service: foundry
+      plane: data-plane
+      language: dotnet
+      category: agents
+    graders:
+      - type: panel
+        name: prompt/full-case-review
+        weight: 1
+        config:
+          prompt: |-
+            Review the generated implementation against every criterion.
+            Score each criterion independently. Accept equivalent valid
+            implementations and judge code behavior rather than syntax.
+            Return every criterion name exactly as provided. The criterion
+            value must start with "prompt/" or "language/". Never copy a rubric
+            list number into the criterion value. For example, return
+            "prompt/foo", never "1. prompt/foo".
+          models:
+            - gpt-5.6-sol
+          aggregation: unanimous
+          scoring: binary
+          threshold: 0
+          overall_threshold: 0
+          evidence:
+            - trajectory
+            - repo
+          criteria:
+            - name: prompt/defines-functiontooldefinition-for-get-weather-with-the
+              description: |-
+                Defines `FunctionToolDefinition` for `get_weather` with the required JSON schema.
+              weight: 1
+              pass_threshold: 1
+            - name: prompt/passes-the-tool-definition-when-creating-the-agent
+              description: |-
+                Passes the tool definition when creating the agent.
+              weight: 1
+              pass_threshold: 1
+            - name: prompt/creates-the-thread-exact-user-message-and-run-with-the-c
+              description: |-
+                Creates the thread, exact user message, and run with the created IDs.
+              weight: 1
+              pass_threshold: 1
+            - name: prompt/detects-runstatus-requiresaction-and-submittooloutputsac
+              description: |-
+                Detects `RunStatus.RequiresAction` and `SubmitToolOutputsAction`.
+              weight: 1
+              pass_threshold: 1
+            - name: prompt/processes-every-requiredfunctiontoolcall-checks-the-func
+              description: |-
+                Processes every `RequiredFunctionToolCall`, checks the function name, and parses
+                `location` and `unit` from its arguments.
+              weight: 1
+              pass_threshold: 1
+            - name: prompt/produces-deterministic-json-by-invoking-local-code-rathe
+              description: |-
+                Produces deterministic JSON by invoking local code rather than returning a fixed
+                assistant response.
+              weight: 1
+              pass_threshold: 1
+            - name: prompt/creates-tooloutput-values-correlated-to-the-originating
+              description: |-
+                Creates `ToolOutput` values correlated to the originating tool calls and submits
+                them with `SubmitToolOutputsToRunAsync`.
+              weight: 1
+              pass_threshold: 1
+            - name: prompt/resumes-polling-after-submission-requires-completed-stat
+              description: |-
+                Resumes polling after submission, requires completed status, and retrieves
+                ascending assistant messages through `MessageTextContent`.
+              weight: 1
+              pass_threshold: 1
+            - name: prompt/deletes-the-created-thread-and-agent
+              description: |-
+                Deletes the created thread and agent.
+              weight: 1
+              pass_threshold: 1
+            - name: prompt/does-not-call-the-weather-function-before-the-service-re
+              description: |-
+                Does not call the weather function before the service requests it.
+              weight: 1
+              pass_threshold: 1
+            - name: prompt/does-not-discard-tool-call-ids-or-submit-one-output-for
+              description: |-
+                Does not discard tool-call IDs or submit one output for unrelated calls.
+              weight: 1
+              pass_threshold: 1
+            - name: prompt/does-not-stop-at-requiresaction-or-print-the-local-funct
+              description: |-
+                Does not stop at `RequiresAction` or print the local function result as though it
+                were the final assistant response.
+              weight: 1
+              pass_threshold: 1
+            - name: language/azure-identity-authentication
+              description: |-
+                Check that authentication follows the prompt and uses the appropriate modern .NET Azure SDK mechanism.
+                When token-based authentication is requested, uses an appropriate credential from Azure.Identity and passes it to the SDK client. When the prompt explicitly requests a connection string, connection-string construction is valid. Credentials, connection strings, and secrets are not hardcoded.
+              weight: 1
+              pass_threshold: 1
+            - name: language/sdk-specific-exception-handling
+              description: |-
+                Check that requested error handling uses the exception model of the selected .NET Azure SDK package.
+                When error handling is requested, catches the appropriate SDK exception, such as RequestFailedException for many Azure.* and ARM clients, CosmosException for Microsoft.Azure.Cosmos, ServiceBusException for Service Bus, EventHubsException for Event Hubs, or AuthenticationFailedException and CredentialUnavailableException for Azure Identity. Inspects status codes, error codes, or retry details when relevant instead of relying only on a generic Exception catch.
+              weight: 1
+              pass_threshold: 1
+            - name: language/asynchronous-sdk-usage
+              description: |-
+                Check that asynchronous .NET Azure SDK calls use normal asynchronous control flow.
+                When asynchronous SDK APIs are used, awaits them with async and await rather than blocking through .Result, .Wait(), or GetAwaiter().GetResult().
+              weight: 1
+              pass_threshold: 1
+      - type: run-command
+        name: program/dotnet-project-builds
+        config:
+          command: dotnet
+          args:
+            - build
+            - --nologo
+          timeout: 3m
+artifacts:
+  include:
+    - "**/*.cs"
+    - "**/*.csproj"
+    - "**/README.md"
+  exclude:
+    - "**/.vally/**"
+    - "**/bin/**"
+    - "**/obj/**"

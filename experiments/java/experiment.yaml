@@ -19,6 +19,16 @@ evals:
   - ../../scenarios/storage-java-blob-storage-manager/eval.yaml
   - ../../scenarios/storage-java-blob-event-notifier/eval.yaml
   - ../../scenarios/storage-java-encrypted-uploader/eval.yaml
+  - ../../scenarios/ai-agents-java-basic-agent-lifecycle/eval.yaml
+  - ../../scenarios/ai-agents-java-file-search/eval.yaml
+  - ../../scenarios/ai-agents-java-function-tool/eval.yaml
+  - ../../scenarios/ai-projects-java-dataset-lifecycle/eval.yaml
+  - ../../scenarios/ai-projects-java-evaluation-run/eval.yaml
+  - ../../scenarios/ai-projects-java-project-resource-inventory/eval.yaml
+  - ../../scenarios/document-translation-java-batch-container/eval.yaml
+  - ../../scenarios/document-translation-java-single-document/eval.yaml
+  - ../../scenarios/text-translation-java-multilingual-translation/eval.yaml
+  - ../../scenarios/text-translation-java-transliteration/eval.yaml
 vary:
   - /environment/skills
   - /environment/mcpServers

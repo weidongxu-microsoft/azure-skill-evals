@@ -20,6 +20,16 @@ evals:
   - ../../scenarios/storage-dotnet-batch-blob-operations/eval.yaml
   - ../../scenarios/storage-dotnet-error-handling/eval.yaml
   - ../../scenarios/storage-dotnet-retry-configuration/eval.yaml
+  - ../../scenarios/ai-agents-dotnet-basic-agent-lifecycle/eval.yaml
+  - ../../scenarios/ai-agents-dotnet-file-search/eval.yaml
+  - ../../scenarios/ai-agents-dotnet-function-tool/eval.yaml
+  - ../../scenarios/ai-projects-dotnet-dataset-lifecycle/eval.yaml
+  - ../../scenarios/ai-projects-dotnet-evaluation-run/eval.yaml
+  - ../../scenarios/ai-projects-dotnet-project-resource-inventory/eval.yaml
+  - ../../scenarios/document-translation-dotnet-batch-container/eval.yaml
+  - ../../scenarios/document-translation-dotnet-single-document/eval.yaml
+  - ../../scenarios/text-translation-dotnet-multilingual-translation/eval.yaml
+  - ../../scenarios/text-translation-dotnet-transliteration/eval.yaml
 vary:
   - /environment/skills
   - /environment/mcpServers

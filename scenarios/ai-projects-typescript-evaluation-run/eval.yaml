@@ -1,0 +1,212 @@
+name: ai-projects-typescript-evaluation-run
+description: "Can an application use the project OpenAI Evals client to run a built-in evaluator and traverse metric results?"
+version: "1.0"
+type: capability
+environment:
+  files:
+    - src: ../../eval-workspace.gitignore
+      dest: .gitignore
+    - src: ../../eval-workspace-AGENTS.md
+      dest: AGENTS.md
+scoring:
+  weights: {}
+defaults:
+  runs: 1
+  timeout: 30m
+  model: gpt-5.6-sol
+  judge_model: gpt-5.6-sol
+stimuli:
+  - name: ai-projects-dp-typescript-evaluation-run
+    prompt: |-
+      Create a complete, runnable TypeScript console application using
+      `@azure/ai-projects` 2.5.0 to run an OpenAI-compatible evaluation in a Microsoft
+      Foundry project. Target Node.js 22.
+      
+      **Write the application to files in the workspace. Do not reply with code blocks.**
+      
+      The application must:
+      
+      - Read `FOUNDRY_PROJECT_ENDPOINT`.
+      - Obtain the project OpenAI client from `AIProjectClient`.
+      - Create an evaluation named `hyoka-f1-evaluation` with a custom item schema for
+        string fields `query`, `response`, and `ground_truth`.
+      - Configure the Azure built-in evaluator `builtin.f1_score`, mapping `response` and
+        `ground_truth` to the corresponding item fields.
+      - Create a run named `hyoka-f1-run` against an inline JSONL data source containing
+        this exact item: query `What is the capital of France?`, response `Paris`, and
+        ground truth `Paris`.
+      - Retrieve the run repeatedly until it reaches `completed` or `failed`, and fail the
+        application unless it completes successfully.
+      - Traverse every page of output items. Print each output item ID and status, then
+        print every returned metric's name, score, and passed value.
+      - Delete the created evaluation after the run.
+      - Include the project manifest and concise install, build, and run commands.
+      
+      Use async/await throughout.
+    tags:
+      service: foundry
+      plane: data-plane
+      language: typescript
+      category: projects
+    graders:
+      - type: panel
+        name: prompt/full-case-review
+        weight: 1
+        config:
+          prompt: |-
+            Review the generated implementation against every criterion.
+            Score each criterion independently. Accept equivalent valid
+            implementations and judge code behavior rather than syntax.
+            Return every criterion name exactly as provided. The criterion
+            value must start with "prompt/" or "language/". Never copy a rubric
+            list number into the criterion value. For example, return
+            "prompt/foo", never "1. prompt/foo".
+          models:
+            - gpt-5.6-sol
+          aggregation: unanimous
+          scoring: binary
+          threshold: 0
+          overall_threshold: 0
+          evidence:
+            - trajectory
+            - repo
+          criteria:
+            - name: prompt/calls-project-getopenaiclient-rather-than-inventing-proj
+              description: |-
+                Calls `project.getOpenAIClient()` rather than inventing
+                `project.evaluations`.
+              weight: 1
+              pass_threshold: 1
+            - name: prompt/calls-openaiclient-evals-create-with-a-custom-schema-and
+              description: |-
+                Calls `openAIClient.evals.create` with a custom schema and an
+                `azure_ai_evaluator` criterion for `builtin.f1_score`; if required by current
+                OpenAI typings, any compatibility cast is limited to `testing_criteria`.
+              weight: 1
+              pass_threshold: 1
+            - name: prompt/creates-the-run-through-openaiclient-evals-runs-create-w
+              description: |-
+                Creates the run through `openAIClient.evals.runs.create` with the created
+                evaluation ID and an inline `jsonl`/`file_content` source containing the exact
+                item.
+              weight: 1
+              pass_threshold: 1
+            - name: prompt/polls-through-openaiclient-evals-runs-retrieve-until-an
+              description: |-
+                Polls through `openAIClient.evals.runs.retrieve` until an explicit terminal
+                status and rejects a failed run.
+              weight: 1
+              pass_threshold: 1
+            - name: prompt/uses-openaiclient-evals-runs-outputitems-list-with-for-a
+              description: |-
+                Uses `openAIClient.evals.runs.outputItems.list` with `for await...of`, traverses
+                every returned result, and prints its name, score, and passed state.
+              weight: 1
+              pass_threshold: 1
+            - name: prompt/deletes-the-evaluation-with-its-exact-id
+              description: |-
+                Deletes the evaluation with its exact ID.
+              weight: 1
+              pass_threshold: 1
+            - name: prompt/does-not-invent-project-evaluations-or-assume-the-create
+              description: |-
+                Does not invent `project.evaluations` or assume the create-run response is
+                terminal.
+              weight: 1
+              pass_threshold: 1
+            - name: prompt/does-not-hardcode-a-metric-name-score-or-pass-result-ins
+              description: |-
+                Does not hardcode a metric name, score, or pass result instead of traversing
+                returned result objects.
+              weight: 1
+              pass_threshold: 1
+            - name: prompt/does-not-collect-only-one-output-items-page-or-print-onl
+              description: |-
+                Does not collect only one output-items page or print only aggregate counts.
+              weight: 1
+              pass_threshold: 1
+            - name: prompt/does-not-substitute-a-chat-completion-call-or-locally-ca
+              description: |-
+                Does not substitute a chat completion call or locally calculate F1.
+              weight: 1
+              pass_threshold: 1
+            - name: language/correct-azure-scoped-packages
+              description: |-
+                All Azure SDK dependencies use @azure/ scoped packages (e.g., @azure/storage-blob, @azure/keyvault-secrets, @azure/identity). No deprecated unscoped packages (azure-storage, azure-arm-*, ms-rest-azure, @azure/ms-rest-*).
+              weight: 1
+              pass_threshold: 1
+            - name: language/azure-identity-for-authentication
+              description: |-
+                Includes @azure/identity as a dependency. For local development, DefaultAzureCredential is acceptable. For production code, uses a specific Entra token credential (e.g., ManagedIdentityCredential, ClientSecretCredential, WorkloadIdentityCredential) or configures DefaultAzureCredential with the AZURE_TOKEN_CREDENTIALS environment variable set to "prod" or a specific token credential. No hardcoded connection strings, account keys, SAS tokens, or secrets in code.
+              weight: 1
+              pass_threshold: 1
+            - name: language/client-constructor-with-endpoint-and-credential
+              description: |-
+                SDK clients constructed with endpoint URL and credential object, e.g. new BlobServiceClient(url, credential) or new SecretClient(vaultUrl, credential). No legacy constructor patterns or connection string-based construction when identity-based auth is available.
+              weight: 1
+              pass_threshold: 1
+            - name: language/async-await-pattern
+              description: |-
+                Uses async/await for all asynchronous operations. No raw .then()/.catch() chains when await is cleaner. No callback-based patterns. Top-level async function or IIFE for entry point.
+              weight: 1
+              pass_threshold: 1
+            - name: language/pagination-with-for-await-of
+              description: |-
+                List/query operations use for-await-of iteration over the PagedAsyncIterableIterator returned by SDK methods. Does not collect all pages into an array in memory (e.g., no Array.from() or manual page accumulation). Uses byPage() when per-page control is needed.
+              weight: 1
+              pass_threshold: 1
+            - name: language/lro-pattern-beginxxx-polluntildone
+              description: |-
+                Long-running operations use the begin* method prefix (e.g., beginDeleteSecret, beginCreateOrUpdate) and await poller.pollUntilDone(). No manual setTimeout/setInterval polling loops.
+              weight: 1
+              pass_threshold: 1
+            - name: language/resterror-exception-handling
+              description: |-
+                Catches RestError (from @azure/core-rest-pipeline or the service package) with statusCode inspection for error-specific handling. Not just generic Error or try/catch without type checking.
+              weight: 1
+              pass_threshold: 1
+            - name: language/no-deprecated-packages
+              description: |-
+                No deprecated or legacy Azure packages in package.json: azure-storage, azure-arm-*, ms-rest-azure, @azure/ms-rest-js, @azure/ms-rest-nodeauth, @azure/ms-rest-azure-js. All dependencies use the current @azure/* track.
+              weight: 1
+              pass_threshold: 1
+            - name: language/logging-via-azure-logger
+              description: |-
+                Uses @azure/logger with setLogLevel() or the AZURE_LOG_LEVEL environment variable for SDK diagnostic logging. No custom logging wrappers around SDK internals.
+              weight: 1
+              pass_threshold: 1
+            - name: language/package-json-with-correct-dependencies
+              description: |-
+                Includes a valid package.json with all required @azure/* dependencies listed. TypeScript projects include tsconfig.json and appropriate @types/* packages or use a recent TypeScript version with built-in types.
+              weight: 1
+              pass_threshold: 1
+      - type: run-command
+        name: program/typescript-dependencies-install
+        config:
+          command: npm
+          args:
+            - install
+            - --ignore-scripts
+            - --no-audit
+            - --no-fund
+          timeout: 3m
+      - type: run-command
+        name: program/typescript-type-checks
+        config:
+          command: npx
+          args:
+            - --no-install
+            - tsc
+            - --noEmit
+          timeout: 2m
+artifacts:
+  include:
+    - "**/*.ts"
+    - "**/*.js"
+    - "**/package.json"
+    - "**/tsconfig.json"
+    - "**/README.md"
+  exclude:
+    - "**/.vally/**"
+    - "**/node_modules/**"
+    - "**/dist/**"

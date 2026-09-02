@@ -1,0 +1,219 @@
+name: ai-agents-typescript-function-tool
+description: "Can an agent implement the Azure AI Agents required-action workflow for a local function tool?"
+version: "1.0"
+type: capability
+environment:
+  files:
+    - src: ../../eval-workspace.gitignore
+      dest: .gitignore
+    - src: ../../eval-workspace-AGENTS.md
+      dest: AGENTS.md
+scoring:
+  weights: {}
+defaults:
+  runs: 1
+  timeout: 30m
+  model: gpt-5.6-sol
+  judge_model: gpt-5.6-sol
+stimuli:
+  - name: ai-agents-dp-typescript-function-tool
+    prompt: |-
+      Create a complete, runnable TypeScript console application that uses
+      `@azure/ai-agents` to answer a weather question through a local function tool.
+      
+      **Write the application to files in the workspace. Do not reply with code blocks.**
+      
+      The application must:
+      
+      - Read `PROJECT_ENDPOINT` and `MODEL_DEPLOYMENT_NAME`.
+      - Define a function tool named `get_weather` with required string parameters
+        `location` and `unit`; `unit` must allow only `c` or `f`.
+      - Implement the local function deterministically: for Seattle, return temperature
+        `21` for `c` or `70` for `f`, including the location and unit in the JSON result.
+      - Create an agent named `hyoka-weather-agent` whose instructions require using the
+        function for weather questions.
+      - Create a thread with the exact user message
+        `What is the weather in Seattle in celsius?`, then create and poll a run.
+      - When the run requires action, iterate its function tool calls, decode the JSON
+        arguments, invoke `get_weather`, create an output correlated with each tool call ID,
+        and submit all outputs through the SDK.
+      - Continue polling until terminal status. After successful completion, list messages
+        in chronological order and print assistant text.
+      - Delete the thread and agent.
+      - Include the project manifest and concise restore, build, and run commands.
+      
+      Use async/await throughout.
+    tags:
+      service: foundry
+      plane: data-plane
+      language: typescript
+      category: agents
+    graders:
+      - type: panel
+        name: prompt/full-case-review
+        weight: 1
+        config:
+          prompt: |-
+            Review the generated implementation against every criterion.
+            Score each criterion independently. Accept equivalent valid
+            implementations and judge code behavior rather than syntax.
+            Return every criterion name exactly as provided. The criterion
+            value must start with "prompt/" or "language/". Never copy a rubric
+            list number into the criterion value. For example, return
+            "prompt/foo", never "1. prompt/foo".
+          models:
+            - gpt-5.6-sol
+          aggregation: unanimous
+          scoring: binary
+          threshold: 0
+          overall_threshold: 0
+          evidence:
+            - trajectory
+            - repo
+          criteria:
+            - name: prompt/defines-get-weather-with-toolutility-createfunctiontool
+              description: |-
+                Defines `get_weather` with `ToolUtility.createFunctionTool` and the required JSON
+                schema.
+              weight: 1
+              pass_threshold: 1
+            - name: prompt/passes-the-tool-definition-to-client-createagent
+              description: |-
+                Passes the tool definition to `client.createAgent`.
+              weight: 1
+              pass_threshold: 1
+            - name: prompt/creates-the-thread-exact-user-message-and-run-with-the-c
+              description: |-
+                Creates the thread, exact user message, and run with the created IDs.
+              weight: 1
+              pass_threshold: 1
+            - name: prompt/detects-a-requires-action-run-and-narrows-it-to-submitto
+              description: |-
+                Detects a `requires_action` run and narrows it to `SubmitToolOutputsAction`.
+              weight: 1
+              pass_threshold: 1
+            - name: prompt/processes-every-function-tool-call-checks-its-name-and-p
+              description: |-
+                Processes every function tool call, checks its name, and parses `location` and
+                `unit` from its arguments.
+              weight: 1
+              pass_threshold: 1
+            - name: prompt/produces-deterministic-json-by-invoking-local-code-rathe
+              description: |-
+                Produces deterministic JSON by invoking local code rather than returning a fixed
+                assistant response.
+              weight: 1
+              pass_threshold: 1
+            - name: prompt/creates-tooloutput-values-with-toolcallid-from-each-orig
+              description: |-
+                Creates `ToolOutput` values with `toolCallId` from each originating call and
+                submits them through `client.runs.submitToolOutputs`.
+              weight: 1
+              pass_threshold: 1
+            - name: prompt/lets-sdk-polling-continue-after-submission-requires-comp
+              description: |-
+                Lets SDK polling continue after submission, requires completed status, and
+                retrieves ascending assistant text messages.
+              weight: 1
+              pass_threshold: 1
+            - name: prompt/deletes-the-created-thread-and-agent
+              description: |-
+                Deletes the created thread and agent.
+              weight: 1
+              pass_threshold: 1
+            - name: prompt/does-not-call-the-weather-function-before-the-service-re
+              description: |-
+                Does not call the weather function before the service requests it.
+              weight: 1
+              pass_threshold: 1
+            - name: prompt/does-not-discard-tool-call-ids-or-submit-one-output-for
+              description: |-
+                Does not discard tool-call IDs or submit one output for unrelated calls.
+              weight: 1
+              pass_threshold: 1
+            - name: prompt/does-not-stop-at-requires-action-or-print-the-local-func
+              description: |-
+                Does not stop at `requires_action` or print the local function result as though it
+                were the final assistant response.
+              weight: 1
+              pass_threshold: 1
+            - name: language/correct-azure-scoped-packages
+              description: |-
+                All Azure SDK dependencies use @azure/ scoped packages (e.g., @azure/storage-blob, @azure/keyvault-secrets, @azure/identity). No deprecated unscoped packages (azure-storage, azure-arm-*, ms-rest-azure, @azure/ms-rest-*).
+              weight: 1
+              pass_threshold: 1
+            - name: language/azure-identity-for-authentication
+              description: |-
+                Includes @azure/identity as a dependency. For local development, DefaultAzureCredential is acceptable. For production code, uses a specific Entra token credential (e.g., ManagedIdentityCredential, ClientSecretCredential, WorkloadIdentityCredential) or configures DefaultAzureCredential with the AZURE_TOKEN_CREDENTIALS environment variable set to "prod" or a specific token credential. No hardcoded connection strings, account keys, SAS tokens, or secrets in code.
+              weight: 1
+              pass_threshold: 1
+            - name: language/client-constructor-with-endpoint-and-credential
+              description: |-
+                SDK clients constructed with endpoint URL and credential object, e.g. new BlobServiceClient(url, credential) or new SecretClient(vaultUrl, credential). No legacy constructor patterns or connection string-based construction when identity-based auth is available.
+              weight: 1
+              pass_threshold: 1
+            - name: language/async-await-pattern
+              description: |-
+                Uses async/await for all asynchronous operations. No raw .then()/.catch() chains when await is cleaner. No callback-based patterns. Top-level async function or IIFE for entry point.
+              weight: 1
+              pass_threshold: 1
+            - name: language/pagination-with-for-await-of
+              description: |-
+                List/query operations use for-await-of iteration over the PagedAsyncIterableIterator returned by SDK methods. Does not collect all pages into an array in memory (e.g., no Array.from() or manual page accumulation). Uses byPage() when per-page control is needed.
+              weight: 1
+              pass_threshold: 1
+            - name: language/lro-pattern-beginxxx-polluntildone
+              description: |-
+                Long-running operations use the begin* method prefix (e.g., beginDeleteSecret, beginCreateOrUpdate) and await poller.pollUntilDone(). No manual setTimeout/setInterval polling loops.
+              weight: 1
+              pass_threshold: 1
+            - name: language/resterror-exception-handling
+              description: |-
+                Catches RestError (from @azure/core-rest-pipeline or the service package) with statusCode inspection for error-specific handling. Not just generic Error or try/catch without type checking.
+              weight: 1
+              pass_threshold: 1
+            - name: language/no-deprecated-packages
+              description: |-
+                No deprecated or legacy Azure packages in package.json: azure-storage, azure-arm-*, ms-rest-azure, @azure/ms-rest-js, @azure/ms-rest-nodeauth, @azure/ms-rest-azure-js. All dependencies use the current @azure/* track.
+              weight: 1
+              pass_threshold: 1
+            - name: language/logging-via-azure-logger
+              description: |-
+                Uses @azure/logger with setLogLevel() or the AZURE_LOG_LEVEL environment variable for SDK diagnostic logging. No custom logging wrappers around SDK internals.
+              weight: 1
+              pass_threshold: 1
+            - name: language/package-json-with-correct-dependencies
+              description: |-
+                Includes a valid package.json with all required @azure/* dependencies listed. TypeScript projects include tsconfig.json and appropriate @types/* packages or use a recent TypeScript version with built-in types.
+              weight: 1
+              pass_threshold: 1
+      - type: run-command
+        name: program/typescript-dependencies-install
+        config:
+          command: npm
+          args:
+            - install
+            - --ignore-scripts
+            - --no-audit
+            - --no-fund
+          timeout: 3m
+      - type: run-command
+        name: program/typescript-type-checks
+        config:
+          command: npx
+          args:
+            - --no-install
+            - tsc
+            - --noEmit
+          timeout: 2m
+artifacts:
+  include:
+    - "**/*.ts"
+    - "**/*.js"
+    - "**/package.json"
+    - "**/tsconfig.json"
+    - "**/README.md"
+  exclude:
+    - "**/.vally/**"
+    - "**/node_modules/**"
+    - "**/dist/**"

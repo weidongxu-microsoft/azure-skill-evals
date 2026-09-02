@@ -1,0 +1,195 @@
+name: document-translation-java-batch-container
+description: "Can an application start a container translation, wait for completion, and enumerate every document status and failure?"
+version: "1.0"
+type: capability
+environment:
+  files:
+    - src: ../../eval-workspace.gitignore
+      dest: .gitignore
+    - src: ../../eval-workspace-AGENTS.md
+      dest: AGENTS.md
+    - src: ../../scripts/program-checks/java.mjs
+      dest: .vally/program-checks/java.mjs
+scoring:
+  weights: {}
+defaults:
+  runs: 1
+  timeout: 30m
+  model: gpt-5.6-sol
+  judge_model: gpt-5.6-sol
+stimuli:
+  - name: document-translation-dp-java-batch-container
+    prompt: |-
+      Create a complete, runnable Java console application using
+      `com.azure:azure-ai-translation-document` 2.0.1. Accept exactly three
+      command-line arguments: source-container URI, target-container URI, and
+      target-language code. Read `AZURE_DOCUMENT_TRANSLATION_ENDPOINT`.
+      
+      **Write the application to files in the workspace. Do not reply with code blocks.**
+      
+      The application must:
+      
+      - Start one batch document translation from the supplied source container to the
+        supplied target container and language.
+      - Use the SDK long-running operation and wait for it to finish.
+      - Print the returned overall translation status.
+      - Page through every document status in that operation and print each document
+        ID and status.
+      - For every document whose returned failure information is present, print its
+        returned error code and message.
+      - Include the project manifest and concise restore, build, and run commands.
+      
+      Use the synchronous SDK client.
+    tags:
+      service: foundry
+      plane: data-plane
+      language: java
+      category: batch
+    graders:
+      - type: panel
+        name: prompt/full-case-review
+        weight: 1
+        config:
+          prompt: |-
+            Review the generated implementation against every criterion.
+            Score each criterion independently. Accept equivalent valid
+            implementations and judge code behavior rather than syntax.
+            Return every criterion name exactly as provided. The criterion
+            value must start with "prompt/" or "language/". Never copy a rubric
+            list number into the criterion value. For example, return
+            "prompt/foo", never "1. prompt/foo".
+          models:
+            - gpt-5.6-sol
+          aggregation: unanimous
+          scoring: binary
+          threshold: 0
+          overall_threshold: 0
+          evidence:
+            - trajectory
+            - repo
+          criteria:
+            - name: prompt/constructs-documenttranslationclient-not-singledocumentt
+              description: |-
+                Constructs `DocumentTranslationClient`, not
+                `SingleDocumentTranslationClient`.
+              weight: 1
+              pass_threshold: 1
+            - name: prompt/creates-translationsource-translationtarget-and-document
+              description: |-
+                Creates `TranslationSource`, `TranslationTarget`, and
+                `DocumentTranslationInput` from the supplied arguments, then calls
+                `beginTranslation`.
+              weight: 1
+              pass_threshold: 1
+            - name: prompt/calls-the-returned-syncpoller-waitforcompletion-and-uses
+              description: |-
+                Calls the returned `SyncPoller.waitForCompletion()` and uses the resulting
+                `TranslationStatusResult` ID and status.
+              weight: 1
+              pass_threshold: 1
+            - name: prompt/iterates-the-pagediterable-documentstatusresult-returned
+              description: |-
+                Iterates the `PagedIterable<DocumentStatusResult>` returned by
+                `listDocumentStatuses(translationId)`, traversing all pages.
+              weight: 1
+              pass_threshold: 1
+            - name: prompt/prints-each-document-s-getid-and-getstatus-and-prints-ge
+              description: |-
+                Prints each document's `getId()` and `getStatus()`, and prints
+                `getError().getCode()` and `getError().getMessage()` whenever error details
+                are present.
+              weight: 1
+              pass_threshold: 1
+            - name: prompt/does-not-use-the-single-document-client-or-multipart-upl
+              description: |-
+                Does not use the single-document client or multipart upload workflow.
+              weight: 1
+              pass_threshold: 1
+            - name: prompt/does-not-omit-long-running-operation-polling-or-treat-th
+              description: |-
+                Does not omit long-running-operation polling or treat the start response as
+                complete.
+              weight: 1
+              pass_threshold: 1
+            - name: prompt/does-not-print-only-overall-counts-select-one-document-o
+              description: |-
+                Does not print only overall counts, select one document, or consume one page.
+              weight: 1
+              pass_threshold: 1
+            - name: prompt/does-not-omit-returned-document-failure-code-or-message
+              description: |-
+                Does not omit returned document failure code or message.
+              weight: 1
+              pass_threshold: 1
+            - name: language/correct-dependencies-com-azure-not-com-microsoft-azure
+              description: |-
+                Uses com.azure group ID for all Azure SDK packages. No com.microsoft.azure (legacy SDK) dependencies. Includes azure-identity for authentication.
+              weight: 1
+              pass_threshold: 1
+            - name: language/azure-sdk-bom-for-version-management
+              description: |-
+                Uses azure-sdk-bom in dependencyManagement to manage Azure SDK versions instead of hardcoding individual artifact versions. Dependencies should omit <version> tags when managed by the BOM.
+              weight: 1
+              pass_threshold: 1
+            - name: language/correct-imports-no-legacy-no-internal-packages
+              description: |-
+                All imports use com.azure.* packages. No com.microsoft.azure.* (legacy) or com.azure.*.implementation.* (internal API) imports.
+              weight: 1
+              pass_threshold: 1
+            - name: language/defaultazurecredential-authentication
+              description: |-
+                Uses DefaultAzureCredential or another com.azure.identity credential. No hardcoded connection strings, account keys, SAS tokens, or secrets.
+              weight: 1
+              pass_threshold: 1
+            - name: language/client-builder-pattern
+              description: |-
+                SDK clients constructed using *ClientBuilder classes with .endpoint() or .vaultUrl() and .credential(). No legacy constructors (CloudStorageAccount, DocumentClient, KeyVaultClient).
+              weight: 1
+              pass_threshold: 1
+            - name: language/no-deprecated-legacy-classes
+              description: |-
+                No deprecated classes from the old SDK (CloudStorageAccount, CloudBlobClient, DocumentClient, QueueClient, ApplicationTokenCredentials, MSICredentials, ConnectionStringBuilder).
+              weight: 1
+              pass_threshold: 1
+            - name: language/pagination-pagediterable-pagedflux
+              description: |-
+                List/query operations return PagedIterable (sync) or PagedFlux (async). Does not flatten all pages into a raw List or Stream in memory.
+              weight: 1
+              pass_threshold: 1
+            - name: language/lro-pattern-syncpoller-pollerflux
+              description: |-
+                Long-running operations use SyncPoller (sync) or PollerFlux (async) with begin* method prefix. No Thread.sleep() polling loops.
+              weight: 1
+              pass_threshold: 1
+            - name: language/async-uses-project-reactor-mono-flux
+              description: |-
+                Async code uses Project Reactor types (Mono, Flux). Not CompletableFuture (wrong), not RxJava (wrong), not sync wrapped in ExecutorService. No .block() inside async service implementations.
+              weight: 1
+              pass_threshold: 1
+            - name: language/service-specific-exception-handling
+              description: |-
+                Catches service-specific exceptions (BlobStorageException, CosmosException, ServiceBusException, HttpResponseException) with status code inspection. Not just generic Exception catches.
+              weight: 1
+              pass_threshold: 1
+            - name: language/try-with-resources-for-clients
+              description: |-
+                All Azure SDK client instances that implement AutoCloseable are used within try-with-resources blocks or explicitly closed in a finally block.
+              weight: 1
+              pass_threshold: 1
+      - type: run-command
+        name: program/java-project-compiles
+        config:
+          command: node
+          args:
+            - .vally/program-checks/java.mjs
+          timeout: 3m
+artifacts:
+  include:
+    - "**/*.java"
+    - "**/pom.xml"
+    - "**/build.gradle"
+    - "**/build.gradle.kts"
+    - "**/README.md"
+  exclude:
+    - "**/.vally/**"
+    - "**/target/**"

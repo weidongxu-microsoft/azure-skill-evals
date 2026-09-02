@@ -1,0 +1,165 @@
+name: ai-agents-python-file-search
+description: "Can an agent ground an Azure AI Agents response in an uploaded document through file search?"
+version: "1.0"
+type: capability
+environment:
+  files:
+    - src: ../../eval-workspace.gitignore
+      dest: .gitignore
+    - src: ../../eval-workspace-AGENTS.md
+      dest: AGENTS.md
+    - src: ../../scripts/program-checks/python.py
+      dest: .vally/program-checks/python.py
+scoring:
+  weights: {}
+defaults:
+  runs: 1
+  timeout: 30m
+  model: gpt-5.6-sol
+  judge_model: gpt-5.6-sol
+stimuli:
+  - name: ai-agents-dp-python-file-search
+    prompt: |-
+      Create a complete, runnable Python console application that uses `azure-ai-agents`
+      to answer a question grounded in an uploaded document.
+      
+      **Write the application to files in the workspace. Do not reply with code blocks.**
+      
+      The application must:
+      
+      - Read `PROJECT_ENDPOINT` and `MODEL_DEPLOYMENT_NAME`.
+      - Create a text document containing this exact fact:
+        `The Contoso Trail Guide says the Cascade Loop is 42 kilometers long and hikers should bring a rain jacket.`
+      - Upload the document for agents, create a vector store containing it, and wait until
+        the vector store is ready. Fail if indexing doesn't complete successfully.
+      - Create an agent named `hyoka-trail-guide-agent` with a file-search tool and tool
+        resources that reference the created vector store.
+      - Create a thread with the exact user message
+        `According to the uploaded guide, how long is the Cascade Loop and what should hikers bring?`
+      - Create and process a run until terminal status, and require successful completion.
+      - List messages in chronological order and print assistant text.
+      - Delete the thread, agent, vector store, and uploaded file in dependency order.
+      - Include the dependency manifest and concise install and run commands.
+      
+      Use the synchronous SDK client throughout.
+    tags:
+      service: foundry
+      plane: data-plane
+      language: python
+      category: agents
+    graders:
+      - type: panel
+        name: prompt/full-case-review
+        weight: 1
+        config:
+          prompt: |-
+            Review the generated implementation against every criterion.
+            Score each criterion independently. Accept equivalent valid
+            implementations and judge code behavior rather than syntax.
+            Return every criterion name exactly as provided. The criterion
+            value must start with "prompt/" or "language/". Never copy a rubric
+            list number into the criterion value. For example, return
+            "prompt/foo", never "1. prompt/foo".
+          models:
+            - gpt-5.6-sol
+          aggregation: unanimous
+          scoring: binary
+          threshold: 0
+          overall_threshold: 0
+          evidence:
+            - trajectory
+            - repo
+          criteria:
+            - name: prompt/uploads-the-document-with-files-upload-and-poll-and-file
+              description: |-
+                Uploads the document with `files.upload_and_poll` and `FilePurpose.AGENTS`.
+              weight: 1
+              pass_threshold: 1
+            - name: prompt/creates-the-vector-store-with-the-uploaded-file-id-throu
+              description: |-
+                Creates the vector store with the uploaded file ID through `create_and_poll` and
+                requires completed status.
+              weight: 1
+              pass_threshold: 1
+            - name: prompt/creates-filesearchtool-with-the-vector-store-id-and-pass
+              description: |-
+                Creates `FileSearchTool` with the vector-store ID and passes both its definitions
+                and resources when creating the agent.
+              weight: 1
+              pass_threshold: 1
+            - name: prompt/creates-the-thread-exact-grounded-question-and-run-with
+              description: |-
+                Creates the thread, exact grounded question, and run with the created IDs.
+              weight: 1
+              pass_threshold: 1
+            - name: prompt/processes-the-run-through-runs-create-and-process-requir
+              description: |-
+                Processes the run through `runs.create_and_process`, requires completed status,
+                and retrieves ascending assistant `text_messages`.
+              weight: 1
+              pass_threshold: 1
+            - name: prompt/deletes-the-thread-before-the-agent-then-deletes-the-vec
+              description: |-
+                Deletes the thread before the agent, then deletes the vector store before the
+                uploaded file.
+              weight: 1
+              pass_threshold: 1
+            - name: prompt/does-not-put-a-local-file-path-or-uploaded-file-id-direc
+              description: |-
+                Does not put a local file path or uploaded file ID directly in the user message as
+                a substitute for file-search tool resources.
+              weight: 1
+              pass_threshold: 1
+            - name: prompt/does-not-start-the-run-before-vector-store-indexing-comp
+              description: |-
+                Does not start the run before vector-store indexing completes.
+              weight: 1
+              pass_threshold: 1
+            - name: prompt/does-not-print-the-known-document-fact-directly-as-thoug
+              description: |-
+                Does not print the known document fact directly as though it were the agent's
+                grounded response.
+              weight: 1
+              pass_threshold: 1
+            - name: language/correct-package-imports
+              description: |-
+                Imports use the latest azure-sdk-for-python package structure (azure.*), not deprecated packages.
+              weight: 1
+              pass_threshold: 1
+            - name: language/defaultazurecredential-usage
+              description: |-
+                Authentication matches what the prompt asks for. If the prompt explicitly requires a connection string (or other key-based auth), using `from_connection_string()` / connection-string-based clients is correct and should pass. Otherwise, authentication must use DefaultAzureCredential from azure-identity (or another `azure.identity` credential), not connection strings or hardcoded keys. Hardcoded secrets/keys/connection strings in source code always fail — required values should come from environment variables or a secret store.
+              weight: 1
+              pass_threshold: 1
+            - name: language/context-manager-for-clients
+              description: |-
+                Azure SDK clients that support context managers are used with `with` statements or explicitly closed.
+              weight: 1
+              pass_threshold: 1
+            - name: language/async-client-usage
+              description: |-
+                If async operations are requested, code uses the async client variant with proper await patterns.
+              weight: 1
+              pass_threshold: 1
+            - name: language/proper-exception-handling
+              description: |-
+                Azure SDK exceptions (HttpResponseError and subclasses) are caught and handled appropriately.
+              weight: 1
+              pass_threshold: 1
+      - type: run-command
+        name: program/python-source-compiles
+        config:
+          command: python
+          args:
+            - .vally/program-checks/python.py
+          timeout: 30s
+artifacts:
+  include:
+    - "**/*.py"
+    - "**/requirements*.txt"
+    - "**/pyproject.toml"
+    - "**/README.md"
+  exclude:
+    - "**/.vally/**"
+    - "**/.venv/**"
+    - "**/__pycache__/**"

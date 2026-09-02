@@ -1,0 +1,162 @@
+name: document-translation-python-batch-container
+description: "Can an application start a container translation, wait for completion, and enumerate every document status and failure?"
+version: "1.0"
+type: capability
+environment:
+  files:
+    - src: ../../eval-workspace.gitignore
+      dest: .gitignore
+    - src: ../../eval-workspace-AGENTS.md
+      dest: AGENTS.md
+    - src: ../../scripts/program-checks/python.py
+      dest: .vally/program-checks/python.py
+scoring:
+  weights: {}
+defaults:
+  runs: 1
+  timeout: 30m
+  model: gpt-5.6-sol
+  judge_model: gpt-5.6-sol
+stimuli:
+  - name: document-translation-dp-python-batch-container
+    prompt: |-
+      Create a complete, runnable Python console application using
+      `azure-ai-translation-document` 2.0.0. Accept exactly three command-line
+      arguments: source-container URI, target-container URI, and target-language code.
+      Read `AZURE_DOCUMENT_TRANSLATION_ENDPOINT`.
+      
+      **Write the application to files in the workspace. Do not reply with code blocks.**
+      
+      The application must:
+      
+      - Start one batch document translation from the supplied source container to the
+        supplied target container and language.
+      - Use the SDK long-running operation and wait for it to finish.
+      - Print the returned overall translation status.
+      - Page through every document status in that operation and print each document
+        ID and status.
+      - For every document whose returned failure information is present, print its
+        returned error code and message.
+      - Include the dependency manifest and concise install and run commands.
+      
+      Use the synchronous SDK client.
+    tags:
+      service: foundry
+      plane: data-plane
+      language: python
+      category: batch
+    graders:
+      - type: panel
+        name: prompt/full-case-review
+        weight: 1
+        config:
+          prompt: |-
+            Review the generated implementation against every criterion.
+            Score each criterion independently. Accept equivalent valid
+            implementations and judge code behavior rather than syntax.
+            Return every criterion name exactly as provided. The criterion
+            value must start with "prompt/" or "language/". Never copy a rubric
+            list number into the criterion value. For example, return
+            "prompt/foo", never "1. prompt/foo".
+          models:
+            - gpt-5.6-sol
+          aggregation: unanimous
+          scoring: binary
+          threshold: 0
+          overall_threshold: 0
+          evidence:
+            - trajectory
+            - repo
+          criteria:
+            - name: prompt/constructs-documenttranslationclient-not-singledocumentt
+              description: |-
+                Constructs `DocumentTranslationClient`, not
+                `SingleDocumentTranslationClient`.
+              weight: 1
+              pass_threshold: 1
+            - name: prompt/calls-begin-translation-sourceurl-targeturl-targetlangua
+              description: |-
+                Calls `begin_translation(sourceUrl, targetUrl, targetLanguage)` with all three
+                supplied arguments.
+              weight: 1
+              pass_threshold: 1
+            - name: prompt/calls-poller-result-before-reporting-poller-status
+              description: |-
+                Calls `poller.result()` before reporting `poller.status()`.
+              weight: 1
+              pass_threshold: 1
+            - name: prompt/traverses-the-pageable-result-from-client-list-document
+              description: |-
+                Traverses the pageable result from
+                `client.list_document_statuses(poller.id)` so every page and document is
+                consumed.
+              weight: 1
+              pass_threshold: 1
+            - name: prompt/prints-each-document-s-id-and-status-and-prints-error-co
+              description: |-
+                Prints each document's `id` and `status`, and prints `error.code` and
+                `error.message` whenever error details are present.
+              weight: 1
+              pass_threshold: 1
+            - name: prompt/does-not-use-the-single-document-client-or-multipart-upl
+              description: |-
+                Does not use the single-document client or multipart upload workflow.
+              weight: 1
+              pass_threshold: 1
+            - name: prompt/does-not-omit-poller-completion-or-treat-the-begin-opera
+              description: |-
+                Does not omit poller completion or treat the begin-operation response as final.
+              weight: 1
+              pass_threshold: 1
+            - name: prompt/does-not-print-only-overall-counts-select-one-document-o
+              description: |-
+                Does not print only overall counts, select one document, or consume one page.
+              weight: 1
+              pass_threshold: 1
+            - name: prompt/does-not-omit-returned-document-failure-code-or-message
+              description: |-
+                Does not omit returned document failure code or message.
+              weight: 1
+              pass_threshold: 1
+            - name: language/correct-package-imports
+              description: |-
+                Imports use the latest azure-sdk-for-python package structure (azure.*), not deprecated packages.
+              weight: 1
+              pass_threshold: 1
+            - name: language/defaultazurecredential-usage
+              description: |-
+                Authentication matches what the prompt asks for. If the prompt explicitly requires a connection string (or other key-based auth), using `from_connection_string()` / connection-string-based clients is correct and should pass. Otherwise, authentication must use DefaultAzureCredential from azure-identity (or another `azure.identity` credential), not connection strings or hardcoded keys. Hardcoded secrets/keys/connection strings in source code always fail — required values should come from environment variables or a secret store.
+              weight: 1
+              pass_threshold: 1
+            - name: language/context-manager-for-clients
+              description: |-
+                Azure SDK clients that support context managers are used with `with` statements or explicitly closed.
+              weight: 1
+              pass_threshold: 1
+            - name: language/async-client-usage
+              description: |-
+                If async operations are requested, code uses the async client variant with proper await patterns.
+              weight: 1
+              pass_threshold: 1
+            - name: language/proper-exception-handling
+              description: |-
+                Azure SDK exceptions (HttpResponseError and subclasses) are caught and handled appropriately.
+              weight: 1
+              pass_threshold: 1
+      - type: run-command
+        name: program/python-source-compiles
+        config:
+          command: python
+          args:
+            - .vally/program-checks/python.py
+          timeout: 30s
+artifacts:
+  include:
+    - "**/*.py"
+    - "**/requirements*.txt"
+    - "**/pyproject.toml"
+    - "**/README.md"
+  exclude:
+    - "**/.vally/**"
+    - "**/.venv/**"
+    - "**/__pycache__/**"

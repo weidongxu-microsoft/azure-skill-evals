@@ -1,0 +1,175 @@
+name: ai-projects-python-evaluation-run
+description: "Can an application use the project OpenAI Evals client to run a built-in evaluator and traverse metric results?"
+version: "1.0"
+type: capability
+environment:
+  files:
+    - src: ../../eval-workspace.gitignore
+      dest: .gitignore
+    - src: ../../eval-workspace-AGENTS.md
+      dest: AGENTS.md
+    - src: ../../scripts/program-checks/python.py
+      dest: .vally/program-checks/python.py
+scoring:
+  weights: {}
+defaults:
+  runs: 1
+  timeout: 30m
+  model: gpt-5.6-sol
+  judge_model: gpt-5.6-sol
+stimuli:
+  - name: ai-projects-dp-python-evaluation-run
+    prompt: |-
+      Create a complete, runnable Python console application using
+      `azure-ai-projects` 2.5.0 to run an OpenAI-compatible evaluation in a Microsoft
+      Foundry project.
+      
+      **Write the application to files in the workspace. Do not reply with code blocks.**
+      
+      The application must:
+      
+      - Read `FOUNDRY_PROJECT_ENDPOINT`.
+      - Obtain the project OpenAI client from `AIProjectClient`.
+      - Create an evaluation named `hyoka-f1-evaluation` with a custom item schema for
+        string fields `query`, `response`, and `ground_truth`.
+      - Configure the Azure built-in evaluator `builtin.f1_score`, mapping `response` and
+        `ground_truth` to the corresponding item fields.
+      - Create a run named `hyoka-f1-run` against an inline JSONL data source containing
+        this exact item: query `What is the capital of France?`, response `Paris`, and
+        ground truth `Paris`.
+      - Retrieve the run repeatedly until it reaches `completed` or `failed`, and fail the
+        application unless it completes successfully.
+      - Traverse every page of output items. Print each output item ID and status, then
+        print every returned metric's name, score, and passed value.
+      - Delete the created evaluation after the run.
+      - Include the dependency manifest and concise install and run commands.
+      
+      Use the synchronous SDK client throughout.
+    tags:
+      service: foundry
+      plane: data-plane
+      language: python
+      category: projects
+    graders:
+      - type: panel
+        name: prompt/full-case-review
+        weight: 1
+        config:
+          prompt: |-
+            Review the generated implementation against every criterion.
+            Score each criterion independently. Accept equivalent valid
+            implementations and judge code behavior rather than syntax.
+            Return every criterion name exactly as provided. The criterion
+            value must start with "prompt/" or "language/". Never copy a rubric
+            list number into the criterion value. For example, return
+            "prompt/foo", never "1. prompt/foo".
+          models:
+            - gpt-5.6-sol
+          aggregation: unanimous
+          scoring: binary
+          threshold: 0
+          overall_threshold: 0
+          evidence:
+            - trajectory
+            - repo
+          criteria:
+            - name: prompt/calls-project-client-get-openai-client-rather-than-inven
+              description: |-
+                Calls `project_client.get_openai_client()` rather than inventing
+                `project_client.evaluations`.
+              weight: 1
+              pass_threshold: 1
+            - name: prompt/calls-client-evals-create-with-datasourceconfigcustom-an
+              description: |-
+                Calls `client.evals.create` with `DataSourceConfigCustom` and
+                `TestingCriterionAzureAIEvaluator` configured for `builtin.f1_score`.
+              weight: 1
+              pass_threshold: 1
+            - name: prompt/creates-the-run-through-client-evals-runs-create-with-th
+              description: |-
+                Creates the run through `client.evals.runs.create` with the created evaluation ID
+                and a typed `CreateEvalJSONLRunDataSourceParam` file-content source containing the
+                exact item.
+              weight: 1
+              pass_threshold: 1
+            - name: prompt/polls-through-client-evals-runs-retrieve-until-an-explic
+              description: |-
+                Polls through `client.evals.runs.retrieve` until an explicit terminal status and
+                rejects a failed run.
+              weight: 1
+              pass_threshold: 1
+            - name: prompt/traverses-the-pageable-result-from-client-evals-runs-out
+              description: |-
+                Traverses the pageable result from `client.evals.runs.output_items.list`, then
+                traverses every output item's `results` to print name, score, and passed state.
+              weight: 1
+              pass_threshold: 1
+            - name: prompt/deletes-the-evaluation-with-its-exact-id
+              description: |-
+                Deletes the evaluation with its exact ID.
+              weight: 1
+              pass_threshold: 1
+            - name: prompt/does-not-invent-project-client-evaluations-or-assume-the
+              description: |-
+                Does not invent `project_client.evaluations` or assume the create-run response is
+                terminal.
+              weight: 1
+              pass_threshold: 1
+            - name: prompt/does-not-hardcode-a-metric-name-score-or-pass-result-ins
+              description: |-
+                Does not hardcode a metric name, score, or pass result instead of traversing
+                returned result objects.
+              weight: 1
+              pass_threshold: 1
+            - name: prompt/does-not-select-only-the-first-output-item-or-print-only
+              description: |-
+                Does not select only the first output item or print only aggregate counts.
+              weight: 1
+              pass_threshold: 1
+            - name: prompt/does-not-substitute-a-chat-completion-call-or-locally-ca
+              description: |-
+                Does not substitute a chat completion call or locally calculate F1.
+              weight: 1
+              pass_threshold: 1
+            - name: language/correct-package-imports
+              description: |-
+                Imports use the latest azure-sdk-for-python package structure (azure.*), not deprecated packages.
+              weight: 1
+              pass_threshold: 1
+            - name: language/defaultazurecredential-usage
+              description: |-
+                Authentication matches what the prompt asks for. If the prompt explicitly requires a connection string (or other key-based auth), using `from_connection_string()` / connection-string-based clients is correct and should pass. Otherwise, authentication must use DefaultAzureCredential from azure-identity (or another `azure.identity` credential), not connection strings or hardcoded keys. Hardcoded secrets/keys/connection strings in source code always fail — required values should come from environment variables or a secret store.
+              weight: 1
+              pass_threshold: 1
+            - name: language/context-manager-for-clients
+              description: |-
+                Azure SDK clients that support context managers are used with `with` statements or explicitly closed.
+              weight: 1
+              pass_threshold: 1
+            - name: language/async-client-usage
+              description: |-
+                If async operations are requested, code uses the async client variant with proper await patterns.
+              weight: 1
+              pass_threshold: 1
+            - name: language/proper-exception-handling
+              description: |-
+                Azure SDK exceptions (HttpResponseError and subclasses) are caught and handled appropriately.
+              weight: 1
+              pass_threshold: 1
+      - type: run-command
+        name: program/python-source-compiles
+        config:
+          command: python
+          args:
+            - .vally/program-checks/python.py
+          timeout: 30s
+artifacts:
+  include:
+    - "**/*.py"
+    - "**/requirements*.txt"
+    - "**/pyproject.toml"
+    - "**/README.md"
+  exclude:
+    - "**/.vally/**"
+    - "**/.venv/**"
+    - "**/__pycache__/**"

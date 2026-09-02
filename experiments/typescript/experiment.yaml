@@ -14,6 +14,16 @@ evals:
   - ../../scenarios/storage-typescript-crud-blobs/eval.yaml
   - ../../scenarios/storage-typescript-blob-storage-manager/eval.yaml
   - ../../scenarios/storage-typescript-encrypted-uploader/eval.yaml
+  - ../../scenarios/ai-agents-typescript-basic-agent-lifecycle/eval.yaml
+  - ../../scenarios/ai-agents-typescript-file-search/eval.yaml
+  - ../../scenarios/ai-agents-typescript-function-tool/eval.yaml
+  - ../../scenarios/ai-projects-typescript-dataset-lifecycle/eval.yaml
+  - ../../scenarios/ai-projects-typescript-evaluation-run/eval.yaml
+  - ../../scenarios/ai-projects-typescript-project-resource-inventory/eval.yaml
+  - ../../scenarios/document-translation-typescript-batch-container/eval.yaml
+  - ../../scenarios/document-translation-typescript-single-document/eval.yaml
+  - ../../scenarios/text-translation-typescript-multilingual-translation/eval.yaml
+  - ../../scenarios/text-translation-typescript-transliteration/eval.yaml
 vary:
   - /environment/skills
   - /environment/mcpServers
