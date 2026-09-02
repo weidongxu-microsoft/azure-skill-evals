@@ -171,11 +171,6 @@ stimuli:
                 Catches service-specific exceptions (BlobStorageException, CosmosException, ServiceBusException, HttpResponseException) with status code inspection. Not just generic Exception catches.
               weight: 1
               pass_threshold: 1
-            - name: language/code-compiles-mvn-compile-gradle-compilejava
-              description: |-
-                The generated code compiles without errors. Attempt build verification if build tools are available.
-              weight: 1
-              pass_threshold: 1
             - name: language/try-with-resources-for-clients
               description: |-
                 All Azure SDK client instances that implement AutoCloseable are used within try-with-resources blocks or explicitly closed in a finally block.

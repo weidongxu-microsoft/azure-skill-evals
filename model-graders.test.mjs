@@ -7,7 +7,7 @@ import test from "node:test";
 const expectedLanguageCriteria = {
   dotnet: 3,
   go: 0,
-  java: 12,
+  java: 11,
   python: 5,
   typescript: 10,
 };
@@ -119,6 +119,11 @@ test("every eval uses one complete model review and program checks", () => {
     assert.equal(
       languageCriteria.length,
       expectedLanguageCriteria[language],
+      evalPath,
+    );
+    assert.doesNotMatch(
+      source,
+      /language\/code-compiles-mvn-compile-gradle-compilejava/,
       evalPath,
     );
     assert.match(source, /^\s+models:\r?\n\s+- gpt-5\.6-sol$/m, evalPath);
