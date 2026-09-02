@@ -82,9 +82,9 @@ stimuli:
                 Tag management with `SetTags()` or `AddTag()`
               weight: 1
               pass_threshold: 1
-            - name: prompt/delete-resource-group-and-wait-for-completion
+            - name: prompt/delete-resource-group-with-waituntil-completed
               description: |-
-                Deletes the resource group and waits for the long-running operation to complete, such as `DeleteAsync(WaitUntil.Completed)` or `DeleteAsync(WaitUntil.Started)` followed by `WaitForCompletionAsync()`.
+                Deletes the resource group with `DeleteAsync(WaitUntil.Completed)` or the synchronous equivalent, so the SDK waits for the long-running operation to complete before returning.
               weight: 1
               pass_threshold: 1
             - name: language/azure-identity-authentication
