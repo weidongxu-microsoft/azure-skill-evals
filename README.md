@@ -123,6 +123,21 @@ Golden applications remain runnable reference implementations. Live
 model-grader oracle coverage will verify them separately from ordinary unit
 tests.
 
+Run the live oracle validator explicitly when changing prompts, criteria, or
+goldens:
+
+```powershell
+pnpm test:oracle -- --scenario <scenario-name>
+pnpm test:oracle:foundry
+```
+
+The validator applies each `golden/` application through Vally's oracle
+pipeline and requires every Prompt Check and Program Check to pass. Language
+Checks are reported but do not gate the oracle because they are reusable
+cross-scenario guidance. Oracle validation invokes the configured judge model,
+requires its normal credentials, and is therefore intentionally separate from
+the ordinary unit-test suite.
+
 The third arm exposes every skill from the applicable `microsoft/skills`
 language plugin. Scores measure whether adding that complete suite improves
 the generated application; no particular skill must be invoked.

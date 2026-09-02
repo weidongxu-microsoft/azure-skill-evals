@@ -7,6 +7,8 @@
     "bootstrap": "pwsh -NoProfile -File scripts/bootstrap-dependencies.ps1",
     "lint:evals": "vally lint --eval-spec scenarios --strict",
     "test": "node --test && python -m compileall -q scenarios && python -m ruff check scenarios && pnpm test:golden",
+    "test:oracle": "node scripts/validate-golden-oracles.mjs",
+    "test:oracle:foundry": "node scripts/validate-golden-oracles.mjs --service foundry",
     "test:selection": "node --test scripts/run-evaluations.test.mjs",
     "test:golden": "pwsh -NoProfile -File scripts/validate-golden-apps.ps1",
     "experiment": "pnpm experiment:python",
