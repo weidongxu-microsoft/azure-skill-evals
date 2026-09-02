@@ -1,4 +1,5 @@
 import {
+  appendFileSync,
   cpSync,
   mkdirSync,
   mkdtempSync,
@@ -163,6 +164,9 @@ function parseJsonLines(output) {
 function parseArguments(argv) {
   const options = {
     all: false,
+    language: null,
+    matrix: false,
+    output: null,
     scenarios: [],
     service: null,
   };
@@ -171,6 +175,12 @@ function parseArguments(argv) {
     const argument = argv[index];
     if (argument === "--all") {
       options.all = true;
+    } else if (argument === "--language") {
+      options.language = argv[++index];
+    } else if (argument === "--matrix") {
+      options.matrix = true;
+    } else if (argument === "--output") {
+      options.output = argv[++index];
     } else if (argument === "--scenario") {
       options.scenarios.push(argv[++index]);
     } else if (argument === "--service") {
@@ -195,7 +205,10 @@ function parseArguments(argv) {
       (scenario) => !scenario || scenario.startsWith("-"),
     ) ||
     (options.service !== null &&
-      (!options.service || options.service.startsWith("-")))
+      (!options.service || options.service.startsWith("-"))) ||
+    (options.language !== null &&
+      (!options.language || options.language.startsWith("-"))) ||
+    (options.output !== null && (!options.output || options.output.startsWith("-")))
   ) {
     throw new Error("Selector values must be non-empty");
   }
@@ -205,23 +218,27 @@ function parseArguments(argv) {
 function scenarioDirectories(root, options) {
   return readdirSync(root, { withFileTypes: true })
     .filter((entry) => entry.isDirectory())
-    .map((entry) => ({
-      name: entry.name,
-      path: path.join(root, entry.name),
-    }))
-    .filter(({ name, path: scenarioPath }) => {
-      if (options.all) return true;
+    .map((entry) => {
+      const scenarioPath = path.join(root, entry.name);
+      const source = readFileSync(path.join(scenarioPath, "eval.yaml"), "utf8");
+      return {
+        language: source.match(/^\s+language:\s*(\S+)\s*$/m)?.[1],
+        name: entry.name,
+        path: scenarioPath,
+        source,
+      };
+    })
+    .filter(({ language, name, source }) => {
+      let selected = options.all;
       if (options.scenarios.length > 0) {
-        return options.scenarios.includes(name);
+        selected = options.scenarios.includes(name);
+      } else if (options.service !== null) {
+        selected = new RegExp(
+          `^\\s+service:\\s*${options.service.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\s*$`,
+          "m",
+        ).test(source);
       }
-      const source = readFileSync(
-        path.join(scenarioPath, "eval.yaml"),
-        "utf8",
-      );
-      return new RegExp(
-        `^\\s+service:\\s*${options.service.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\s*$`,
-        "m",
-      ).test(source);
+      return selected && (options.language === null || language === options.language);
     })
     .sort((left, right) => left.name.localeCompare(right.name));
 }
@@ -267,6 +284,19 @@ function resultCount(results) {
   return `${results.filter((result) => result.passed).length}/${results.length}`;
 }
 
+function categoryResult(results) {
+  return {
+    passed: results.filter((result) => result.passed).length,
+    total: results.length,
+    failures: results
+      .filter((result) => !result.passed)
+      .map((result) => ({
+        evidence: result.evidence,
+        name: result.metadata?.criterion ?? result.name,
+      })),
+  };
+}
+
 export async function main(argv = process.argv.slice(2)) {
   const options = parseArguments(argv);
   const root = path.join(REPOSITORY_ROOT, "scenarios");
@@ -274,18 +304,35 @@ export async function main(argv = process.argv.slice(2)) {
   if (scenarios.length === 0) {
     throw new Error("No scenarios matched the requested selector");
   }
+  if (options.matrix) {
+    const counts = new Map();
+    for (const scenario of scenarios) {
+      counts.set(scenario.language, (counts.get(scenario.language) ?? 0) + 1);
+    }
+    console.log(
+      JSON.stringify({
+        include: [...counts]
+          .sort(([left], [right]) => left.localeCompare(right))
+          .map(([language, evaluations]) => ({ evaluations, language })),
+      }),
+    );
+    return 0;
+  }
+
+  const outputPath =
+    options.output === null ? null : path.resolve(options.output);
+  if (outputPath !== null) rmSync(outputPath, { force: true });
 
   let failed = false;
   for (const scenario of scenarios) {
     const evalPath = path.join(scenario.path, "eval.yaml");
     const goldenDirectory = path.join(scenario.path, "golden");
-    if (!statSync(goldenDirectory).isDirectory()) {
-      throw new Error(`Golden directory is missing: ${goldenDirectory}`);
-    }
-
     const temporaryEval = path.join(scenario.path, TEMP_EVAL);
     const temporaryPatch = path.join(scenario.path, TEMP_PATCH);
     try {
+      if (!statSync(goldenDirectory).isDirectory()) {
+        throw new Error(`Golden directory is missing: ${goldenDirectory}`);
+      }
       writeFileSync(
         temporaryPatch,
         createGoldenPatch(
@@ -311,6 +358,18 @@ export async function main(argv = process.argv.slice(2)) {
         promptFailures.length > 0 ||
         programFailures.length > 0;
       failed ||= Boolean(positiveFailed);
+      const record = {
+        error: positive.error,
+        language: scenario.language,
+        program: categoryResult(positive.program),
+        prompt: categoryResult(positive.prompt),
+        scenario: scenario.name,
+        status: positiveFailed ? "failed" : "passed",
+        languageChecks: categoryResult(positive.language),
+      };
+      if (outputPath !== null) {
+        appendFileSync(outputPath, `${JSON.stringify(record)}\n`);
+      }
 
       console.log(
         [
@@ -327,6 +386,24 @@ export async function main(argv = process.argv.slice(2)) {
           `  ${failure.metadata?.criterion ?? failure.name}: ${failure.evidence}`,
         );
       }
+    } catch (error) {
+      failed = true;
+      const message = error instanceof Error ? error.message : String(error);
+      if (outputPath !== null) {
+        appendFileSync(
+          outputPath,
+          `${JSON.stringify({
+            error: message,
+            language: scenario.language,
+            program: { failures: [], passed: 0, total: 0 },
+            prompt: { failures: [], passed: 0, total: 0 },
+            scenario: scenario.name,
+            status: "error",
+            languageChecks: { failures: [], passed: 0, total: 0 },
+          })}\n`,
+        );
+      }
+      console.error(`ERROR ${scenario.name}: ${message}`);
     } finally {
       rmSync(temporaryEval, { force: true });
       rmSync(temporaryPatch, { force: true });

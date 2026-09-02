@@ -26,9 +26,55 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  plan:
+    runs-on: ubuntu-latest
+    outputs:
+      expected: ${{ steps.matrix.outputs.expected }}
+      matrix: ${{ steps.matrix.outputs.matrix }}
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+
+      - name: Resolve oracle shards
+        id: matrix
+        env:
+          SELECTION: ${{ inputs.selection }}
+          SCENARIO: ${{ inputs.scenario }}
+        shell: bash
+        run: |
+          args=(--matrix)
+          case "$SELECTION" in
+            foundry)
+              args+=(--service foundry)
+              ;;
+            scenario)
+              if [[ -z "$SCENARIO" ]]; then
+                echo "scenario is required when selection=scenario" >&2
+                exit 1
+              fi
+              args+=(--scenario "$SCENARIO")
+              ;;
+            all)
+              args+=(--all)
+              ;;
+          esac
+          matrix=$(node scripts/validate-golden-oracles.mjs "${args[@]}")
+          expected=$(node -e 'const matrix = JSON.parse(process.argv[1]); console.log(matrix.include.reduce((sum, shard) => sum + shard.evaluations, 0));' "$matrix")
+          echo "matrix=$matrix" >> "$GITHUB_OUTPUT"
+          echo "expected=$expected" >> "$GITHUB_OUTPUT"
+          echo "\`$matrix\`" >> "$GITHUB_STEP_SUMMARY"
+
   validate:
+    needs: plan
     runs-on: ubuntu-latest
     timeout-minutes: 360
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJSON(needs.plan.outputs.matrix) }}
 
     steps:
       - uses: actions/checkout@v7
@@ -38,21 +84,26 @@ jobs:
           node-version: 22
 
       - uses: actions/setup-python@v7
+        if: ${{ matrix.language == 'python' }}
         with:
           python-version: "3.12"
 
       - uses: actions/setup-dotnet@v6
+        if: ${{ matrix.language == 'dotnet' }}
         with:
           dotnet-version: "8.0.x"
 
       - uses: actions/setup-java@v6
+        if: ${{ matrix.language == 'java' }}
         with:
           distribution: temurin
           java-version: "17"
 
       - uses: gradle/actions/setup-gradle@v4
+        if: ${{ matrix.language == 'java' }}
 
       - uses: actions/setup-go@v6
+        if: ${{ matrix.language == 'go' }}
         with:
           go-version: "1.26.x"
 
@@ -71,45 +122,88 @@ jobs:
           node "$copilot_cli_path" --version
 
       - name: Validate golden applications with live graders
+        id: oracle
+        continue-on-error: true
         env:
           GITHUB_TOKEN: ${{ github.token }}
+          LANGUAGE: ${{ matrix.language }}
           SELECTION: ${{ inputs.selection }}
           SCENARIO: ${{ inputs.scenario }}
         shell: bash
         run: |
           set -o pipefail
+          args=(--language "$LANGUAGE" --output oracle-results.jsonl)
           case "$SELECTION" in
             foundry)
-              pnpm test:oracle:foundry 2>&1 | tee golden-oracle.log
+              args+=(--service foundry)
               ;;
             scenario)
-              if [[ -z "$SCENARIO" ]]; then
-                echo "scenario is required when selection=scenario" >&2
-                exit 1
-              fi
-              pnpm test:oracle -- --scenario "$SCENARIO" 2>&1 | tee golden-oracle.log
+              args+=(--scenario "$SCENARIO")
               ;;
             all)
-              pnpm test:oracle -- --all 2>&1 | tee golden-oracle.log
+              args+=(--all)
               ;;
           esac
+          node scripts/validate-golden-oracles.mjs "${args[@]}" 2>&1 | tee golden-oracle.log
 
-      - name: Publish oracle summary
+      - name: Write shard manifest
         if: ${{ always() }}
-        shell: bash
+        env:
+          EXPECTED: ${{ matrix.evaluations }}
+          LANGUAGE: ${{ matrix.language }}
+          OUTCOME: ${{ steps.oracle.outcome }}
+        shell: pwsh
         run: |
-          if [[ -f golden-oracle.log ]]; then
-            {
-              echo '```text'
-              cat golden-oracle.log
-              echo '```'
-            } >> "$GITHUB_STEP_SUMMARY"
-          fi
+          @{
+            language = $env:LANGUAGE
+            expected = [int]$env:EXPECTED
+            outcome = $env:OUTCOME
+          } | ConvertTo-Json | Set-Content oracle-shard.json
 
-      - name: Upload oracle results
+      - name: Upload oracle shard
         if: ${{ always() }}
         uses: actions/upload-artifact@v7
         with:
-          name: golden-oracle-${{ github.run_id }}
-          path: golden-oracle.log
-          if-no-files-found: warn
+          name: golden-oracle-shard-${{ matrix.language }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            golden-oracle.log
+            oracle-results.jsonl
+            oracle-shard.json
+          if-no-files-found: error
+
+  summarize:
+    if: ${{ always() }}
+    needs:
+      - plan
+      - validate
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+
+      - uses: actions/download-artifact@v8
+        with:
+          pattern: golden-oracle-shard-*-${{ github.run_id }}-${{ github.run_attempt }}
+          path: oracle-artifacts
+
+      - name: Summarize oracle results
+        run: |
+          node scripts/summarize-golden-oracles.mjs \
+            oracle-artifacts \
+            "${{ needs.plan.outputs.expected }}" \
+            golden-oracle-summary.md
+          cat golden-oracle-summary.md >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload oracle summary
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: golden-oracle-summary-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            golden-oracle-summary.md
+            oracle-artifacts
+          if-no-files-found: error
