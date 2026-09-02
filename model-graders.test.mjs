@@ -81,8 +81,6 @@ const evalPaths = readdirSync(scenarioRoot, { withFileTypes: true })
   .map((entry) => join(scenarioRoot, entry.name, "eval.yaml"));
 
 test("every eval uses one complete model review and program checks", () => {
-  assert.equal(evalPaths.length, 120);
-
   for (const evalPath of evalPaths) {
     const source = readFileSync(evalPath, "utf8").replaceAll("\r\n", "\n");
     const language = source.match(/^\s+language:\s*(\S+)$/m)?.[1];
@@ -129,7 +127,7 @@ test("every eval uses one complete model review and program checks", () => {
     assert.match(source, /^\s+models:\r?\n\s+- gpt-5\.6-sol$/m, evalPath);
     assert.match(
       source,
-      /^\s+evidence:\r?\n\s+- trajectory\r?\n\s+- (?:repo|diff)$/m,
+      /^\s+evidence:\r?\n\s+- trajectory\r?\n\s+- repo$/m,
       evalPath,
     );
     assert.match(

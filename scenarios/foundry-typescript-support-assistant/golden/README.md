@@ -27,6 +27,8 @@ The identity needs data-plane access to the Foundry project and Storage Blob
 Data Contributor access to the storage account. `SUPPORT_STATE_CONTAINER` and
 `SUPPORT_STATE_BLOB` optionally change the state location.
 `AZURE_LOG_LEVEL` may be `verbose`, `info`, `warning`, or `error`.
+Set `AZURE_TOKEN_CREDENTIALS=prod` in the hosted environment so the production
+entry point uses `ManagedIdentityCredential`.
 
 For a deployed service, enable the hosting platform's Microsoft Entra
 authentication and require authentication for every request. The service uses

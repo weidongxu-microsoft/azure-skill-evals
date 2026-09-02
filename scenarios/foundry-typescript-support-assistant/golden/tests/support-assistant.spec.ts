@@ -85,6 +85,10 @@ test("runs evaluation and deletes its temporary conversations", async () => {
     assert.equal(metrics[0]?.name, "groundedness");
     assert.deepEqual(gateway.deletedConversationIds, ["conversation-1"]);
     assert.equal(gateway.evaluationRows[0]?.query, "How do I reset it?");
+    assert.equal(
+      gateway.evaluationRows[0]?.context,
+      "Hold reset for ten seconds.",
+    );
   } finally {
     await rm(directory, { recursive: true, force: true });
   }
@@ -103,6 +107,29 @@ test("rejects feedback for an unknown response", async () => {
       assistant.recordFeedback(
         "employee-1",
         "missing-response",
+        "negative",
+      ),
+      /does not belong to conversation/,
+    );
+  } finally {
+    await rm(directory, { recursive: true, force: true });
+  }
+});
+
+test("rejects feedback for a response from another conversation", async () => {
+  const directory = await mkdtemp(join(tmpdir(), "support-assistant-"));
+  try {
+    const assistant = new SupportAssistant(
+      new FakeGateway(),
+      new StateStore(join(directory, "state.json")),
+    );
+    await assistant.ingest(["manual.md"]);
+    const answer = await assistant.ask("employee-1", "How do I reset it?");
+
+    await assert.rejects(
+      assistant.recordFeedback(
+        "employee-2",
+        answer.responseId,
         "negative",
       ),
       /does not belong to conversation/,

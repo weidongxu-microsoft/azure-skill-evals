@@ -29,13 +29,18 @@ export function createSupportServer(
 ): Server {
   let operationQueue = Promise.resolve();
   const operations = new Map<string, OperationRecord>();
-  const runExclusive = <T>(operation: () => Promise<T>): Promise<T> => {
-    const result = operationQueue.then(operation, operation);
-    operationQueue = result.then(
-      () => undefined,
-      () => undefined,
-    );
-    return result;
+  const runExclusive = async <T>(operation: () => Promise<T>): Promise<T> => {
+    const previous = operationQueue;
+    let release = (): void => undefined;
+    operationQueue = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    await previous;
+    try {
+      return await operation();
+    } finally {
+      release();
+    }
   };
 
   return createServer(async (request, response) => {
@@ -249,18 +254,24 @@ function startOperation(
 ): string {
   const operationId = randomUUID();
   operations.set(operationId, { status: "running" });
-  void operation().then(
-    (result) => {
-      operations.set(operationId, { status: "completed", result });
-    },
-    (error: unknown) => {
-      operations.set(operationId, {
-        status: "failed",
-        error: error instanceof Error ? error.message : String(error),
-      });
-    },
-  );
+  void executeOperation(operations, operationId, operation);
   return operationId;
+}
+
+async function executeOperation(
+  operations: Map<string, OperationRecord>,
+  operationId: string,
+  operation: () => Promise<unknown>,
+): Promise<void> {
+  try {
+    const result = await operation();
+    operations.set(operationId, { status: "completed", result });
+  } catch (error) {
+    operations.set(operationId, {
+      status: "failed",
+      error: error instanceof Error ? error.message : String(error),
+    });
+  }
 }
 
 function authorize(

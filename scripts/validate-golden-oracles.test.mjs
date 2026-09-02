@@ -12,6 +12,7 @@ import { spawnSync } from "node:child_process";
 import test from "node:test";
 
 import {
+  adaptProgramCommandsForHost,
   addGoldenPatch,
   createGoldenPatch,
   listGoldenFiles,
@@ -87,6 +88,16 @@ test("adds a golden patch to the first stimulus", () => {
     addGoldenPatch(source),
     "stimuli:\n  - name: example\n    golden_patch:\n      path: .vally-oracle-golden.patch\n    prompt: hello\n    graders:\n      - type: panel\n        config:\n          evidence:\n            - trajectory\n            - repo\n            - golden_patch\n",
   );
+});
+
+test("uses Windows command shims only in temporary oracle specs", () => {
+  const source =
+    "config:\n  command: npm\n  args:\n    - install\nother:\n  command: npx\n  args:\n    - tsc\nthird:\n  command: node\n";
+  assert.equal(
+    adaptProgramCommandsForHost(source, "win32"),
+    "config:\n  command: cmd.exe\n  args:\n    - /d\n    - /s\n    - /c\n    - npm\n    - install\nother:\n  command: cmd.exe\n  args:\n    - /d\n    - /s\n    - /c\n    - npx\n    - tsc\nthird:\n  command: node\n",
+  );
+  assert.equal(adaptProgramCommandsForHost(source, "linux"), source);
 });
 
 test("summarizes prompt, language, and program outcomes independently", () => {

@@ -108,6 +108,23 @@ export function addGoldenPatch(evalSource, patchPath = TEMP_PATCH) {
   return withPatch.replace(repoEvidence, "$1            - golden_patch\n");
 }
 
+export function adaptProgramCommandsForHost(
+  evalSource,
+  platform = process.platform,
+) {
+  if (platform !== "win32") return evalSource;
+  return evalSource.replace(
+    /^(\s+)command: (npm|npx)\r?\n\1args:\r?\n/gm,
+    (_match, indentation, command) =>
+      `${indentation}command: cmd.exe\n` +
+      `${indentation}args:\n` +
+      `${indentation}  - /d\n` +
+      `${indentation}  - /s\n` +
+      `${indentation}  - /c\n` +
+      `${indentation}  - ${command}\n`,
+  );
+}
+
 function walkDetails(result) {
   const pending = [result];
   const details = [];
@@ -342,7 +359,9 @@ export async function main(argv = process.argv.slice(2)) {
       );
       writeFileSync(
         temporaryEval,
-        addGoldenPatch(readFileSync(evalPath, "utf8")),
+        adaptProgramCommandsForHost(
+          addGoldenPatch(readFileSync(evalPath, "utf8")),
+        ),
       );
 
       const positive = summarizeOracleOutcome(

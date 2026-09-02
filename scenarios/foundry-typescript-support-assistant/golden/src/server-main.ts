@@ -1,5 +1,8 @@
 import { AIProjectClient } from "@azure/ai-projects";
-import { DefaultAzureCredential } from "@azure/identity";
+import {
+  DefaultAzureCredential,
+  ManagedIdentityCredential,
+} from "@azure/identity";
 import { BlobServiceClient } from "@azure/storage-blob";
 import { BlobStateStore } from "./blob-state-store.js";
 import { loadServerConfig } from "./config.js";
@@ -9,7 +12,10 @@ import { SupportAssistant } from "./support-assistant.js";
 
 async function main(): Promise<void> {
   const config = loadServerConfig();
-  const credential = new DefaultAzureCredential();
+  const credential =
+    process.env["AZURE_TOKEN_CREDENTIALS"] === "prod"
+      ? new ManagedIdentityCredential()
+      : new DefaultAzureCredential();
   const store = new BlobStateStore(
     new BlobServiceClient(config.storageAccountEndpoint, credential)
       .getContainerClient(config.stateContainerName),
