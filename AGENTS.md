@@ -29,15 +29,9 @@ Keep all files owned by one evaluation case together:
 ```text
 scenarios/<name>/
 ├── eval.yaml
-├── rules.test.mjs
-├── golden/
-│   ├── application source
-│   └── dependency manifest
-└── tools/
-    └── retired deterministic grader implementation
-
-languages/<language>/
-└── retired deterministic checks and tests
+└── golden/
+    ├── application source
+    └── dependency manifest
 
 experiments/<language>/
 └── experiment.yaml
@@ -63,9 +57,6 @@ single-model panel configuration.
 - `eval-workspace-AGENTS.md` is staged as `AGENTS.md` in every evaluation
   workspace so code requests produce complete runnable projects with manifests
   at the workspace root.
-- `scenarios/<name>/tools/`, `scenarios/<name>/*.test.mjs`, and
-  `languages/<language>/` retain the retired deterministic implementation
-  during the transition; their grader tests are skipped.
 - `dependencies.lock.json` records pinned external repositories and package
   versions.
 - `docs/pilot-results/` contains concise, reviewed findings from completed
