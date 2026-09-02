@@ -129,7 +129,7 @@ export function summarize(rows, expected) {
   }
 
   const lines = [
-    "# Golden oracle summary",
+    "# Reference application oracle summary",
     "",
     `Collected ${rows.length}/${expected} scenario result(s).`,
     "",

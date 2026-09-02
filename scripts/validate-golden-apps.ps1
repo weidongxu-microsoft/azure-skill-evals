@@ -20,12 +20,12 @@ foreach ($goldenRoot in $goldenRoots) {
     if ($pythonFiles.Count -gt 0) {
         python -m compileall -q $goldenRoot
         if ($LASTEXITCODE -ne 0) {
-            throw "Python golden application compilation failed: $goldenRoot"
+            throw "Python reference application compilation failed: $goldenRoot"
         }
 
         python -m ruff check $goldenRoot
         if ($LASTEXITCODE -ne 0) {
-            throw "Python golden application lint failed: $goldenRoot"
+            throw "Python reference application lint failed: $goldenRoot"
         }
 
         $validated = $true
@@ -34,7 +34,7 @@ foreach ($goldenRoot in $goldenRoots) {
     foreach ($project in Get-ChildItem $goldenRoot -File -Filter *.csproj) {
         dotnet build $project.FullName --nologo --verbosity quiet
         if ($LASTEXITCODE -ne 0) {
-            throw ".NET golden application validation failed: $($project.FullName)"
+            throw ".NET reference application validation failed: $($project.FullName)"
         }
 
         $validated = $true
@@ -44,7 +44,7 @@ foreach ($goldenRoot in $goldenRoots) {
     if (Test-Path $pom -PathType Leaf) {
         mvn -q -f $pom compile
         if ($LASTEXITCODE -ne 0) {
-            throw "Java golden application validation failed: $pom"
+            throw "Java reference application validation failed: $pom"
         }
 
         $validated = $true
@@ -55,12 +55,12 @@ foreach ($goldenRoot in $goldenRoots) {
         pnpm --dir $goldenRoot install --frozen-lockfile --ignore-scripts `
             --registry=$npmRegistry
         if ($LASTEXITCODE -ne 0) {
-            throw "TypeScript golden application dependency restore failed: $goldenRoot"
+            throw "TypeScript reference application dependency restore failed: $goldenRoot"
         }
 
         pnpm --dir $goldenRoot build
         if ($LASTEXITCODE -ne 0) {
-            throw "TypeScript golden application validation failed: $goldenRoot"
+            throw "TypeScript reference application validation failed: $goldenRoot"
         }
 
         $validated = $true
@@ -72,12 +72,12 @@ foreach ($goldenRoot in $goldenRoots) {
         try {
             go test -mod=readonly ./...
             if ($LASTEXITCODE -ne 0) {
-                throw "Go golden application tests failed: $goldenRoot"
+                throw "Go reference application tests failed: $goldenRoot"
             }
 
             go vet ./...
             if ($LASTEXITCODE -ne 0) {
-                throw "Go golden application vet failed: $goldenRoot"
+                throw "Go reference application vet failed: $goldenRoot"
             }
         }
         finally {
@@ -88,6 +88,6 @@ foreach ($goldenRoot in $goldenRoots) {
     }
 
     if (-not $validated) {
-        throw "No supported golden application found: $goldenRoot"
+        throw "No supported reference application found: $goldenRoot"
     }
 }

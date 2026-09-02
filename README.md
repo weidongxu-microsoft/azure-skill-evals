@@ -113,31 +113,31 @@ trajectories as diagnostic evidence, but they do not affect correctness
 results. Checker entrypoints require at least one top-level source file without
 imposing a specific filename.
 
-Golden applications remain runnable reference implementations. Live
-model-grader oracle coverage will verify them separately from ordinary unit
-tests.
+Reference applications remain runnable positive oracles. Live model-grader
+oracle coverage verifies them separately from ordinary unit tests.
 
 Run the live oracle validator explicitly when changing prompts, criteria, or
-goldens:
+reference applications:
 
 ```powershell
 pnpm test:oracle -- --scenario <scenario-name>
 pnpm test:oracle:foundry
 ```
 
-The manually dispatched **Golden oracle validation** GitHub Actions workflow
-provides the same `foundry`, single-scenario, and all-scenario selections. Its
-job summary and artifact retain the per-scenario Prompt, Language, and Program
-counts. It fans out by language and always collects every scenario result;
-check failures remain report data, while fan-in fails only for missing,
-duplicate, or malformed artifacts.
+The manually dispatched **Reference application oracle validation** GitHub
+Actions workflow provides the same `foundry`, single-scenario, and all-scenario
+selections. Its job summary and artifact retain the per-scenario Prompt,
+Language, and Program counts. It fans out by language and always collects every
+scenario result; check failures remain report data, while fan-in fails only for
+missing, duplicate, or malformed artifacts.
 
-The validator applies each `golden/` application through Vally's oracle
-pipeline and requires every Prompt Check and Program Check to pass. Language
-Checks are reported but do not gate the oracle because they are reusable
-cross-scenario guidance. Oracle validation invokes the configured judge model,
-requires its normal credentials, and is therefore intentionally separate from
-the ordinary unit-test suite.
+The validator converts each reference application under `golden/` into Vally's
+temporary `golden_patch`, applies it through the oracle pipeline, and requires
+every Prompt Check and Program Check to pass. Language Checks are reported but
+do not gate the oracle because they are reusable cross-scenario guidance.
+Oracle validation invokes the configured judge model, requires its normal
+credentials, and is therefore intentionally separate from the ordinary
+unit-test suite.
 
 The third arm exposes every skill from the applicable `microsoft/skills`
 language plugin. Scores measure whether adding that complete suite improves

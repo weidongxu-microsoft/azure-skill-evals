@@ -1,4 +1,4 @@
-name: Golden oracle validation
+name: Reference application oracle validation
 
 on:
   workflow_dispatch:
@@ -121,7 +121,7 @@ jobs:
           echo "COPILOT_CLI_PATH=$copilot_cli_path" >> "$GITHUB_ENV"
           node "$copilot_cli_path" --version
 
-      - name: Validate golden applications with live graders
+      - name: Validate reference applications with live graders
         id: oracle
         continue-on-error: true
         env:

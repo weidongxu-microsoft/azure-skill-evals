@@ -62,10 +62,11 @@ single-model panel configuration.
 - `docs/pilot-results/` contains concise, reviewed findings from completed
   experiments.
 
-A golden application establishes that at least one complete, executable
-implementation passes syntax checks and linting. It is a positive oracle, not
-the only canonical answer. Run the same live model criteria against goldens in
-separate oracle validation rather than ordinary unit tests.
+A reference application under `golden/` establishes that at least one complete,
+executable implementation passes syntax checks and linting. It is a positive
+oracle, not the only canonical answer. Run the same live model criteria against
+reference applications in separate oracle validation rather than ordinary unit
+tests.
 
 ## Dependency locking
 
