@@ -120,100 +120,146 @@ stimuli:
                 A production entry point calls `listen()`, and HTTP route handlers invoke the real
                 support orchestration. `package.json` has `lint`, `build`, `test`, and `start`
                 scripts. Fail command-line-only or placeholder implementations.
+              weight: 1
+              pass_threshold: 1
             - name: prompt/selects-coherent-current-foundry-and-azure-sdks
               description: |-
                 Constructs `AIProjectClient` from `@azure/ai-projects` 2.5.0 and calls
                 `getOpenAIClient()` for the Foundry evaluation workflow. `@azure/ai-agents` may
                 implement conversations, but a standalone AgentsClient solution does not pass.
+              weight: 1
+              pass_threshold: 1
             - name: prompt/ingests-manuals-and-waits-for-retrieval-readiness
               description: |-
                 Both fixtures reach concrete file-upload and vector-store attachment calls, and
                 the created vector-store ID is passed to the agent's file-search tool. Code checks
                 each indexed file reaches `completed` before questions are allowed.
+              weight: 1
+              pass_threshold: 1
             - name: prompt/returns-grounded-answers-with-service-citations
               description: |-
                 The answer call references the created file-search agent and requests retrieval
                 results, such as `include: ["file_search_call.results"]`. Citations are parsed
                 from returned file-citation annotations; fixture-derived filenames do not pass.
+              weight: 1
+              pass_threshold: 1
             - name: prompt/preserves-isolated-multi-turn-conversations
               description: |-
                 Persists the ID returned by `conversations.create()` or `threads.create()` under a
                 key containing both employee and local conversation IDs, then reuses it for the
                 next message. An in-memory-only map does not pass.
+              weight: 1
+              pass_threshold: 1
             - name: prompt/records-unsupported-questions-for-follow-up
               description: |-
                 Answer processing detects a structured unsupported signal or explicit sentinel
                 such as `UNSUPPORTED:` and durably writes the question, scoped conversation ID,
                 response ID, and timestamp. Prompt instructions alone do not pass.
+              weight: 1
+              pass_threshold: 1
             - name: prompt/records-validated-response-specific-feedback
               description: |-
                 Before saving feedback, code looks up `responseId` and compares its persisted
                 scoped conversation ID with the request. Unknown or mismatched responses are
                 rejected; accepting any caller-supplied response ID does not pass.
+              weight: 1
+              pass_threshold: 1
             - name: prompt/runs-extensible-groundedness-and-relevance-evaluation
               description: |-
                 Uses `openAIClient.evals.create`, `evals.runs.create`, `runs.retrieve`, and
                 `runs.outputItems.list` with groundedness and relevance evaluators. Evaluation
                 context comes from returned file-search chunks, not fixture expectations.
+              weight: 1
+              pass_threshold: 1
             - name: prompt/uses-entra-identity-and-external-configuration
               description: |-
                 Constructs Azure clients with endpoint environment variables and a
                 `TokenCredential`. Employee identity comes from validated authentication or a
                 trusted platform principal header, and admin routes check an allowlist.
+              weight: 1
+              pass_threshold: 1
             - name: prompt/handles-lifecycle-errors-and-bounded-waits
               description: |-
                 Polling uses `pollUntilDone()` or an explicit deadline and delay, with failure
                 branches for `failed`, `cancelled`/`canceled`, and timeout. Azure error handling
                 inspects service-specific fields such as `RestError.statusCode` or
                 `APIError.status`; unbounded or success-only polling does not pass.
+              weight: 1
+              pass_threshold: 1
             - name: prompt/cleans-up-created-cloud-resources-safely
               description: |-
                 Cleanup deletes conversation items before `conversations.delete()`, calls
                 `project.agents.deleteVersion(name, version)` for a project agent or the matching
                 `AgentsClient` thread/agent deletes, then deletes vector-store and uploaded-file
                 IDs. Persisted ownership is cleared only after remote deletion.
+              weight: 1
+              pass_threshold: 1
             - name: prompt/includes-meaningful-offline-automated-tests
               description: |-
                 `npm test` uses the real server and orchestration with mocked Azure boundaries.
                 Distinctive assertions cover remote conversation-ID reuse, mismatched feedback
                 rejection, retrieved-chunk evaluation context, and failed-persistence compensation.
+              weight: 1
+              pass_threshold: 1
             - name: prompt/excludes-provisioning-and-deployment
               description: |-
                 The generated diff contains no Bicep, ARM, Terraform, `az`/`azd` provisioning
                 script, or deployment workflow. Application configuration and run documentation
                 are allowed.
+              weight: 1
+              pass_threshold: 1
             - name: language/correct-azure-scoped-packages
               description: |-
                 All Azure SDK dependencies use @azure/ scoped packages (e.g., @azure/storage-blob, @azure/keyvault-secrets, @azure/identity). No deprecated unscoped packages (azure-storage, azure-arm-*, ms-rest-azure, @azure/ms-rest-*).
+              weight: 1
+              pass_threshold: 1
             - name: language/azure-identity-for-authentication
               description: |-
                 Includes @azure/identity as a dependency. For local development, DefaultAzureCredential is acceptable. For production code, uses a specific Entra token credential (e.g., ManagedIdentityCredential, ClientSecretCredential, WorkloadIdentityCredential) or configures DefaultAzureCredential with the AZURE_TOKEN_CREDENTIALS environment variable set to "prod" or a specific token credential. No hardcoded connection strings, account keys, SAS tokens, or secrets in code.
+              weight: 1
+              pass_threshold: 1
             - name: language/client-constructor-with-endpoint-and-credential
               description: |-
                 SDK clients constructed with endpoint URL and credential object, e.g. new BlobServiceClient(url, credential) or new SecretClient(vaultUrl, credential). No legacy constructor patterns or connection string-based construction when identity-based auth is available.
+              weight: 1
+              pass_threshold: 1
             - name: language/async-await-pattern
               description: |-
                 Uses async/await for all asynchronous operations. No raw .then()/.catch() chains when await is cleaner. No callback-based patterns. Top-level async function or IIFE for entry point.
+              weight: 1
+              pass_threshold: 1
             - name: language/pagination-with-for-await-of
               description: |-
                 List/query operations use for-await-of iteration over the PagedAsyncIterableIterator returned by SDK methods. Does not collect all pages into an array in memory (e.g., no Array.from() or manual page accumulation). Uses byPage() when per-page control is needed.
+              weight: 1
+              pass_threshold: 1
             - name: language/lro-pattern-beginxxx-polluntildone
               description: |-
                 Uses the SDK's poller when the operation exposes one. For Foundry operations
                 that expose create/retrieve status APIs instead, bounded asynchronous polling
                 that handles every terminal state is valid. No unbounded or tight polling loops.
+              weight: 1
+              pass_threshold: 1
             - name: language/resterror-exception-handling
               description: |-
                 Catches RestError (from @azure/core-rest-pipeline or the service package) with statusCode inspection for error-specific handling. Not just generic Error or try/catch without type checking.
+              weight: 1
+              pass_threshold: 1
             - name: language/no-deprecated-packages
               description: |-
                 No deprecated or legacy Azure packages in package.json: azure-storage, azure-arm-*, ms-rest-azure, @azure/ms-rest-js, @azure/ms-rest-nodeauth, @azure/ms-rest-azure-js. All dependencies use the current @azure/* track.
+              weight: 1
+              pass_threshold: 1
             - name: language/logging-via-azure-logger
               description: |-
                 Uses @azure/logger with setLogLevel() or the AZURE_LOG_LEVEL environment variable for SDK diagnostic logging. No custom logging wrappers around SDK internals.
+              weight: 1
+              pass_threshold: 1
             - name: language/package-json-with-correct-dependencies
               description: |-
                 Includes a valid package.json with all required @azure/* dependencies listed. TypeScript projects include tsconfig.json and appropriate @types/* packages or use a recent TypeScript version with built-in types.
+              weight: 1
+              pass_threshold: 1
       - type: run-command
         name: program/typescript-dependencies-install
         config:
