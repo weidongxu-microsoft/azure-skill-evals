@@ -31,7 +31,8 @@ def main() -> None:
             )
 
             run = client.runs.create(thread_id=thread.id, agent_id=agent.id)
-            while run.status in ("queued", "in_progress"):
+            terminal_statuses = ("completed", "failed", "cancelled", "expired")
+            while run.status not in terminal_statuses:
                 time.sleep(0.5)
                 run = client.runs.get(thread_id=thread.id, run_id=run.id)
 
