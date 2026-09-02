@@ -73,8 +73,9 @@ stimuli:
         actionable diagnostics, and cleanup of created cloud resources.
       - Include meaningful automated tests for application behavior and failure
         paths without requiring live Azure access.
-      - Include dependency manifests and concise commands for installation,
-        linting, building, testing, running, and cleanup.
+      - Include dependency manifests and standard `lint`, `build`, and `test`
+        package scripts, plus concise commands for installation, running, and
+        cleanup.
 
       Assume the required Azure resources already exist. Do not provision Azure
       resources, create infrastructure-as-code files, or implement a deployment
@@ -92,7 +93,13 @@ stimuli:
           prompt: |-
             Review the generated implementation against every criterion.
             Score each criterion independently. Accept equivalent valid
-            implementations and judge code behavior rather than syntax.
+            implementations and judge code behavior rather than syntax. Trace
+            concrete imports, client construction, SDK calls, returned service
+            identifiers, persistence operations, and route-to-orchestration
+            call paths. Examples of SDK methods in the criteria are
+            nonexclusive evidence, not mandatory spellings. Fail interfaces,
+            configuration objects, mocks, comments, or disconnected snippets
+            that are not exercised by the runnable application.
             Return every criterion name exactly as provided. The criterion
             value must start with "prompt/" or "language/". Never copy a rubric
             list number into the criterion value. For example, return
@@ -109,90 +116,126 @@ stimuli:
           criteria:
             - name: prompt/implements-a-complete-runnable-support-application
               description: |-
-                Implements a complete runnable hosted HTTP support application, rather than only
-                an architecture description, command-line-only tool, or disconnected SDK
-                snippets, and includes the required Aero 300 manual facts as application fixtures.
+                A production entry point starts a hosted HTTP server, its routes invoke the real
+                support orchestration rather than placeholders, and the dependency manifest
+                provides working lint, build, test, and start scripts. The application includes
+                both required Aero 300 fixtures. Fail an architecture description,
+                command-line-only tool, mock-only implementation, or disconnected SDK snippets.
               weight: 1
               pass_threshold: 1
             - name: prompt/selects-coherent-current-foundry-and-azure-sdks
               description: |-
-                Selects current supported Microsoft Foundry and Azure SDK packages whose
-                capabilities and responsibilities form a coherent solution. Do not require the
-                same packages as the reference application when an equivalent valid design is
-                implemented.
+                Concrete imports, client construction, and invoked methods use compatible,
+                current packages and form one coherent implementation. Valid designs may use
+                @azure/ai-projects, @azure/ai-agents, an OpenAI-compatible Foundry client,
+                Azure AI Search, or another current combination when it implements the complete
+                workflow. Evidence should include recognizable concrete operations such as an
+                AIProjectClient plus agents and Responses clients, an AgentsClient plus agent and
+                thread/run operations, or a model client plus SearchClient retrieval calls. Do
+                not require the reference application's packages or reject a valid alternative
+                architecture. Fail fictional APIs, incompatible API generations, packages that
+                are declared but unused, or abstractions with no invoked service client.
               weight: 1
               pass_threshold: 1
             - name: prompt/ingests-manuals-and-waits-for-retrieval-readiness
               description: |-
-                Ingests every manual into the selected grounding mechanism, waits until
-                asynchronous indexing or ingestion reaches a successful terminal state before
-                querying it, and rejects failed, canceled, or timed-out ingestion.
+                Trace a concrete executed path that reads both fixtures, uploads or indexes each
+                one into the selected retrieval service, associates the resulting retrieval
+                resource with the answering workflow, and waits for successful readiness before
+                allowing questions. Polling must be bounded and must reject failed, canceled, and
+                timed-out states. Concrete evidence can include file creation, vector-store
+                creation, vector-store file attachment and status retrieval, or SearchClient
+                document upload followed by readiness verification. Equivalent current
+                mechanisms are valid, but merely constructing tool configuration does not pass.
               weight: 1
               pass_threshold: 1
             - name: prompt/returns-grounded-answers-with-service-citations
               description: |-
-                Queries the grounded knowledge source and returns answer text plus source
-                references extracted from actual service response annotations or citation
-                metadata. It does not manufacture citations from fixture filenames.
+                Trace the HTTP request through a concrete agent, responses, search, or retrieval
+                SDK call that uses the configured grounding resource. The returned answer must
+                include references parsed from service annotations, citation metadata, or search
+                results tied to that response. Evidence can include a Responses call referencing
+                a configured agent and requesting file-search results, an Agents thread/run whose
+                messages contain file citations, or an explicit search-then-model flow that passes
+                returned documents to the model. Fail direct ungrounded model calls, fixture-text
+                lookup presented as cloud retrieval, or citations manufactured from known
+                filenames.
               weight: 1
               pass_threshold: 1
             - name: prompt/preserves-isolated-multi-turn-conversations
               description: |-
-                Maintains service-backed conversation or thread identity across follow-up turns,
-                durably maps local conversation and authenticated employee identifiers to remote
-                conversations across application restarts, and does not mix employee context.
+                Concrete create and follow-up paths retain the conversation, thread, or equivalent
+                service identifier returned by the provider and reuse it on later turns. A durable
+                mapping includes both authenticated employee identity and local conversation
+                identity, survives process restarts, and prevents two employees using the same
+                local ID from sharing context. In-memory-only maps do not pass.
               weight: 1
               pass_threshold: 1
             - name: prompt/records-unsupported-questions-for-follow-up
               description: |-
-                Explicitly instructs or constrains the assistant not to fill knowledge gaps from
-                general knowledge, detects unsupported responses, and durably records the
-                original question and response identity for human follow-up.
+                The executed answering path constrains unsupported claims, detects when retrieved
+                evidence cannot support an answer, and durably records the original question,
+                employee-scoped conversation, response identity, and timestamp for administrator
+                review. A prompt instruction without detection and persistence does not pass.
               weight: 1
               pass_threshold: 1
             - name: prompt/records-validated-response-specific-feedback
               description: |-
-                Durably records positive or negative feedback against a specific known response
-                and rejects feedback whose response does not belong to the identified
-                conversation.
+                The feedback route verifies that the supplied response identifier is a known
+                response in the authenticated employee's identified conversation before durably
+                recording a positive or negative rating. Trace both the successful write and an
+                explicit rejection path for unknown, mismatched, or invalid response feedback.
               weight: 1
               pass_threshold: 1
             - name: prompt/runs-extensible-groundedness-and-relevance-evaluation
               description: |-
-                Includes multiple evaluation cases, generates answers through the application,
-                submits them to actual Microsoft Foundry groundedness and relevance evaluators,
-                waits for a successful terminal run state, traverses every output page and metric,
-                and keeps evaluator configuration extensible.
+                Trace concrete evaluation SDK calls that generate answers through the same
+                application path, submit multiple rows to real Microsoft Foundry groundedness and
+                relevance evaluators, and supply retrieved evidence as groundedness context rather
+                than copying fixture expectations. The code waits for a successful terminal run,
+                rejects unsuccessful states, enumerates every returned output page and metric, and
+                represents evaluators in an extensible collection. Evidence can include eval
+                creation, run creation and retrieval, and paged output-item listing through the
+                selected current SDK. A local scoring function labeled as a Foundry evaluation
+                does not pass.
               weight: 1
               pass_threshold: 1
             - name: prompt/uses-entra-identity-and-external-configuration
               description: |-
-                Uses Microsoft Entra identities for Azure access and authenticated employee
-                identity for conversation isolation, restricts administrative HTTP operations,
-                and externally configures endpoints, model deployments, identity settings, and
-                other environment-specific values without embedded credentials or secrets.
+                Trace Azure client construction to an Entra TokenCredential and external endpoint
+                and deployment configuration. Trace HTTP authorization from a trusted
+                hosting-platform or validated-token employee identity through conversation
+                scoping, and verify ingestion, unresolved review, evaluation, and cleanup routes
+                enforce an administrator boundary. Fail caller-selected identity values,
+                embedded credentials, or administrative routes with no authorization check.
               weight: 1
               pass_threshold: 1
             - name: prompt/handles-lifecycle-errors-and-bounded-waits
               description: |-
-                Handles unsuccessful terminal states and service-specific failures, bounds manual
-                polling or uses SDK polling helpers, provides actionable diagnostics, and does
-                not silently convert failures into successful-looking output.
+                Every asynchronous service lifecycle used by ingestion and evaluation either uses
+                an SDK poller or a deadline-based loop with delay. Concrete branches handle all
+                documented terminal failure states and preserve useful service status, code, and
+                message details. Fail unbounded loops, success-only polling, broad catches that
+                suppress failures, or successful-looking fallback results.
               weight: 1
               pass_threshold: 1
             - name: prompt/cleans-up-created-cloud-resources-safely
               description: |-
-                Provides cleanup for created conversations, agents or versions, grounding
-                resources, uploaded files, and evaluations in a dependency-safe order, including
-                temporary resources created by evaluation runs.
+                Trace concrete delete calls that consume the exact service identifiers captured
+                during creation. Cleanup removes conversation items and conversations, agent
+                versions or equivalent answering resources, grounding resources, uploaded files,
+                and temporary evaluation resources in a dependency-safe order. Partial failures
+                remain retryable and are surfaced rather than silently clearing ownership state.
               weight: 1
               pass_threshold: 1
             - name: prompt/includes-meaningful-offline-automated-tests
               description: |-
-                Includes meaningful automated tests that exercise hosted routing,
-                authentication and authorization, conversation reuse, unsupported-question
-                recording, feedback validation, durable-state failure handling, evaluation input
-                construction, and cleanup without requiring live Azure access.
+                The standard test script runs offline tests with fakes or mocks at the Azure
+                boundary while exercising real application orchestration. Tests cover hosted
+                routing and authorization, conversation reuse and employee isolation,
+                unsupported-question persistence, feedback ownership validation, durable-state
+                failure handling, evaluation rows built from retrieved evidence, and cleanup.
+                Compile-only tests or tests of standalone helpers are insufficient.
               weight: 1
               pass_threshold: 1
             - name: prompt/excludes-provisioning-and-deployment
