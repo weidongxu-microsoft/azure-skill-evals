@@ -1,0 +1,161 @@
+name: ai-projects-python-project-resource-inventory
+description: "Can an application enumerate and retrieve typed Azure AI project connections and deployments?"
+version: "1.0"
+type: capability
+environment:
+  files:
+    - src: ../../eval-workspace.gitignore
+      dest: .gitignore
+    - src: ../../eval-workspace-AGENTS.md
+      dest: AGENTS.md
+    - src: ../../scripts/program-checks/python.py
+      dest: .vally/program-checks/python.py
+scoring:
+  weights: {}
+defaults:
+  runs: 1
+  timeout: 30m
+  model: gpt-5.6-sol
+  judge_model: gpt-5.6-sol
+stimuli:
+  - name: ai-projects-dp-python-project-resource-inventory
+    prompt: |-
+      Create a complete, runnable Python console application that uses `azure-ai-projects`
+      to inspect connections and model deployments in a Microsoft Foundry project.
+      
+      **Write the application to files in the workspace. Do not reply with code blocks.**
+      
+      The application must:
+      
+      - Read `FOUNDRY_PROJECT_ENDPOINT`, `CONNECTION_NAME`, and `DEPLOYMENT_NAME`.
+      - Enumerate every project connection through the SDK's pageable API and print each
+        connection's name, type, target, and default status.
+      - Retrieve `CONNECTION_NAME` without requesting credentials and print the same typed
+        metadata.
+      - Enumerate every project deployment through the SDK's pageable API. For each model
+        deployment, print its name, model publisher, model name, and model version.
+      - Retrieve `DEPLOYMENT_NAME`, require it to be a model deployment, and print the same
+        typed model metadata.
+      - Include the dependency manifest and concise install and run commands.
+      
+      Use the synchronous SDK client throughout.
+    tags:
+      service: foundry
+      plane: data-plane
+      language: python
+      category: projects
+    graders:
+      - type: panel
+        name: prompt/full-case-review
+        weight: 1
+        config:
+          prompt: |-
+            Review the generated implementation against every criterion.
+            Score each criterion independently. Accept equivalent valid
+            implementations and judge code behavior rather than syntax.
+            Return every criterion name exactly as provided. The criterion
+            value must start with "prompt/" or "language/". Never copy a rubric
+            list number into the criterion value. For example, return
+            "prompt/foo", never "1. prompt/foo".
+          models:
+            - gpt-5.6-sol
+          aggregation: unanimous
+          scoring: binary
+          threshold: 0
+          overall_threshold: 0
+          evidence:
+            - trajectory
+            - repo
+          criteria:
+            - name: prompt/creates-aiprojectclient-for-foundry-project-endpoint
+              description: |-
+                Creates `AIProjectClient` for `FOUNDRY_PROJECT_ENDPOINT`.
+              weight: 1
+              pass_threshold: 1
+            - name: prompt/iterates-every-result-from-project-client-connections-li
+              description: |-
+                Iterates every result from `project_client.connections.list()` and reads typed
+                connection properties.
+              weight: 1
+              pass_threshold: 1
+            - name: prompt/calls-project-client-connections-get-for-connection-name
+              description: |-
+                Calls `project_client.connections.get` for `CONNECTION_NAME` without credentials
+                and doesn't print credentials.
+              weight: 1
+              pass_threshold: 1
+            - name: prompt/iterates-every-result-from-project-client-deployments-li
+              description: |-
+                Iterates every result from `project_client.deployments.list()`.
+              weight: 1
+              pass_threshold: 1
+            - name: prompt/uses-isinstance-modeldeployment-before-printing-publishe
+              description: |-
+                Uses `isinstance(..., ModelDeployment)` before printing publisher, model name, and
+                model version.
+              weight: 1
+              pass_threshold: 1
+            - name: prompt/calls-project-client-deployments-get-for-deployment-name
+              description: |-
+                Calls `project_client.deployments.get` for `DEPLOYMENT_NAME` and rejects a result
+                that isn't a `ModelDeployment`.
+              weight: 1
+              pass_threshold: 1
+            - name: prompt/does-not-replace-pageable-iteration-with-a-single-assume
+              description: |-
+                Does not replace pageable iteration with a single assumed page.
+              weight: 1
+              pass_threshold: 1
+            - name: prompt/does-not-select-resources-only-from-the-locally-enumerat
+              description: |-
+                Does not select resources only from the locally enumerated results instead of
+                exercising the SDK's name-based get operations.
+              weight: 1
+              pass_threshold: 1
+            - name: prompt/does-not-request-or-display-connection-credentials
+              description: |-
+                Does not request or display connection credentials.
+              weight: 1
+              pass_threshold: 1
+            - name: language/correct-package-imports
+              description: |-
+                Imports use the latest azure-sdk-for-python package structure (azure.*), not deprecated packages.
+              weight: 1
+              pass_threshold: 1
+            - name: language/defaultazurecredential-usage
+              description: |-
+                Authentication matches what the prompt asks for. If the prompt explicitly requires a connection string (or other key-based auth), using `from_connection_string()` / connection-string-based clients is correct and should pass. Otherwise, authentication must use DefaultAzureCredential from azure-identity (or another `azure.identity` credential), not connection strings or hardcoded keys. Hardcoded secrets/keys/connection strings in source code always fail — required values should come from environment variables or a secret store.
+              weight: 1
+              pass_threshold: 1
+            - name: language/context-manager-for-clients
+              description: |-
+                Azure SDK clients that support context managers are used with `with` statements or explicitly closed.
+              weight: 1
+              pass_threshold: 1
+            - name: language/async-client-usage
+              description: |-
+                If async operations are requested, code uses the async client variant with proper await patterns.
+              weight: 1
+              pass_threshold: 1
+            - name: language/proper-exception-handling
+              description: |-
+                Azure SDK exceptions (HttpResponseError and subclasses) are caught and handled appropriately.
+              weight: 1
+              pass_threshold: 1
+      - type: run-command
+        name: program/python-source-compiles
+        config:
+          command: python
+          args:
+            - .vally/program-checks/python.py
+          timeout: 30s
+artifacts:
+  include:
+    - "**/*.py"
+    - "**/requirements*.txt"
+    - "**/pyproject.toml"
+    - "**/README.md"
+  exclude:
+    - "**/.vally/**"
+    - "**/.venv/**"
+    - "**/__pycache__/**"

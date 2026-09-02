@@ -1,0 +1,154 @@
+name: document-translation-python-single-document
+description: "Can an application translate one local document with the synchronous document API and preserve the returned bytes?"
+version: "1.0"
+type: capability
+environment:
+  files:
+    - src: ../../eval-workspace.gitignore
+      dest: .gitignore
+    - src: ../../eval-workspace-AGENTS.md
+      dest: AGENTS.md
+    - src: ../../scripts/program-checks/python.py
+      dest: .vally/program-checks/python.py
+scoring:
+  weights: {}
+defaults:
+  runs: 1
+  timeout: 30m
+  model: gpt-5.6-sol
+  judge_model: gpt-5.6-sol
+stimuli:
+  - name: document-translation-dp-python-single-document
+    prompt: |-
+      Create a complete, runnable Python console application using
+      `azure-ai-translation-document` 2.0.0. Accept exactly three command-line
+      arguments: local document path, target-language code, and output path. Read
+      `AZURE_DOCUMENT_TRANSLATION_ENDPOINT`.
+      
+      **Write the application to files in the workspace. Do not reply with code blocks.**
+      
+      The application must:
+      
+      - Open the local document as binary data and infer its media type from the file
+        extension, rejecting unsupported extensions.
+      - Use the current single-document translation client and API, supplying the
+        original filename, media type, file content, and target language.
+      - Persist the exact returned document bytes to the requested output path without
+        decoding, parsing, or transforming them.
+      - Include the dependency manifest and concise install and run commands.
+      
+      Use the synchronous SDK client.
+    tags:
+      service: foundry
+      plane: data-plane
+      language: python
+      category: translation
+    graders:
+      - type: panel
+        name: prompt/full-case-review
+        weight: 1
+        config:
+          prompt: |-
+            Review the generated implementation against every criterion.
+            Score each criterion independently. Accept equivalent valid
+            implementations and judge code behavior rather than syntax.
+            Return every criterion name exactly as provided. The criterion
+            value must start with "prompt/" or "language/". Never copy a rubric
+            list number into the criterion value. For example, return
+            "prompt/foo", never "1. prompt/foo".
+          models:
+            - gpt-5.6-sol
+          aggregation: unanimous
+          scoring: binary
+          threshold: 0
+          overall_threshold: 0
+          evidence:
+            - trajectory
+            - repo
+          criteria:
+            - name: prompt/constructs-singledocumenttranslationclient-not-documentt
+              description: |-
+                Constructs `SingleDocumentTranslationClient`, not
+                `DocumentTranslationClient`.
+              weight: 1
+              pass_threshold: 1
+            - name: prompt/creates-documenttranslatecontent-with-a-document-tuple-c
+              description: |-
+                Creates `DocumentTranslateContent` with a document tuple containing input
+                filename, binary file object or bytes, and a media type derived from the
+                extension.
+              weight: 1
+              pass_threshold: 1
+            - name: prompt/calls-translate-body-content-target-language-targetlangu
+              description: |-
+                Calls `translate(body=content, target_language=targetLanguage)`.
+              weight: 1
+              pass_threshold: 1
+            - name: prompt/writes-the-returned-bytes-directly-to-a-file-opened-in-b
+              description: |-
+                Writes the returned bytes directly to a file opened in binary mode.
+              weight: 1
+              pass_threshold: 1
+            - name: prompt/does-not-use-the-batch-container-client-or-invent-a-sing
+              description: |-
+                Does not use the batch/container client or invent a single-document method on
+                it.
+              weight: 1
+              pass_threshold: 1
+            - name: prompt/does-not-submit-base64-json-or-omit-multipart-filename-c
+              description: |-
+                Does not submit base64 JSON or omit multipart filename/content-type metadata.
+              weight: 1
+              pass_threshold: 1
+            - name: prompt/does-not-decode-json-parse-or-stringify-the-binary-respo
+              description: |-
+                Does not decode, JSON-parse, or stringify the binary response before writing.
+              weight: 1
+              pass_threshold: 1
+            - name: prompt/does-not-write-a-known-or-hardcoded-translated-output
+              description: |-
+                Does not write a known or hardcoded translated output.
+              weight: 1
+              pass_threshold: 1
+            - name: language/correct-package-imports
+              description: |-
+                Imports use the latest azure-sdk-for-python package structure (azure.*), not deprecated packages.
+              weight: 1
+              pass_threshold: 1
+            - name: language/defaultazurecredential-usage
+              description: |-
+                Authentication matches what the prompt asks for. If the prompt explicitly requires a connection string (or other key-based auth), using `from_connection_string()` / connection-string-based clients is correct and should pass. Otherwise, authentication must use DefaultAzureCredential from azure-identity (or another `azure.identity` credential), not connection strings or hardcoded keys. Hardcoded secrets/keys/connection strings in source code always fail — required values should come from environment variables or a secret store.
+              weight: 1
+              pass_threshold: 1
+            - name: language/context-manager-for-clients
+              description: |-
+                Azure SDK clients that support context managers are used with `with` statements or explicitly closed.
+              weight: 1
+              pass_threshold: 1
+            - name: language/async-client-usage
+              description: |-
+                If async operations are requested, code uses the async client variant with proper await patterns.
+              weight: 1
+              pass_threshold: 1
+            - name: language/proper-exception-handling
+              description: |-
+                Azure SDK exceptions (HttpResponseError and subclasses) are caught and handled appropriately.
+              weight: 1
+              pass_threshold: 1
+      - type: run-command
+        name: program/python-source-compiles
+        config:
+          command: python
+          args:
+            - .vally/program-checks/python.py
+          timeout: 30s
+artifacts:
+  include:
+    - "**/*.py"
+    - "**/requirements*.txt"
+    - "**/pyproject.toml"
+    - "**/README.md"
+  exclude:
+    - "**/.vally/**"
+    - "**/.venv/**"
+    - "**/__pycache__/**"

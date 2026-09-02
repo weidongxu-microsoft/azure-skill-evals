@@ -1,0 +1,157 @@
+name: ai-agents-dotnet-file-search
+description: "Can an agent ground an Azure AI Agents response in an uploaded document through file search?"
+version: "1.0"
+type: capability
+environment:
+  files:
+    - src: ../../eval-workspace.gitignore
+      dest: .gitignore
+    - src: ../../eval-workspace-AGENTS.md
+      dest: AGENTS.md
+scoring:
+  weights: {}
+defaults:
+  runs: 1
+  timeout: 30m
+  model: gpt-5.6-sol
+  judge_model: gpt-5.6-sol
+stimuli:
+  - name: ai-agents-dp-dotnet-file-search
+    prompt: |-
+      Create a complete, runnable .NET console application that uses
+      `Azure.AI.Agents.Persistent` to answer a question grounded in an uploaded document.
+      
+      **Write the application to files in the workspace. Do not reply with code blocks.**
+      
+      The application must:
+      
+      - Read `PROJECT_ENDPOINT` and `MODEL_DEPLOYMENT_NAME`.
+      - Create a text document containing this exact fact:
+        `The Contoso Trail Guide says the Cascade Loop is 42 kilometers long and hikers should bring a rain jacket.`
+      - Upload the document for agents, create a vector store containing it, and wait until
+        the vector store is ready. Fail if indexing doesn't complete successfully.
+      - Create an agent named `hyoka-trail-guide-agent` with a file-search tool and tool
+        resources that reference the created vector store.
+      - Create a thread with the exact user message
+        `According to the uploaded guide, how long is the Cascade Loop and what should hikers bring?`
+      - Create and poll a run until terminal status, and require successful completion.
+      - List messages in chronological order and print assistant text.
+      - Delete the thread, agent, vector store, and uploaded file in dependency order.
+      - Include the project manifest and concise restore, build, and run commands.
+      
+      Use asynchronous SDK operations throughout.
+    tags:
+      service: foundry
+      plane: data-plane
+      language: dotnet
+      category: agents
+    graders:
+      - type: panel
+        name: prompt/full-case-review
+        weight: 1
+        config:
+          prompt: |-
+            Review the generated implementation against every criterion.
+            Score each criterion independently. Accept equivalent valid
+            implementations and judge code behavior rather than syntax.
+            Return every criterion name exactly as provided. The criterion
+            value must start with "prompt/" or "language/". Never copy a rubric
+            list number into the criterion value. For example, return
+            "prompt/foo", never "1. prompt/foo".
+          models:
+            - gpt-5.6-sol
+          aggregation: unanimous
+          scoring: binary
+          threshold: 0
+          overall_threshold: 0
+          evidence:
+            - trajectory
+            - repo
+          criteria:
+            - name: prompt/uploads-the-document-with-persistentagentfilepurpose-age
+              description: |-
+                Uploads the document with `PersistentAgentFilePurpose.Agents`.
+              weight: 1
+              pass_threshold: 1
+            - name: prompt/creates-a-vector-store-with-the-uploaded-file-id-polls-i
+              description: |-
+                Creates a vector store with the uploaded file ID, polls its status while indexing,
+                and requires `VectorStoreStatus.Completed`.
+              weight: 1
+              pass_threshold: 1
+            - name: prompt/adds-both-filesearchtooldefinition-and-filesearchtoolres
+              description: |-
+                Adds both `FileSearchToolDefinition` and `FileSearchToolResource` containing the
+                vector-store ID when creating the agent.
+              weight: 1
+              pass_threshold: 1
+            - name: prompt/creates-the-thread-exact-grounded-question-and-run-with
+              description: |-
+                Creates the thread, exact grounded question, and run with the created agent ID.
+              weight: 1
+              pass_threshold: 1
+            - name: prompt/polls-the-run-through-queued-and-in-progress-states-requ
+              description: |-
+                Polls the run through queued and in-progress states, requires
+                `RunStatus.Completed`, and retrieves ascending assistant messages through
+                `MessageTextContent`.
+              weight: 1
+              pass_threshold: 1
+            - name: prompt/deletes-the-thread-before-the-agent-then-deletes-the-vec
+              description: |-
+                Deletes the thread before the agent, then deletes the vector store before the
+                uploaded file.
+              weight: 1
+              pass_threshold: 1
+            - name: prompt/does-not-put-a-local-file-path-or-uploaded-file-id-direc
+              description: |-
+                Does not put a local file path or uploaded file ID directly in the user message as
+                a substitute for file-search tool resources.
+              weight: 1
+              pass_threshold: 1
+            - name: prompt/does-not-start-the-run-before-vector-store-indexing-comp
+              description: |-
+                Does not start the run before vector-store indexing completes.
+              weight: 1
+              pass_threshold: 1
+            - name: prompt/does-not-print-the-known-document-fact-directly-as-thoug
+              description: |-
+                Does not print the known document fact directly as though it were the agent's
+                grounded response.
+              weight: 1
+              pass_threshold: 1
+            - name: language/azure-identity-authentication
+              description: |-
+                Check that authentication follows the prompt and uses the appropriate modern .NET Azure SDK mechanism.
+                When token-based authentication is requested, uses an appropriate credential from Azure.Identity and passes it to the SDK client. When the prompt explicitly requests a connection string, connection-string construction is valid. Credentials, connection strings, and secrets are not hardcoded.
+              weight: 1
+              pass_threshold: 1
+            - name: language/sdk-specific-exception-handling
+              description: |-
+                Check that requested error handling uses the exception model of the selected .NET Azure SDK package.
+                When error handling is requested, catches the appropriate SDK exception, such as RequestFailedException for many Azure.* and ARM clients, CosmosException for Microsoft.Azure.Cosmos, ServiceBusException for Service Bus, EventHubsException for Event Hubs, or AuthenticationFailedException and CredentialUnavailableException for Azure Identity. Inspects status codes, error codes, or retry details when relevant instead of relying only on a generic Exception catch.
+              weight: 1
+              pass_threshold: 1
+            - name: language/asynchronous-sdk-usage
+              description: |-
+                Check that asynchronous .NET Azure SDK calls use normal asynchronous control flow.
+                When asynchronous SDK APIs are used, awaits them with async and await rather than blocking through .Result, .Wait(), or GetAwaiter().GetResult().
+              weight: 1
+              pass_threshold: 1
+      - type: run-command
+        name: program/dotnet-project-builds
+        config:
+          command: dotnet
+          args:
+            - build
+            - --nologo
+          timeout: 3m
+artifacts:
+  include:
+    - "**/*.cs"
+    - "**/*.csproj"
+    - "**/README.md"
+  exclude:
+    - "**/.vally/**"
+    - "**/bin/**"
+    - "**/obj/**"

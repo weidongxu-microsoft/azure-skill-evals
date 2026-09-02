@@ -1,0 +1,154 @@
+name: document-translation-dotnet-batch-container
+description: "Can an application start a container translation, wait for completion, and enumerate every document status and failure?"
+version: "1.0"
+type: capability
+environment:
+  files:
+    - src: ../../eval-workspace.gitignore
+      dest: .gitignore
+    - src: ../../eval-workspace-AGENTS.md
+      dest: AGENTS.md
+scoring:
+  weights: {}
+defaults:
+  runs: 1
+  timeout: 30m
+  model: gpt-5.6-sol
+  judge_model: gpt-5.6-sol
+stimuli:
+  - name: document-translation-dp-dotnet-batch-container
+    prompt: |-
+      Create a complete, runnable .NET console application using
+      `Azure.AI.Translation.Document` 3.0.0. Accept exactly three command-line
+      arguments: source-container URI, target-container URI, and target-language code.
+      Read `AZURE_DOCUMENT_TRANSLATION_ENDPOINT`.
+      
+      **Write the application to files in the workspace. Do not reply with code blocks.**
+      
+      The application must:
+      
+      - Start one batch document translation from the supplied source container to the
+        supplied target container and language.
+      - Use the SDK long-running operation and wait for it to finish.
+      - Print the returned overall translation status.
+      - Page through every document status in that operation and print each document
+        ID and status.
+      - For every document whose returned failure information is present, print its
+        returned error code and message.
+      - Include the project manifest and concise restore, build, and run commands.
+      
+      Use asynchronous SDK operations.
+    tags:
+      service: foundry
+      plane: data-plane
+      language: dotnet
+      category: batch
+    graders:
+      - type: panel
+        name: prompt/full-case-review
+        weight: 1
+        config:
+          prompt: |-
+            Review the generated implementation against every criterion.
+            Score each criterion independently. Accept equivalent valid
+            implementations and judge code behavior rather than syntax.
+            Return every criterion name exactly as provided. The criterion
+            value must start with "prompt/" or "language/". Never copy a rubric
+            list number into the criterion value. For example, return
+            "prompt/foo", never "1. prompt/foo".
+          models:
+            - gpt-5.6-sol
+          aggregation: unanimous
+          scoring: binary
+          threshold: 0
+          overall_threshold: 0
+          evidence:
+            - trajectory
+            - repo
+          criteria:
+            - name: prompt/constructs-documenttranslationclient-not-singledocumentt
+              description: |-
+                Constructs `DocumentTranslationClient`, not
+                `SingleDocumentTranslationClient`.
+              weight: 1
+              pass_threshold: 1
+            - name: prompt/creates-documenttranslationinput-from-the-supplied-sourc
+              description: |-
+                Creates `DocumentTranslationInput` from the supplied source URI, target URI,
+                and target language, then calls `StartTranslationAsync`.
+              weight: 1
+              pass_threshold: 1
+            - name: prompt/waits-through-documenttranslationoperation-waitforcomple
+              description: |-
+                Waits through `DocumentTranslationOperation.WaitForCompletionAsync` before
+                reporting the terminal operation status.
+              weight: 1
+              pass_threshold: 1
+            - name: prompt/uses-getdocumentstatusesasync-with-await-foreach-so-ever
+              description: |-
+                Uses `GetDocumentStatusesAsync` with `await foreach` so every page and document
+                is traversed.
+              weight: 1
+              pass_threshold: 1
+            - name: prompt/prints-each-documentstatusresult-id-and-status-and-print
+              description: |-
+                Prints each `DocumentStatusResult.Id` and `Status`, and prints
+                `Error.Code` and `Error.Message` whenever `Error` is present.
+              weight: 1
+              pass_threshold: 1
+            - name: prompt/does-not-use-the-single-document-client-or-multipart-upl
+              description: |-
+                Does not use the single-document client or multipart upload workflow.
+              weight: 1
+              pass_threshold: 1
+            - name: prompt/does-not-omit-long-running-operation-polling-or-treat-th
+              description: |-
+                Does not omit long-running-operation polling or treat the start response as
+                complete.
+              weight: 1
+              pass_threshold: 1
+            - name: prompt/does-not-print-only-overall-counts-select-one-document-o
+              description: |-
+                Does not print only overall counts, select one document, or assume one page.
+              weight: 1
+              pass_threshold: 1
+            - name: prompt/does-not-omit-returned-document-failure-code-or-message
+              description: |-
+                Does not omit returned document failure code or message.
+              weight: 1
+              pass_threshold: 1
+            - name: language/azure-identity-authentication
+              description: |-
+                Check that authentication follows the prompt and uses the appropriate modern .NET Azure SDK mechanism.
+                When token-based authentication is requested, uses an appropriate credential from Azure.Identity and passes it to the SDK client. When the prompt explicitly requests a connection string, connection-string construction is valid. Credentials, connection strings, and secrets are not hardcoded.
+              weight: 1
+              pass_threshold: 1
+            - name: language/sdk-specific-exception-handling
+              description: |-
+                Check that requested error handling uses the exception model of the selected .NET Azure SDK package.
+                When error handling is requested, catches the appropriate SDK exception, such as RequestFailedException for many Azure.* and ARM clients, CosmosException for Microsoft.Azure.Cosmos, ServiceBusException for Service Bus, EventHubsException for Event Hubs, or AuthenticationFailedException and CredentialUnavailableException for Azure Identity. Inspects status codes, error codes, or retry details when relevant instead of relying only on a generic Exception catch.
+              weight: 1
+              pass_threshold: 1
+            - name: language/asynchronous-sdk-usage
+              description: |-
+                Check that asynchronous .NET Azure SDK calls use normal asynchronous control flow.
+                When asynchronous SDK APIs are used, awaits them with async and await rather than blocking through .Result, .Wait(), or GetAwaiter().GetResult().
+              weight: 1
+              pass_threshold: 1
+      - type: run-command
+        name: program/dotnet-project-builds
+        config:
+          command: dotnet
+          args:
+            - build
+            - --nologo
+          timeout: 3m
+artifacts:
+  include:
+    - "**/*.cs"
+    - "**/*.csproj"
+    - "**/README.md"
+  exclude:
+    - "**/.vally/**"
+    - "**/bin/**"
+    - "**/obj/**"

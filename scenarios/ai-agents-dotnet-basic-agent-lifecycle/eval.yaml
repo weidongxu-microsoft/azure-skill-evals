@@ -1,0 +1,169 @@
+name: ai-agents-dotnet-basic-agent-lifecycle
+description: "Can an agent build a complete Azure AI Agents application that creates an agent conversation, runs it to completion, and reads the assistant response?"
+version: "1.0"
+type: capability
+environment:
+  files:
+    - src: ../../eval-workspace.gitignore
+      dest: .gitignore
+    - src: ../../eval-workspace-AGENTS.md
+      dest: AGENTS.md
+scoring:
+  weights: {}
+defaults:
+  runs: 1
+  timeout: 30m
+  model: gpt-5.6-sol
+  judge_model: gpt-5.6-sol
+stimuli:
+  - name: ai-agents-dp-dotnet-basic-agent-lifecycle
+    prompt: |-
+      Create a complete, runnable .NET console application that uses the
+      `Azure.AI.Agents.Persistent` package to run a basic Azure AI Agent conversation.
+      
+      **Write the application to files in the workspace. Do not reply with code blocks.**
+      
+      The application must:
+      
+      - Read the Azure AI project endpoint from `PROJECT_ENDPOINT` and the model deployment
+        name from `MODEL_DEPLOYMENT_NAME`.
+      - Create the Azure AI Agents client using the project endpoint and
+        `DefaultAzureCredential`.
+      - Create an agent named `hyoka-basic-agent` with the instructions
+        `Answer the user's question clearly and concisely.`
+      - Create a thread and add this exact user message:
+        `What is the capital of France?`
+      - Create a run for that thread and agent, then use the SDK to refresh the run until it
+        reaches a terminal status.
+      - After a successful run, list the thread messages in chronological order and print
+        the text content of every assistant message.
+      - Delete the thread and agent after the conversation finishes.
+      - Include the project manifest and concise commands for restoring, building, and
+        running the application.
+      
+      Use asynchronous SDK operations throughout the agent workflow.
+    tags:
+      service: foundry
+      plane: data-plane
+      language: dotnet
+      category: agents
+    graders:
+      - type: panel
+        name: prompt/full-case-review
+        weight: 1
+        config:
+          prompt: |-
+            Review the generated implementation against every criterion.
+            Score each criterion independently. Accept equivalent valid
+            implementations and judge code behavior rather than syntax.
+            Return every criterion name exactly as provided. The criterion
+            value must start with "prompt/" or "language/". Never copy a rubric
+            list number into the criterion value. For example, return
+            "prompt/foo", never "1. prompt/foo".
+          models:
+            - gpt-5.6-sol
+          aggregation: unanimous
+          scoring: binary
+          threshold: 0
+          overall_threshold: 0
+          evidence:
+            - trajectory
+            - repo
+          criteria:
+            - name: prompt/uses-persistentagentsclient-from-azure-ai-agents-persist
+              description: |-
+                Uses `PersistentAgentsClient` from `Azure.AI.Agents.Persistent`.
+              weight: 1
+              pass_threshold: 1
+            - name: prompt/creates-the-agent-through-client-administration-createag
+              description: |-
+                Creates the agent through `client.Administration.CreateAgentAsync`, passing the
+                deployment from `MODEL_DEPLOYMENT_NAME`, the required name, and the required
+                instructions.
+              weight: 1
+              pass_threshold: 1
+            - name: prompt/creates-a-thread-through-client-threads-createthreadasyn
+              description: |-
+                Creates a thread through `client.Threads.CreateThreadAsync`.
+              weight: 1
+              pass_threshold: 1
+            - name: prompt/adds-the-exact-user-message-through-client-messages-crea
+              description: |-
+                Adds the exact user message through `client.Messages.CreateMessageAsync` with
+                `MessageRole.User` and the created thread ID.
+              weight: 1
+              pass_threshold: 1
+            - name: prompt/creates-the-run-through-client-runs-createrunasync-with
+              description: |-
+                Creates the run through `client.Runs.CreateRunAsync` with the created thread ID and
+                agent ID.
+              weight: 1
+              pass_threshold: 1
+            - name: prompt/polls-by-calling-client-runs-getrunasync-with-the-thread
+              description: |-
+                Polls by calling `client.Runs.GetRunAsync` with the thread ID and run ID until the
+                run leaves its nonterminal statuses.
+              weight: 1
+              pass_threshold: 1
+            - name: prompt/retrieves-messages-only-after-successful-completion-requ
+              description: |-
+                Retrieves messages only after successful completion, requests ascending order, and
+                traverses `MessageTextContent` items from assistant messages to print their text.
+              weight: 1
+              pass_threshold: 1
+            - name: prompt/deletes-both-the-created-thread-and-the-created-agent-th
+              description: |-
+                Deletes both the created thread and the created agent through their SDK clients.
+              weight: 1
+              pass_threshold: 1
+            - name: prompt/does-not-print-a-hardcoded-answer-instead-of-retrieving
+              description: |-
+                Does not print a hardcoded answer instead of retrieving agent messages.
+              weight: 1
+              pass_threshold: 1
+            - name: prompt/does-not-treat-the-initially-created-run-as-already-comp
+              description: |-
+                Does not treat the initially created run as already completed.
+              weight: 1
+              pass_threshold: 1
+            - name: prompt/does-not-substitute-an-azure-openai-chat-client-or-anoth
+              description: |-
+                Does not substitute an Azure OpenAI chat client or another non-agents API for the
+                Azure AI Agents thread and run workflow.
+              weight: 1
+              pass_threshold: 1
+            - name: language/azure-identity-authentication
+              description: |-
+                Check that authentication follows the prompt and uses the appropriate modern .NET Azure SDK mechanism.
+                When token-based authentication is requested, uses an appropriate credential from Azure.Identity and passes it to the SDK client. When the prompt explicitly requests a connection string, connection-string construction is valid. Credentials, connection strings, and secrets are not hardcoded.
+              weight: 1
+              pass_threshold: 1
+            - name: language/sdk-specific-exception-handling
+              description: |-
+                Check that requested error handling uses the exception model of the selected .NET Azure SDK package.
+                When error handling is requested, catches the appropriate SDK exception, such as RequestFailedException for many Azure.* and ARM clients, CosmosException for Microsoft.Azure.Cosmos, ServiceBusException for Service Bus, EventHubsException for Event Hubs, or AuthenticationFailedException and CredentialUnavailableException for Azure Identity. Inspects status codes, error codes, or retry details when relevant instead of relying only on a generic Exception catch.
+              weight: 1
+              pass_threshold: 1
+            - name: language/asynchronous-sdk-usage
+              description: |-
+                Check that asynchronous .NET Azure SDK calls use normal asynchronous control flow.
+                When asynchronous SDK APIs are used, awaits them with async and await rather than blocking through .Result, .Wait(), or GetAwaiter().GetResult().
+              weight: 1
+              pass_threshold: 1
+      - type: run-command
+        name: program/dotnet-project-builds
+        config:
+          command: dotnet
+          args:
+            - build
+            - --nologo
+          timeout: 3m
+artifacts:
+  include:
+    - "**/*.cs"
+    - "**/*.csproj"
+    - "**/README.md"
+  exclude:
+    - "**/.vally/**"
+    - "**/bin/**"
+    - "**/obj/**"

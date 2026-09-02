@@ -1,0 +1,199 @@
+name: ai-projects-java-dataset-lifecycle
+description: "Can an application upload, retrieve, download, verify, and delete one exact Azure AI project dataset version?"
+version: "1.0"
+type: capability
+environment:
+  files:
+    - src: ../../eval-workspace.gitignore
+      dest: .gitignore
+    - src: ../../eval-workspace-AGENTS.md
+      dest: AGENTS.md
+    - src: ../../scripts/program-checks/java.mjs
+      dest: .vally/program-checks/java.mjs
+scoring:
+  weights: {}
+defaults:
+  runs: 1
+  timeout: 30m
+  model: gpt-5.6-sol
+  judge_model: gpt-5.6-sol
+stimuli:
+  - name: ai-projects-dp-java-dataset-lifecycle
+    prompt: |-
+      Create a complete, runnable Java console application using
+      `com.azure:azure-ai-projects` 2.4.0 and `com.azure:azure-storage-blob` 12.35.1.
+      
+      **Write the application to files in the workspace. Do not reply with code blocks.**
+      
+      The application must:
+      
+      - Read `FOUNDRY_PROJECT_ENDPOINT`, `DATASET_NAME`, `DATASET_VERSION`,
+        `DATA_FILE_PATH`, and `DOWNLOAD_FILE_PATH`.
+      - Upload the local file at `DATA_FILE_PATH` as the exact project dataset name and
+        version supplied by the user, using the project's default Azure Storage
+        connection.
+      - Retrieve that exact dataset version and print its SDK-defined name, version, ID,
+        type, and data URL.
+      - Request the dataset's SDK credential and blob reference. Use them with the Azure
+        Storage Blob SDK to download the referenced blob to `DOWNLOAD_FILE_PATH` without
+        displaying the SAS URL.
+      - Compare the downloaded bytes with the original file and fail if they differ.
+        Print the verified byte count only after the comparison succeeds.
+      - Delete the exact dataset name and version even when retrieval or download fails
+        after upload.
+      - Include the project manifest and concise restore, build, and run commands.
+      
+      Use the synchronous SDK clients throughout.
+    tags:
+      service: foundry
+      plane: data-plane
+      language: java
+      category: projects
+    graders:
+      - type: panel
+        name: prompt/full-case-review
+        weight: 1
+        config:
+          prompt: |-
+            Review the generated implementation against every criterion.
+            Score each criterion independently. Accept equivalent valid
+            implementations and judge code behavior rather than syntax.
+            Return every criterion name exactly as provided. The criterion
+            value must start with "prompt/" or "language/". Never copy a rubric
+            list number into the criterion value. For example, return
+            "prompt/foo", never "1. prompt/foo".
+          models:
+            - gpt-5.6-sol
+          aggregation: unanimous
+          scoring: binary
+          threshold: 0
+          overall_threshold: 0
+          evidence:
+            - trajectory
+            - repo
+          criteria:
+            - name: prompt/builds-datasetsclient-with-aiprojectclientbuilder-and-ca
+              description: |-
+                Builds `DatasetsClient` with `AIProjectClientBuilder` and calls
+                `createDatasetWithFile` with the supplied name, version, and `Path`.
+              weight: 1
+              pass_threshold: 1
+            - name: prompt/calls-getdatasetversion-with-the-same-name-and-version-a
+              description: |-
+                Calls `getDatasetVersion` with the same name and version and prints typed
+                `DatasetVersion` metadata, including its type and data URL.
+              weight: 1
+              pass_threshold: 1
+            - name: prompt/calls-getcredentials-for-that-exact-version-combines-dat
+              description: |-
+                Calls `getCredentials` for that exact version, combines
+                `DatasetCredential.getBlobReference().getBlobUrl()` with its SAS credential, and
+                downloads the correct blob through `BlobClient`.
+              weight: 1
+              pass_threshold: 1
+            - name: prompt/persists-the-blob-at-download-file-path-compares-its-byt
+              description: |-
+                Persists the blob at `DOWNLOAD_FILE_PATH`, compares its bytes with the original
+                file, and prints a byte count derived from the verified download.
+              weight: 1
+              pass_threshold: 1
+            - name: prompt/calls-deletedatasetversion-with-the-exact-name-and-versi
+              description: |-
+                Calls `deleteDatasetVersion` with the exact name and version in cleanup after a
+                successful upload.
+              weight: 1
+              pass_threshold: 1
+            - name: prompt/does-not-invent-a-downloaddataset-api
+              description: |-
+                Does not invent a `downloadDataset` API.
+              weight: 1
+              pass_threshold: 1
+            - name: prompt/does-not-print-the-sas-url-hardcode-downloaded-content-o
+              description: |-
+                Does not print the SAS URL, hardcode downloaded content, or skip the byte
+                comparison.
+              weight: 1
+              pass_threshold: 1
+            - name: prompt/does-not-replace-the-project-dataset-upload-or-storage-b
+              description: |-
+                Does not replace the project dataset upload or Storage Blob download with direct
+                HTTP calls.
+              weight: 1
+              pass_threshold: 1
+            - name: prompt/does-not-delete-only-by-dataset-name-or-omit-cleanup-on
+              description: |-
+                Does not delete only by dataset name or omit cleanup on a post-upload failure.
+              weight: 1
+              pass_threshold: 1
+            - name: language/correct-dependencies-com-azure-not-com-microsoft-azure
+              description: |-
+                Uses com.azure group ID for all Azure SDK packages. No com.microsoft.azure (legacy SDK) dependencies. Includes azure-identity for authentication.
+              weight: 1
+              pass_threshold: 1
+            - name: language/azure-sdk-bom-for-version-management
+              description: |-
+                Uses azure-sdk-bom in dependencyManagement to manage Azure SDK versions instead of hardcoding individual artifact versions. Dependencies should omit <version> tags when managed by the BOM.
+              weight: 1
+              pass_threshold: 1
+            - name: language/correct-imports-no-legacy-no-internal-packages
+              description: |-
+                All imports use com.azure.* packages. No com.microsoft.azure.* (legacy) or com.azure.*.implementation.* (internal API) imports.
+              weight: 1
+              pass_threshold: 1
+            - name: language/defaultazurecredential-authentication
+              description: |-
+                Uses DefaultAzureCredential or another com.azure.identity credential. No hardcoded connection strings, account keys, SAS tokens, or secrets.
+              weight: 1
+              pass_threshold: 1
+            - name: language/client-builder-pattern
+              description: |-
+                SDK clients constructed using *ClientBuilder classes with .endpoint() or .vaultUrl() and .credential(). No legacy constructors (CloudStorageAccount, DocumentClient, KeyVaultClient).
+              weight: 1
+              pass_threshold: 1
+            - name: language/no-deprecated-legacy-classes
+              description: |-
+                No deprecated classes from the old SDK (CloudStorageAccount, CloudBlobClient, DocumentClient, QueueClient, ApplicationTokenCredentials, MSICredentials, ConnectionStringBuilder).
+              weight: 1
+              pass_threshold: 1
+            - name: language/pagination-pagediterable-pagedflux
+              description: |-
+                List/query operations return PagedIterable (sync) or PagedFlux (async). Does not flatten all pages into a raw List or Stream in memory.
+              weight: 1
+              pass_threshold: 1
+            - name: language/lro-pattern-syncpoller-pollerflux
+              description: |-
+                Long-running operations use SyncPoller (sync) or PollerFlux (async) with begin* method prefix. No Thread.sleep() polling loops.
+              weight: 1
+              pass_threshold: 1
+            - name: language/async-uses-project-reactor-mono-flux
+              description: |-
+                Async code uses Project Reactor types (Mono, Flux). Not CompletableFuture (wrong), not RxJava (wrong), not sync wrapped in ExecutorService. No .block() inside async service implementations.
+              weight: 1
+              pass_threshold: 1
+            - name: language/service-specific-exception-handling
+              description: |-
+                Catches service-specific exceptions (BlobStorageException, CosmosException, ServiceBusException, HttpResponseException) with status code inspection. Not just generic Exception catches.
+              weight: 1
+              pass_threshold: 1
+            - name: language/try-with-resources-for-clients
+              description: |-
+                All Azure SDK client instances that implement AutoCloseable are used within try-with-resources blocks or explicitly closed in a finally block.
+              weight: 1
+              pass_threshold: 1
+      - type: run-command
+        name: program/java-project-compiles
+        config:
+          command: node
+          args:
+            - .vally/program-checks/java.mjs
+          timeout: 3m
+artifacts:
+  include:
+    - "**/*.java"
+    - "**/pom.xml"
+    - "**/build.gradle"
+    - "**/build.gradle.kts"
+    - "**/README.md"
+  exclude:
+    - "**/.vally/**"
+    - "**/target/**"

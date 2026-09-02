@@ -1,0 +1,183 @@
+name: ai-agents-python-function-tool
+description: "Can an agent implement the Azure AI Agents required-action workflow for a local function tool?"
+version: "1.0"
+type: capability
+environment:
+  files:
+    - src: ../../eval-workspace.gitignore
+      dest: .gitignore
+    - src: ../../eval-workspace-AGENTS.md
+      dest: AGENTS.md
+    - src: ../../scripts/program-checks/python.py
+      dest: .vally/program-checks/python.py
+scoring:
+  weights: {}
+defaults:
+  runs: 1
+  timeout: 30m
+  model: gpt-5.6-sol
+  judge_model: gpt-5.6-sol
+stimuli:
+  - name: ai-agents-dp-python-function-tool
+    prompt: |-
+      Create a complete, runnable Python console application that uses `azure-ai-agents`
+      to answer a weather question through a local function tool.
+      
+      **Write the application to files in the workspace. Do not reply with code blocks.**
+      
+      The application must:
+      
+      - Read `PROJECT_ENDPOINT` and `MODEL_DEPLOYMENT_NAME`.
+      - Define a function tool named `get_weather` with required string parameters
+        `location` and `unit`; `unit` must allow only `c` or `f`.
+      - Implement the local function deterministically: for Seattle, return temperature
+        `21` for `c` or `70` for `f`, including the location and unit in the JSON result.
+      - Create an agent named `hyoka-weather-agent` whose instructions require using the
+        function for weather questions.
+      - Create a thread with the exact user message
+        `What is the weather in Seattle in celsius?`, then create a run.
+      - Poll the run. When it requires action, iterate its function tool calls, decode the
+        JSON arguments, invoke `get_weather`, create an output correlated with each tool
+        call ID, and submit all outputs through the SDK.
+      - Continue polling until terminal status. After successful completion, list messages
+        in chronological order and print assistant text.
+      - Delete the thread and agent.
+      - Include the dependency manifest and concise install and run commands.
+      
+      Use the synchronous SDK client throughout.
+    tags:
+      service: foundry
+      plane: data-plane
+      language: python
+      category: agents
+    graders:
+      - type: panel
+        name: prompt/full-case-review
+        weight: 1
+        config:
+          prompt: |-
+            Review the generated implementation against every criterion.
+            Score each criterion independently. Accept equivalent valid
+            implementations and judge code behavior rather than syntax.
+            Return every criterion name exactly as provided. The criterion
+            value must start with "prompt/" or "language/". Never copy a rubric
+            list number into the criterion value. For example, return
+            "prompt/foo", never "1. prompt/foo".
+          models:
+            - gpt-5.6-sol
+          aggregation: unanimous
+          scoring: binary
+          threshold: 0
+          overall_threshold: 0
+          evidence:
+            - trajectory
+            - repo
+          criteria:
+            - name: prompt/defines-get-weather-and-exposes-it-through-functiontool
+              description: |-
+                Defines `get_weather` and exposes it through `FunctionTool` with the required
+                schema.
+              weight: 1
+              pass_threshold: 1
+            - name: prompt/passes-the-function-definition-when-calling-create-agent
+              description: |-
+                Passes the function definition when calling `create_agent`.
+              weight: 1
+              pass_threshold: 1
+            - name: prompt/creates-the-thread-exact-user-message-and-run-with-the-c
+              description: |-
+                Creates the thread, exact user message, and run with the created IDs.
+              weight: 1
+              pass_threshold: 1
+            - name: prompt/detects-requires-action-and-submittooloutputsaction
+              description: |-
+                Detects `requires_action` and `SubmitToolOutputsAction`.
+              weight: 1
+              pass_threshold: 1
+            - name: prompt/processes-every-requiredfunctiontoolcall-checks-its-name
+              description: |-
+                Processes every `RequiredFunctionToolCall`, checks its name, and parses `location`
+                and `unit` from its arguments.
+              weight: 1
+              pass_threshold: 1
+            - name: prompt/produces-deterministic-json-by-invoking-local-code-rathe
+              description: |-
+                Produces deterministic JSON by invoking local code rather than returning a fixed
+                assistant response.
+              weight: 1
+              pass_threshold: 1
+            - name: prompt/creates-tooloutput-values-with-each-originating-tool-cal
+              description: |-
+                Creates `ToolOutput` values with each originating tool-call ID and submits them
+                through `runs.submit_tool_outputs`.
+              weight: 1
+              pass_threshold: 1
+            - name: prompt/resumes-polling-after-submission-requires-completed-stat
+              description: |-
+                Resumes polling after submission, requires completed status, and retrieves
+                ascending assistant `text_messages`.
+              weight: 1
+              pass_threshold: 1
+            - name: prompt/deletes-the-created-thread-and-agent
+              description: |-
+                Deletes the created thread and agent.
+              weight: 1
+              pass_threshold: 1
+            - name: prompt/does-not-call-the-weather-function-before-the-service-re
+              description: |-
+                Does not call the weather function before the service requests it.
+              weight: 1
+              pass_threshold: 1
+            - name: prompt/does-not-discard-tool-call-ids-or-submit-one-output-for
+              description: |-
+                Does not discard tool-call IDs or submit one output for unrelated calls.
+              weight: 1
+              pass_threshold: 1
+            - name: prompt/does-not-stop-at-requires-action-or-print-the-local-func
+              description: |-
+                Does not stop at `requires_action` or print the local function result as though it
+                were the final assistant response.
+              weight: 1
+              pass_threshold: 1
+            - name: language/correct-package-imports
+              description: |-
+                Imports use the latest azure-sdk-for-python package structure (azure.*), not deprecated packages.
+              weight: 1
+              pass_threshold: 1
+            - name: language/defaultazurecredential-usage
+              description: |-
+                Authentication matches what the prompt asks for. If the prompt explicitly requires a connection string (or other key-based auth), using `from_connection_string()` / connection-string-based clients is correct and should pass. Otherwise, authentication must use DefaultAzureCredential from azure-identity (or another `azure.identity` credential), not connection strings or hardcoded keys. Hardcoded secrets/keys/connection strings in source code always fail — required values should come from environment variables or a secret store.
+              weight: 1
+              pass_threshold: 1
+            - name: language/context-manager-for-clients
+              description: |-
+                Azure SDK clients that support context managers are used with `with` statements or explicitly closed.
+              weight: 1
+              pass_threshold: 1
+            - name: language/async-client-usage
+              description: |-
+                If async operations are requested, code uses the async client variant with proper await patterns.
+              weight: 1
+              pass_threshold: 1
+            - name: language/proper-exception-handling
+              description: |-
+                Azure SDK exceptions (HttpResponseError and subclasses) are caught and handled appropriately.
+              weight: 1
+              pass_threshold: 1
+      - type: run-command
+        name: program/python-source-compiles
+        config:
+          command: python
+          args:
+            - .vally/program-checks/python.py
+          timeout: 30s
+artifacts:
+  include:
+    - "**/*.py"
+    - "**/requirements*.txt"
+    - "**/pyproject.toml"
+    - "**/README.md"
+  exclude:
+    - "**/.vally/**"
+    - "**/.venv/**"
+    - "**/__pycache__/**"

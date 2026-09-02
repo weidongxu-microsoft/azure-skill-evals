@@ -1,0 +1,197 @@
+name: ai-agents-java-file-search
+description: "Can an agent ground an Azure AI Agents response in an uploaded document through file search?"
+version: "1.0"
+type: capability
+environment:
+  files:
+    - src: ../../eval-workspace.gitignore
+      dest: .gitignore
+    - src: ../../eval-workspace-AGENTS.md
+      dest: AGENTS.md
+    - src: ../../scripts/program-checks/java.mjs
+      dest: .vally/program-checks/java.mjs
+scoring:
+  weights: {}
+defaults:
+  runs: 1
+  timeout: 30m
+  model: gpt-5.6-sol
+  judge_model: gpt-5.6-sol
+stimuli:
+  - name: ai-agents-dp-java-file-search
+    prompt: |-
+      Create a complete, runnable Java console application that uses
+      `com.azure:azure-ai-agents-persistent` to answer a question grounded in an uploaded
+      document.
+      
+      **Write the application to files in the workspace. Do not reply with code blocks.**
+      
+      The application must:
+      
+      - Read `PROJECT_ENDPOINT` and `MODEL_DEPLOYMENT_NAME`.
+      - Create a text document containing this exact fact:
+        `The Contoso Trail Guide says the Cascade Loop is 42 kilometers long and hikers should bring a rain jacket.`
+      - Upload the document for agents, create a vector store containing it, and wait until
+        the vector store is ready. Fail if indexing doesn't complete successfully.
+      - Create an agent named `hyoka-trail-guide-agent` with a file-search tool and tool
+        resources that reference the created vector store.
+      - Create a thread with the exact user message
+        `According to the uploaded guide, how long is the Cascade Loop and what should hikers bring?`
+      - Create and poll a run until terminal status, and require successful completion.
+      - List messages in chronological order and print agent text.
+      - Delete the thread, agent, vector store, and uploaded file in dependency order.
+      - Include the project manifest and concise restore, build, and run commands.
+      
+      Use the synchronous SDK clients throughout.
+    tags:
+      service: foundry
+      plane: data-plane
+      language: java
+      category: agents
+    graders:
+      - type: panel
+        name: prompt/full-case-review
+        weight: 1
+        config:
+          prompt: |-
+            Review the generated implementation against every criterion.
+            Score each criterion independently. Accept equivalent valid
+            implementations and judge code behavior rather than syntax.
+            Return every criterion name exactly as provided. The criterion
+            value must start with "prompt/" or "language/". Never copy a rubric
+            list number into the criterion value. For example, return
+            "prompt/foo", never "1. prompt/foo".
+          models:
+            - gpt-5.6-sol
+          aggregation: unanimous
+          scoring: binary
+          threshold: 0
+          overall_threshold: 0
+          evidence:
+            - trajectory
+            - repo
+          criteria:
+            - name: prompt/uploads-filedetails-through-uploadfilerequest-with-filep
+              description: |-
+                Uploads `FileDetails` through `UploadFileRequest` with `FilePurpose.AGENTS`.
+              weight: 1
+              pass_threshold: 1
+            - name: prompt/creates-a-vector-store-with-the-uploaded-file-id-polls-i
+              description: |-
+                Creates a vector store with the uploaded file ID, polls its status while indexing,
+                and requires `VectorStoreStatus.COMPLETED`.
+              weight: 1
+              pass_threshold: 1
+            - name: prompt/adds-both-filesearchtooldefinition-and-filesearchtoolres
+              description: |-
+                Adds both `FileSearchToolDefinition` and `FileSearchToolResource` containing the
+                vector-store ID in `CreateAgentOptions`.
+              weight: 1
+              pass_threshold: 1
+            - name: prompt/creates-the-thread-exact-grounded-question-and-run-with
+              description: |-
+                Creates the thread, exact grounded question, and run with the created IDs.
+              weight: 1
+              pass_threshold: 1
+            - name: prompt/polls-the-run-through-queued-and-in-progress-states-requ
+              description: |-
+                Polls the run through queued and in-progress states, requires
+                `RunStatus.COMPLETED`, and retrieves ascending `MessageRole.AGENT` text through
+                `MessageTextContent`.
+              weight: 1
+              pass_threshold: 1
+            - name: prompt/deletes-the-thread-before-the-agent-then-deletes-the-vec
+              description: |-
+                Deletes the thread before the agent, then deletes the vector store before the
+                uploaded file.
+              weight: 1
+              pass_threshold: 1
+            - name: prompt/does-not-put-a-local-file-path-or-uploaded-file-id-direc
+              description: |-
+                Does not put a local file path or uploaded file ID directly in the user message as
+                a substitute for file-search tool resources.
+              weight: 1
+              pass_threshold: 1
+            - name: prompt/does-not-start-the-run-before-vector-store-indexing-comp
+              description: |-
+                Does not start the run before vector-store indexing completes.
+              weight: 1
+              pass_threshold: 1
+            - name: prompt/does-not-print-the-known-document-fact-directly-as-thoug
+              description: |-
+                Does not print the known document fact directly as though it were the agent's
+                grounded response.
+              weight: 1
+              pass_threshold: 1
+            - name: language/correct-dependencies-com-azure-not-com-microsoft-azure
+              description: |-
+                Uses com.azure group ID for all Azure SDK packages. No com.microsoft.azure (legacy SDK) dependencies. Includes azure-identity for authentication.
+              weight: 1
+              pass_threshold: 1
+            - name: language/azure-sdk-bom-for-version-management
+              description: |-
+                Uses azure-sdk-bom in dependencyManagement to manage Azure SDK versions instead of hardcoding individual artifact versions. Dependencies should omit <version> tags when managed by the BOM.
+              weight: 1
+              pass_threshold: 1
+            - name: language/correct-imports-no-legacy-no-internal-packages
+              description: |-
+                All imports use com.azure.* packages. No com.microsoft.azure.* (legacy) or com.azure.*.implementation.* (internal API) imports.
+              weight: 1
+              pass_threshold: 1
+            - name: language/defaultazurecredential-authentication
+              description: |-
+                Uses DefaultAzureCredential or another com.azure.identity credential. No hardcoded connection strings, account keys, SAS tokens, or secrets.
+              weight: 1
+              pass_threshold: 1
+            - name: language/client-builder-pattern
+              description: |-
+                SDK clients constructed using *ClientBuilder classes with .endpoint() or .vaultUrl() and .credential(). No legacy constructors (CloudStorageAccount, DocumentClient, KeyVaultClient).
+              weight: 1
+              pass_threshold: 1
+            - name: language/no-deprecated-legacy-classes
+              description: |-
+                No deprecated classes from the old SDK (CloudStorageAccount, CloudBlobClient, DocumentClient, QueueClient, ApplicationTokenCredentials, MSICredentials, ConnectionStringBuilder).
+              weight: 1
+              pass_threshold: 1
+            - name: language/pagination-pagediterable-pagedflux
+              description: |-
+                List/query operations return PagedIterable (sync) or PagedFlux (async). Does not flatten all pages into a raw List or Stream in memory.
+              weight: 1
+              pass_threshold: 1
+            - name: language/lro-pattern-syncpoller-pollerflux
+              description: |-
+                Long-running operations use SyncPoller (sync) or PollerFlux (async) with begin* method prefix. No Thread.sleep() polling loops.
+              weight: 1
+              pass_threshold: 1
+            - name: language/async-uses-project-reactor-mono-flux
+              description: |-
+                Async code uses Project Reactor types (Mono, Flux). Not CompletableFuture (wrong), not RxJava (wrong), not sync wrapped in ExecutorService. No .block() inside async service implementations.
+              weight: 1
+              pass_threshold: 1
+            - name: language/service-specific-exception-handling
+              description: |-
+                Catches service-specific exceptions (BlobStorageException, CosmosException, ServiceBusException, HttpResponseException) with status code inspection. Not just generic Exception catches.
+              weight: 1
+              pass_threshold: 1
+            - name: language/try-with-resources-for-clients
+              description: |-
+                All Azure SDK client instances that implement AutoCloseable are used within try-with-resources blocks or explicitly closed in a finally block.
+              weight: 1
+              pass_threshold: 1
+      - type: run-command
+        name: program/java-project-compiles
+        config:
+          command: node
+          args:
+            - .vally/program-checks/java.mjs
+          timeout: 3m
+artifacts:
+  include:
+    - "**/*.java"
+    - "**/pom.xml"
+    - "**/build.gradle"
+    - "**/build.gradle.kts"
+    - "**/README.md"
+  exclude:
+    - "**/.vally/**"
+    - "**/target/**"

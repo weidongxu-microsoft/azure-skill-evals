@@ -1,0 +1,202 @@
+name: document-translation-typescript-batch-container
+description: "Can an application start a container translation, wait for completion, and enumerate every document status and failure?"
+version: "1.0"
+type: capability
+environment:
+  files:
+    - src: ../../eval-workspace.gitignore
+      dest: .gitignore
+    - src: ../../eval-workspace-AGENTS.md
+      dest: AGENTS.md
+scoring:
+  weights: {}
+defaults:
+  runs: 1
+  timeout: 30m
+  model: gpt-5.6-sol
+  judge_model: gpt-5.6-sol
+stimuli:
+  - name: document-translation-dp-typescript-batch-container
+    prompt: |-
+      Create a complete, runnable TypeScript console application using
+      `@azure/ai-translation-document` 1.0.0. Target Node.js 22. Accept exactly three
+      command-line arguments: source-container URI, target-container URI, and
+      target-language code. Read `AZURE_DOCUMENT_TRANSLATION_ENDPOINT`.
+      
+      **Write the application to files in the workspace. Do not reply with code blocks.**
+      
+      The application must:
+      
+      - Start one batch document translation from the supplied source container to the
+        supplied target container and language.
+      - Use the SDK long-running operation and wait for it to finish.
+      - Print the returned overall translation status.
+      - Page through every document status in that operation and print each document
+        ID and status.
+      - For every document whose returned failure information is present, print its
+        returned error code and message.
+      - Include the project manifest and concise install, build, and run commands.
+      
+      Use async/await throughout.
+    tags:
+      service: foundry
+      plane: data-plane
+      language: typescript
+      category: batch
+    graders:
+      - type: panel
+        name: prompt/full-case-review
+        weight: 1
+        config:
+          prompt: |-
+            Review the generated implementation against every criterion.
+            Score each criterion independently. Accept equivalent valid
+            implementations and judge code behavior rather than syntax.
+            Return every criterion name exactly as provided. The criterion
+            value must start with "prompt/" or "language/". Never copy a rubric
+            list number into the criterion value. For example, return
+            "prompt/foo", never "1. prompt/foo".
+          models:
+            - gpt-5.6-sol
+          aggregation: unanimous
+          scoring: binary
+          threshold: 0
+          overall_threshold: 0
+          evidence:
+            - trajectory
+            - repo
+          criteria:
+            - name: prompt/imports-and-constructs-documenttranslationclient-from-th
+              description: |-
+                Imports and constructs `DocumentTranslationClient` from the released non-REST
+                `@azure/ai-translation-document` package, not
+                `SingleDocumentTranslationClient`.
+              weight: 1
+              pass_threshold: 1
+            - name: prompt/calls-starttranslation-with-one-input-whose-source-sourc
+              description: |-
+                Calls `startTranslation` with one input whose `source.sourceUrl`,
+                `targets[0].targetUrl`, and `targets[0].language` come from the supplied
+                arguments.
+              weight: 1
+              pass_threshold: 1
+            - name: prompt/calls-polluntildone-on-the-returned-poller-and-prints-it
+              description: |-
+                Calls `pollUntilDone()` on the returned poller and prints its returned status.
+              weight: 1
+              pass_threshold: 1
+            - name: prompt/uses-for-await-of-over-client-listdocumentstatuses-resul
+              description: |-
+                Uses `for await...of` over
+                `client.listDocumentStatuses(result.id)`, traversing every page.
+              weight: 1
+              pass_threshold: 1
+            - name: prompt/prints-each-document-s-id-and-status-and-prints-error-co
+              description: |-
+                Prints each document's `id` and `status`, and prints `error.code` and
+                `error.message` whenever error details are present.
+              weight: 1
+              pass_threshold: 1
+            - name: prompt/does-not-use-the-obsolete-planned-azure-rest-ai-translat
+              description: |-
+                Does not use the obsolete/planned
+                `@azure-rest/ai-translation-document` package, the single-document client, or
+                multipart upload workflow.
+              weight: 1
+              pass_threshold: 1
+            - name: prompt/does-not-omit-poller-completion-or-treat-starttranslatio
+              description: |-
+                Does not omit poller completion or treat `startTranslation` as a promise for
+                the final result.
+              weight: 1
+              pass_threshold: 1
+            - name: prompt/does-not-print-only-overall-counts-select-one-document-o
+              description: |-
+                Does not print only overall counts, select one document, or consume one page.
+              weight: 1
+              pass_threshold: 1
+            - name: prompt/does-not-omit-returned-document-failure-code-or-message
+              description: |-
+                Does not omit returned document failure code or message.
+              weight: 1
+              pass_threshold: 1
+            - name: language/correct-azure-scoped-packages
+              description: |-
+                All Azure SDK dependencies use @azure/ scoped packages (e.g., @azure/storage-blob, @azure/keyvault-secrets, @azure/identity). No deprecated unscoped packages (azure-storage, azure-arm-*, ms-rest-azure, @azure/ms-rest-*).
+              weight: 1
+              pass_threshold: 1
+            - name: language/azure-identity-for-authentication
+              description: |-
+                Includes @azure/identity as a dependency. For local development, DefaultAzureCredential is acceptable. For production code, uses a specific Entra token credential (e.g., ManagedIdentityCredential, ClientSecretCredential, WorkloadIdentityCredential) or configures DefaultAzureCredential with the AZURE_TOKEN_CREDENTIALS environment variable set to "prod" or a specific token credential. No hardcoded connection strings, account keys, SAS tokens, or secrets in code.
+              weight: 1
+              pass_threshold: 1
+            - name: language/client-constructor-with-endpoint-and-credential
+              description: |-
+                SDK clients constructed with endpoint URL and credential object, e.g. new BlobServiceClient(url, credential) or new SecretClient(vaultUrl, credential). No legacy constructor patterns or connection string-based construction when identity-based auth is available.
+              weight: 1
+              pass_threshold: 1
+            - name: language/async-await-pattern
+              description: |-
+                Uses async/await for all asynchronous operations. No raw .then()/.catch() chains when await is cleaner. No callback-based patterns. Top-level async function or IIFE for entry point.
+              weight: 1
+              pass_threshold: 1
+            - name: language/pagination-with-for-await-of
+              description: |-
+                List/query operations use for-await-of iteration over the PagedAsyncIterableIterator returned by SDK methods. Does not collect all pages into an array in memory (e.g., no Array.from() or manual page accumulation). Uses byPage() when per-page control is needed.
+              weight: 1
+              pass_threshold: 1
+            - name: language/lro-pattern-beginxxx-polluntildone
+              description: |-
+                Long-running operations use the begin* method prefix (e.g., beginDeleteSecret, beginCreateOrUpdate) and await poller.pollUntilDone(). No manual setTimeout/setInterval polling loops.
+              weight: 1
+              pass_threshold: 1
+            - name: language/resterror-exception-handling
+              description: |-
+                Catches RestError (from @azure/core-rest-pipeline or the service package) with statusCode inspection for error-specific handling. Not just generic Error or try/catch without type checking.
+              weight: 1
+              pass_threshold: 1
+            - name: language/no-deprecated-packages
+              description: |-
+                No deprecated or legacy Azure packages in package.json: azure-storage, azure-arm-*, ms-rest-azure, @azure/ms-rest-js, @azure/ms-rest-nodeauth, @azure/ms-rest-azure-js. All dependencies use the current @azure/* track.
+              weight: 1
+              pass_threshold: 1
+            - name: language/logging-via-azure-logger
+              description: |-
+                Uses @azure/logger with setLogLevel() or the AZURE_LOG_LEVEL environment variable for SDK diagnostic logging. No custom logging wrappers around SDK internals.
+              weight: 1
+              pass_threshold: 1
+            - name: language/package-json-with-correct-dependencies
+              description: |-
+                Includes a valid package.json with all required @azure/* dependencies listed. TypeScript projects include tsconfig.json and appropriate @types/* packages or use a recent TypeScript version with built-in types.
+              weight: 1
+              pass_threshold: 1
+      - type: run-command
+        name: program/typescript-dependencies-install
+        config:
+          command: npm
+          args:
+            - install
+            - --ignore-scripts
+            - --no-audit
+            - --no-fund
+          timeout: 3m
+      - type: run-command
+        name: program/typescript-type-checks
+        config:
+          command: npx
+          args:
+            - --no-install
+            - tsc
+            - --noEmit
+          timeout: 2m
+artifacts:
+  include:
+    - "**/*.ts"
+    - "**/*.js"
+    - "**/package.json"
+    - "**/tsconfig.json"
+    - "**/README.md"
+  exclude:
+    - "**/.vally/**"
+    - "**/node_modules/**"
+    - "**/dist/**"

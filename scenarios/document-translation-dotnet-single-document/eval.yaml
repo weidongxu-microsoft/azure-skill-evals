@@ -1,0 +1,144 @@
+name: document-translation-dotnet-single-document
+description: "Can an application translate one local document with the synchronous document API and preserve the returned bytes?"
+version: "1.0"
+type: capability
+environment:
+  files:
+    - src: ../../eval-workspace.gitignore
+      dest: .gitignore
+    - src: ../../eval-workspace-AGENTS.md
+      dest: AGENTS.md
+scoring:
+  weights: {}
+defaults:
+  runs: 1
+  timeout: 30m
+  model: gpt-5.6-sol
+  judge_model: gpt-5.6-sol
+stimuli:
+  - name: document-translation-dp-dotnet-single-document
+    prompt: |-
+      Create a complete, runnable .NET console application using
+      `Azure.AI.Translation.Document` 3.0.0. Accept exactly three command-line
+      arguments: local document path, target-language code, and output path. Read
+      `AZURE_DOCUMENT_TRANSLATION_ENDPOINT`.
+      
+      **Write the application to files in the workspace. Do not reply with code blocks.**
+      
+      The application must:
+      
+      - Open the local document as binary data and infer its media type from the file
+        extension, rejecting unsupported extensions.
+      - Use the current single-document translation client and API, supplying the
+        original filename, media type, file content, and target language.
+      - Persist the exact returned document bytes to the requested output path without
+        decoding, parsing, or transforming them.
+      - Include the project manifest and concise restore, build, and run commands.
+      
+      Use asynchronous SDK operations.
+    tags:
+      service: foundry
+      plane: data-plane
+      language: dotnet
+      category: translation
+    graders:
+      - type: panel
+        name: prompt/full-case-review
+        weight: 1
+        config:
+          prompt: |-
+            Review the generated implementation against every criterion.
+            Score each criterion independently. Accept equivalent valid
+            implementations and judge code behavior rather than syntax.
+            Return every criterion name exactly as provided. The criterion
+            value must start with "prompt/" or "language/". Never copy a rubric
+            list number into the criterion value. For example, return
+            "prompt/foo", never "1. prompt/foo".
+          models:
+            - gpt-5.6-sol
+          aggregation: unanimous
+          scoring: binary
+          threshold: 0
+          overall_threshold: 0
+          evidence:
+            - trajectory
+            - repo
+          criteria:
+            - name: prompt/constructs-singledocumenttranslationclient-not-documentt
+              description: |-
+                Constructs `SingleDocumentTranslationClient`, not
+                `DocumentTranslationClient`.
+              weight: 1
+              pass_threshold: 1
+            - name: prompt/wraps-the-input-stream-in-multipartformfiledata-with-the
+              description: |-
+                Wraps the input stream in `MultipartFormFileData` with the input filename and a
+                media type derived from the extension, then creates `DocumentTranslateContent`.
+              weight: 1
+              pass_threshold: 1
+            - name: prompt/calls-translateasync-targetlanguage-content
+              description: |-
+                Calls `TranslateAsync(targetLanguage, content)`.
+              weight: 1
+              pass_threshold: 1
+            - name: prompt/writes-response-value-directly-as-bytes-to-the-output-st
+              description: |-
+                Writes `response.Value` directly as bytes to the output stream.
+              weight: 1
+              pass_threshold: 1
+            - name: prompt/does-not-use-the-batch-container-client-or-invent-a-sing
+              description: |-
+                Does not use the batch/container client or invent a single-document method on
+                it.
+              weight: 1
+              pass_threshold: 1
+            - name: prompt/does-not-submit-base64-json-or-omit-multipart-filename-c
+              description: |-
+                Does not submit base64 JSON or omit multipart filename/content-type metadata.
+              weight: 1
+              pass_threshold: 1
+            - name: prompt/does-not-convert-the-binary-response-to-text-json-or-an
+              description: |-
+                Does not convert the binary response to text, JSON, or an object before writing.
+              weight: 1
+              pass_threshold: 1
+            - name: prompt/does-not-write-a-known-or-hardcoded-translated-output
+              description: |-
+                Does not write a known or hardcoded translated output.
+              weight: 1
+              pass_threshold: 1
+            - name: language/azure-identity-authentication
+              description: |-
+                Check that authentication follows the prompt and uses the appropriate modern .NET Azure SDK mechanism.
+                When token-based authentication is requested, uses an appropriate credential from Azure.Identity and passes it to the SDK client. When the prompt explicitly requests a connection string, connection-string construction is valid. Credentials, connection strings, and secrets are not hardcoded.
+              weight: 1
+              pass_threshold: 1
+            - name: language/sdk-specific-exception-handling
+              description: |-
+                Check that requested error handling uses the exception model of the selected .NET Azure SDK package.
+                When error handling is requested, catches the appropriate SDK exception, such as RequestFailedException for many Azure.* and ARM clients, CosmosException for Microsoft.Azure.Cosmos, ServiceBusException for Service Bus, EventHubsException for Event Hubs, or AuthenticationFailedException and CredentialUnavailableException for Azure Identity. Inspects status codes, error codes, or retry details when relevant instead of relying only on a generic Exception catch.
+              weight: 1
+              pass_threshold: 1
+            - name: language/asynchronous-sdk-usage
+              description: |-
+                Check that asynchronous .NET Azure SDK calls use normal asynchronous control flow.
+                When asynchronous SDK APIs are used, awaits them with async and await rather than blocking through .Result, .Wait(), or GetAwaiter().GetResult().
+              weight: 1
+              pass_threshold: 1
+      - type: run-command
+        name: program/dotnet-project-builds
+        config:
+          command: dotnet
+          args:
+            - build
+            - --nologo
+          timeout: 3m
+artifacts:
+  include:
+    - "**/*.cs"
+    - "**/*.csproj"
+    - "**/README.md"
+  exclude:
+    - "**/.vally/**"
+    - "**/bin/**"
+    - "**/obj/**"

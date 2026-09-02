@@ -1,0 +1,209 @@
+name: ai-agents-typescript-basic-agent-lifecycle
+description: "Can an agent build a complete Azure AI Agents application that creates an agent conversation, runs it to completion, and reads the assistant response?"
+version: "1.0"
+type: capability
+environment:
+  files:
+    - src: ../../eval-workspace.gitignore
+      dest: .gitignore
+    - src: ../../eval-workspace-AGENTS.md
+      dest: AGENTS.md
+scoring:
+  weights: {}
+defaults:
+  runs: 1
+  timeout: 30m
+  model: gpt-5.6-sol
+  judge_model: gpt-5.6-sol
+stimuli:
+  - name: ai-agents-dp-typescript-basic-agent-lifecycle
+    prompt: |-
+      Create a complete, runnable TypeScript console application that uses the
+      `@azure/ai-agents` package to run a basic Azure AI Agent conversation.
+      
+      **Write the application to files in the workspace. Do not reply with code blocks.**
+      
+      The application must:
+      
+      - Read the Azure AI project endpoint from `PROJECT_ENDPOINT` and the model deployment
+        name from `MODEL_DEPLOYMENT_NAME`.
+      - Create the Azure AI Agents client using the project endpoint and
+        `DefaultAzureCredential`.
+      - Create an agent named `hyoka-basic-agent` with the instructions
+        `Answer the user's question clearly and concisely.`
+      - Create a thread and add this exact user message:
+        `What is the capital of France?`
+      - Create a run for that thread and agent, then use the SDK to refresh the run until it
+        reaches a terminal status.
+      - After a successful run, list the thread messages in chronological order and print
+        the text content of every assistant message.
+      - Delete the thread and agent after the conversation finishes.
+      - Include the project manifest and concise commands for restoring, building, and
+        running the application.
+      
+      Use async/await throughout the agent workflow.
+    tags:
+      service: foundry
+      plane: data-plane
+      language: typescript
+      category: agents
+    graders:
+      - type: panel
+        name: prompt/full-case-review
+        weight: 1
+        config:
+          prompt: |-
+            Review the generated implementation against every criterion.
+            Score each criterion independently. Accept equivalent valid
+            implementations and judge code behavior rather than syntax.
+            Return every criterion name exactly as provided. The criterion
+            value must start with "prompt/" or "language/". Never copy a rubric
+            list number into the criterion value. For example, return
+            "prompt/foo", never "1. prompt/foo".
+          models:
+            - gpt-5.6-sol
+          aggregation: unanimous
+          scoring: binary
+          threshold: 0
+          overall_threshold: 0
+          evidence:
+            - trajectory
+            - repo
+          criteria:
+            - name: prompt/creates-agentsclient-from-azure-ai-agents-with-the-proje
+              description: |-
+                Creates `AgentsClient` from `@azure/ai-agents` with the project endpoint.
+              weight: 1
+              pass_threshold: 1
+            - name: prompt/calls-client-createagent-with-the-deployment-from-model
+              description: |-
+                Calls `client.createAgent` with the deployment from `MODEL_DEPLOYMENT_NAME`, the
+                required name, and the required instructions.
+              weight: 1
+              pass_threshold: 1
+            - name: prompt/creates-a-thread-with-client-threads-create
+              description: |-
+                Creates a thread with `client.threads.create`.
+              weight: 1
+              pass_threshold: 1
+            - name: prompt/adds-the-exact-user-message-with-client-messages-create
+              description: |-
+                Adds the exact user message with `client.messages.create`, role `user`, and the
+                created thread ID.
+              weight: 1
+              pass_threshold: 1
+            - name: prompt/creates-and-polls-the-run-with-the-created-thread-id-and
+              description: |-
+                Creates and polls the run with the created thread ID and agent ID, using the SDK
+                poller or repeated SDK retrieval until a terminal status is reached.
+              weight: 1
+              pass_threshold: 1
+            - name: prompt/retrieves-messages-only-after-successful-completion-requ
+              description: |-
+                Retrieves messages only after successful completion, requests chronological order,
+                and extracts text content from assistant messages instead of serializing raw SDK
+                objects.
+              weight: 1
+              pass_threshold: 1
+            - name: prompt/deletes-the-created-thread-with-client-threads-delete-an
+              description: |-
+                Deletes the created thread with `client.threads.delete` and the created agent with
+                `client.deleteAgent`.
+              weight: 1
+              pass_threshold: 1
+            - name: prompt/does-not-print-a-hardcoded-answer-instead-of-retrieving
+              description: |-
+                Does not print a hardcoded answer instead of retrieving agent messages.
+              weight: 1
+              pass_threshold: 1
+            - name: prompt/does-not-treat-the-initially-created-run-as-already-comp
+              description: |-
+                Does not treat the initially created run as already completed.
+              weight: 1
+              pass_threshold: 1
+            - name: prompt/does-not-substitute-an-azure-openai-chat-client-or-anoth
+              description: |-
+                Does not substitute an Azure OpenAI chat client or another non-agents API for the
+                Azure AI Agents thread and run workflow.
+              weight: 1
+              pass_threshold: 1
+            - name: language/correct-azure-scoped-packages
+              description: |-
+                All Azure SDK dependencies use @azure/ scoped packages (e.g., @azure/storage-blob, @azure/keyvault-secrets, @azure/identity). No deprecated unscoped packages (azure-storage, azure-arm-*, ms-rest-azure, @azure/ms-rest-*).
+              weight: 1
+              pass_threshold: 1
+            - name: language/azure-identity-for-authentication
+              description: |-
+                Includes @azure/identity as a dependency. For local development, DefaultAzureCredential is acceptable. For production code, uses a specific Entra token credential (e.g., ManagedIdentityCredential, ClientSecretCredential, WorkloadIdentityCredential) or configures DefaultAzureCredential with the AZURE_TOKEN_CREDENTIALS environment variable set to "prod" or a specific token credential. No hardcoded connection strings, account keys, SAS tokens, or secrets in code.
+              weight: 1
+              pass_threshold: 1
+            - name: language/client-constructor-with-endpoint-and-credential
+              description: |-
+                SDK clients constructed with endpoint URL and credential object, e.g. new BlobServiceClient(url, credential) or new SecretClient(vaultUrl, credential). No legacy constructor patterns or connection string-based construction when identity-based auth is available.
+              weight: 1
+              pass_threshold: 1
+            - name: language/async-await-pattern
+              description: |-
+                Uses async/await for all asynchronous operations. No raw .then()/.catch() chains when await is cleaner. No callback-based patterns. Top-level async function or IIFE for entry point.
+              weight: 1
+              pass_threshold: 1
+            - name: language/pagination-with-for-await-of
+              description: |-
+                List/query operations use for-await-of iteration over the PagedAsyncIterableIterator returned by SDK methods. Does not collect all pages into an array in memory (e.g., no Array.from() or manual page accumulation). Uses byPage() when per-page control is needed.
+              weight: 1
+              pass_threshold: 1
+            - name: language/lro-pattern-beginxxx-polluntildone
+              description: |-
+                Long-running operations use the begin* method prefix (e.g., beginDeleteSecret, beginCreateOrUpdate) and await poller.pollUntilDone(). No manual setTimeout/setInterval polling loops.
+              weight: 1
+              pass_threshold: 1
+            - name: language/resterror-exception-handling
+              description: |-
+                Catches RestError (from @azure/core-rest-pipeline or the service package) with statusCode inspection for error-specific handling. Not just generic Error or try/catch without type checking.
+              weight: 1
+              pass_threshold: 1
+            - name: language/no-deprecated-packages
+              description: |-
+                No deprecated or legacy Azure packages in package.json: azure-storage, azure-arm-*, ms-rest-azure, @azure/ms-rest-js, @azure/ms-rest-nodeauth, @azure/ms-rest-azure-js. All dependencies use the current @azure/* track.
+              weight: 1
+              pass_threshold: 1
+            - name: language/logging-via-azure-logger
+              description: |-
+                Uses @azure/logger with setLogLevel() or the AZURE_LOG_LEVEL environment variable for SDK diagnostic logging. No custom logging wrappers around SDK internals.
+              weight: 1
+              pass_threshold: 1
+            - name: language/package-json-with-correct-dependencies
+              description: |-
+                Includes a valid package.json with all required @azure/* dependencies listed. TypeScript projects include tsconfig.json and appropriate @types/* packages or use a recent TypeScript version with built-in types.
+              weight: 1
+              pass_threshold: 1
+      - type: run-command
+        name: program/typescript-dependencies-install
+        config:
+          command: npm
+          args:
+            - install
+            - --ignore-scripts
+            - --no-audit
+            - --no-fund
+          timeout: 3m
+      - type: run-command
+        name: program/typescript-type-checks
+        config:
+          command: npx
+          args:
+            - --no-install
+            - tsc
+            - --noEmit
+          timeout: 2m
+artifacts:
+  include:
+    - "**/*.ts"
+    - "**/*.js"
+    - "**/package.json"
+    - "**/tsconfig.json"
+    - "**/README.md"
+  exclude:
+    - "**/.vally/**"
+    - "**/node_modules/**"
+    - "**/dist/**"

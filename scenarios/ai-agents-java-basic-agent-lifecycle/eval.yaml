@@ -1,0 +1,210 @@
+name: ai-agents-java-basic-agent-lifecycle
+description: "Can an agent build a complete Azure AI Agents application that creates an agent conversation, runs it to completion, and reads the assistant response?"
+version: "1.0"
+type: capability
+environment:
+  files:
+    - src: ../../eval-workspace.gitignore
+      dest: .gitignore
+    - src: ../../eval-workspace-AGENTS.md
+      dest: AGENTS.md
+    - src: ../../scripts/program-checks/java.mjs
+      dest: .vally/program-checks/java.mjs
+scoring:
+  weights: {}
+defaults:
+  runs: 1
+  timeout: 30m
+  model: gpt-5.6-sol
+  judge_model: gpt-5.6-sol
+stimuli:
+  - name: ai-agents-dp-java-basic-agent-lifecycle
+    prompt: |-
+      Create a complete, runnable Java console application that uses the
+      `com.azure:azure-ai-agents-persistent` package to run a basic Azure AI Agent
+      conversation.
+      
+      **Write the application to files in the workspace. Do not reply with code blocks.**
+      
+      The application must:
+      
+      - Read the Azure AI project endpoint from `PROJECT_ENDPOINT` and the model deployment
+        name from `MODEL_DEPLOYMENT_NAME`.
+      - Create the Azure AI Agents client using the project endpoint and
+        `DefaultAzureCredential`.
+      - Create an agent named `hyoka-basic-agent` with the instructions
+        `Answer the user's question clearly and concisely.`
+      - Create a thread and add this exact user message:
+        `What is the capital of France?`
+      - Create a run for that thread and agent, then use the SDK to refresh the run until it
+        reaches a terminal status.
+      - After a successful run, list the thread messages in chronological order and print
+        the text content of every assistant message.
+      - Delete the thread and agent after the conversation finishes.
+      - Include the project manifest and concise commands for restoring, building, and
+        running the application.
+      
+      Use the synchronous Azure AI Agents client throughout the agent workflow.
+    tags:
+      service: foundry
+      plane: data-plane
+      language: java
+      category: agents
+    graders:
+      - type: panel
+        name: prompt/full-case-review
+        weight: 1
+        config:
+          prompt: |-
+            Review the generated implementation against every criterion.
+            Score each criterion independently. Accept equivalent valid
+            implementations and judge code behavior rather than syntax.
+            Return every criterion name exactly as provided. The criterion
+            value must start with "prompt/" or "language/". Never copy a rubric
+            list number into the criterion value. For example, return
+            "prompt/foo", never "1. prompt/foo".
+          models:
+            - gpt-5.6-sol
+          aggregation: unanimous
+          scoring: binary
+          threshold: 0
+          overall_threshold: 0
+          evidence:
+            - trajectory
+            - repo
+          criteria:
+            - name: prompt/builds-persistentagentsclient-with-persistentagentsclien
+              description: |-
+                Builds `PersistentAgentsClient` with `PersistentAgentsClientBuilder`, then obtains
+                the administration, threads, messages, and runs subclients.
+              weight: 1
+              pass_threshold: 1
+            - name: prompt/creates-the-agent-with-createagentoptions-passing-the-de
+              description: |-
+                Creates the agent with `CreateAgentOptions`, passing the deployment from
+                `MODEL_DEPLOYMENT_NAME`, the required name, and the required instructions.
+              weight: 1
+              pass_threshold: 1
+            - name: prompt/creates-a-thread-with-threadsclient-createthread
+              description: |-
+                Creates a thread with `ThreadsClient.createThread`.
+              weight: 1
+              pass_threshold: 1
+            - name: prompt/adds-the-exact-user-message-with-messagesclient-createme
+              description: |-
+                Adds the exact user message with `MessagesClient.createMessage`,
+                `MessageRole.USER`, and the created thread ID.
+              weight: 1
+              pass_threshold: 1
+            - name: prompt/creates-the-run-with-createrunoptions-containing-the-cre
+              description: |-
+                Creates the run with `CreateRunOptions` containing the created thread ID and agent
+                ID.
+              weight: 1
+              pass_threshold: 1
+            - name: prompt/polls-by-calling-runsclient-getrun-with-the-thread-id-an
+              description: |-
+                Polls by calling `RunsClient.getRun` with the thread ID and run ID until the run
+                leaves its nonterminal statuses.
+              weight: 1
+              pass_threshold: 1
+            - name: prompt/retrieves-messages-only-after-successful-completion-iter
+              description: |-
+                Retrieves messages only after successful completion, iterates the paged SDK result
+                with `ListSortOrder.ASCENDING`, and extracts `MessageTextContent` values from
+                `MessageRole.AGENT` messages.
+              weight: 1
+              pass_threshold: 1
+            - name: prompt/deletes-both-the-created-thread-and-the-created-agent-th
+              description: |-
+                Deletes both the created thread and the created agent through their SDK clients.
+              weight: 1
+              pass_threshold: 1
+            - name: prompt/does-not-print-a-hardcoded-answer-instead-of-retrieving
+              description: |-
+                Does not print a hardcoded answer instead of retrieving agent messages.
+              weight: 1
+              pass_threshold: 1
+            - name: prompt/does-not-treat-the-initially-created-run-as-already-comp
+              description: |-
+                Does not treat the initially created run as already completed.
+              weight: 1
+              pass_threshold: 1
+            - name: prompt/does-not-substitute-an-azure-openai-chat-client-or-anoth
+              description: |-
+                Does not substitute an Azure OpenAI chat client or another non-agents API for the
+                Azure AI Agents thread and run workflow.
+              weight: 1
+              pass_threshold: 1
+            - name: language/correct-dependencies-com-azure-not-com-microsoft-azure
+              description: |-
+                Uses com.azure group ID for all Azure SDK packages. No com.microsoft.azure (legacy SDK) dependencies. Includes azure-identity for authentication.
+              weight: 1
+              pass_threshold: 1
+            - name: language/azure-sdk-bom-for-version-management
+              description: |-
+                Uses azure-sdk-bom in dependencyManagement to manage Azure SDK versions instead of hardcoding individual artifact versions. Dependencies should omit <version> tags when managed by the BOM.
+              weight: 1
+              pass_threshold: 1
+            - name: language/correct-imports-no-legacy-no-internal-packages
+              description: |-
+                All imports use com.azure.* packages. No com.microsoft.azure.* (legacy) or com.azure.*.implementation.* (internal API) imports.
+              weight: 1
+              pass_threshold: 1
+            - name: language/defaultazurecredential-authentication
+              description: |-
+                Uses DefaultAzureCredential or another com.azure.identity credential. No hardcoded connection strings, account keys, SAS tokens, or secrets.
+              weight: 1
+              pass_threshold: 1
+            - name: language/client-builder-pattern
+              description: |-
+                SDK clients constructed using *ClientBuilder classes with .endpoint() or .vaultUrl() and .credential(). No legacy constructors (CloudStorageAccount, DocumentClient, KeyVaultClient).
+              weight: 1
+              pass_threshold: 1
+            - name: language/no-deprecated-legacy-classes
+              description: |-
+                No deprecated classes from the old SDK (CloudStorageAccount, CloudBlobClient, DocumentClient, QueueClient, ApplicationTokenCredentials, MSICredentials, ConnectionStringBuilder).
+              weight: 1
+              pass_threshold: 1
+            - name: language/pagination-pagediterable-pagedflux
+              description: |-
+                List/query operations return PagedIterable (sync) or PagedFlux (async). Does not flatten all pages into a raw List or Stream in memory.
+              weight: 1
+              pass_threshold: 1
+            - name: language/lro-pattern-syncpoller-pollerflux
+              description: |-
+                Long-running operations use SyncPoller (sync) or PollerFlux (async) with begin* method prefix. No Thread.sleep() polling loops.
+              weight: 1
+              pass_threshold: 1
+            - name: language/async-uses-project-reactor-mono-flux
+              description: |-
+                Async code uses Project Reactor types (Mono, Flux). Not CompletableFuture (wrong), not RxJava (wrong), not sync wrapped in ExecutorService. No .block() inside async service implementations.
+              weight: 1
+              pass_threshold: 1
+            - name: language/service-specific-exception-handling
+              description: |-
+                Catches service-specific exceptions (BlobStorageException, CosmosException, ServiceBusException, HttpResponseException) with status code inspection. Not just generic Exception catches.
+              weight: 1
+              pass_threshold: 1
+            - name: language/try-with-resources-for-clients
+              description: |-
+                All Azure SDK client instances that implement AutoCloseable are used within try-with-resources blocks or explicitly closed in a finally block.
+              weight: 1
+              pass_threshold: 1
+      - type: run-command
+        name: program/java-project-compiles
+        config:
+          command: node
+          args:
+            - .vally/program-checks/java.mjs
+          timeout: 3m
+artifacts:
+  include:
+    - "**/*.java"
+    - "**/pom.xml"
+    - "**/build.gradle"
+    - "**/build.gradle.kts"
+    - "**/README.md"
+  exclude:
+    - "**/.vally/**"
+    - "**/target/**"

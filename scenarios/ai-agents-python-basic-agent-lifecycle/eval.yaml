@@ -1,0 +1,173 @@
+name: ai-agents-python-basic-agent-lifecycle
+description: "Can an agent build a complete Azure AI Agents application that creates an agent conversation, runs it to completion, and reads the assistant response?"
+version: "1.0"
+type: capability
+environment:
+  files:
+    - src: ../../eval-workspace.gitignore
+      dest: .gitignore
+    - src: ../../eval-workspace-AGENTS.md
+      dest: AGENTS.md
+    - src: ../../scripts/program-checks/python.py
+      dest: .vally/program-checks/python.py
+scoring:
+  weights: {}
+defaults:
+  runs: 1
+  timeout: 30m
+  model: gpt-5.6-sol
+  judge_model: gpt-5.6-sol
+stimuli:
+  - name: ai-agents-dp-python-basic-agent-lifecycle
+    prompt: |-
+      Create a complete, runnable Python console application that uses the
+      `azure-ai-agents` package to run a basic Azure AI Agent conversation.
+      
+      **Write the application to files in the workspace. Do not reply with code blocks.**
+      
+      The application must:
+      
+      - Read the Azure AI project endpoint from `PROJECT_ENDPOINT` and the model deployment
+        name from `MODEL_DEPLOYMENT_NAME`.
+      - Create the Azure AI Agents client using the project endpoint and
+        `DefaultAzureCredential`.
+      - Create an agent named `hyoka-basic-agent` with the instructions
+        `Answer the user's question clearly and concisely.`
+      - Create a thread and add this exact user message:
+        `What is the capital of France?`
+      - Create a run for that thread and agent, then use the SDK to refresh the run until it
+        reaches a terminal status.
+      - After a successful run, list the thread messages in chronological order and print
+        the text content of every assistant message.
+      - Delete the thread and agent after the conversation finishes.
+      - Include the project manifest and concise commands for restoring, building, and
+        running the application.
+      
+      Use the synchronous Azure AI Agents client throughout the agent workflow.
+    tags:
+      service: foundry
+      plane: data-plane
+      language: python
+      category: agents
+    graders:
+      - type: panel
+        name: prompt/full-case-review
+        weight: 1
+        config:
+          prompt: |-
+            Review the generated implementation against every criterion.
+            Score each criterion independently. Accept equivalent valid
+            implementations and judge code behavior rather than syntax.
+            Return every criterion name exactly as provided. The criterion
+            value must start with "prompt/" or "language/". Never copy a rubric
+            list number into the criterion value. For example, return
+            "prompt/foo", never "1. prompt/foo".
+          models:
+            - gpt-5.6-sol
+          aggregation: unanimous
+          scoring: binary
+          threshold: 0
+          overall_threshold: 0
+          evidence:
+            - trajectory
+            - repo
+          criteria:
+            - name: prompt/creates-agentsclient-from-azure-ai-agents-with-the-proje
+              description: |-
+                Creates `AgentsClient` from `azure.ai.agents` with the project endpoint.
+              weight: 1
+              pass_threshold: 1
+            - name: prompt/calls-agents-client-create-agent-with-the-deployment-fro
+              description: |-
+                Calls `agents_client.create_agent` with the deployment from
+                `MODEL_DEPLOYMENT_NAME`, the required name, and the required instructions.
+              weight: 1
+              pass_threshold: 1
+            - name: prompt/creates-a-thread-with-agents-client-threads-create
+              description: |-
+                Creates a thread with `agents_client.threads.create`.
+              weight: 1
+              pass_threshold: 1
+            - name: prompt/adds-the-exact-user-message-with-agents-client-messages
+              description: |-
+                Adds the exact user message with `agents_client.messages.create`, role `user`, and
+                the created thread ID.
+              weight: 1
+              pass_threshold: 1
+            - name: prompt/creates-the-run-with-the-created-thread-id-and-agent-id
+              description: |-
+                Creates the run with the created thread ID and agent ID, then polls with
+                `agents_client.runs.get` or the SDK's combined create-and-process operation until a
+                terminal status is reached.
+              weight: 1
+              pass_threshold: 1
+            - name: prompt/retrieves-messages-only-after-successful-completion-requ
+              description: |-
+                Retrieves messages only after successful completion, requests
+                `ListSortOrder.ASCENDING`, and extracts text values from assistant
+                `text_messages`.
+              weight: 1
+              pass_threshold: 1
+            - name: prompt/deletes-both-the-created-thread-and-the-created-agent-th
+              description: |-
+                Deletes both the created thread and the created agent through `AgentsClient`.
+              weight: 1
+              pass_threshold: 1
+            - name: prompt/does-not-print-a-hardcoded-answer-instead-of-retrieving
+              description: |-
+                Does not print a hardcoded answer instead of retrieving agent messages.
+              weight: 1
+              pass_threshold: 1
+            - name: prompt/does-not-treat-the-initially-created-run-as-already-comp
+              description: |-
+                Does not treat the initially created run as already completed.
+              weight: 1
+              pass_threshold: 1
+            - name: prompt/does-not-substitute-an-azure-openai-chat-client-or-anoth
+              description: |-
+                Does not substitute an Azure OpenAI chat client or another non-agents API for the
+                Azure AI Agents thread and run workflow.
+              weight: 1
+              pass_threshold: 1
+            - name: language/correct-package-imports
+              description: |-
+                Imports use the latest azure-sdk-for-python package structure (azure.*), not deprecated packages.
+              weight: 1
+              pass_threshold: 1
+            - name: language/defaultazurecredential-usage
+              description: |-
+                Authentication matches what the prompt asks for. If the prompt explicitly requires a connection string (or other key-based auth), using `from_connection_string()` / connection-string-based clients is correct and should pass. Otherwise, authentication must use DefaultAzureCredential from azure-identity (or another `azure.identity` credential), not connection strings or hardcoded keys. Hardcoded secrets/keys/connection strings in source code always fail — required values should come from environment variables or a secret store.
+              weight: 1
+              pass_threshold: 1
+            - name: language/context-manager-for-clients
+              description: |-
+                Azure SDK clients that support context managers are used with `with` statements or explicitly closed.
+              weight: 1
+              pass_threshold: 1
+            - name: language/async-client-usage
+              description: |-
+                If async operations are requested, code uses the async client variant with proper await patterns.
+              weight: 1
+              pass_threshold: 1
+            - name: language/proper-exception-handling
+              description: |-
+                Azure SDK exceptions (HttpResponseError and subclasses) are caught and handled appropriately.
+              weight: 1
+              pass_threshold: 1
+      - type: run-command
+        name: program/python-source-compiles
+        config:
+          command: python
+          args:
+            - .vally/program-checks/python.py
+          timeout: 30s
+artifacts:
+  include:
+    - "**/*.py"
+    - "**/requirements*.txt"
+    - "**/pyproject.toml"
+    - "**/README.md"
+  exclude:
+    - "**/.vally/**"
+    - "**/.venv/**"
+    - "**/__pycache__/**"

@@ -1,0 +1,178 @@
+name: text-translation-java-multilingual-translation
+description: "Can an application translate one supplied text into French and Japanese in one request and report the detected source language?"
+version: "1.0"
+type: capability
+environment:
+  files:
+    - src: ../../eval-workspace.gitignore
+      dest: .gitignore
+    - src: ../../eval-workspace-AGENTS.md
+      dest: AGENTS.md
+    - src: ../../scripts/program-checks/java.mjs
+      dest: .vally/program-checks/java.mjs
+scoring:
+  weights: {}
+defaults:
+  runs: 1
+  timeout: 30m
+  model: gpt-5.6-sol
+  judge_model: gpt-5.6-sol
+stimuli:
+  - name: text-translation-dp-java-multilingual-translation
+    prompt: |-
+      Create a complete, runnable Java console application using
+      `com.azure:azure-ai-translation-text` 2.0.2. Accept one command-line argument
+      containing the text to translate and read `AZURE_TEXT_TRANSLATION_ENDPOINT`.
+      
+      **Write the application to files in the workspace. Do not reply with code blocks.**
+      
+      The application must:
+      
+      - Send the supplied text in one SDK translation request whose targets are French
+        (`fr`) and Japanese (`ja`).
+      - Omit the source language so the service detects it.
+      - Print the detected source language returned by the service.
+      - Traverse the returned translations and print each returned target-language code
+        and translated text.
+      - Include the project manifest and concise restore, build, and run commands.
+      
+      Use the synchronous SDK client.
+    tags:
+      service: foundry
+      plane: data-plane
+      language: java
+      category: translation
+    graders:
+      - type: panel
+        name: prompt/full-case-review
+        weight: 1
+        config:
+          prompt: |-
+            Review the generated implementation against every criterion.
+            Score each criterion independently. Accept equivalent valid
+            implementations and judge code behavior rather than syntax.
+            Return every criterion name exactly as provided. The criterion
+            value must start with "prompt/" or "language/". Never copy a rubric
+            list number into the criterion value. For example, return
+            "prompt/foo", never "1. prompt/foo".
+          models:
+            - gpt-5.6-sol
+          aggregation: unanimous
+          scoring: binary
+          threshold: 0
+          overall_threshold: 0
+          evidence:
+            - trajectory
+            - repo
+          criteria:
+            - name: prompt/creates-one-translateinputitem-containing-the-supplied-t
+              description: |-
+                Creates one `TranslateInputItem` containing the supplied text and two
+                `TranslationTarget` values for `fr` and `ja`, without setting its source
+                language.
+              weight: 1
+              pass_threshold: 1
+            - name: prompt/calls-texttranslationclient-translate-exactly-once-with
+              description: |-
+                Calls `TextTranslationClient.translate` exactly once with the input item.
+              weight: 1
+              pass_threshold: 1
+            - name: prompt/reads-translatedtextitem-getdetectedlanguage-getlanguage
+              description: |-
+                Reads `TranslatedTextItem.getDetectedLanguage().getLanguage()` and traverses
+                every `TranslationText` returned by `getTranslations()`.
+              weight: 1
+              pass_threshold: 1
+            - name: prompt/prints-each-translation-s-returned-getlanguage-and-gette
+              description: |-
+                Prints each translation's returned `getLanguage()` and `getText()` values.
+              weight: 1
+              pass_threshold: 1
+            - name: prompt/does-not-invent-a-translations-operation-group-or-use-an
+              description: |-
+                Does not invent a translations operation group or use an obsolete package/API.
+              weight: 1
+              pass_threshold: 1
+            - name: prompt/does-not-make-separate-requests-for-french-and-japanese
+              description: |-
+                Does not make separate requests for French and Japanese or request only one
+                target.
+              weight: 1
+              pass_threshold: 1
+            - name: prompt/does-not-hardcode-the-detected-language-target-labels-or
+              description: |-
+                Does not hardcode the detected language, target labels, or translated output.
+              weight: 1
+              pass_threshold: 1
+            - name: language/correct-dependencies-com-azure-not-com-microsoft-azure
+              description: |-
+                Uses com.azure group ID for all Azure SDK packages. No com.microsoft.azure (legacy SDK) dependencies. Includes azure-identity for authentication.
+              weight: 1
+              pass_threshold: 1
+            - name: language/azure-sdk-bom-for-version-management
+              description: |-
+                Uses azure-sdk-bom in dependencyManagement to manage Azure SDK versions instead of hardcoding individual artifact versions. Dependencies should omit <version> tags when managed by the BOM.
+              weight: 1
+              pass_threshold: 1
+            - name: language/correct-imports-no-legacy-no-internal-packages
+              description: |-
+                All imports use com.azure.* packages. No com.microsoft.azure.* (legacy) or com.azure.*.implementation.* (internal API) imports.
+              weight: 1
+              pass_threshold: 1
+            - name: language/defaultazurecredential-authentication
+              description: |-
+                Uses DefaultAzureCredential or another com.azure.identity credential. No hardcoded connection strings, account keys, SAS tokens, or secrets.
+              weight: 1
+              pass_threshold: 1
+            - name: language/client-builder-pattern
+              description: |-
+                SDK clients constructed using *ClientBuilder classes with .endpoint() or .vaultUrl() and .credential(). No legacy constructors (CloudStorageAccount, DocumentClient, KeyVaultClient).
+              weight: 1
+              pass_threshold: 1
+            - name: language/no-deprecated-legacy-classes
+              description: |-
+                No deprecated classes from the old SDK (CloudStorageAccount, CloudBlobClient, DocumentClient, QueueClient, ApplicationTokenCredentials, MSICredentials, ConnectionStringBuilder).
+              weight: 1
+              pass_threshold: 1
+            - name: language/pagination-pagediterable-pagedflux
+              description: |-
+                List/query operations return PagedIterable (sync) or PagedFlux (async). Does not flatten all pages into a raw List or Stream in memory.
+              weight: 1
+              pass_threshold: 1
+            - name: language/lro-pattern-syncpoller-pollerflux
+              description: |-
+                Long-running operations use SyncPoller (sync) or PollerFlux (async) with begin* method prefix. No Thread.sleep() polling loops.
+              weight: 1
+              pass_threshold: 1
+            - name: language/async-uses-project-reactor-mono-flux
+              description: |-
+                Async code uses Project Reactor types (Mono, Flux). Not CompletableFuture (wrong), not RxJava (wrong), not sync wrapped in ExecutorService. No .block() inside async service implementations.
+              weight: 1
+              pass_threshold: 1
+            - name: language/service-specific-exception-handling
+              description: |-
+                Catches service-specific exceptions (BlobStorageException, CosmosException, ServiceBusException, HttpResponseException) with status code inspection. Not just generic Exception catches.
+              weight: 1
+              pass_threshold: 1
+            - name: language/try-with-resources-for-clients
+              description: |-
+                All Azure SDK client instances that implement AutoCloseable are used within try-with-resources blocks or explicitly closed in a finally block.
+              weight: 1
+              pass_threshold: 1
+      - type: run-command
+        name: program/java-project-compiles
+        config:
+          command: node
+          args:
+            - .vally/program-checks/java.mjs
+          timeout: 3m
+artifacts:
+  include:
+    - "**/*.java"
+    - "**/pom.xml"
+    - "**/build.gradle"
+    - "**/build.gradle.kts"
+    - "**/README.md"
+  exclude:
+    - "**/.vally/**"
+    - "**/target/**"
