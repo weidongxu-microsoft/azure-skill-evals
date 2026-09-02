@@ -49,12 +49,14 @@ Grader names preserve three independent result groups:
 | `language/` | Reusable language and Azure SDK conventions |
 | `program/` | Deterministic compile, build, dependency, and type checks |
 
-Each panel criterion is required, binary, and equally weighted. The panel score
-is the fraction of passed criteria. Program graders remain independent from the
+Each panel criterion is binary and equally weighted. Panel and overall
+thresholds are zero so every criterion vote is retained as observational data
+without gating data collection. Program graders remain independent from the
 panel, and fan-in reports each result group without calculating an overall
-weighted score. The case passes only when the panel and every program grader
-pass. Raw Vally trajectories remain the source of truth for skill activation,
-MCP calls, timing, errors, and token usage, but these diagnostics do not affect
+weighted score. Quality failures do not fail evaluation shards; missing,
+malformed, or incomplete result artifacts remain integrity failures. Raw Vally
+trajectories remain the source of truth for skill activation, MCP calls,
+timing, errors, and token usage, but these diagnostics do not affect
 correctness results.
 
 ## What changes
@@ -119,8 +121,8 @@ least three trials per arm before drawing comparative quality conclusions.
 
 - **Likelihood:** High
 - **Impact:** Medium
-- **Mitigation:** Use binary required criteria, repeated trials for conclusions,
-  and separate live golden-oracle calibration.
+- **Mitigation:** Use binary criteria, repeated trials for conclusions, and
+  separate live golden-oracle calibration.
 
 ### Incomplete judge evidence
 

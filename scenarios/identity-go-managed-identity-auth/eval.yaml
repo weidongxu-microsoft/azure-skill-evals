@@ -49,8 +49,8 @@ stimuli:
             - gpt-5.6-sol
           aggregation: unanimous
           scoring: binary
-          threshold: 1
-          overall_threshold: 1
+          threshold: 0
+          overall_threshold: 0
           evidence:
             - trajectory
             - repo
@@ -60,37 +60,31 @@ stimuli:
                 `azidentity.NewManagedIdentityCredential()` function
               weight: 1
               pass_threshold: 1
-              required: true
             - name: prompt/system-assigned-options
               description: |-
                 System-assigned: nil options
               weight: 1
               pass_threshold: 1
-              required: true
             - name: prompt/user-assigned-client-id
               description: |-
                 User-assigned: `ManagedIdentityCredentialOptions{ID: azidentity.ClientID("...")}`
               weight: 1
               pass_threshold: 1
-              required: true
             - name: prompt/default-azure-credential-chain
               description: |-
                 Integration with `DefaultAzureCredential` chain
               weight: 1
               pass_threshold: 1
-              required: true
             - name: prompt/non-azure-error-handling
               description: |-
                 Error handling when not running in Azure
               weight: 1
               pass_threshold: 1
-              required: true
             - name: prompt/chained-token-credential
               description: |-
                 `azidentity.NewChainedTokenCredential()` for fallback
               weight: 1
               pass_threshold: 1
-              required: true
       - type: run-command
         name: program/go-project-tests
         config:

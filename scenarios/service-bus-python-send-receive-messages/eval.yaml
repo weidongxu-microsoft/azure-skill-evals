@@ -8,6 +8,8 @@ environment:
       dest: .gitignore
     - src: ../../eval-workspace-AGENTS.md
       dest: AGENTS.md
+    - src: ../../scripts/program-checks/python.py
+      dest: .vally/program-checks/python.py
 scoring:
   weights: {}
 defaults:
@@ -51,8 +53,8 @@ stimuli:
             - gpt-5.6-sol
           aggregation: unanimous
           scoring: binary
-          threshold: 1
-          overall_threshold: 1
+          threshold: 0
+          overall_threshold: 0
           evidence:
             - trajectory
             - repo
@@ -62,82 +64,67 @@ stimuli:
                 `azure-servicebus` pip package
               weight: 1
               pass_threshold: 1
-              required: true
             - name: prompt/servicebussender-via-get-queue-sender-or-get-topic-sende
               description: |-
                 `ServiceBusSender` via `get_queue_sender()` or `get_topic_sender()`
               weight: 1
               pass_threshold: 1
-              required: true
             - name: prompt/servicebusmessage-and-servicebusmessagebatch
               description: |-
                 `ServiceBusMessage` and `ServiceBusMessageBatch`
               weight: 1
               pass_threshold: 1
-              required: true
             - name: prompt/servicebusreceiver-via-get-queue-receiver-or-get-subscri
               description: |-
                 `ServiceBusReceiver` via `get_queue_receiver()` or `get_subscription_receiver()`
               weight: 1
               pass_threshold: 1
-              required: true
             - name: prompt/complete-message-abandon-message-dead-letter-message
               description: |-
                 `complete_message()`, `abandon_message()`, `dead_letter_message()`
               weight: 1
               pass_threshold: 1
-              required: true
             - name: prompt/context-manager-pattern-with-statements-for-resource-cle
               description: |-
                 Context manager pattern (`with` statements) for resource cleanup
               weight: 1
               pass_threshold: 1
-              required: true
             - name: prompt/async-variants-in-azure-servicebus-aio
               description: |-
                 Async variants in `azure.servicebus.aio`
               weight: 1
               pass_threshold: 1
-              required: true
             - name: language/correct-package-imports
               description: |-
                 Imports use the latest azure-sdk-for-python package structure (azure.*), not deprecated packages.
               weight: 1
               pass_threshold: 1
-              required: true
             - name: language/defaultazurecredential-usage
               description: |-
                 Authentication matches what the prompt asks for. If the prompt explicitly requires a connection string (or other key-based auth), using `from_connection_string()` / connection-string-based clients is correct and should pass. Otherwise, authentication must use DefaultAzureCredential from azure-identity (or another `azure.identity` credential), not connection strings or hardcoded keys. Hardcoded secrets/keys/connection strings in source code always fail — required values should come from environment variables or a secret store.
               weight: 1
               pass_threshold: 1
-              required: true
             - name: language/context-manager-for-clients
               description: |-
                 Azure SDK clients that support context managers are used with `with` statements or explicitly closed.
               weight: 1
               pass_threshold: 1
-              required: true
             - name: language/async-client-usage
               description: |-
                 If async operations are requested, code uses the async client variant with proper await patterns.
               weight: 1
               pass_threshold: 1
-              required: true
             - name: language/proper-exception-handling
               description: |-
                 Azure SDK exceptions (HttpResponseError and subclasses) are caught and handled appropriately.
               weight: 1
               pass_threshold: 1
-              required: true
       - type: run-command
         name: program/python-source-compiles
         config:
           command: python
           args:
-            - -m
-            - compileall
-            - -q
-            - .
+            - .vally/program-checks/python.py
           timeout: 30s
 artifacts:
   include:

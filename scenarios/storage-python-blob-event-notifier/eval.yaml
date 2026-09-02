@@ -8,6 +8,8 @@ environment:
       dest: .gitignore
     - src: ../../eval-workspace-AGENTS.md
       dest: AGENTS.md
+    - src: ../../scripts/program-checks/python.py
+      dest: .vally/program-checks/python.py
 scoring:
   weights: {}
 defaults:
@@ -57,8 +59,8 @@ stimuli:
             - gpt-5.6-sol
           aggregation: unanimous
           scoring: binary
-          threshold: 1
-          overall_threshold: 1
+          threshold: 0
+          overall_threshold: 0
           evidence:
             - trajectory
             - repo
@@ -68,106 +70,87 @@ stimuli:
                 Deserializes Event Grid native schema events using the SDK's built-in deserialization (not manual JSON parsing)
               weight: 1
               pass_threshold: 1
-              required: true
             - name: prompt/deserializes-cloudevents-1-0-schema-events-using-the-sdk
               description: |-
                 Deserializes CloudEvents 1.0 schema events using the SDK's built-in deserialization (not manual JSON parsing) ### Event Routing & Processing
               weight: 1
               pass_threshold: 1
-              required: true
             - name: prompt/routes-events-by-event-type-blob-created-vs-blob-deleted
               description: |-
                 Routes events by event type (blob-created vs blob-deleted vs unrecognized)
               weight: 1
               pass_threshold: 1
-              required: true
             - name: prompt/logs-a-warning-for-unrecognized-event-types
               description: |-
                 Logs a warning for unrecognized event types
               weight: 1
               pass_threshold: 1
-              required: true
             - name: prompt/parses-container-name-and-blob-name-from-event-subject
               description: |-
                 Parses container name and blob name from event subject
               weight: 1
               pass_threshold: 1
-              required: true
             - name: prompt/retrieves-and-prints-blob-access-tier-from-blob-properti
               description: |-
                 Retrieves and prints blob access tier from blob properties ### Event Publishing
               weight: 1
               pass_threshold: 1
-              required: true
             - name: prompt/publishes-custom-events-to-an-event-grid-topic-using-the
               description: |-
                 Publishes custom events to an Event Grid topic using the SDK's publisher client
               weight: 1
               pass_threshold: 1
-              required: true
             - name: prompt/sets-subject-hierarchy-on-custom-events-for-filtering-er
               description: |-
                 Sets subject hierarchy on custom events for filtering ### Error Handling
               weight: 1
               pass_threshold: 1
-              required: true
             - name: prompt/handles-race-condition-where-the-blob-may-no-longer-exis
               description: |-
                 Handles race condition where the blob may no longer exist by the time the handler runs
               weight: 1
               pass_threshold: 1
-              required: true
             - name: prompt/handles-publishing-errors-with-proper-exception-handling
               description: |-
                 Handles publishing errors with proper exception handling ### Async Support
               weight: 1
               pass_threshold: 1
-              required: true
             - name: prompt/async-versions-use-the-async-variants-of-the-event-grid
               description: |-
                 Async versions use the async variants of the Event Grid and Blob Storage clients
               weight: 1
               pass_threshold: 1
-              required: true
             - name: language/correct-package-imports
               description: |-
                 Imports use the latest azure-sdk-for-python package structure (azure.*), not deprecated packages.
               weight: 1
               pass_threshold: 1
-              required: true
             - name: language/defaultazurecredential-usage
               description: |-
                 Authentication matches what the prompt asks for. If the prompt explicitly requires a connection string (or other key-based auth), using `from_connection_string()` / connection-string-based clients is correct and should pass. Otherwise, authentication must use DefaultAzureCredential from azure-identity (or another `azure.identity` credential), not connection strings or hardcoded keys. Hardcoded secrets/keys/connection strings in source code always fail — required values should come from environment variables or a secret store.
               weight: 1
               pass_threshold: 1
-              required: true
             - name: language/context-manager-for-clients
               description: |-
                 Azure SDK clients that support context managers are used with `with` statements or explicitly closed.
               weight: 1
               pass_threshold: 1
-              required: true
             - name: language/async-client-usage
               description: |-
                 If async operations are requested, code uses the async client variant with proper await patterns.
               weight: 1
               pass_threshold: 1
-              required: true
             - name: language/proper-exception-handling
               description: |-
                 Azure SDK exceptions (HttpResponseError and subclasses) are caught and handled appropriately.
               weight: 1
               pass_threshold: 1
-              required: true
       - type: run-command
         name: program/python-source-compiles
         config:
           command: python
           args:
-            - -m
-            - compileall
-            - -q
-            - .
+            - .vally/program-checks/python.py
           timeout: 30s
 artifacts:
   include:

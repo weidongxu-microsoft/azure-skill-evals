@@ -54,8 +54,8 @@ stimuli:
             - gpt-5.6-sol
           aggregation: unanimous
           scoring: binary
-          threshold: 1
-          overall_threshold: 1
+          threshold: 0
+          overall_threshold: 0
           evidence:
             - trajectory
             - repo
@@ -65,121 +65,101 @@ stimuli:
                 `azure-resourcemanager-storage` Maven dependency
               weight: 1
               pass_threshold: 1
-              required: true
             - name: prompt/storagemanager-authenticate-with-credential-and-profile
               description: |-
                 `StorageManager.authenticate()` with credential and profile
               weight: 1
               pass_threshold: 1
-              required: true
             - name: prompt/storageaccounts-define-withregion-withexistingresourcegr
               description: |-
                 `storageAccounts().define().withRegion().withExistingResourceGroup().withSku().create()`
               weight: 1
               pass_threshold: 1
-              required: true
             - name: prompt/fluent-builder-pattern-for-account-creation
               description: |-
                 Fluent builder pattern for account creation
               weight: 1
               pass_threshold: 1
-              required: true
             - name: prompt/storageaccounts-listbyresourcegroup-for-listing
               description: |-
                 `storageAccounts().listByResourceGroup()` for listing
               weight: 1
               pass_threshold: 1
-              required: true
             - name: prompt/storageaccounts-getbyresourcegroup-for-details
               description: |-
                 `storageAccounts().getByResourceGroup()` for details
               weight: 1
               pass_threshold: 1
-              required: true
             - name: prompt/update-withblobaccesstier-or-service-properties-update
               description: |-
                 `update().withBlobAccessTier()` or service properties update
               weight: 1
               pass_threshold: 1
-              required: true
             - name: prompt/storageaccounts-deletebyresourcegroup
               description: |-
                 `storageAccounts().deleteByResourceGroup()`
               weight: 1
               pass_threshold: 1
-              required: true
             - name: language/correct-dependencies-com-azure-not-com-microsoft-azure
               description: |-
                 Uses com.azure group ID for all Azure SDK packages. No com.microsoft.azure (legacy SDK) dependencies. Includes azure-identity for authentication.
               weight: 1
               pass_threshold: 1
-              required: true
             - name: language/azure-sdk-bom-for-version-management
               description: |-
                 Uses azure-sdk-bom in dependencyManagement to manage Azure SDK versions instead of hardcoding individual artifact versions. Dependencies should omit <version> tags when managed by the BOM.
               weight: 1
               pass_threshold: 1
-              required: true
             - name: language/correct-imports-no-legacy-no-internal-packages
               description: |-
                 All imports use com.azure.* packages. No com.microsoft.azure.* (legacy) or com.azure.*.implementation.* (internal API) imports.
               weight: 1
               pass_threshold: 1
-              required: true
             - name: language/defaultazurecredential-authentication
               description: |-
                 Uses DefaultAzureCredential or another com.azure.identity credential. No hardcoded connection strings, account keys, SAS tokens, or secrets.
               weight: 1
               pass_threshold: 1
-              required: true
             - name: language/client-builder-pattern
               description: |-
                 SDK clients constructed using *ClientBuilder classes with .endpoint() or .vaultUrl() and .credential(). No legacy constructors (CloudStorageAccount, DocumentClient, KeyVaultClient).
               weight: 1
               pass_threshold: 1
-              required: true
             - name: language/no-deprecated-legacy-classes
               description: |-
                 No deprecated classes from the old SDK (CloudStorageAccount, CloudBlobClient, DocumentClient, QueueClient, ApplicationTokenCredentials, MSICredentials, ConnectionStringBuilder).
               weight: 1
               pass_threshold: 1
-              required: true
             - name: language/pagination-pagediterable-pagedflux
               description: |-
                 List/query operations return PagedIterable (sync) or PagedFlux (async). Does not flatten all pages into a raw List or Stream in memory.
               weight: 1
               pass_threshold: 1
-              required: true
             - name: language/lro-pattern-syncpoller-pollerflux
               description: |-
                 Long-running operations use SyncPoller (sync) or PollerFlux (async) with begin* method prefix. No Thread.sleep() polling loops.
               weight: 1
               pass_threshold: 1
-              required: true
             - name: language/async-uses-project-reactor-mono-flux
               description: |-
                 Async code uses Project Reactor types (Mono, Flux). Not CompletableFuture (wrong), not RxJava (wrong), not sync wrapped in ExecutorService. No .block() inside async service implementations.
               weight: 1
               pass_threshold: 1
-              required: true
             - name: language/service-specific-exception-handling
               description: |-
                 Catches service-specific exceptions (BlobStorageException, CosmosException, ServiceBusException, HttpResponseException) with status code inspection. Not just generic Exception catches.
               weight: 1
               pass_threshold: 1
-              required: true
             - name: language/code-compiles-mvn-compile-gradle-compilejava
               description: |-
                 The generated code compiles without errors. Attempt build verification if build tools are available.
               weight: 1
               pass_threshold: 1
-              required: true
             - name: language/try-with-resources-for-clients
               description: |-
                 All Azure SDK client instances that implement AutoCloseable are used within try-with-resources blocks or explicitly closed in a finally block.
               weight: 1
               pass_threshold: 1
-              required: true
       - type: run-command
         name: program/java-project-compiles
         config:

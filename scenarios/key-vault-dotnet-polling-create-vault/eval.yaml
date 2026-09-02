@@ -51,8 +51,8 @@ stimuli:
             - gpt-5.6-sol
           aggregation: unanimous
           scoring: binary
-          threshold: 1
-          overall_threshold: 1
+          threshold: 0
+          overall_threshold: 0
           evidence:
             - trajectory
             - repo
@@ -62,70 +62,59 @@ stimuli:
                 `KeyVaultCollection.CreateOrUpdateAsync()` returning `ArmOperation<KeyVaultResource>`
               weight: 1
               pass_threshold: 1
-              required: true
             - name: prompt/keyvaultcreateorupdatecontent-with-keyvaultproperties
               description: |-
                 `KeyVaultCreateOrUpdateContent` with `KeyVaultProperties`
               weight: 1
               pass_threshold: 1
-              required: true
             - name: prompt/configuring-enablerbacauthorization-enablesoftdelete-ena
               description: |-
                 Configuring `EnableRbacAuthorization`, `EnableSoftDelete`, `EnablePurgeProtection`
               weight: 1
               pass_threshold: 1
-              required: true
             - name: prompt/vaultaccesspolicy-vs-rbac-authorization-model
               description: |-
                 `VaultAccessPolicy` vs RBAC authorization model
               weight: 1
               pass_threshold: 1
-              required: true
             - name: prompt/armoperation-t-waitforcompletionasync-for-completion
               description: |-
                 `ArmOperation<T>.WaitForCompletionAsync()` for completion
               weight: 1
               pass_threshold: 1
-              required: true
             - name: prompt/waituntil-completed-vs-waituntil-started
               description: |-
                 `WaitUntil.Completed` vs `WaitUntil.Started`
               weight: 1
               pass_threshold: 1
-              required: true
             - name: prompt/tenant-id-and-object-id-configuration
               description: |-
                 Tenant ID and object ID configuration
               weight: 1
               pass_threshold: 1
-              required: true
             - name: prompt/error-handling-for-existing-vaults-and-soft-deleted-vaul
               description: |-
                 Error handling for existing vaults and soft-deleted vaults
               weight: 1
               pass_threshold: 1
-              required: true
             - name: language/azure-identity-authentication
               description: |-
                 Check that authentication follows the prompt and uses the appropriate modern .NET Azure SDK mechanism.
                 When token-based authentication is requested, uses an appropriate credential from Azure.Identity and passes it to the SDK client. When the prompt explicitly requests a connection string, connection-string construction is valid. Credentials, connection strings, and secrets are not hardcoded.
               weight: 1
               pass_threshold: 1
-              required: true
             - name: language/sdk-specific-exception-handling
               description: |-
                 Check that requested error handling uses the exception model of the selected .NET Azure SDK package.
                 When error handling is requested, catches the appropriate SDK exception, such as RequestFailedException for many Azure.* and ARM clients, CosmosException for Microsoft.Azure.Cosmos, ServiceBusException for Service Bus, EventHubsException for Event Hubs, or AuthenticationFailedException and CredentialUnavailableException for Azure Identity. Inspects status codes, error codes, or retry details when relevant instead of relying only on a generic Exception catch.
               weight: 1
               pass_threshold: 1
-              required: true
             - name: language/asynchronous-sdk-usage
               description: |-
                 Check that asynchronous .NET Azure SDK calls use normal asynchronous control flow.
                 When asynchronous SDK APIs are used, awaits them with async and await rather than blocking through .Result, .Wait(), or GetAwaiter().GetResult().
               weight: 1
               pass_threshold: 1
-              required: true
       - type: run-command
         name: program/dotnet-project-builds
         config:

@@ -52,8 +52,8 @@ stimuli:
             - gpt-5.6-sol
           aggregation: unanimous
           scoring: binary
-          threshold: 1
-          overall_threshold: 1
+          threshold: 0
+          overall_threshold: 0
           evidence:
             - trajectory
             - repo
@@ -63,109 +63,91 @@ stimuli:
                 `@azure/event-hubs` and `@azure/eventhubs-checkpointstore-blob` npm packages
               weight: 1
               pass_threshold: 1
-              required: true
             - name: prompt/eventhubproducerclient-constructor
               description: |-
                 `EventHubProducerClient` constructor
               weight: 1
               pass_threshold: 1
-              required: true
             - name: prompt/createbatch-and-eventdatabatch-tryadd
               description: |-
                 `createBatch()` and `EventDataBatch.tryAdd()`
               weight: 1
               pass_threshold: 1
-              required: true
             - name: prompt/sendbatch-for-publishing
               description: |-
                 `sendBatch()` for publishing
               weight: 1
               pass_threshold: 1
-              required: true
             - name: prompt/eventhubconsumerclient-with-blobcheckpointstore
               description: |-
                 `EventHubConsumerClient` with `BlobCheckpointStore`
               weight: 1
               pass_threshold: 1
-              required: true
             - name: prompt/subscribe-with-subscriptioneventhandlers-processevents-p
               description: |-
                 `subscribe()` with `SubscriptionEventHandlers` (processEvents, processError)
               weight: 1
               pass_threshold: 1
-              required: true
             - name: prompt/updatecheckpoint-in-the-processevents-handler
               description: |-
                 `updateCheckpoint()` in the processEvents handler
               weight: 1
               pass_threshold: 1
-              required: true
             - name: prompt/close-for-cleanup
               description: |-
                 `close()` for cleanup
               weight: 1
               pass_threshold: 1
-              required: true
             - name: language/correct-azure-scoped-packages
               description: |-
                 All Azure SDK dependencies use @azure/ scoped packages (e.g., @azure/storage-blob, @azure/keyvault-secrets, @azure/identity). No deprecated unscoped packages (azure-storage, azure-arm-*, ms-rest-azure, @azure/ms-rest-*).
               weight: 1
               pass_threshold: 1
-              required: true
             - name: language/azure-identity-for-authentication
               description: |-
                 Includes @azure/identity as a dependency. For local development, DefaultAzureCredential is acceptable. For production code, uses a specific Entra token credential (e.g., ManagedIdentityCredential, ClientSecretCredential, WorkloadIdentityCredential) or configures DefaultAzureCredential with the AZURE_TOKEN_CREDENTIALS environment variable set to "prod" or a specific token credential. No hardcoded connection strings, account keys, SAS tokens, or secrets in code.
               weight: 1
               pass_threshold: 1
-              required: true
             - name: language/client-constructor-with-endpoint-and-credential
               description: |-
                 SDK clients constructed with endpoint URL and credential object, e.g. new BlobServiceClient(url, credential) or new SecretClient(vaultUrl, credential). No legacy constructor patterns or connection string-based construction when identity-based auth is available.
               weight: 1
               pass_threshold: 1
-              required: true
             - name: language/async-await-pattern
               description: |-
                 Uses async/await for all asynchronous operations. No raw .then()/.catch() chains when await is cleaner. No callback-based patterns. Top-level async function or IIFE for entry point.
               weight: 1
               pass_threshold: 1
-              required: true
             - name: language/pagination-with-for-await-of
               description: |-
                 List/query operations use for-await-of iteration over the PagedAsyncIterableIterator returned by SDK methods. Does not collect all pages into an array in memory (e.g., no Array.from() or manual page accumulation). Uses byPage() when per-page control is needed.
               weight: 1
               pass_threshold: 1
-              required: true
             - name: language/lro-pattern-beginxxx-polluntildone
               description: |-
                 Long-running operations use the begin* method prefix (e.g., beginDeleteSecret, beginCreateOrUpdate) and await poller.pollUntilDone(). No manual setTimeout/setInterval polling loops.
               weight: 1
               pass_threshold: 1
-              required: true
             - name: language/resterror-exception-handling
               description: |-
                 Catches RestError (from @azure/core-rest-pipeline or the service package) with statusCode inspection for error-specific handling. Not just generic Error or try/catch without type checking.
               weight: 1
               pass_threshold: 1
-              required: true
             - name: language/no-deprecated-packages
               description: |-
                 No deprecated or legacy Azure packages in package.json: azure-storage, azure-arm-*, ms-rest-azure, @azure/ms-rest-js, @azure/ms-rest-nodeauth, @azure/ms-rest-azure-js. All dependencies use the current @azure/* track.
               weight: 1
               pass_threshold: 1
-              required: true
             - name: language/logging-via-azure-logger
               description: |-
                 Uses @azure/logger with setLogLevel() or the AZURE_LOG_LEVEL environment variable for SDK diagnostic logging. No custom logging wrappers around SDK internals.
               weight: 1
               pass_threshold: 1
-              required: true
             - name: language/package-json-with-correct-dependencies
               description: |-
                 Includes a valid package.json with all required @azure/* dependencies listed. TypeScript projects include tsconfig.json and appropriate @types/* packages or use a recent TypeScript version with built-in types.
               weight: 1
               pass_threshold: 1
-              required: true
       - type: run-command
         name: program/typescript-dependencies-install
         config:

@@ -8,6 +8,8 @@ environment:
       dest: .gitignore
     - src: ../../eval-workspace-AGENTS.md
       dest: AGENTS.md
+    - src: ../../scripts/program-checks/python.py
+      dest: .vally/program-checks/python.py
 scoring:
   weights: {}
 defaults:
@@ -57,8 +59,8 @@ stimuli:
             - gpt-5.6-sol
           aggregation: unanimous
           scoring: binary
-          threshold: 1
-          overall_threshold: 1
+          threshold: 0
+          overall_threshold: 0
           evidence:
             - trajectory
             - repo
@@ -68,112 +70,92 @@ stimuli:
                 Secret versioning: retrieves specific version via `get_secret(name, version=version)`
               weight: 1
               pass_threshold: 1
-              required: true
             - name: prompt/secret-expiry-accesses-secret-properties-expires-on
               description: |-
                 Secret expiry: accesses `secret.properties.expires_on`
               weight: 1
               pass_threshold: 1
-              required: true
             - name: prompt/configurable-warning-window-for-near-expiry-detection
               description: |-
                 Configurable warning window for near-expiry detection
               weight: 1
               pass_threshold: 1
-              required: true
             - name: prompt/in-memory-caching-e-g-dict-with-bulk-load-and-single-key
               description: |-
                 In-memory caching (e.g., `dict`) with bulk-load and single-key refresh
               weight: 1
               pass_threshold: 1
-              required: true
             - name: prompt/secret-rotation-uses-begin-delete-secret-as-a-long-runni
               description: |-
                 Secret rotation uses `begin_delete_secret()` as a long-running operation
               weight: 1
               pass_threshold: 1
-              required: true
             - name: prompt/sync-uses-lropoller-calls-wait-or-result-to-wait-for-del
               description: |-
                 Sync uses `LROPoller` — calls `.wait()` or `.result()` to wait for delete completion
               weight: 1
               pass_threshold: 1
-              required: true
             - name: prompt/async-uses-the-async-poller-await-poller-wait-for-delete
               description: |-
                 Async uses the async poller — `await poller.wait()` for delete completion
               weight: 1
               pass_threshold: 1
-              required: true
             - name: prompt/creates-new-secret-only-after-delete-completes-not-concu
               description: |-
                 Creates new secret only after delete completes (not concurrently)
               weight: 1
               pass_threshold: 1
-              required: true
             - name: prompt/async-version-uses-azure-keyvault-secrets-aio-secretclie
               description: |-
                 Async version uses `azure.keyvault.secrets.aio.SecretClient` ### Scenario-Specific Error Handling
               weight: 1
               pass_threshold: 1
-              required: true
             - name: prompt/returns-a-default-value-when-secret-is-not-found-resourc
               description: |-
                 Returns a default value when secret is not found (`ResourceNotFoundError`) ### Anti-Patterns (scenario-specific)
               weight: 1
               pass_threshold: 1
-              required: true
             - name: prompt/not-using-fire-and-forget-delete-secret-without-the-long
               description: |-
                 NOT using fire-and-forget `delete_secret()` without the long-running operation
               weight: 1
               pass_threshold: 1
-              required: true
             - name: prompt/not-ignoring-the-poller-and-creating-the-new-secret-imme
               description: |-
                 NOT ignoring the poller and creating the new secret immediately
               weight: 1
               pass_threshold: 1
-              required: true
             - name: language/correct-package-imports
               description: |-
                 Imports use the latest azure-sdk-for-python package structure (azure.*), not deprecated packages.
               weight: 1
               pass_threshold: 1
-              required: true
             - name: language/defaultazurecredential-usage
               description: |-
                 Authentication matches what the prompt asks for. If the prompt explicitly requires a connection string (or other key-based auth), using `from_connection_string()` / connection-string-based clients is correct and should pass. Otherwise, authentication must use DefaultAzureCredential from azure-identity (or another `azure.identity` credential), not connection strings or hardcoded keys. Hardcoded secrets/keys/connection strings in source code always fail — required values should come from environment variables or a secret store.
               weight: 1
               pass_threshold: 1
-              required: true
             - name: language/context-manager-for-clients
               description: |-
                 Azure SDK clients that support context managers are used with `with` statements or explicitly closed.
               weight: 1
               pass_threshold: 1
-              required: true
             - name: language/async-client-usage
               description: |-
                 If async operations are requested, code uses the async client variant with proper await patterns.
               weight: 1
               pass_threshold: 1
-              required: true
             - name: language/proper-exception-handling
               description: |-
                 Azure SDK exceptions (HttpResponseError and subclasses) are caught and handled appropriately.
               weight: 1
               pass_threshold: 1
-              required: true
       - type: run-command
         name: program/python-source-compiles
         config:
           command: python
           args:
-            - -m
-            - compileall
-            - -q
-            - .
+            - .vally/program-checks/python.py
           timeout: 30s
 artifacts:
   include:

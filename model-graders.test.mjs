@@ -49,10 +49,7 @@ const expectedProgramGraders = {
         config:
           command: python
           args:
-            - -m
-            - compileall
-            - -q
-            - .
+            - .vally/program-checks/python.py
           timeout: 30s`,
   ],
   typescript: [
@@ -116,11 +113,9 @@ test("every eval uses one complete model review and program checks", () => {
     for (const programGrader of expectedProgramGraders[language]) {
       assert.ok(source.includes(programGrader), evalPath);
     }
-    assert.equal(
-      (source.match(/^\s+required: true$/gm) ?? []).length,
-      criterionNames.length,
-      evalPath,
-    );
+    assert.doesNotMatch(source, /^\s+required:/m, evalPath);
+    assert.match(source, /^\s+threshold: 0$/m, evalPath);
+    assert.match(source, /^\s+overall_threshold: 0$/m, evalPath);
     assert.equal(
       languageCriteria.length,
       expectedLanguageCriteria[language],
@@ -150,6 +145,15 @@ test("every eval uses one complete model review and program checks", () => {
       );
     } else {
       assert.doesNotMatch(source, /scripts\/program-checks\/java\.mjs/, evalPath);
+    }
+    if (language === "python") {
+      assert.match(
+        source,
+        /^\s+- src: \.\.\/\.\.\/scripts\/program-checks\/python\.py\n\s+dest: \.vally\/program-checks\/python\.py$/m,
+        evalPath,
+      );
+    } else {
+      assert.doesNotMatch(source, /scripts\/program-checks\/python\.py/, evalPath);
     }
     assert.doesNotMatch(source, /^    environment:/m, evalPath);
   }

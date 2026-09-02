@@ -57,8 +57,8 @@ stimuli:
             - gpt-5.6-sol
           aggregation: unanimous
           scoring: binary
-          threshold: 1
-          overall_threshold: 1
+          threshold: 0
+          overall_threshold: 0
           evidence:
             - trajectory
             - repo
@@ -68,157 +68,131 @@ stimuli:
                 Correct partition key usage: `/category` path, `PartitionKey` in all point operations
               weight: 1
               pass_threshold: 1
-              required: true
             - name: prompt/etag-based-optimistic-concurrency-captures-etag-from-rea
               description: |-
                 ETag-based optimistic concurrency: captures ETag from read, passes `ifMatchETag` on update
               weight: 1
               pass_threshold: 1
-              required: true
             - name: prompt/handles-412-precondition-failed-as-a-specific-error-case
               description: |-
                 Handles 412 Precondition Failed as a specific error case for conflicts
               weight: 1
               pass_threshold: 1
-              required: true
             - name: prompt/parameterized-queries-using-sqlqueryspec-with-sqlparamet
               description: |-
                 Parameterized queries using `SqlQuerySpec` with `SqlParameter` (no string concatenation)
               weight: 1
               pass_threshold: 1
-              required: true
             - name: prompt/page-by-page-iteration-using-iterablebypage-or-cosmospag
               description: |-
                 Page-by-page iteration using `iterableByPage()` or `CosmosPagedIterable`
               weight: 1
               pass_threshold: 1
-              required: true
             - name: prompt/configurable-page-size-via-queryrequestoptions-setmaxite
               description: |-
                 Configurable page size via `QueryRequestOptions.setMaxItemCount`
               weight: 1
               pass_threshold: 1
-              required: true
             - name: prompt/logs-continuation-token-and-item-count-per-page
               description: |-
                 Logs continuation token and item count per page
               weight: 1
               pass_threshold: 1
-              required: true
             - name: prompt/async-query-uses-cosmospagedflux-returning-pages-as-a-st
               description: |-
                 Async query uses `CosmosPagedFlux` returning pages as a stream
               weight: 1
               pass_threshold: 1
-              required: true
             - name: prompt/ttl-configured-at-90-days-7776000-seconds-via-containerp
               description: |-
                 TTL configured at 90 days (7776000 seconds) via `ContainerProperties.setDefaultTimeToLiveInSeconds()`
               weight: 1
               pass_threshold: 1
-              required: true
             - name: prompt/indexing-policy-excludes-description-path
               description: |-
                 Indexing policy excludes `/description` path
               weight: 1
               pass_threshold: 1
-              required: true
             - name: prompt/ru-cost-extracted-from-response-via-getrequestcharge-and
               description: |-
                 RU cost extracted from response via `getRequestCharge()` and logged per operation ### Scenario-Specific Error Handling
               weight: 1
               pass_threshold: 1
-              required: true
             - name: prompt/catches-cosmosexception-with-status-code-checks-404-409
               description: |-
                 Catches `CosmosException` with status code checks (404, 409, 412)
               weight: 1
               pass_threshold: 1
-              required: true
             - name: prompt/handles-412-separately-for-etag-conflicts-anti-patterns
               description: |-
                 Handles 412 separately for ETag conflicts ### Anti-Patterns (scenario-specific)
               weight: 1
               pass_threshold: 1
-              required: true
             - name: prompt/does-not-flatten-query-results-stream-foreach-without-pa
               description: |-
                 Does NOT flatten query results (`.stream()` / `.forEach()` without page iteration)
               weight: 1
               pass_threshold: 1
-              required: true
             - name: language/correct-dependencies-com-azure-not-com-microsoft-azure
               description: |-
                 Uses com.azure group ID for all Azure SDK packages. No com.microsoft.azure (legacy SDK) dependencies. Includes azure-identity for authentication.
               weight: 1
               pass_threshold: 1
-              required: true
             - name: language/azure-sdk-bom-for-version-management
               description: |-
                 Uses azure-sdk-bom in dependencyManagement to manage Azure SDK versions instead of hardcoding individual artifact versions. Dependencies should omit <version> tags when managed by the BOM.
               weight: 1
               pass_threshold: 1
-              required: true
             - name: language/correct-imports-no-legacy-no-internal-packages
               description: |-
                 All imports use com.azure.* packages. No com.microsoft.azure.* (legacy) or com.azure.*.implementation.* (internal API) imports.
               weight: 1
               pass_threshold: 1
-              required: true
             - name: language/defaultazurecredential-authentication
               description: |-
                 Uses DefaultAzureCredential or another com.azure.identity credential. No hardcoded connection strings, account keys, SAS tokens, or secrets.
               weight: 1
               pass_threshold: 1
-              required: true
             - name: language/client-builder-pattern
               description: |-
                 SDK clients constructed using *ClientBuilder classes with .endpoint() or .vaultUrl() and .credential(). No legacy constructors (CloudStorageAccount, DocumentClient, KeyVaultClient).
               weight: 1
               pass_threshold: 1
-              required: true
             - name: language/no-deprecated-legacy-classes
               description: |-
                 No deprecated classes from the old SDK (CloudStorageAccount, CloudBlobClient, DocumentClient, QueueClient, ApplicationTokenCredentials, MSICredentials, ConnectionStringBuilder).
               weight: 1
               pass_threshold: 1
-              required: true
             - name: language/pagination-pagediterable-pagedflux
               description: |-
                 List/query operations return PagedIterable (sync) or PagedFlux (async). Does not flatten all pages into a raw List or Stream in memory.
               weight: 1
               pass_threshold: 1
-              required: true
             - name: language/lro-pattern-syncpoller-pollerflux
               description: |-
                 Long-running operations use SyncPoller (sync) or PollerFlux (async) with begin* method prefix. No Thread.sleep() polling loops.
               weight: 1
               pass_threshold: 1
-              required: true
             - name: language/async-uses-project-reactor-mono-flux
               description: |-
                 Async code uses Project Reactor types (Mono, Flux). Not CompletableFuture (wrong), not RxJava (wrong), not sync wrapped in ExecutorService. No .block() inside async service implementations.
               weight: 1
               pass_threshold: 1
-              required: true
             - name: language/service-specific-exception-handling
               description: |-
                 Catches service-specific exceptions (BlobStorageException, CosmosException, ServiceBusException, HttpResponseException) with status code inspection. Not just generic Exception catches.
               weight: 1
               pass_threshold: 1
-              required: true
             - name: language/code-compiles-mvn-compile-gradle-compilejava
               description: |-
                 The generated code compiles without errors. Attempt build verification if build tools are available.
               weight: 1
               pass_threshold: 1
-              required: true
             - name: language/try-with-resources-for-clients
               description: |-
                 All Azure SDK client instances that implement AutoCloseable are used within try-with-resources blocks or explicitly closed in a finally block.
               weight: 1
               pass_threshold: 1
-              required: true
       - type: run-command
         name: program/java-project-compiles
         config:

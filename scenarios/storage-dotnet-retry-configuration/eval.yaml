@@ -51,8 +51,8 @@ stimuli:
             - gpt-5.6-sol
           aggregation: unanimous
           scoring: binary
-          threshold: 1
-          overall_threshold: 1
+          threshold: 0
+          overall_threshold: 0
           evidence:
             - trajectory
             - repo
@@ -62,70 +62,59 @@ stimuli:
                 `BlobClientOptions.Retry` configuration with `RetryOptions`
               weight: 1
               pass_threshold: 1
-              required: true
             - name: prompt/maxretries-delay-maxdelay-mode-exponential-vs-fixed
               description: |-
                 `MaxRetries`, `Delay`, `MaxDelay`, `Mode` (Exponential vs Fixed)
               weight: 1
               pass_threshold: 1
-              required: true
             - name: prompt/networktimeout-for-per-request-timeouts
               description: |-
                 `NetworkTimeout` for per-request timeouts
               weight: 1
               pass_threshold: 1
-              required: true
             - name: prompt/default-retryable-status-codes-408-429-500-502-503-504
               description: |-
                 Default retryable status codes (408, 429, 500, 502, 503, 504)
               weight: 1
               pass_threshold: 1
-              required: true
             - name: prompt/non-retryable-errors-400-401-403-404-409
               description: |-
                 Non-retryable errors (400, 401, 403, 404, 409)
               weight: 1
               pass_threshold: 1
-              required: true
             - name: prompt/per-operation-cancellationtoken-for-timeout-control
               description: |-
                 Per-operation `CancellationToken` for timeout control
               weight: 1
               pass_threshold: 1
-              required: true
             - name: prompt/geo-redundant-retry-with-georedundantsecondaryuri
               description: |-
                 Geo-redundant retry with `GeoRedundantSecondaryUri`
               weight: 1
               pass_threshold: 1
-              required: true
             - name: prompt/interaction-with-polly-or-other-resilience-libraries
               description: |-
                 Interaction with Polly or other resilience libraries
               weight: 1
               pass_threshold: 1
-              required: true
             - name: language/azure-identity-authentication
               description: |-
                 Check that authentication follows the prompt and uses the appropriate modern .NET Azure SDK mechanism.
                 When token-based authentication is requested, uses an appropriate credential from Azure.Identity and passes it to the SDK client. When the prompt explicitly requests a connection string, connection-string construction is valid. Credentials, connection strings, and secrets are not hardcoded.
               weight: 1
               pass_threshold: 1
-              required: true
             - name: language/sdk-specific-exception-handling
               description: |-
                 Check that requested error handling uses the exception model of the selected .NET Azure SDK package.
                 When error handling is requested, catches the appropriate SDK exception, such as RequestFailedException for many Azure.* and ARM clients, CosmosException for Microsoft.Azure.Cosmos, ServiceBusException for Service Bus, EventHubsException for Event Hubs, or AuthenticationFailedException and CredentialUnavailableException for Azure Identity. Inspects status codes, error codes, or retry details when relevant instead of relying only on a generic Exception catch.
               weight: 1
               pass_threshold: 1
-              required: true
             - name: language/asynchronous-sdk-usage
               description: |-
                 Check that asynchronous .NET Azure SDK calls use normal asynchronous control flow.
                 When asynchronous SDK APIs are used, awaits them with async and await rather than blocking through .Result, .Wait(), or GetAwaiter().GetResult().
               weight: 1
               pass_threshold: 1
-              required: true
       - type: run-command
         name: program/dotnet-project-builds
         config:

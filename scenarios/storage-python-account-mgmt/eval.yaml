@@ -8,6 +8,8 @@ environment:
       dest: .gitignore
     - src: ../../eval-workspace-AGENTS.md
       dest: AGENTS.md
+    - src: ../../scripts/program-checks/python.py
+      dest: .vally/program-checks/python.py
 scoring:
   weights: {}
 defaults:
@@ -50,8 +52,8 @@ stimuli:
             - gpt-5.6-sol
           aggregation: unanimous
           scoring: binary
-          threshold: 1
-          overall_threshold: 1
+          threshold: 0
+          overall_threshold: 0
           evidence:
             - trajectory
             - repo
@@ -61,88 +63,72 @@ stimuli:
                 Includes the required Azure management and identity SDK packages
               weight: 1
               pass_threshold: 1
-              required: true
             - name: prompt/creates-a-management-client-authenticated-with-credentia
               description: |-
                 Creates a management client authenticated with credential and subscription ID
               weight: 1
               pass_threshold: 1
-              required: true
             - name: prompt/creates-a-storage-account-as-a-long-running-operation-wi
               description: |-
                 Creates a storage account as a long-running operation with the correct SKU and kind
               weight: 1
               pass_threshold: 1
-              required: true
             - name: prompt/lists-all-storage-accounts-in-the-resource-group
               description: |-
                 Lists all storage accounts in the resource group
               weight: 1
               pass_threshold: 1
-              required: true
             - name: prompt/retrieves-detailed-properties-of-a-specific-storage-acco
               description: |-
                 Retrieves detailed properties of a specific storage account
               weight: 1
               pass_threshold: 1
-              required: true
             - name: prompt/enables-blob-versioning-on-the-account-via-account-updat
               description: |-
                 Enables blob versioning on the account (via account update or blob service properties)
               weight: 1
               pass_threshold: 1
-              required: true
             - name: prompt/deletes-the-storage-account
               description: |-
                 Deletes the storage account
               weight: 1
               pass_threshold: 1
-              required: true
             - name: prompt/code-builds-and-runs-without-import-errors-or-api-misuse
               description: |-
                 Code builds and runs without import errors or API misuse
               weight: 1
               pass_threshold: 1
-              required: true
             - name: language/correct-package-imports
               description: |-
                 Imports use the latest azure-sdk-for-python package structure (azure.*), not deprecated packages.
               weight: 1
               pass_threshold: 1
-              required: true
             - name: language/defaultazurecredential-usage
               description: |-
                 Authentication matches what the prompt asks for. If the prompt explicitly requires a connection string (or other key-based auth), using `from_connection_string()` / connection-string-based clients is correct and should pass. Otherwise, authentication must use DefaultAzureCredential from azure-identity (or another `azure.identity` credential), not connection strings or hardcoded keys. Hardcoded secrets/keys/connection strings in source code always fail — required values should come from environment variables or a secret store.
               weight: 1
               pass_threshold: 1
-              required: true
             - name: language/context-manager-for-clients
               description: |-
                 Azure SDK clients that support context managers are used with `with` statements or explicitly closed.
               weight: 1
               pass_threshold: 1
-              required: true
             - name: language/async-client-usage
               description: |-
                 If async operations are requested, code uses the async client variant with proper await patterns.
               weight: 1
               pass_threshold: 1
-              required: true
             - name: language/proper-exception-handling
               description: |-
                 Azure SDK exceptions (HttpResponseError and subclasses) are caught and handled appropriately.
               weight: 1
               pass_threshold: 1
-              required: true
       - type: run-command
         name: program/python-source-compiles
         config:
           command: python
           args:
-            - -m
-            - compileall
-            - -q
-            - .
+            - .vally/program-checks/python.py
           timeout: 30s
 artifacts:
   include:

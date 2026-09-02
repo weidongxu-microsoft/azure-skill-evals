@@ -49,8 +49,8 @@ stimuli:
             - gpt-5.6-sol
           aggregation: unanimous
           scoring: binary
-          threshold: 1
-          overall_threshold: 1
+          threshold: 0
+          overall_threshold: 0
           evidence:
             - trajectory
             - repo
@@ -60,31 +60,26 @@ stimuli:
                 Importing `github.com/Azure/azure-sdk-for-go/sdk/security/keyvault/azsecrets`
               weight: 1
               pass_threshold: 1
-              required: true
             - name: prompt/azidentity-module
               description: |-
                 Importing `github.com/Azure/azure-sdk-for-go/sdk/azidentity`
               weight: 1
               pass_threshold: 1
-              required: true
             - name: prompt/secrets-client
               description: |-
                 Creating a client with `azsecrets.NewClient()`
               weight: 1
               pass_threshold: 1
-              required: true
             - name: prompt/secret-crud
               description: |-
                 `SetSecret()`, `GetSecret()`, `DeleteSecret()`, `PurgeDeletedSecret()`
               weight: 1
               pass_threshold: 1
-              required: true
             - name: prompt/response-error
               description: |-
                 Handling the `*azcore.ResponseError` type for errors
               weight: 1
               pass_threshold: 1
-              required: true
       - type: run-command
         name: program/go-project-tests
         config:

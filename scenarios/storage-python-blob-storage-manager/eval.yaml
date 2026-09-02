@@ -8,6 +8,8 @@ environment:
       dest: .gitignore
     - src: ../../eval-workspace-AGENTS.md
       dest: AGENTS.md
+    - src: ../../scripts/program-checks/python.py
+      dest: .vally/program-checks/python.py
 scoring:
   weights: {}
 defaults:
@@ -55,8 +57,8 @@ stimuli:
             - gpt-5.6-sol
           aggregation: unanimous
           scoring: binary
-          threshold: 1
-          overall_threshold: 1
+          threshold: 0
+          overall_threshold: 0
           evidence:
             - trajectory
             - repo
@@ -66,100 +68,82 @@ stimuli:
                 Configures a custom retry policy with exponential backoff
               weight: 1
               pass_threshold: 1
-              required: true
             - name: prompt/enables-http-request-response-logging-for-debugging
               description: |-
                 Enables HTTP request/response logging for debugging
               weight: 1
               pass_threshold: 1
-              required: true
             - name: prompt/does-not-use-connection-strings-or-account-keys-blob-ope
               description: |-
                 Does NOT use connection strings or account keys ### Blob Operations
               weight: 1
               pass_threshold: 1
-              required: true
             - name: prompt/handles-large-file-upload-efficiently-without-loading-th
               description: |-
                 Handles large file upload efficiently without loading the entire file into memory
               weight: 1
               pass_threshold: 1
-              required: true
             - name: prompt/supports-blob-index-tags-on-upload-distinct-from-metadat
               description: |-
                 Supports blob index tags on upload (distinct from metadata)
               weight: 1
               pass_threshold: 1
-              required: true
             - name: prompt/implements-blob-lease-acquisition-to-prevent-concurrent
               description: |-
                 Implements blob lease acquisition to prevent concurrent overwrites
               weight: 1
               pass_threshold: 1
-              required: true
             - name: prompt/provides-both-sync-and-async-implementations-error-handl
               description: |-
                 Provides both sync and async implementations ### Error Handling
               weight: 1
               pass_threshold: 1
-              required: true
             - name: prompt/catches-and-handles-storage-specific-errors-from-the-azu
               description: |-
                 Catches and handles storage-specific errors from the Azure SDK
               weight: 1
               pass_threshold: 1
-              required: true
             - name: prompt/handles-lease-conflicts-when-another-client-holds-a-leas
               description: |-
                 Handles lease conflicts when another client holds a lease
               weight: 1
               pass_threshold: 1
-              required: true
             - name: prompt/includes-per-operation-timeout-configuration
               description: |-
                 Includes per-operation timeout configuration
               weight: 1
               pass_threshold: 1
-              required: true
             - name: language/correct-package-imports
               description: |-
                 Imports use the latest azure-sdk-for-python package structure (azure.*), not deprecated packages.
               weight: 1
               pass_threshold: 1
-              required: true
             - name: language/defaultazurecredential-usage
               description: |-
                 Authentication matches what the prompt asks for. If the prompt explicitly requires a connection string (or other key-based auth), using `from_connection_string()` / connection-string-based clients is correct and should pass. Otherwise, authentication must use DefaultAzureCredential from azure-identity (or another `azure.identity` credential), not connection strings or hardcoded keys. Hardcoded secrets/keys/connection strings in source code always fail — required values should come from environment variables or a secret store.
               weight: 1
               pass_threshold: 1
-              required: true
             - name: language/context-manager-for-clients
               description: |-
                 Azure SDK clients that support context managers are used with `with` statements or explicitly closed.
               weight: 1
               pass_threshold: 1
-              required: true
             - name: language/async-client-usage
               description: |-
                 If async operations are requested, code uses the async client variant with proper await patterns.
               weight: 1
               pass_threshold: 1
-              required: true
             - name: language/proper-exception-handling
               description: |-
                 Azure SDK exceptions (HttpResponseError and subclasses) are caught and handled appropriately.
               weight: 1
               pass_threshold: 1
-              required: true
       - type: run-command
         name: program/python-source-compiles
         config:
           command: python
           args:
-            - -m
-            - compileall
-            - -q
-            - .
+            - .vally/program-checks/python.py
           timeout: 30s
 artifacts:
   include:
