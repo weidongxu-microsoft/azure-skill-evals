@@ -138,6 +138,8 @@ stimuli:
                   `vectorStores.files.retrieve(...).status` to `completed`.
                 - `SearchClient.uploadDocuments(...)` -> successful indexing result ->
                   `SearchClient.getDocument(id)`.
+                - `BlockBlobClient.uploadData(...)` -> `SearchIndexerClient.runIndexer(...)` ->
+                  poll `SearchIndexerClient.getIndexerStatus(...).lastResult.status` to `success`.
                 No local-only readiness flag.
               weight: 1
               pass_threshold: 1
@@ -146,6 +148,8 @@ stimuli:
                 One path is required:
                 - `responses.create({ include: ["file_search_call.results"] })` ->
                   `output_text.annotations[type == "file_citation"].filename`.
+                - `responses.create(...agent_reference...)` ->
+                  `output_text.annotations[type == "url_citation"].{title,url}`.
                 - `SearchClient.search(...)` -> match `citationIds` to `result.document.id` ->
                   `result.document.sourceFile`.
                 No hardcoded documentation filenames.
