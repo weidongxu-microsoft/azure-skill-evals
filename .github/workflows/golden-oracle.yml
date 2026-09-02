@@ -1,0 +1,115 @@
+name: Golden oracle validation
+
+on:
+  workflow_dispatch:
+    inputs:
+      selection:
+        description: Validate Foundry scenarios, one scenario, or every golden
+        required: true
+        type: choice
+        default: foundry
+        options:
+          - foundry
+          - scenario
+          - all
+      scenario:
+        description: Scenario directory name; used when selection is scenario
+        required: false
+        type: string
+
+permissions:
+  contents: read
+  copilot-requests: write
+
+concurrency:
+  group: golden-oracle
+  cancel-in-progress: false
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 360
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+
+      - uses: actions/setup-dotnet@v6
+        with:
+          dotnet-version: "8.0.x"
+
+      - uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - uses: gradle/actions/setup-gradle@v4
+
+      - uses: actions/setup-go@v6
+        with:
+          go-version: "1.26.x"
+
+      - name: Configure public npm registry
+        run: npm config set registry https://registry.npmjs.org/ --location=user
+
+      - name: Install pnpm
+        run: npm install --global pnpm@10.26.0 --registry=https://registry.npmjs.org/
+
+      - name: Install dependencies
+        shell: bash
+        run: |
+          pnpm install --no-frozen-lockfile --public-hoist-pattern '@github/copilot-*'
+          copilot_cli_path=$(node --input-type=module -e "import { fileURLToPath } from 'node:url'; console.log(fileURLToPath(new URL('./index.js', import.meta.resolve('@github/copilot-linux-x64'))))")
+          echo "COPILOT_CLI_PATH=$copilot_cli_path" >> "$GITHUB_ENV"
+          node "$copilot_cli_path" --version
+
+      - name: Validate golden applications with live graders
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          SELECTION: ${{ inputs.selection }}
+          SCENARIO: ${{ inputs.scenario }}
+        shell: bash
+        run: |
+          set -o pipefail
+          case "$SELECTION" in
+            foundry)
+              pnpm test:oracle:foundry 2>&1 | tee golden-oracle.log
+              ;;
+            scenario)
+              if [[ -z "$SCENARIO" ]]; then
+                echo "scenario is required when selection=scenario" >&2
+                exit 1
+              fi
+              pnpm test:oracle -- --scenario "$SCENARIO" 2>&1 | tee golden-oracle.log
+              ;;
+            all)
+              pnpm test:oracle -- --all 2>&1 | tee golden-oracle.log
+              ;;
+          esac
+
+      - name: Publish oracle summary
+        if: ${{ always() }}
+        shell: bash
+        run: |
+          if [[ -f golden-oracle.log ]]; then
+            {
+              echo '```text'
+              cat golden-oracle.log
+              echo '```'
+            } >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+      - name: Upload oracle results
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: golden-oracle-${{ github.run_id }}
+          path: golden-oracle.log
+          if-no-files-found: warn

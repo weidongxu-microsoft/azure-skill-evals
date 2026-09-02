@@ -131,6 +131,11 @@ pnpm test:oracle -- --scenario <scenario-name>
 pnpm test:oracle:foundry
 ```
 
+The manually dispatched **Golden oracle validation** GitHub Actions workflow
+provides the same `foundry`, single-scenario, and all-scenario selections. Its
+job summary and artifact retain the per-scenario Prompt, Language, and Program
+counts.
+
 The validator applies each `golden/` application through Vally's oracle
 pipeline and requires every Prompt Check and Program Check to pass. Language
 Checks are reported but do not gate the oracle because they are reusable
