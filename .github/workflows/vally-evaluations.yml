@@ -7,7 +7,7 @@ on:
         description: Select all evaluations, evaluations matching tags, or one named suite
         required: true
         type: choice
-        default: suite
+        default: all
         options:
           - suite
           - tags
@@ -25,7 +25,7 @@ on:
         description: Environment variant to run
         required: true
         type: choice
-        default: baseline
+        default: all
         options:
           - baseline
           - azure-skill-mcp
@@ -35,7 +35,7 @@ on:
         description: Resolve and print the plans without running agents
         required: true
         type: boolean
-        default: true
+        default: false
 
 permissions:
   contents: read
