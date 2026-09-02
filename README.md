@@ -77,15 +77,9 @@ Keep everything owned by one evaluation case together:
 ```text
 scenarios/<name>/
 ├── eval.yaml
-├── rules.test.mjs
-├── golden/
-│   ├── application source
-│   └── dependency manifest
-└── tools/
-    └── retired deterministic grader implementation
-
-languages/<language>/
-└── retired deterministic checks and tests
+└── golden/
+    ├── application source
+    └── dependency manifest
 
 experiments/<language>/
 └── experiment.yaml
