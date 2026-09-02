@@ -1,9 +1,10 @@
 # Contoso Foundry support assistant
 
-This TypeScript CLI ingests product manuals into Microsoft Foundry file search,
-maintains isolated multi-turn conversations, returns source citations, records
-unsupported questions and employee feedback, and runs groundedness and
-relevance evaluations.
+This hosted TypeScript service ingests product manuals into Microsoft Foundry
+file search, maintains isolated multi-turn conversations, returns source
+citations, records unsupported questions and employee feedback, and runs
+groundedness and relevance evaluations. An administrative CLI uses the same
+application services and durable state.
 
 Azure resources must already exist; this project does not provision or deploy
 infrastructure.
@@ -27,9 +28,9 @@ Data Contributor access to the storage account. `SUPPORT_STATE_CONTAINER` and
 `SUPPORT_STATE_BLOB` optionally change the state location.
 `AZURE_LOG_LEVEL` may be `verbose`, `info`, `warning`, or `error`.
 
-For a deployed service, enable App Service authentication with Microsoft Entra
-ID and require authentication for every request. The service uses the
-platform-provided `X-MS-CLIENT-PRINCIPAL-ID` header to isolate employee
+For a deployed service, enable the hosting platform's Microsoft Entra
+authentication and require authentication for every request. The service uses
+the platform-provided `X-MS-CLIENT-PRINCIPAL-ID` header to isolate employee
 conversations and restrict administrative routes to
 `SUPPORT_ADMIN_PRINCIPAL_IDS`.
 

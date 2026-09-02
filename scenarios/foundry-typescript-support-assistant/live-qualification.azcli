@@ -24,7 +24,7 @@ az extension add --name containerapp --upgrade --only-show-errors
 
 az containerapp env create --name fsref0902wx84-env --resource-group rg-foundry-support-ref-0902-wx84 --location eastus2 --logs-destination none
 
-az containerapp up --name fsref0902wx84-app --resource-group rg-foundry-support-ref-0902-wx84 --environment fsref0902wx84-env --source "scenarios\foundry-typescript-support-assistant\golden" --ingress external --target-port 3000 --system-assigned --env-vars FOUNDRY_PROJECT_ENDPOINT=https://fsref0902wx84.services.ai.azure.com/api/projects/supportref MODEL_DEPLOYMENT_NAME=support-gpt5-mini EVALUATION_MODEL_DEPLOYMENT_NAME=support-gpt5-mini STORAGE_ACCOUNT_ENDPOINT=https://fsref0902wx84st.blob.core.windows.net/ SUPPORT_ADMIN_PRINCIPAL_IDS=$(az ad signed-in-user show --query id -o tsv) PORT=3000
+az containerapp up --name fsref0902wx84-app --resource-group rg-foundry-support-ref-0902-wx84 --environment fsref0902wx84-env --source "scenarios\foundry-typescript-support-assistant\golden" --ingress external --target-port 3000 --system-assigned --env-vars FOUNDRY_PROJECT_ENDPOINT=https://fsref0902wx84.services.ai.azure.com/api/projects/supportref MODEL_DEPLOYMENT_NAME=support-gpt5-mini EVALUATION_MODEL_DEPLOYMENT_NAME=support-gpt5-mini STORAGE_ACCOUNT_ENDPOINT=https://fsref0902wx84st.blob.core.windows.net/ SUPPORT_ADMIN_PRINCIPAL_IDS=$(az ad signed-in-user show --query id -o tsv) AZURE_TOKEN_CREDENTIALS=prod PORT=3000
 
 az containerapp update --name fsref0902wx84-app --resource-group rg-foundry-support-ref-0902-wx84 --cpu 0.25 --memory 0.5Gi --min-replicas 0 --max-replicas 1
 
@@ -36,5 +36,17 @@ az role assignment create --assignee-object-id $(az containerapp show --name fsr
 
 az containerapp revision restart --name fsref0902wx84-app --resource-group rg-foundry-support-ref-0902-wx84 --revision $(az containerapp show --name fsref0902wx84-app --resource-group rg-foundry-support-ref-0902-wx84 --query properties.latestRevisionName -o tsv)
 
-# Authentication, authenticated workflow exercise, restart persistence, resource
-# cleanup, and resource-group teardown commands are added after live verification.
+# Repeat the revision restart after creating conversations, feedback, and an
+# unresolved question. A follow-up request must reuse the same remote
+# conversation ID, and GET /admin/unresolved must retain the recorded item.
+
+# DELETE /admin/resources must delete remote conversations, the agent version,
+# vector store, and uploaded files. A later question must fail until ingestion
+# runs again. The durable unresolved-question audit record intentionally remains.
+
+# Platform authentication was not exercised during this qualification. Live
+# HTTP requests supplied X-MS-CLIENT-PRINCIPAL-ID directly to test application
+# authorization and user isolation; do not treat that as a production security
+# validation.
+
+az group delete --name rg-foundry-support-ref-0902-wx84 --yes --no-wait
