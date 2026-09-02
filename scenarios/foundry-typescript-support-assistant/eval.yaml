@@ -163,9 +163,9 @@ stimuli:
               pass_threshold: 1
             - name: prompt/records-unsupported-questions-for-follow-up
               description: |-
-                - Parse `supported: false` or `UNSUPPORTED:`.
-                - Return no unsupported claim.
-                - Persist `employeeId`, `conversationId`, `responseId`, `question`, `timestamp`.
+                - Detect `supported === false` or `output_text.startsWith("UNSUPPORTED:")`.
+                - Durable unresolved record -> question, response ID, creation time, and
+                  conversation key scoped by authenticated employee.
               weight: 1
               pass_threshold: 1
             - name: prompt/records-validated-response-specific-feedback

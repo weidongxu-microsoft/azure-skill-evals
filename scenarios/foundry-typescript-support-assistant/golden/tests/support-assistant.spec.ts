@@ -322,6 +322,40 @@ test("requires Entra identity and administrator authorization", async () => {
   }
 });
 
+test("isolates identical conversation IDs by authenticated employee", async () => {
+  const directory = await mkdtemp(join(tmpdir(), "support-assistant-"));
+  const gateway = new FakeGateway();
+  const assistant = new SupportAssistant(
+    gateway,
+    new StateStore(join(directory, "state.json")),
+  );
+  await assistant.ingest(["manual.md"]);
+  const server = createSupportServer(assistant, {
+    requireAuthentication: true,
+    adminPrincipalIds: new Set(),
+  });
+  server.listen(0, "127.0.0.1");
+  await once(server, "listening");
+  const address = server.address() as AddressInfo;
+  const url = `http://127.0.0.1:${String(address.port)}/conversations/shared/messages`;
+
+  try {
+    await postJson(url, { question: "First employee" }, "employee-a");
+    await postJson(url, { question: "Second employee" }, "employee-b");
+    await postJson(url, { question: "First employee follow-up" }, "employee-a");
+
+    assert.deepEqual(gateway.seenConversationIds, [
+      undefined,
+      undefined,
+      "conversation-1",
+    ]);
+  } finally {
+    server.close();
+    await once(server, "close");
+    await rm(directory, { recursive: true, force: true });
+  }
+});
+
 class FakeGateway implements SupportGateway {
   public nextSupported = true;
   public seenConversationIds: Array<string | undefined> = [];
@@ -418,10 +452,19 @@ class FailingStateStore extends StateStore {
   }
 }
 
-function postJson(url: string, body: unknown): Promise<Response> {
+function postJson(
+  url: string,
+  body: unknown,
+  principalId?: string,
+): Promise<Response> {
   return fetch(url, {
     method: "POST",
-    headers: { "content-type": "application/json" },
+    headers: {
+      "content-type": "application/json",
+      ...(principalId === undefined
+        ? {}
+        : { "x-ms-client-principal-id": principalId }),
+    },
     body: JSON.stringify(body),
   });
 }
