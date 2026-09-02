@@ -23,9 +23,10 @@ stimuli:
       and receive answers grounded in those manuals.
 
       Create a complete, runnable TypeScript application targeting Node.js 22.
-      Select the appropriate Microsoft Foundry capabilities, Azure services,
-      SDK packages, and application structure. Do not provide only an
-      architecture proposal.
+      Use `@azure/ai-projects` 2.5.0 for Microsoft Foundry project and
+      evaluation operations. Select the other appropriate Foundry
+      capabilities, Azure services, SDK packages, and application structure.
+      Do not provide only an architecture proposal.
 
       **Write the application to files in the workspace. Do not reply with code blocks.**
 
@@ -116,133 +117,95 @@ stimuli:
           criteria:
             - name: prompt/implements-a-complete-runnable-support-application
               description: |-
-                A production entry point starts a hosted HTTP server, its routes invoke the real
-                support orchestration rather than placeholders, and the dependency manifest
-                provides working lint, build, test, and start scripts. The application includes
-                both required Aero 300 fixtures. Fail an architecture description,
-                command-line-only tool, mock-only implementation, or disconnected SDK snippets.
+                A production entry point calls `listen()`, and HTTP route handlers invoke the real
+                support orchestration. `package.json` has `lint`, `build`, `test`, and `start`
+                scripts. Fail command-line-only or placeholder implementations.
               weight: 1
               pass_threshold: 1
             - name: prompt/selects-coherent-current-foundry-and-azure-sdks
               description: |-
-                Concrete imports, client construction, and invoked methods use compatible,
-                current packages and form one coherent implementation. Valid designs may use
-                @azure/ai-projects, @azure/ai-agents, an OpenAI-compatible Foundry client,
-                Azure AI Search, or another current combination when it implements the complete
-                workflow. Evidence should include recognizable concrete operations such as an
-                AIProjectClient plus agents and Responses clients, an AgentsClient plus agent and
-                thread/run operations, or a model client plus SearchClient retrieval calls. Do
-                not require the reference application's packages or reject a valid alternative
-                architecture. Fail fictional APIs, incompatible API generations, packages that
-                are declared but unused, or abstractions with no invoked service client.
+                Constructs `AIProjectClient` from `@azure/ai-projects` 2.5.0 and calls
+                `getOpenAIClient()` for the Foundry evaluation workflow. `@azure/ai-agents` may
+                implement conversations, but a standalone AgentsClient solution does not pass.
               weight: 1
               pass_threshold: 1
             - name: prompt/ingests-manuals-and-waits-for-retrieval-readiness
               description: |-
-                Trace a concrete executed path that reads both fixtures, uploads or indexes each
-                one into the selected retrieval service, associates the resulting retrieval
-                resource with the answering workflow, and waits for successful readiness before
-                allowing questions. Polling must be bounded and must reject failed, canceled, and
-                timed-out states. Concrete evidence can include file creation, vector-store
-                creation, vector-store file attachment and status retrieval, or SearchClient
-                document upload followed by readiness verification. Equivalent current
-                mechanisms are valid, but merely constructing tool configuration does not pass.
+                Both fixtures reach concrete file-upload and vector-store attachment calls, and
+                the created vector-store ID is passed to the agent's file-search tool. Code checks
+                each indexed file reaches `completed` before questions are allowed.
               weight: 1
               pass_threshold: 1
             - name: prompt/returns-grounded-answers-with-service-citations
               description: |-
-                Trace the HTTP request through a concrete agent, responses, search, or retrieval
-                SDK call that uses the configured grounding resource. The returned answer must
-                include references parsed from service annotations, citation metadata, or search
-                results tied to that response. Evidence can include a Responses call referencing
-                a configured agent and requesting file-search results, an Agents thread/run whose
-                messages contain file citations, or an explicit search-then-model flow that passes
-                returned documents to the model. Fail direct ungrounded model calls, fixture-text
-                lookup presented as cloud retrieval, or citations manufactured from known
-                filenames.
+                The answer call references the created file-search agent and requests retrieval
+                results, such as `include: ["file_search_call.results"]`. Citations are parsed
+                from returned file-citation annotations; fixture-derived filenames do not pass.
               weight: 1
               pass_threshold: 1
             - name: prompt/preserves-isolated-multi-turn-conversations
               description: |-
-                Concrete create and follow-up paths retain the conversation, thread, or equivalent
-                service identifier returned by the provider and reuse it on later turns. A durable
-                mapping includes both authenticated employee identity and local conversation
-                identity, survives process restarts, and prevents two employees using the same
-                local ID from sharing context. In-memory-only maps do not pass.
+                Persists the ID returned by `conversations.create()` or `threads.create()` under a
+                key containing both employee and local conversation IDs, then reuses it for the
+                next message. An in-memory-only map does not pass.
               weight: 1
               pass_threshold: 1
             - name: prompt/records-unsupported-questions-for-follow-up
               description: |-
-                The executed answering path constrains unsupported claims, detects when retrieved
-                evidence cannot support an answer, and durably records the original question,
-                employee-scoped conversation, response identity, and timestamp for administrator
-                review. A prompt instruction without detection and persistence does not pass.
+                Answer processing detects a structured unsupported signal or explicit sentinel
+                such as `UNSUPPORTED:` and durably writes the question, scoped conversation ID,
+                response ID, and timestamp. Prompt instructions alone do not pass.
               weight: 1
               pass_threshold: 1
             - name: prompt/records-validated-response-specific-feedback
               description: |-
-                The feedback route verifies that the supplied response identifier is a known
-                response in the authenticated employee's identified conversation before durably
-                recording a positive or negative rating. Trace both the successful write and an
-                explicit rejection path for unknown, mismatched, or invalid response feedback.
+                Before saving feedback, code looks up `responseId` and compares its persisted
+                scoped conversation ID with the request. Unknown or mismatched responses are
+                rejected; accepting any caller-supplied response ID does not pass.
               weight: 1
               pass_threshold: 1
             - name: prompt/runs-extensible-groundedness-and-relevance-evaluation
               description: |-
-                Trace concrete evaluation SDK calls that generate answers through the same
-                application path, submit multiple rows to real Microsoft Foundry groundedness and
-                relevance evaluators, and supply retrieved evidence as groundedness context rather
-                than copying fixture expectations. The code waits for a successful terminal run,
-                rejects unsuccessful states, enumerates every returned output page and metric, and
-                represents evaluators in an extensible collection. Evidence can include eval
-                creation, run creation and retrieval, and paged output-item listing through the
-                selected current SDK. A local scoring function labeled as a Foundry evaluation
-                does not pass.
+                Uses `openAIClient.evals.create`, `evals.runs.create`, `runs.retrieve`, and
+                `runs.outputItems.list` with groundedness and relevance evaluators. Evaluation
+                context comes from returned file-search chunks, not fixture expectations.
               weight: 1
               pass_threshold: 1
             - name: prompt/uses-entra-identity-and-external-configuration
               description: |-
-                Trace Azure client construction to an Entra TokenCredential and external endpoint
-                and deployment configuration. Trace HTTP authorization from a trusted
-                hosting-platform or validated-token employee identity through conversation
-                scoping, and verify ingestion, unresolved review, evaluation, and cleanup routes
-                enforce an administrator boundary. Fail caller-selected identity values,
-                embedded credentials, or administrative routes with no authorization check.
+                Constructs Azure clients with endpoint environment variables and a
+                `TokenCredential`. Employee identity comes from validated authentication or a
+                trusted platform principal header, and admin routes check an allowlist.
               weight: 1
               pass_threshold: 1
             - name: prompt/handles-lifecycle-errors-and-bounded-waits
               description: |-
-                Every asynchronous service lifecycle used by ingestion and evaluation either uses
-                an SDK poller or a deadline-based loop with delay. Concrete branches handle all
-                documented terminal failure states and preserve useful service status, code, and
-                message details. Fail unbounded loops, success-only polling, broad catches that
-                suppress failures, or successful-looking fallback results.
+                Polling uses `pollUntilDone()` or an explicit deadline and delay, with failure
+                branches for `failed`, `cancelled`/`canceled`, and timeout. Azure error handling
+                inspects service-specific fields such as `RestError.statusCode` or
+                `APIError.status`; unbounded or success-only polling does not pass.
               weight: 1
               pass_threshold: 1
             - name: prompt/cleans-up-created-cloud-resources-safely
               description: |-
-                Trace concrete delete calls that consume the exact service identifiers captured
-                during creation. Cleanup removes conversation items and conversations, agent
-                versions or equivalent answering resources, grounding resources, uploaded files,
-                and temporary evaluation resources in a dependency-safe order. Partial failures
-                remain retryable and are surfaced rather than silently clearing ownership state.
+                Cleanup deletes conversation items before `conversations.delete()`, calls
+                `project.agents.deleteVersion(name, version)` for a project agent or the matching
+                `AgentsClient` thread/agent deletes, then deletes vector-store and uploaded-file
+                IDs. Persisted ownership is cleared only after remote deletion.
               weight: 1
               pass_threshold: 1
             - name: prompt/includes-meaningful-offline-automated-tests
               description: |-
-                The standard test script runs offline tests with fakes or mocks at the Azure
-                boundary while exercising real application orchestration. Tests cover hosted
-                routing and authorization, conversation reuse and employee isolation,
-                unsupported-question persistence, feedback ownership validation, durable-state
-                failure handling, evaluation rows built from retrieved evidence, and cleanup.
-                Compile-only tests or tests of standalone helpers are insufficient.
+                `npm test` uses the real server and orchestration with mocked Azure boundaries.
+                Distinctive assertions cover remote conversation-ID reuse, mismatched feedback
+                rejection, retrieved-chunk evaluation context, and dependency-ordered cleanup.
               weight: 1
               pass_threshold: 1
             - name: prompt/excludes-provisioning-and-deployment
               description: |-
-                Does not add Azure resource provisioning, infrastructure-as-code artifacts, or a
-                deployment workflow. It assumes required cloud resources already exist and
-                documents how to configure and run the application against them.
+                The generated diff contains no Bicep, ARM, Terraform, `az`/`azd` provisioning
+                script, or deployment workflow. Application configuration and run documentation
+                are allowed.
               weight: 1
               pass_threshold: 1
             - name: language/correct-azure-scoped-packages
