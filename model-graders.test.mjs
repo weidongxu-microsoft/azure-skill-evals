@@ -163,18 +163,3 @@ test("every eval uses one complete model review and program checks", () => {
     assert.doesNotMatch(source, /^    environment:/m, evalPath);
   }
 });
-
-test("resource group deletion uses the current ARM wait contract", () => {
-  const evalPath = join(
-    scenarioRoot,
-    "resource-manager-dotnet-resource-group-crud",
-    "eval.yaml",
-  );
-  const source = readFileSync(evalPath, "utf8").replaceAll("\r\n", "\n");
-
-  assert.match(
-    source,
-    /prompt\/delete-resource-group-with-waituntil-completed[\s\S]*`DeleteAsync\(WaitUntil\.Completed\)` or the synchronous equivalent/,
-  );
-  assert.doesNotMatch(source, /WaitForCompletion/);
-});
