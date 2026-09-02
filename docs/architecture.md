@@ -15,10 +15,11 @@ explicitly activated `azure-cosmos-py`.
 ## Proposed architecture
 
 Vally owns execution, trajectories, model grading, and experiment isolation.
-Each scenario directory owns its eval and golden application. Each language
-owns one shared experiment under `experiments/`. Every `eval.yaml` restores its
-originating Hyoka prompt and defines one single-model panel containing the exact
-Hyoka scenario and language criteria. The experiment changes only
+Each scenario directory owns its eval and reference application under
+`golden/`. Each language owns one shared experiment under `experiments/`. Every
+`eval.yaml` restores its originating Hyoka prompt and defines one single-model
+panel containing the exact Hyoka scenario and language criteria. The experiment
+changes only
 `/environment/skills` and
 `/environment/mcpServers`, so prompts, models, limits, and graders cannot drift
 between arms.
@@ -151,7 +152,7 @@ least three trials per arm before drawing comparative quality conclusions.
 
 Version 1 includes migrated Azure SDK stimuli for Python, .NET, Java,
 TypeScript, and Go. Every evaluation has correctness criteria, deterministic
-program checks, a buildable golden application, configuration linting,
+program checks, a buildable reference application, configuration linting,
 model-grader structure tests, and one trial per arm. Go has two experiment arms
 because `microsoft/skills` has no Go Azure SDK plugin; the other languages have
 three.
