@@ -168,6 +168,16 @@ export function summarizeOracleOutcome(outcome) {
   };
 }
 
+export function oracleSummaryFailed(summary) {
+  return Boolean(
+    summary.error ||
+      summary.prompt.length === 0 ||
+      summary.prompt.some((result) => !result.passed) ||
+      summary.language.some((result) => !result.passed) ||
+      summary.program.some((result) => !result.passed),
+  );
+}
+
 function parseJsonLines(output) {
   if (typeof output !== "string") {
     throw new Error("Oracle command did not produce standard output");
@@ -368,14 +378,13 @@ export async function main(argv = process.argv.slice(2)) {
         runOracle(temporaryEval).outcome,
       );
       const promptFailures = positive.prompt.filter((result) => !result.passed);
+      const languageFailures = positive.language.filter(
+        (result) => !result.passed,
+      );
       const programFailures = positive.program.filter(
         (result) => !result.passed,
       );
-      const positiveFailed =
-        positive.error ||
-        positive.prompt.length === 0 ||
-        promptFailures.length > 0 ||
-        programFailures.length > 0;
+      const positiveFailed = oracleSummaryFailed(positive);
       failed ||= Boolean(positiveFailed);
       const record = {
         error: positive.error,
@@ -400,7 +409,11 @@ export async function main(argv = process.argv.slice(2)) {
         ].join(" "),
       );
       if (positive.error) console.error(`  ${positive.error}`);
-      for (const failure of [...promptFailures, ...programFailures]) {
+      for (const failure of [
+        ...promptFailures,
+        ...languageFailures,
+        ...programFailures,
+      ]) {
         console.error(
           `  ${failure.metadata?.criterion ?? failure.name}: ${failure.evidence}`,
         );

@@ -16,6 +16,7 @@ import {
   addGoldenPatch,
   createGoldenPatch,
   listGoldenFiles,
+  oracleSummaryFailed,
   summarizeOracleOutcome,
 } from "./validate-golden-oracles.mjs";
 
@@ -135,4 +136,17 @@ test("summarizes prompt, language, and program outcomes independently", () => {
   assert.deepEqual(summary.prompt.map((result) => result.passed), [true]);
   assert.deepEqual(summary.language.map((result) => result.passed), [false]);
   assert.deepEqual(summary.program.map((result) => result.passed), [true]);
+  assert.equal(oracleSummaryFailed(summary), true);
+});
+
+test("fails an oracle summary with a language failure", () => {
+  assert.equal(
+    oracleSummaryFailed({
+      error: null,
+      prompt: [{ passed: true }],
+      language: [{ passed: false }],
+      program: [{ passed: true }],
+    }),
+    true,
+  );
 });

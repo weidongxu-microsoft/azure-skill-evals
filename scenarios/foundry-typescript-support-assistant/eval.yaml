@@ -8,6 +8,10 @@ environment:
       dest: .gitignore
     - src: ../../eval-workspace-AGENTS.md
       dest: AGENTS.md
+    - src: materials/contoso-aero-300.md
+      dest: materials/contoso-aero-300.md
+    - src: materials/contoso-aero-300-warranty.md
+      dest: materials/contoso-aero-300-warranty.md
 scoring:
   weights: {}
 defaults:
@@ -19,8 +23,8 @@ stimuli:
   - name: foundry-dp-typescript-support-assistant
     prompt: |-
       Contoso needs an internal product-support assistant built with Microsoft
-      Foundry. Employees should be able to ask questions about product manuals
-      and receive answers grounded in those manuals.
+      Foundry. Employees should be able to ask questions about product
+      documentation and receive answers grounded in that documentation.
 
       Create a complete, runnable TypeScript application targeting Node.js 22.
       Use `@azure/ai-projects` 2.5.0 for Microsoft Foundry project and
@@ -34,25 +38,20 @@ stimuli:
 
       - Run as a hosted HTTP service suitable for multiple employees. A
         command-line-only application is not sufficient.
-      - Include at least two supplied manual fixtures for a fictional Contoso
-        Aero 300 product. The fixtures must document:
-        - A reset procedure: disconnect external power, hold the recessed Reset
-          button for 10 seconds, reconnect power, and expect the status light
-          to turn solid green.
-        - Operating limits of -10 C through 45 C and up to 12 hours of typical
-          battery operation.
-        - A two-year limited hardware warranty that covers manufacturing
-          defects but excludes accidental damage.
-        - A service process requiring a serial number, purchase date, and
-          return authorization before shipment.
-      - Ingest the manuals for grounded retrieval and verify that asynchronous
-        ingestion has completed successfully before answering questions.
+      - Use the supplied product documentation files in `materials/`. Do not
+        replace or rewrite them.
+      - Ingest the product documentation for grounded retrieval and verify that
+        asynchronous ingestion has completed successfully before answering
+        questions.
+      - Use the Microsoft Foundry project in the grounded answer workflow, not
+        only for offline evaluation. Connect the answer-generation path to the
+        selected retrieval capability through a coherent service integration.
       - Support isolated multi-turn conversations so a follow-up question can
         use prior conversation context without mixing different employees.
         Conversation mappings must survive application restarts.
       - Return references identifying the source files that support an answer.
         References must come from the service response rather than being
-        fabricated from known fixture names.
+        fabricated from known documentation filenames.
       - Avoid presenting unsupported claims as facts and durably record
         unsupported questions for human follow-up.
       - Durably record positive or negative feedback for a specific response
@@ -117,95 +116,110 @@ stimuli:
           criteria:
             - name: prompt/implements-a-complete-runnable-support-application
               description: |-
-                A production entry point calls `listen()`, and HTTP route handlers invoke the real
-                support orchestration. `package.json` has `lint`, `build`, `test`, and `start`
-                scripts. Fail command-line-only or placeholder implementations.
+                - Production entry point -> `listen(...)`.
+                - HTTP routes -> production support orchestration.
+                - `package.json` -> `lint`, `build`, `test`, `start`.
+                - Build output contains the file executed by `start`.
+                No CLI-only or placeholder implementation.
               weight: 1
               pass_threshold: 1
             - name: prompt/selects-coherent-current-foundry-and-azure-sdks
               description: |-
-                Constructs `AIProjectClient` from `@azure/ai-projects` 2.5.0 and calls
-                `getOpenAIClient()` for the Foundry evaluation workflow. `@azure/ai-agents` may
-                implement conversations, but a standalone AgentsClient solution does not pass.
+                - `new AIProjectClient(projectEndpoint, credential)`.
+                - Foundry project client -> answer generation.
+                - `getOpenAIClient().evals` -> evaluation workflow.
+                - Every declared service client -> invoked operation.
               weight: 1
               pass_threshold: 1
-            - name: prompt/ingests-manuals-and-waits-for-retrieval-readiness
+            - name: prompt/ingests-product-documentation-and-waits-for-retrieval-readiness
               description: |-
-                Both fixtures reach concrete file-upload and vector-store attachment calls, and
-                the created vector-store ID is passed to the agent's file-search tool. Code checks
-                each indexed file reaches `completed` before questions are allowed.
+                Choose one path for both supplied product documentation files:
+                - `files.create(...)` -> `vectorStores.files.create(...)` -> poll
+                  `vectorStores.files.retrieve(...).status` to `completed`.
+                - `SearchClient.uploadDocuments(...)` -> successful indexing result ->
+                  `SearchClient.getDocument(id)`.
+                No local-only readiness flag.
               weight: 1
               pass_threshold: 1
             - name: prompt/returns-grounded-answers-with-service-citations
               description: |-
-                The answer call references the created file-search agent and requests retrieval
-                results, such as `include: ["file_search_call.results"]`. Citations are parsed
-                from returned file-citation annotations; fixture-derived filenames do not pass.
+                One path is required:
+                - `responses.create({ include: ["file_search_call.results"] })` ->
+                  `output_text.annotations[type == "file_citation"].filename`.
+                - `SearchClient.search(...)` -> match `citationIds` to `result.document.id` ->
+                  `result.document.sourceFile`.
+                No hardcoded documentation filenames.
               weight: 1
               pass_threshold: 1
             - name: prompt/preserves-isolated-multi-turn-conversations
               description: |-
-                Persists the ID returned by `conversations.create()` or `threads.create()` under a
-                key containing both employee and local conversation IDs, then reuses it for the
-                next message. An in-memory-only map does not pass.
+                One path is required:
+                - `conversations.create()` or `threads.create()` -> persist returned ID by
+                  `employeeId + conversationId` -> reuse returned ID.
+                - Persist turns by `employeeId + conversationId` -> pass prior turns to the next
+                  Foundry answer call.
+                No process-memory-only state.
               weight: 1
               pass_threshold: 1
             - name: prompt/records-unsupported-questions-for-follow-up
               description: |-
-                Answer processing detects a structured unsupported signal or explicit sentinel
-                such as `UNSUPPORTED:` and durably writes the question, scoped conversation ID,
-                response ID, and timestamp. Prompt instructions alone do not pass.
+                - Parse `supported: false` or `UNSUPPORTED:`.
+                - Return no unsupported claim.
+                - Persist `employeeId`, `conversationId`, `responseId`, `question`, `timestamp`.
               weight: 1
               pass_threshold: 1
             - name: prompt/records-validated-response-specific-feedback
               description: |-
-                Before saving feedback, code looks up `responseId` and compares its persisted
-                scoped conversation ID with the request. Unknown or mismatched responses are
-                rejected; accepting any caller-supplied response ID does not pass.
+                - Load persisted `responseId`.
+                - Match authenticated `employeeId` and requested conversation scope.
+                - Reject missing or mismatched response.
+                - Persist rating linked to `responseId`.
               weight: 1
               pass_threshold: 1
             - name: prompt/runs-extensible-groundedness-and-relevance-evaluation
               description: |-
-                Uses `openAIClient.evals.create`, `evals.runs.create`, `runs.retrieve`, and
-                `runs.outputItems.list` with groundedness and relevance evaluators. Evaluation
-                context comes from returned file-search chunks, not fixture expectations.
+                - `evals.create(...)` -> groundedness + relevance criteria array.
+                - `evals.runs.create(...)` -> `evals.runs.retrieve(...)` to terminal status.
+                - `for await...of evals.runs.outputItems.list(...)` -> every output item.
+                - Evaluator `context` -> selected retrieval service results.
               weight: 1
               pass_threshold: 1
             - name: prompt/uses-entra-identity-and-external-configuration
               description: |-
-                Constructs Azure clients with endpoint environment variables and a
-                `TokenCredential`. Employee identity comes from validated authentication or a
-                trusted platform principal header, and admin routes check an allowlist.
+                - Environment variables -> endpoints, deployment, identity settings.
+                - `TokenCredential` -> every Azure client.
+                - Validated Entra token or trusted platform principal -> `employeeId`.
+                - Admin role or allowlist -> ingestion, review, evaluation, cleanup routes.
               weight: 1
               pass_threshold: 1
             - name: prompt/handles-lifecycle-errors-and-bounded-waits
               description: |-
-                Polling uses `pollUntilDone()` or an explicit deadline and delay, with failure
-                branches for `failed`, `cancelled`/`canceled`, and timeout. Azure error handling
-                inspects service-specific fields such as `RestError.statusCode` or
-                `APIError.status`; unbounded or success-only polling does not pass.
+                - `pollUntilDone()` or deadline + delayed polling.
+                - Handle `failed`, `cancelled`/`canceled`, timeout.
+                - Inspect `RestError.statusCode` or `APIError.status`.
+                No unbounded or delay-free polling.
               weight: 1
               pass_threshold: 1
             - name: prompt/cleans-up-created-cloud-resources-safely
               description: |-
-                Cleanup deletes conversation items before `conversations.delete()`, calls
-                `project.agents.deleteVersion(name, version)` for a project agent or the matching
-                `AgentsClient` thread/agent deletes, then deletes vector-store and uploaded-file
-                IDs. Persisted ownership is cleared only after remote deletion.
+                - Foundry file search: conversation items -> conversation -> agent/version ->
+                  vector store -> files.
+                - Azure AI Search: application-owned documents or application-owned index only.
+                - Clear persisted ownership after remote deletion succeeds.
               weight: 1
               pass_threshold: 1
             - name: prompt/includes-meaningful-offline-automated-tests
               description: |-
-                `npm test` uses the real server and orchestration with mocked Azure boundaries.
-                Distinctive assertions cover remote conversation-ID reuse, mismatched feedback
-                rejection, retrieved-chunk evaluation context, and failed-persistence compensation.
+                `npm test` -> real HTTP service + orchestration with mocked Azure clients:
+                - employee conversation isolation and follow-up context;
+                - unknown or mismatched feedback rejection;
+                - evaluator context from retrieved results;
+                - durable-write failure recovery or compensation.
               weight: 1
               pass_threshold: 1
             - name: prompt/excludes-provisioning-and-deployment
               description: |-
-                The generated diff contains no Bicep, ARM, Terraform, `az`/`azd` provisioning
-                script, or deployment workflow. Application configuration and run documentation
-                are allowed.
+                No Bicep, ARM, Terraform, `az`/`azd` provisioning, or deployment workflow.
               weight: 1
               pass_threshold: 1
             - name: language/correct-azure-scoped-packages
