@@ -1,0 +1,26 @@
+name: azure-mcp-documentation-smoke
+evals:
+  - ../../scenarios/azure-mcp-typescript-documentation-smoke/eval.yaml
+vary:
+  - /environment/mcpServers
+baseline: baseline
+variants:
+  baseline:
+    environment:
+      mcpServers: null
+  azure-mcp:
+    environment:
+      mcpServers:
+        azure:
+          type: stdio
+          command: npx
+          args:
+            - -y
+            - "@azure/mcp@3.0.0-beta.38"
+            - server
+            - start
+          env:
+            npm_config_registry: https://pkgs.dev.azure.com/azure-sdk/public/_packaging/azure-sdk-for-js/npm/registry/
+          timeout: 30s
+execution:
+  workers: 1

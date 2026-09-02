@@ -1,0 +1,72 @@
+name: azure-mcp-typescript-documentation-smoke
+description: Verify that Vally exposes and can invoke the Azure MCP documentation tool
+version: "1.0"
+type: capability
+environment:
+  files:
+    - src: ../../eval-workspace.gitignore
+      dest: .gitignore
+    - src: ../../eval-workspace-AGENTS.md
+      dest: AGENTS.md
+scoring:
+  weights: {}
+defaults:
+  runs: 1
+  timeout: 10m
+  model: gpt-5.6-sol
+  judge_model: gpt-5.6-sol
+stimuli:
+  - name: azure-mcp-typescript-documentation-smoke
+    prompt: |-
+      Before writing any files, call the `azure-documentation` MCP tool with
+      `learn: true` to find current official guidance for configuring
+      `DefaultAzureCredential` in a production TypeScript application.
+
+      Do not substitute `web_fetch`, web search, curl, or another network tool
+      for this documentation lookup.
+
+      Then create `azure-documentation-findings.md` containing:
+
+      - The exact MCP tool name you called.
+      - Two production recommendations from the returned documentation.
+      - At least one returned `learn.microsoft.com` source URL.
+
+      If `azure-documentation` is unavailable, create the file with exactly:
+      `MCP_TOOL_UNAVAILABLE`
+    tags:
+      service: diagnostics
+      plane: data-plane
+      language: typescript
+      category: mcp-smoke
+    graders:
+      - type: panel
+        name: prompt/azure-documentation-invocation
+        weight: 1
+        config:
+          prompt: |-
+            Review the trajectory and generated file. Pass only if the agent
+            invoked the `azure-documentation` MCP tool and wrote the requested
+            findings from its result. Do not treat a substituted web or shell
+            lookup as equivalent.
+          models:
+            - gpt-5.6-sol
+          aggregation: unanimous
+          scoring: binary
+          threshold: 1
+          overall_threshold: 1
+          evidence:
+            - trajectory
+            - repo
+          criteria:
+            - name: prompt/invokes-azure-documentation
+              description: |-
+                Invokes the `azure-documentation` MCP tool before writing the
+                findings file and uses its result as the source.
+              weight: 1
+              pass_threshold: 1
+artifacts:
+  include:
+    - azure-documentation-findings.md
+  exclude:
+    - "**/.vally/**"
+
