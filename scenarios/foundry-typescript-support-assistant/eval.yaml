@@ -131,6 +131,7 @@ stimuli:
                 - Every declared service client -> invoked operation.
               weight: 1
               pass_threshold: 1
+            # Observed agent pattern: Azure AI Search is the common retrieval choice.
             - name: prompt/ingests-product-documentation-and-waits-for-retrieval-readiness
               description: |-
                 Choose one path for both supplied product documentation files:
