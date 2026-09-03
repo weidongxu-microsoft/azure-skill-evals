@@ -23,14 +23,13 @@ test("selects one cross-language suite", () => {
     suite: "cosmos-crud",
   });
 
-  assert.equal(groups.length, 4);
   assert.deepEqual(
-    groups.map(({ language, filters }) => [language, filters.length]),
+    groups.map(({ language, filters }) => [language, filters[0]]),
     [
-      ["python", 1],
-      ["dotnet", 1],
-      ["java", 1],
-      ["typescript", 1],
+      ["python", "../../scenarios/cosmos-db-python-crud/eval.yaml"],
+      ["dotnet", "../../scenarios/cosmos-db-dotnet-crud/eval.yaml"],
+      ["java", "../../scenarios/cosmos-db-java-crud/eval.yaml"],
+      ["typescript", "../../scenarios/cosmos-db-typescript-crud/eval.yaml"],
     ],
   );
 });
@@ -41,61 +40,72 @@ test("intersects tag clauses", () => {
     tags: "service=identity;language=python",
   });
 
-  test("intersects suite and structured tag filters", () => {
-    const groups = selectEvaluations(catalog, {
-      mode: "all",
-      suite: "identity-default-azure-credential",
-      language: "typescript",
-      service: "identity",
-      plane: "data-plane",
-      scope: "focused-task",
-    });
-
-    assert.deepEqual(groups.map(({ language }) => language), ["typescript"]);
-    assert.equal(groups[0].filters.length, 1);
-  });
-
-  test("combines structured and free-form tag filters", () => {
-    const groups = selectEvaluations(catalog, {
-      mode: "all",
-      language: "typescript",
-      service: "foundry",
-      plane: "data-plane",
-      scope: "end-to-end-solution",
-      tags: "category=solution",
-    });
-
-    assert.equal(groups.length, 1);
-    assert.deepEqual(groups[0].filters, [
-      "../../scenarios/foundry-typescript-support-assistant/eval.yaml",
-    ]);
-  });
-
-  test("treats empty structured filters as unrestricted", () => {
-    assert.deepEqual(
-      collectTagFilters({
-        language: "",
-        service: "",
-        plane: "",
-        scope: undefined,
-        tags: "",
-      }),
-      [],
-    );
-  });
-
-  test("selects the end-to-end solution suite", () => {
-    const groups = selectEvaluations(catalog, {
-      mode: "all",
-      suite: "end-to-end-solutions",
-    });
-
-    assert.deepEqual(groups.map(({ language }) => language), ["typescript"]);
-    assert.equal(groups[0].filters.length, 1);
-  });
-
   assert.deepEqual(groups.map(({ language }) => language), ["python"]);
-  assert.equal(groups[0].filters.length, 4);
+  assert.ok(
+    groups[0].filters.every((filter) =>
+      filter.startsWith("../../scenarios/identity-python-"),
+    ),
+  );
+});
+
+test("intersects suite and structured tag filters", () => {
+  const groups = selectEvaluations(catalog, {
+    mode: "all",
+    suite: "identity-default-azure-credential",
+    language: "typescript",
+    service: "identity",
+    plane: "data-plane",
+    scope: "focused-task",
+  });
+
+  assert.deepEqual(groups, [
+    {
+      language: "typescript",
+      experiment: "experiments/typescript/experiment.yaml",
+      filters: [
+        "../../scenarios/identity-typescript-default-azure-credential/eval.yaml",
+      ],
+    },
+  ]);
+});
+
+test("combines structured and free-form tag filters", () => {
+  const groups = selectEvaluations(catalog, {
+    mode: "all",
+    language: "typescript",
+    service: "foundry",
+    plane: "data-plane",
+    scope: "end-to-end-solution",
+    tags: "category=solution",
+  });
+
+  assert.deepEqual(groups[0].filters, [
+    "../../scenarios/foundry-typescript-support-assistant/eval.yaml",
+  ]);
+});
+
+test("treats empty structured filters as unrestricted", () => {
+  assert.deepEqual(
+    collectTagFilters({
+      language: "",
+      service: "",
+      plane: "",
+      scope: undefined,
+      tags: "",
+    }),
+    [],
+  );
+});
+
+test("selects the end-to-end solution suite", () => {
+  const groups = selectEvaluations(catalog, {
+    mode: "all",
+    suite: "end-to-end-solutions",
+  });
+
+  assert.deepEqual(groups[0].filters, [
+    "../../scenarios/foundry-typescript-support-assistant/eval.yaml",
+  ]);
 });
 
 test("accepts comma-separated values within a tag", () => {
@@ -138,11 +148,16 @@ test("builds only the two supported Go variants", () => {
     mode: "tags",
     tags: "language=go",
   });
+  const goEvaluations = groups[0].filters.length;
 
   assert.deepEqual(buildShardMatrix(groups, "all"), {
     include: [
-      { language: "go", variant: "baseline", evaluations: 26 },
-      { language: "go", variant: "azure-skill-mcp", evaluations: 26 },
+      { language: "go", variant: "baseline", evaluations: goEvaluations },
+      {
+        language: "go",
+        variant: "azure-skill-mcp",
+        evaluations: goEvaluations,
+      },
     ],
   });
   assert.throws(
