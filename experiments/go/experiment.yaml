@@ -10,6 +10,7 @@ evals:
   - ../../scenarios/identity-go-credential-chain/eval.yaml
   - ../../scenarios/key-vault-go-error-handling/eval.yaml
   - ../../scenarios/key-vault-go-pagination-list-secrets/eval.yaml
+  - ../../scenarios/key-vault-go-polling-create-vault/eval.yaml
   - ../../scenarios/storage-go-account-mgmt/eval.yaml
   - ../../scenarios/resource-manager-go-resource-group-crud/eval.yaml
   - ../../scenarios/identity-go-service-principal-auth/eval.yaml
