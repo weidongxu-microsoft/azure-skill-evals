@@ -2,7 +2,7 @@ name: ai-agents-dotnet-function-tool
 description: "Can an agent implement the Azure AI Agents required-action workflow for a local function tool?"
 version: "1.0"
 type: capability
-environment:
+agent_environment:
   files:
     - src: ../../eval-workspace.gitignore
       dest: .gitignore
@@ -150,12 +150,12 @@ stimuli:
             - build
             - --nologo
           timeout: 3m
-artifacts:
-  include:
-    - "**/*.cs"
-    - "**/*.csproj"
-    - "**/README.md"
-  exclude:
-    - "**/.vally/**"
-    - "**/bin/**"
-    - "**/obj/**"
+    artifacts:
+      include:
+        - "**/*.cs"
+        - "**/*.csproj"
+        - "**/README.md"
+      exclude:
+        - "**/.vally/**"
+        - "**/bin/**"
+        - "**/obj/**"

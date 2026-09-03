@@ -2,7 +2,7 @@ name: foundry-typescript-support-assistant
 description: "Can an agent design a complete grounded product-support assistant with Microsoft Foundry without prescribed SDK symbols?"
 version: "1.0"
 type: capability
-environment:
+agent_environment:
   files:
     - src: ../../eval-workspace.gitignore
       dest: .gitignore
@@ -320,17 +320,17 @@ stimuli:
             - tsc
             - --noEmit
           timeout: 2m
-artifacts:
-  include:
-    - "**/*.ts"
-    - "**/*.js"
-    - "**/*.json"
-    - "**/*.jsonl"
-    - "**/package.json"
-    - "**/tsconfig.json"
-    - "**/README.md"
-  exclude:
-    - "**/.vally/**"
-    - "**/node_modules/**"
-    - "**/dist/**"
-    - "**/.data/**"
+    artifacts:
+      include:
+        - "**/*.ts"
+        - "**/*.js"
+        - "**/*.json"
+        - "**/*.jsonl"
+        - "**/package.json"
+        - "**/tsconfig.json"
+        - "**/README.md"
+      exclude:
+        - "**/.vally/**"
+        - "**/node_modules/**"
+        - "**/dist/**"
+        - "**/.data/**"

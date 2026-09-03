@@ -2,7 +2,7 @@ name: storage-go-batch-blob-operations
 description: Compare Azure tooling for Blob Storage batch operations in Go
 version: "1.0"
 type: capability
-environment:
+agent_environment:
   files:
     - src: ../../eval-workspace.gitignore
       dest: .gitignore
@@ -100,6 +100,6 @@ stimuli:
             - -mod=readonly
             - ./...
           timeout: 3m
-artifacts:
-  include: ["**/*.go", "**/go.mod", "**/go.sum", "**/README.md"]
-  exclude: ["**/.vally/**", "**/vendor/**", "**/*.test"]
+    artifacts:
+      include: ["**/*.go", "**/go.mod", "**/go.sum", "**/README.md"]
+      exclude: ["**/.vally/**", "**/vendor/**", "**/*.test"]

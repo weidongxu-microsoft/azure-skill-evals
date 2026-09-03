@@ -2,7 +2,7 @@ name: cosmos-db-go-pagination-query-items
 description: Compare Azure tooling for a Cosmos DB Go pagination task
 version: "1.0"
 type: capability
-environment:
+agent_environment:
   files:
     - src: ../../eval-workspace.gitignore
       dest: .gitignore
@@ -94,6 +94,6 @@ stimuli:
             - -mod=readonly
             - ./...
           timeout: 3m
-artifacts:
-  include: ["**/*.go", "**/go.mod", "**/go.sum", "**/README.md"]
-  exclude: ["**/.vally/**", "**/vendor/**", "**/*.test"]
+    artifacts:
+      include: ["**/*.go", "**/go.mod", "**/go.sum", "**/README.md"]
+      exclude: ["**/.vally/**", "**/vendor/**", "**/*.test"]

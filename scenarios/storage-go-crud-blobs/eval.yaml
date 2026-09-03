@@ -2,7 +2,7 @@ name: storage-go-crud-blobs
 description: Compare Azure tooling for an Azure Blob Storage Go CRUD task
 version: "1.0"
 type: capability
-environment:
+agent_environment:
   files:
     - src: ../../eval-workspace.gitignore
       dest: .gitignore
@@ -106,18 +106,18 @@ stimuli:
             - -mod=readonly
             - ./...
           timeout: 3m
-artifacts:
-  include:
-    - "**/*.go"
-    - "**/go.mod"
-    - "**/go.sum"
-    - "**/README.md"
-  exclude:
-    - "**/.vally/**"
-    - "**/bin/**"
-    - "**/build/**"
-    - "**/dist/**"
-    - "**/vendor/**"
-    - "**/.cache/**"
-    - "**/*.test"
-    - "**/coverage.out"
+    artifacts:
+      include:
+        - "**/*.go"
+        - "**/go.mod"
+        - "**/go.sum"
+        - "**/README.md"
+      exclude:
+        - "**/.vally/**"
+        - "**/bin/**"
+        - "**/build/**"
+        - "**/dist/**"
+        - "**/vendor/**"
+        - "**/.cache/**"
+        - "**/*.test"
+        - "**/coverage.out"
