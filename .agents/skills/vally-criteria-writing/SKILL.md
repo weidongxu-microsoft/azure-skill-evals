@@ -37,20 +37,9 @@ that syntax when an ordinary short bullet is clearer.
 
 ## Be concise
 
-- Remove rationale, background, recommendations, and repeated prompt text.
+- Include only requirements needed to judge the capability.
 - Prefer operations, values, and observable states over full sentences.
-- Do not explain how the judge should reason.
-- Do not put requirements, examples, and exceptions into a paragraph.
-
-Avoid:
-
-```yaml
-description: The application should provide a robust and production-quality
-  ingestion implementation that follows Azure best practices and ensures that
-  all data is ready before the application is used.
-```
-
-Prefer:
+- Express requirements, alternatives, and conditions as separate bullets.
 
 ```yaml
 description: |-
@@ -67,15 +56,7 @@ description: |-
   employee identity, retrieved context, citation source, or terminal status.
 - State what must be returned, persisted, rejected, retried, or deleted.
 - Include failure behavior when success-path code is insufficient evidence.
-- For tests, list behavioral scenarios. Do not require a test count.
-
-Too broad:
-
-```yaml
-description: Handles feedback correctly.
-```
-
-Prefer:
+- For tests, list behavioral scenarios rather than a test count.
 
 ```yaml
 description: |-
@@ -94,24 +75,17 @@ Keep inseparable steps together. Ingestion, readiness polling, and unsuccessful
 terminal handling may remain one criterion when the capability is retrieval
 readiness.
 
-## Do not be too narrow
+## Allow valid implementations
 
 - Describe required behavior before naming SDK methods.
-- Treat listed methods as valid evidence, not the only valid implementation,
-  unless the prompt requires that exact API.
+- Treat listed methods as valid evidence unless the prompt requires that exact
+  API.
 - Accept equivalent schemas, internal names, and service choices that preserve
   the required behavior.
-- Do not require golden-implementation helpers, structure, or bookkeeping.
+- Derive requirements from the task rather than golden-implementation helpers,
+  structure, or bookkeeping.
 - Put mutually exclusive implementation alternatives in one criterion.
   Separate required criteria would require every alternative.
-
-Too narrow:
-
-```yaml
-description: Call `SearchClient.uploadDocuments(...)`.
-```
-
-Prefer:
 
 ```yaml
 description: |-
