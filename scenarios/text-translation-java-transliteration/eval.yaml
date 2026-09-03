@@ -66,9 +66,10 @@ stimuli:
           criteria:
             - name: prompt/passes-the-four-supplied-values-to-texttranslationclient
               description: |-
-                Passes the four supplied values to
-                `TextTranslationClient.transliterate(language, fromScript, toScript, text)`
-                without swapping the script codes.
+                Uses `TextTranslationClient` from `com.azure:azure-ai-translation-text` 2.0.2 and
+                passes the four supplied values to
+                `transliterate(language, fromScript, toScript, text)` without swapping the script
+                codes.
               weight: 1
               pass_threshold: 1
             - name: prompt/reads-a-returned-transliteratedtext-rather-than-a-transl
@@ -78,25 +79,9 @@ stimuli:
               pass_threshold: 1
             - name: prompt/prints-both-transliteratedtext-gettext-and-transliterate
               description: |-
-                Prints both `TransliteratedText.getText()` and
-                `TransliteratedText.getScript()`.
-              weight: 1
-              pass_threshold: 1
-            - name: prompt/does-not-call-translate-invent-a-transliteration-operati
-              description: |-
-                Does not call `translate`, invent a transliteration operation group, or use an
-                obsolete package/API.
-              weight: 1
-              pass_threshold: 1
-            - name: prompt/does-not-swap-fromscript-and-toscript
-              description: |-
-                Does not swap `fromScript` and `toScript`.
-              weight: 1
-              pass_threshold: 1
-            - name: prompt/does-not-echo-the-input-text-or-requested-target-script
-              description: |-
-                Does not echo the input text or requested target-script code as if they were
-                returned output.
+                Prints both `TransliteratedText.getText()` and `TransliteratedText.getScript()`
+                read from the service-returned result rather than echoing the input text or
+                target-script code.
               weight: 1
               pass_threshold: 1
             - name: language/correct-dependencies-com-azure-not-com-microsoft-azure

@@ -1,0 +1,97 @@
+name: cosmos-db-go-error-handling
+description: Compare Azure tooling for a Cosmos DB Go error-handling task
+version: "1.0"
+type: capability
+environment:
+  files:
+    - src: ../../eval-workspace.gitignore
+      dest: .gitignore
+    - src: ../../eval-workspace-AGENTS.md
+      dest: AGENTS.md
+scoring:
+  weights: {}
+defaults:
+  runs: 1
+  timeout: 30m
+  model: gpt-5.6-sol
+  judge_model: gpt-5.6-sol
+stimuli:
+  - name: cosmos-db-dp-go-error-handling
+    prompt: |-
+      How do I properly handle errors when working with Azure Cosmos DB in Go?
+      Create a complete runnable Go project that uses the current first-party
+      `azcosmos` and `azcore` modules and configuration from environment variables.
+      Demonstrate typed `*azcore.ResponseError` handling for throttling (429), item
+      not found (404), and duplicate item conflicts (409). For throttling, extract
+      the service retry-after response headers and implement bounded backoff while
+      also configuring the SDK retry policy. Track request charge and print Cosmos
+      diagnostics where the Go SDK exposes them. Use context-aware APIs and include
+      root `go.mod` and `go.sum` files.
+    tags:
+      service: cosmos-db
+      plane: data-plane
+      language: go
+      category: error-handling
+    graders:
+      - type: panel
+        name: prompt/full-case-review
+        weight: 1
+        config:
+          prompt: |-
+            Review the generated implementation against every criterion.
+            Score each criterion independently. Accept equivalent valid
+            implementations and judge code behavior rather than syntax.
+            Return every criterion name exactly as provided. The criterion
+            value must start with "prompt/" or "language/". Never copy a rubric
+            list number into the criterion value. For example, return
+            "prompt/foo", never "1. prompt/foo".
+          models:
+            - gpt-5.6-sol
+          aggregation: unanimous
+          scoring: binary
+          threshold: 0
+          overall_threshold: 0
+          evidence:
+            - trajectory
+            - repo
+          criteria:
+            - name: prompt/current-azcosmos-and-environment-config
+              description: Uses current first-party `azcosmos` and `azcore` modules with Cosmos configuration read from environment variables.
+              weight: 1
+              pass_threshold: 1
+            - name: prompt/typed-response-error-details
+              description: Uses `errors.As` with `*azcore.ResponseError` and reports structured status code, error code, and available response headers.
+              weight: 1
+              pass_threshold: 1
+            - name: prompt/structured-429-bounded-retry
+              description: Handles 429 with a bounded retry loop that honors `x-ms-retry-after-ms` or `Retry-After` and has a bounded fallback backoff.
+              weight: 1
+              pass_threshold: 1
+            - name: prompt/handles-404-and-409
+              description: Handles 404 item-not-found and 409 duplicate-item conflicts explicitly.
+              weight: 1
+              pass_threshold: 1
+            - name: prompt/sdk-retry-options
+              description: Configures the retry policy exposed through `azcosmos.ClientOptions` without inventing Cosmos-specific option fields.
+              weight: 1
+              pass_threshold: 1
+            - name: prompt/request-charge-and-diagnostics
+              description: Reports request charge and Cosmos diagnostics from successful responses and relevant raw response metadata on failures.
+              weight: 1
+              pass_threshold: 1
+            - name: prompt/context-aware-runnable-project
+              description: Provides a complete runnable project using context-aware SDK operations.
+              weight: 1
+              pass_threshold: 1
+      - type: run-command
+        name: program/go-project-tests
+        config:
+          command: go
+          args:
+            - test
+            - -mod=readonly
+            - ./...
+          timeout: 3m
+artifacts:
+  include: ["**/*.go", "**/go.mod", "**/go.sum", "**/README.md"]
+  exclude: ["**/.vally/**", "**/vendor/**", "**/*.test"]

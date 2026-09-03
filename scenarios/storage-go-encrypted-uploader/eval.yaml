@@ -1,0 +1,99 @@
+name: storage-go-encrypted-uploader
+description: Compare Azure tooling for Go client-side envelope encryption with Blob Storage and Key Vault Keys
+version: "1.0"
+type: capability
+environment:
+  files:
+    - src: ../../eval-workspace.gitignore
+      dest: .gitignore
+    - src: ../../eval-workspace-AGENTS.md
+      dest: AGENTS.md
+scoring:
+  weights: {}
+defaults:
+  runs: 1
+  timeout: 30m
+  model: gpt-5.6-sol
+  judge_model: gpt-5.6-sol
+stimuli:
+  - name: storage-dp-go-encrypted-uploader
+    prompt: |-
+      Create a Go project that uploads data to Azure Blob Storage with client-side envelope encryption, with key encryption material managed by Azure Key Vault Keys.
+
+      **Write the code to files (use file-write tools, do not reply with code blocks).**
+
+      Generate a random 256-bit data encryption key locally for every upload and encrypt data locally with AES-GCM using a fresh random nonce. Protect the DEK with a versioned Key Vault key using the Keys SDK's remote RSA wrap operation. Upload only ciphertext and store the base64 wrapped DEK, nonce, and Key Vault key identifier as Blob metadata. For download, read ciphertext and metadata, remotely unwrap the DEK in Key Vault, and decrypt locally. Never persist or print the raw DEK, and never retrieve private vault key material.
+
+      Read Blob service URL, container, vault URL, key name, and key version from environment variables. Build Blob and Key Vault clients with one DefaultAzureCredential. Demonstrate an encrypt-upload-download-decrypt round trip and print the key ID, wrapped DEK, and decrypted output. Handle typed Azure errors including missing blobs and disabled/missing keys. Include root `go.mod` and `go.sum`.
+    tags:
+      service: storage
+      plane: data-plane
+      language: go
+      category: crud
+    graders:
+      - type: panel
+        name: prompt/full-case-review
+        weight: 1
+        config:
+          prompt: |-
+            Review the generated implementation against every criterion.
+            Score each criterion independently. Accept equivalent valid
+            implementations and judge code behavior rather than syntax.
+            Return every criterion name exactly as provided. The criterion
+            value must start with "prompt/" or "language/". Never copy a rubric
+            list number into the criterion value. For example, return
+            "prompt/foo", never "1. prompt/foo".
+          models:
+            - gpt-5.6-sol
+          aggregation: unanimous
+          scoring: binary
+          threshold: 0
+          overall_threshold: 0
+          evidence:
+            - trajectory
+            - repo
+          criteria:
+            - name: prompt/key-vault-keys-not-secrets
+              description: Uses `azkeys` remote key wrap/unwrap operations and does not use a Secrets client or retrieve private key material.
+              weight: 1
+              pass_threshold: 1
+            - name: prompt/aes-gcm-random-dek-and-nonce
+              description: Uses standard cryptographic randomness for a fresh 256-bit DEK and fresh AES-GCM nonce per upload.
+              weight: 1
+              pass_threshold: 1
+            - name: prompt/rsa-key-wrap
+              description: Wraps and unwraps the DEK remotely with a versioned Key Vault key and an RSA-OAEP algorithm.
+              weight: 1
+              pass_threshold: 1
+            - name: prompt/secure-blob-metadata
+              description: Uploads ciphertext and stores only wrapped DEK, nonce, and key identifier in Blob metadata; never persists raw DEK.
+              weight: 1
+              pass_threshold: 1
+            - name: prompt/download-unwrap-decrypt
+              description: Downloads ciphertext and metadata, validates metadata, unwraps via Key Vault, and decrypts locally with AES-GCM.
+              weight: 1
+              pass_threshold: 1
+            - name: prompt/shared-default-credential
+              description: Uses one DefaultAzureCredential for both Blob and Key Vault clients with environment-based endpoints.
+              weight: 1
+              pass_threshold: 1
+            - name: prompt/round-trip-and-safe-output
+              description: Demonstrates the round trip and prints key ID, wrapped DEK, and plaintext result without printing the raw DEK.
+              weight: 1
+              pass_threshold: 1
+            - name: prompt/typed-azure-errors
+              description: Handles `*azcore.ResponseError` and distinguishes missing blobs and Key Vault failures using structured status/code data.
+              weight: 1
+              pass_threshold: 1
+      - type: run-command
+        name: program/go-project-tests
+        config:
+          command: go
+          args:
+            - test
+            - -mod=readonly
+            - ./...
+          timeout: 3m
+artifacts:
+  include: ["**/*.go", "**/go.mod", "**/go.sum", "**/README.md"]
+  exclude: ["**/.vally/**", "**/vendor/**", "**/*.test"]

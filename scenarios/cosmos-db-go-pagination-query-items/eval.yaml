@@ -1,0 +1,98 @@
+name: cosmos-db-go-pagination-query-items
+description: Compare Azure tooling for a Cosmos DB Go pagination task
+version: "1.0"
+type: capability
+environment:
+  files:
+    - src: ../../eval-workspace.gitignore
+      dest: .gitignore
+    - src: ../../eval-workspace-AGENTS.md
+      dest: AGENTS.md
+scoring:
+  weights: {}
+defaults:
+  runs: 1
+  timeout: 30m
+  model: gpt-5.6-sol
+  judge_model: gpt-5.6-sol
+stimuli:
+  - name: cosmos-db-dp-go-pagination
+    prompt: |-
+      Write a complete Go program that queries items in an Azure Cosmos DB NoSQL
+      container with proper pagination. Use the current first-party Azure SDK for Go
+      and a connection string, database name, and container name from environment
+      configuration. Execute the parameterized query
+      `SELECT * FROM c WHERE c.category = @category` with `electronics`, set the page
+      size hint to 50, and process every SDK pager page. Print each page's continuation
+      token, accept a saved token so the query can resume, and track total request
+      charge across pages. Explain cross-partition behavior and the Go pager abstraction.
+      Use contexts, typed `*azcore.ResponseError` handling, and include root `go.mod`
+      and `go.sum` files.
+    tags:
+      service: cosmos-db
+      plane: data-plane
+      language: go
+      category: pagination
+    graders:
+      - type: panel
+        name: prompt/full-case-review
+        weight: 1
+        config:
+          prompt: |-
+            Review the generated implementation against every criterion.
+            Score each criterion independently. Accept equivalent valid
+            implementations and judge code behavior rather than syntax.
+            Return every criterion name exactly as provided. The criterion
+            value must start with "prompt/" or "language/". Never copy a rubric
+            list number into the criterion value. For example, return
+            "prompt/foo", never "1. prompt/foo".
+          models:
+            - gpt-5.6-sol
+          aggregation: unanimous
+          scoring: binary
+          threshold: 0
+          overall_threshold: 0
+          evidence:
+            - trajectory
+            - repo
+          criteria:
+            - name: prompt/current-sdk-and-environment-config
+              description: Uses current first-party `azcosmos` and `azcore` modules with Cosmos configuration from environment variables.
+              weight: 1
+              pass_threshold: 1
+            - name: prompt/parameterized-electronics-query
+              description: Uses `NewQueryItemsPager` with an `@category` query parameter set to `electronics`.
+              weight: 1
+              pass_threshold: 1
+            - name: prompt/page-size-and-explicit-page-loop
+              description: Sets `QueryOptions.PageSizeHint` to 50 and explicitly loops through all pager pages.
+              weight: 1
+              pass_threshold: 1
+            - name: prompt/continuation-token-and-resume
+              description: Prints `QueryItemsResponse.ContinuationToken` after each page and accepts a saved token through `QueryOptions.ContinuationToken`.
+              weight: 1
+              pass_threshold: 1
+            - name: prompt/total-request-charge
+              description: Accumulates and reports `QueryItemsResponse.RequestCharge` across all pages.
+              weight: 1
+              pass_threshold: 1
+            - name: prompt/cross-partition-behavior
+              description: Correctly configures and explains cross-partition querying rather than supplying a fabricated partition key.
+              weight: 1
+              pass_threshold: 1
+            - name: prompt/context-and-typed-page-errors
+              description: Uses context-aware pager calls and handles page failures as typed `*azcore.ResponseError` values.
+              weight: 1
+              pass_threshold: 1
+      - type: run-command
+        name: program/go-project-tests
+        config:
+          command: go
+          args:
+            - test
+            - -mod=readonly
+            - ./...
+          timeout: 3m
+artifacts:
+  include: ["**/*.go", "**/go.mod", "**/go.sum", "**/README.md"]
+  exclude: ["**/.vally/**", "**/vendor/**", "**/*.test"]

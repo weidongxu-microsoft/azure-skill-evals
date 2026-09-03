@@ -67,13 +67,14 @@ stimuli:
           criteria:
             - name: prompt/calls-texttranslationclient-translate-exactly-once-with
               description: |-
-                Calls `TextTranslationClient.translate` exactly once with `body=[text]` and
-                `to_language=["fr", "ja"]`, without passing `from_language`.
+                Uses `TextTranslationClient` from `azure-ai-translation-text` 2.0.0 and calls
+                `translate` exactly once with `body=[text]` and `to_language=["fr", "ja"]`,
+                without passing `from_language`.
               weight: 1
               pass_threshold: 1
             - name: prompt/reads-the-first-returned-item-s-detected-language-langua
               description: |-
-                Reads the first returned item's `detected_language.language`.
+                Prints the first returned item's `detected_language.language`.
               weight: 1
               pass_threshold: 1
             - name: prompt/traverses-every-item-in-the-returned-translations-collec
@@ -84,23 +85,6 @@ stimuli:
             - name: prompt/prints-each-translation-s-returned-language-and-text-val
               description: |-
                 Prints each translation's returned `language` and `text` values.
-              weight: 1
-              pass_threshold: 1
-            - name: prompt/does-not-assume-that-version-2-0-0-requires-two-calls-or
-              description: |-
-                Does not assume that version 2.0.0 requires two calls or invent a translations
-                operation group.
-              weight: 1
-              pass_threshold: 1
-            - name: prompt/does-not-make-separate-requests-for-french-and-japanese
-              description: |-
-                Does not make separate requests for French and Japanese or request only one
-                target.
-              weight: 1
-              pass_threshold: 1
-            - name: prompt/does-not-hardcode-the-detected-language-target-labels-or
-              description: |-
-                Does not hardcode the detected language, target labels, or translated output.
               weight: 1
               pass_threshold: 1
             - name: language/correct-package-imports

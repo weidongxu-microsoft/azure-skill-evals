@@ -73,47 +73,33 @@ stimuli:
               pass_threshold: 1
             - name: prompt/iterates-client-connections-list-with-for-await-of-and-r
               description: |-
-                Iterates `client.connections.list()` with `for await...of` and reads typed
-                connection properties.
+                Iterates every page and result from `client.connections.list()` with
+                `for await...of` and prints each connection's typed name, type, target, and default
+                status.
               weight: 1
               pass_threshold: 1
             - name: prompt/calls-client-connections-get-for-connection-name-not-get
               description: |-
                 Calls `client.connections.get` for `CONNECTION_NAME`, not `getWithCredentials`,
-                and doesn't print credentials.
+                and prints the same typed metadata without credentials.
               weight: 1
               pass_threshold: 1
             - name: prompt/iterates-client-deployments-list-with-for-await-of
               description: |-
-                Iterates `client.deployments.list()` with `for await...of`.
+                Iterates every page and result from `client.deployments.list()` with
+                `for await...of`.
               weight: 1
               pass_threshold: 1
             - name: prompt/uses-the-modeldeployment-discriminator-and-properties-be
               description: |-
-                Uses the `ModelDeployment` discriminator and properties before printing publisher,
-                model name, and model version.
+                Uses the `ModelDeployment` discriminator and prints each model deployment's name,
+                publisher, model name, and model version.
               weight: 1
               pass_threshold: 1
             - name: prompt/calls-client-deployments-get-for-deployment-name-and-rej
               description: |-
                 Calls `client.deployments.get` for `DEPLOYMENT_NAME` and rejects a result whose
-                type isn't `ModelDeployment`.
-              weight: 1
-              pass_threshold: 1
-            - name: prompt/does-not-replace-async-pageable-iteration-with-a-single
-              description: |-
-                Does not replace async pageable iteration with a single assumed page.
-              weight: 1
-              pass_threshold: 1
-            - name: prompt/does-not-select-resources-only-from-the-locally-enumerat
-              description: |-
-                Does not select resources only from the locally enumerated results instead of
-                exercising the SDK's name-based get operations.
-              weight: 1
-              pass_threshold: 1
-            - name: prompt/does-not-request-or-display-connection-credentials
-              description: |-
-                Does not request or display connection credentials.
+                type isn't `ModelDeployment`, then prints the same typed model metadata.
               weight: 1
               pass_threshold: 1
             - name: language/correct-azure-scoped-packages

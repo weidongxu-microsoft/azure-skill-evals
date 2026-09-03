@@ -1,0 +1,114 @@
+name: app-configuration-go-config-values
+description: Compare Azure tooling for an App Configuration Go CRUD task
+version: "1.0"
+type: capability
+environment:
+  files:
+    - src: ../../eval-workspace.gitignore
+      dest: .gitignore
+    - src: ../../eval-workspace-AGENTS.md
+      dest: AGENTS.md
+scoring:
+  weights: {}
+defaults:
+  runs: 1
+  timeout: 30m
+  model: gpt-5.6-sol
+  judge_model: gpt-5.6-sol
+stimuli:
+  - name: app-configuration-dp-go-crud
+    prompt: |-
+      Write a Go program that manages configuration settings in Azure App Configuration:
+      1. Create an azappconfig client using a connection string from an environment variable
+      2. Set a configuration setting with key "app:Settings:FontSize" and value "24"
+      3. Set and get a setting with label "Production"
+      4. Print the retrieved setting value
+      5. List all settings matching the key filter "app:Settings:*" using a pager
+      6. Create a feature flag configuration setting for "BetaFeature"
+      7. Delete the labeled and unlabeled settings
+
+      Show required Go modules and proper error handling using azcore.ResponseError.
+    tags:
+      service: app-configuration
+      plane: data-plane
+      language: go
+      category: crud
+    graders:
+      - type: panel
+        name: prompt/full-case-review
+        weight: 1
+        config:
+          prompt: |-
+            Review the generated implementation against every criterion.
+            Score each criterion independently. Accept equivalent valid
+            implementations and judge code behavior rather than syntax.
+            Return every criterion name exactly as provided. The criterion
+            value must start with "prompt/" or "language/". Never copy a rubric
+            list number into the criterion value. For example, return
+            "prompt/foo", never "1. prompt/foo".
+          models:
+            - gpt-5.6-sol
+          aggregation: unanimous
+          scoring: binary
+          threshold: 0
+          overall_threshold: 0
+          evidence:
+            - trajectory
+            - repo
+          criteria:
+            - name: prompt/app-configuration-go-module
+              description: Uses the current `github.com/Azure/azure-sdk-for-go/sdk/data/azappconfig` module.
+              weight: 1
+              pass_threshold: 1
+            - name: prompt/connection-string-client
+              description: Creates the client with `azappconfig.NewClientFromConnectionString()` and reads the connection string from configuration rather than hardcoding it.
+              weight: 1
+              pass_threshold: 1
+            - name: prompt/set-key-value-and-label
+              description: Uses `SetSetting()` to set the requested key and value both without a label and with the `Production` label.
+              weight: 1
+              pass_threshold: 1
+            - name: prompt/get-and-print-setting
+              description: Gets a requested setting with `GetSetting()` and prints its value.
+              weight: 1
+              pass_threshold: 1
+            - name: prompt/list-settings-pager
+              description: Uses `NewListSettingsPager()` with key filter `app:Settings:*` and iterates all available pages.
+              weight: 1
+              pass_threshold: 1
+            - name: prompt/feature-flag-setting
+              description: Creates `.appconfig.featureflag/BetaFeature` with the App Configuration feature-flag content type and a valid feature-flag JSON value.
+              weight: 1
+              pass_threshold: 1
+            - name: prompt/delete-settings
+              description: Uses `DeleteSetting()` to delete the labeled and unlabeled settings.
+              weight: 1
+              pass_threshold: 1
+            - name: prompt/response-error
+              description: Uses `errors.As` with `*azcore.ResponseError` and inspects structured error details.
+              weight: 1
+              pass_threshold: 1
+      - type: run-command
+        name: program/go-project-tests
+        config:
+          command: go
+          args:
+            - test
+            - -mod=readonly
+            - ./...
+          timeout: 3m
+artifacts:
+  include:
+    - "**/*.go"
+    - "**/go.mod"
+    - "**/go.sum"
+    - "**/README.md"
+  exclude:
+    - "**/.vally/**"
+    - "**/bin/**"
+    - "**/build/**"
+    - "**/dist/**"
+    - "**/vendor/**"
+    - "**/.cache/**"
+    - "**/*.test"
+    - "**/coverage.out"

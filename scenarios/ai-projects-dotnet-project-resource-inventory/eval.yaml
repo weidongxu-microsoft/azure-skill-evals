@@ -72,47 +72,33 @@ stimuli:
               pass_threshold: 1
             - name: prompt/enumerates-connections-getconnectionsasync-with-await-fo
               description: |-
-                Enumerates `Connections.GetConnectionsAsync` with `await foreach` and uses
-                `AIProjectConnection` properties rather than raw JSON.
+                Enumerates every page and result from `Connections.GetConnectionsAsync` with
+                `await foreach` and prints each connection's typed name, type, target, and default
+                status.
               weight: 1
               pass_threshold: 1
             - name: prompt/calls-connections-getconnectionasync-for-connection-name
               description: |-
                 Calls `Connections.GetConnectionAsync` for `CONNECTION_NAME` with
-                `includeCredentials: false` and doesn't print credentials.
+                `includeCredentials: false` and prints the same typed metadata without credentials.
               weight: 1
               pass_threshold: 1
             - name: prompt/enumerates-deployments-getdeploymentsasync-with-await-fo
               description: |-
-                Enumerates `Deployments.GetDeploymentsAsync` with `await foreach`.
+                Enumerates every result and page from `Deployments.GetDeploymentsAsync` with
+                `await foreach`.
               weight: 1
               pass_threshold: 1
             - name: prompt/narrows-aiprojectdeployment-values-to-modeldeployment-be
               description: |-
-                Narrows `AIProjectDeployment` values to `ModelDeployment` before reading
+                Narrows each `AIProjectDeployment` to `ModelDeployment` and prints its name,
                 `ModelPublisher`, `ModelName`, and `ModelVersion`.
               weight: 1
               pass_threshold: 1
             - name: prompt/calls-deployments-getdeploymentasync-for-deployment-name
               description: |-
                 Calls `Deployments.GetDeploymentAsync` for `DEPLOYMENT_NAME` and rejects a result
-                that isn't a `ModelDeployment`.
-              weight: 1
-              pass_threshold: 1
-            - name: prompt/does-not-replace-pageable-iteration-with-a-single-assume
-              description: |-
-                Does not replace pageable iteration with a single assumed page.
-              weight: 1
-              pass_threshold: 1
-            - name: prompt/does-not-select-resources-only-from-the-locally-enumerat
-              description: |-
-                Does not select resources only from the locally enumerated results instead of
-                exercising the SDK's name-based get operations.
-              weight: 1
-              pass_threshold: 1
-            - name: prompt/does-not-request-or-display-connection-credentials
-              description: |-
-                Does not request or display connection credentials.
+                that isn't a `ModelDeployment`, then prints the same typed model metadata.
               weight: 1
               pass_threshold: 1
             - name: language/azure-identity-authentication

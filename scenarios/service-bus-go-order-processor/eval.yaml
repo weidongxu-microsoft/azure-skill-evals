@@ -1,0 +1,101 @@
+name: service-bus-go-order-processor
+description: Compare Azure tooling for a production-style Service Bus Go order processor
+version: "1.0"
+type: capability
+environment:
+  files:
+    - src: ../../eval-workspace.gitignore
+      dest: .gitignore
+    - src: ../../eval-workspace-AGENTS.md
+      dest: AGENTS.md
+scoring:
+  weights: {}
+defaults:
+  runs: 1
+  timeout: 30m
+  model: gpt-5.6-sol
+  judge_model: gpt-5.6-sol
+stimuli:
+  - name: service-bus-dp-go-order-processor
+    prompt: |-
+      Create a Go project implementing an order processing system with Azure Service Bus.
+
+      **Write the code to files (use file-write tools, do not reply with code blocks).**
+
+      Define a JSON Order model with order ID, customer, product, quantity, total price, and status. Build a sender that sends individual orders and efficiently batches orders while respecting maximum batch size. Set the order ID as CorrelationID and customer name as SessionID so each customer's orders are processed sequentially. Schedule high-value orders 30 seconds in the future and demonstrate canceling a scheduled message.
+
+      Build a processor that accepts queue sessions, receives in peek-lock mode, deserializes and processes orders, completes successful messages, and explicitly dead-letters failures with reason and description. Also inspect and settle messages from the dead-letter subqueue.
+
+      Read namespace and queue from environment variables, authenticate with DefaultAzureCredential, use contexts and close all clients. Handle typed Service Bus and Azure response errors. Include root `go.mod` and `go.sum`.
+    tags:
+      service: service-bus
+      plane: data-plane
+      language: go
+      category: streaming
+    graders:
+      - type: panel
+        name: prompt/full-case-review
+        weight: 1
+        config:
+          prompt: |-
+            Review the generated implementation against every criterion.
+            Score each criterion independently. Accept equivalent valid
+            implementations and judge code behavior rather than syntax.
+            Return every criterion name exactly as provided. The criterion
+            value must start with "prompt/" or "language/". Never copy a rubric
+            list number into the criterion value. For example, return
+            "prompt/foo", never "1. prompt/foo".
+          models:
+            - gpt-5.6-sol
+          aggregation: unanimous
+          scoring: binary
+          threshold: 0
+          overall_threshold: 0
+          evidence:
+            - trajectory
+            - repo
+          criteria:
+            - name: prompt/default-credential-client-lifecycle
+              description: Uses DefaultAzureCredential, environment-based namespace/queue configuration, contexts, and closes client/sender/receivers.
+              weight: 1
+              pass_threshold: 1
+            - name: prompt/order-json-and-message-properties
+              description: Defines all requested Order fields, serializes JSON, sets CorrelationID to order ID, and SessionID to customer.
+              weight: 1
+              pass_threshold: 1
+            - name: prompt/size-aware-batch-sending
+              description: Uses `NewMessageBatch`, handles `AddMessage` capacity errors by sending the current batch, and sends all messages.
+              weight: 1
+              pass_threshold: 1
+            - name: prompt/schedule-and-cancel
+              description: Schedules high-value orders about 30 seconds ahead with `ScheduleMessages` and demonstrates `CancelScheduledMessages`.
+              weight: 1
+              pass_threshold: 1
+            - name: prompt/session-ordered-processing
+              description: Uses customer-keyed SessionID and `AcceptNextSessionForQueue` to guarantee per-customer sequential processing.
+              weight: 1
+              pass_threshold: 1
+            - name: prompt/explicit-message-settlement
+              description: Receives in peek-lock mode, completes success, and calls `DeadLetterMessage` with reason/description for malformed or failed orders.
+              weight: 1
+              pass_threshold: 1
+            - name: prompt/dead-letter-inspection
+              description: Creates a receiver with `SubQueueDeadLetter`, inspects failed messages and their reasons, and explicitly settles them.
+              weight: 1
+              pass_threshold: 1
+            - name: prompt/typed-service-errors
+              description: Uses `errors.As` with `*azservicebus.Error` and/or `*azcore.ResponseError` and logs structured details.
+              weight: 1
+              pass_threshold: 1
+      - type: run-command
+        name: program/go-project-tests
+        config:
+          command: go
+          args:
+            - test
+            - -mod=readonly
+            - ./...
+          timeout: 3m
+artifacts:
+  include: ["**/*.go", "**/go.mod", "**/go.sum", "**/README.md"]
+  exclude: ["**/.vally/**", "**/vendor/**", "**/*.test"]

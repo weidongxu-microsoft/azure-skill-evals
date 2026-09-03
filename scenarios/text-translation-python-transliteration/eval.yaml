@@ -66,9 +66,10 @@ stimuli:
           criteria:
             - name: prompt/calls-texttranslationclient-transliterate-with-the-suppl
               description: |-
-                Calls `TextTranslationClient.transliterate` with the supplied text in `body`
-                and supplied `language`, `from_script`, and `to_script` keyword arguments,
-                without swapping the script codes.
+                Uses `TextTranslationClient` from `azure-ai-translation-text` 2.0.0 and calls
+                `transliterate` with the supplied text in `body` and supplied `language`,
+                `from_script`, and `to_script` keyword arguments without swapping the script
+                codes.
               weight: 1
               pass_threshold: 1
             - name: prompt/reads-a-returned-transliteration-result-rather-than-a-tr
@@ -78,24 +79,8 @@ stimuli:
               pass_threshold: 1
             - name: prompt/prints-both-the-returned-item-s-text-and-script
               description: |-
-                Prints both the returned item's `text` and `script`.
-              weight: 1
-              pass_threshold: 1
-            - name: prompt/does-not-call-translate-invent-a-transliteration-operati
-              description: |-
-                Does not call `translate`, invent a transliteration operation group, or use an
-                obsolete package/API.
-              weight: 1
-              pass_threshold: 1
-            - name: prompt/does-not-swap-from-script-and-to-script
-              description: |-
-                Does not swap `from_script` and `to_script`.
-              weight: 1
-              pass_threshold: 1
-            - name: prompt/does-not-echo-the-input-text-or-requested-target-script
-              description: |-
-                Does not echo the input text or requested target-script code as if they were
-                returned output.
+                Prints both `text` and `script` read from the service-returned item rather than
+                echoing the input text or target-script code.
               weight: 1
               pass_threshold: 1
             - name: language/correct-package-imports

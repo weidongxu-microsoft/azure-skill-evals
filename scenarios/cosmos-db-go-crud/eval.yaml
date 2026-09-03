@@ -1,0 +1,90 @@
+name: cosmos-db-go-crud
+description: Compare Azure tooling for a Cosmos DB Go CRUD task
+version: "1.0"
+type: capability
+environment:
+  files:
+    - src: ../../eval-workspace.gitignore
+      dest: .gitignore
+    - src: ../../eval-workspace-AGENTS.md
+      dest: AGENTS.md
+scoring:
+  weights: {}
+defaults:
+  runs: 1
+  timeout: 30m
+  model: gpt-5.6-sol
+  judge_model: gpt-5.6-sol
+stimuli:
+  - name: cosmos-db-dp-go-crud
+    prompt: |-
+      Write a Go program that performs CRUD operations on items in an Azure Cosmos DB NoSQL container:
+      1. Create an `azcosmos` client using a connection string from an environment variable
+      2. Create a database named "TestDB" and a container named "Items" with partition key `/category`, tolerating an existing database or container
+      3. Insert a JSON item with properties id, category, name, and quantity
+      4. Read the item by ID and partition key
+      5. Query items whose category is "electronics" with a parameterized SQL query and iterate every pager page
+      6. Replace the item with an updated quantity
+      7. Delete the item
+
+      Use the current first-party Azure SDK for Go, context-aware APIs, and typed `azcore.ResponseError` handling. Include root `go.mod` and `go.sum` files.
+    tags:
+      service: cosmos-db
+      plane: data-plane
+      language: go
+      category: crud
+    graders:
+      - type: panel
+        name: prompt/full-case-review
+        weight: 1
+        config:
+          prompt: |-
+            Review the generated implementation against every criterion.
+            Score each criterion independently. Accept equivalent valid
+            implementations and judge code behavior rather than syntax.
+            Return every criterion name exactly as provided. The criterion
+            value must start with "prompt/" or "language/". Never copy a rubric
+            list number into the criterion value. For example, return
+            "prompt/foo", never "1. prompt/foo".
+          models:
+            - gpt-5.6-sol
+          aggregation: unanimous
+          scoring: binary
+          threshold: 0
+          overall_threshold: 0
+          evidence:
+            - trajectory
+            - repo
+          criteria:
+            - name: prompt/current-azcosmos-module
+              description: Uses the current `github.com/Azure/azure-sdk-for-go/sdk/data/azcosmos` module and a connection string read from configuration.
+              weight: 1
+              pass_threshold: 1
+            - name: prompt/database-container-and-partition-key
+              description: Creates TestDB and Items with `/category`, handling typed 409 conflicts for already-existing resources.
+              weight: 1
+              pass_threshold: 1
+            - name: prompt/partition-aware-crud
+              description: Uses `CreateItem`, `ReadItem`, `ReplaceItem`, and `DeleteItem` with the electronics partition key.
+              weight: 1
+              pass_threshold: 1
+            - name: prompt/parameterized-paged-query
+              description: Uses `NewQueryItemsPager` with `QueryParameters` and fully iterates pages.
+              weight: 1
+              pass_threshold: 1
+            - name: prompt/context-and-response-errors
+              description: Uses contexts and handles `*azcore.ResponseError` with structured status and error-code details.
+              weight: 1
+              pass_threshold: 1
+      - type: run-command
+        name: program/go-project-tests
+        config:
+          command: go
+          args:
+            - test
+            - -mod=readonly
+            - ./...
+          timeout: 3m
+artifacts:
+  include: ["**/*.go", "**/go.mod", "**/go.sum", "**/README.md"]
+  exclude: ["**/.vally/**", "**/vendor/**", "**/*.test"]

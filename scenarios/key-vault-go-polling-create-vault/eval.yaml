@@ -1,0 +1,89 @@
+name: key-vault-go-polling-create-vault
+description: Compare Azure tooling for a Go Key Vault management-plane polling task
+version: "1.0"
+type: capability
+environment:
+  files:
+    - src: ../../eval-workspace.gitignore
+      dest: .gitignore
+    - src: ../../eval-workspace-AGENTS.md
+      dest: AGENTS.md
+scoring:
+  weights: {}
+defaults:
+  runs: 1
+  timeout: 30m
+  model: gpt-5.6-sol
+  judge_model: gpt-5.6-sol
+stimuli:
+  - name: key-vault-mp-go-polling
+    prompt: |-
+      Write a Go program that creates an Azure Key Vault with the management-plane SDK and handles its long-running operation.
+
+      Authenticate with DefaultAzureCredential. Read subscription ID, tenant ID, resource group, and vault name from environment variables. Create the vault in eastus with RBAC authorization, soft delete, and purge protection enabled, using the standard SKU and no legacy access policies. Use `BeginCreateOrUpdate` and wait for completion with the poller. Handle existing and soft-deleted vault conflicts with typed Azure errors. After completion, use the returned vault URI to create an `azsecrets.Client`, demonstrating that the data-plane endpoint is ready. Explain in code output that RBAC data roles are assigned separately to the caller or managed identity.
+
+      Use current first-party Azure SDK for Go modules and contexts. Include root `go.mod` and `go.sum`.
+    tags:
+      service: key-vault
+      plane: management-plane
+      language: go
+      category: polling
+    graders:
+      - type: panel
+        name: prompt/full-case-review
+        weight: 1
+        config:
+          prompt: |-
+            Review the generated implementation against every criterion.
+            Score each criterion independently. Accept equivalent valid
+            implementations and judge code behavior rather than syntax.
+            Return every criterion name exactly as provided. The criterion
+            value must start with "prompt/" or "language/". Never copy a rubric
+            list number into the criterion value. For example, return
+            "prompt/foo", never "1. prompt/foo".
+          models:
+            - gpt-5.6-sol
+          aggregation: unanimous
+          scoring: binary
+          threshold: 0
+          overall_threshold: 0
+          evidence:
+            - trajectory
+            - repo
+          criteria:
+            - name: prompt/current-armkeyvault-and-default-credential
+              description: Uses current `armkeyvault`, `azsecrets`, and `azidentity.NewDefaultAzureCredential` modules with environment configuration.
+              weight: 1
+              pass_threshold: 1
+            - name: prompt/rbac-soft-delete-purge-protection
+              description: Creates an eastus standard vault with RBAC authorization, soft delete, and purge protection enabled and does not invent access policies.
+              weight: 1
+              pass_threshold: 1
+            - name: prompt/begin-create-and-poll
+              description: Uses `VaultsClient.BeginCreateOrUpdate` and `PollUntilDone`, checking the completed response.
+              weight: 1
+              pass_threshold: 1
+            - name: prompt/tenant-and-rbac-model
+              description: Supplies tenant ID and clearly distinguishes RBAC data-role assignments from legacy vault access policies.
+              weight: 1
+              pass_threshold: 1
+            - name: prompt/data-plane-secret-client
+              description: Uses the completed vault's returned `VaultURI` to construct an `azsecrets.Client` with the same credential.
+              weight: 1
+              pass_threshold: 1
+            - name: prompt/typed-conflict-errors
+              description: Handles `*azcore.ResponseError` and reports structured details for conflicts including existing or soft-deleted names.
+              weight: 1
+              pass_threshold: 1
+      - type: run-command
+        name: program/go-project-tests
+        config:
+          command: go
+          args:
+            - test
+            - -mod=readonly
+            - ./...
+          timeout: 3m
+artifacts:
+  include: ["**/*.go", "**/go.mod", "**/go.sum", "**/README.md"]
+  exclude: ["**/.vally/**", "**/vendor/**", "**/*.test"]

@@ -72,13 +72,15 @@ stimuli:
           criteria:
             - name: prompt/uploads-the-document-with-files-upload-and-poll-and-file
               description: |-
-                Uploads the document with `files.upload_and_poll` and `FilePurpose.AGENTS`.
+                Creates a document containing the exact required fact and uploads it with
+                `files.upload_and_poll` and `FilePurpose.AGENTS`.
               weight: 1
               pass_threshold: 1
             - name: prompt/creates-the-vector-store-with-the-uploaded-file-id-throu
               description: |-
                 Creates the vector store with the uploaded file ID through `create_and_poll` and
-                requires completed status.
+                requires completed status before creating the run. Fails if indexing ends
+                unsuccessfully.
               weight: 1
               pass_threshold: 1
             - name: prompt/creates-filesearchtool-with-the-vector-store-id-and-pass
@@ -89,36 +91,22 @@ stimuli:
               pass_threshold: 1
             - name: prompt/creates-the-thread-exact-grounded-question-and-run-with
               description: |-
-                Creates the thread, exact grounded question, and run with the created IDs.
+                Creates the thread with the exact grounded question unchanged, without adding a
+                local path or uploaded file ID, and creates the run with the file-search-configured
+                agent.
               weight: 1
               pass_threshold: 1
             - name: prompt/processes-the-run-through-runs-create-and-process-requir
               description: |-
                 Processes the run through `runs.create_and_process`, requires completed status,
-                and retrieves ascending assistant `text_messages`.
+                and prints text read from returned ascending assistant `text_messages`. Printing
+                the known document fact directly from local code does not satisfy this criterion.
               weight: 1
               pass_threshold: 1
             - name: prompt/deletes-the-thread-before-the-agent-then-deletes-the-vec
               description: |-
                 Deletes the thread before the agent, then deletes the vector store before the
                 uploaded file.
-              weight: 1
-              pass_threshold: 1
-            - name: prompt/does-not-put-a-local-file-path-or-uploaded-file-id-direc
-              description: |-
-                Does not put a local file path or uploaded file ID directly in the user message as
-                a substitute for file-search tool resources.
-              weight: 1
-              pass_threshold: 1
-            - name: prompt/does-not-start-the-run-before-vector-store-indexing-comp
-              description: |-
-                Does not start the run before vector-store indexing completes.
-              weight: 1
-              pass_threshold: 1
-            - name: prompt/does-not-print-the-known-document-fact-directly-as-thoug
-              description: |-
-                Does not print the known document fact directly as though it were the agent's
-                grounded response.
               weight: 1
               pass_threshold: 1
             - name: language/correct-package-imports

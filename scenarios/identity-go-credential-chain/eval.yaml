@@ -1,0 +1,107 @@
+name: identity-go-credential-chain
+description: Compare Azure tooling for environment-specific Go credential chains
+version: "1.0"
+type: capability
+environment:
+  files:
+    - src: ../../eval-workspace.gitignore
+      dest: .gitignore
+    - src: ../../eval-workspace-AGENTS.md
+      dest: AGENTS.md
+scoring:
+  weights: {}
+defaults:
+  runs: 1
+  timeout: 30m
+  model: gpt-5.6-sol
+  judge_model: gpt-5.6-sol
+stimuli:
+  - name: identity-dp-go-credential-chain
+    prompt: |-
+      Create a complete Go project demonstrating environment-specific Azure credential
+      chains for local development, CI/CD, and production. Use the current first-party
+      `azidentity` and `azcore` modules and actual `azidentity.NewChainedTokenCredential`.
+      The ordered development chain must include Azure CLI and may include another
+      supported developer credential. The CI chain must use `EnvironmentCredential`
+      (with workload identity as an appropriate fallback) and must not use
+      `DefaultAzureCredential`. The production chain must try `ManagedIdentityCredential`
+      first, optionally selecting a user-assigned identity from an environment client ID,
+      then fall back to `WorkloadIdentityCredential`.
+
+      Detect CI and production from well-known environment variables and otherwise use
+      development. Request an Azure Resource Manager token through the Go context-based
+      API with `policy.TokenRequestOptions{EnableCAE: true}`, report the selected strategy,
+      token expiry, and specific authentication failure details. Do not invent separate
+      sync and async Go clients. Include root `go.mod` and `go.sum` files.
+    tags:
+      service: identity
+      plane: data-plane
+      language: go
+      category: authentication
+    graders:
+      - type: panel
+        name: prompt/full-case-review
+        weight: 1
+        config:
+          prompt: |-
+            Review the generated implementation against every criterion.
+            Score each criterion independently. Accept equivalent valid
+            implementations and judge code behavior rather than syntax.
+            Return every criterion name exactly as provided. The criterion
+            value must start with "prompt/" or "language/". Never copy a rubric
+            list number into the criterion value. For example, return
+            "prompt/foo", never "1. prompt/foo".
+          models:
+            - gpt-5.6-sol
+          aggregation: unanimous
+          scoring: binary
+          threshold: 0
+          overall_threshold: 0
+          evidence:
+            - trajectory
+            - repo
+          criteria:
+            - name: prompt/actual-ordered-chained-token-credential
+              description: Uses `azidentity.NewChainedTokenCredential` with explicitly ordered `azcore.TokenCredential` sources.
+              weight: 1
+              pass_threshold: 1
+            - name: prompt/development-tool-chain
+              description: Development uses `AzureCLICredential` and at least one suitable supported developer credential.
+              weight: 1
+              pass_threshold: 1
+            - name: prompt/ci-environment-credential-no-default
+              description: CI uses `EnvironmentCredential` and does not use `DefaultAzureCredential`.
+              weight: 1
+              pass_threshold: 1
+            - name: prompt/production-managed-identity-then-workload
+              description: Production orders managed identity first, supports an optional user-assigned client ID, and uses workload identity as fallback.
+              weight: 1
+              pass_threshold: 1
+            - name: prompt/environment-detection
+              description: Detects CI and Azure hosted production through well-known environment variables and falls back to development.
+              weight: 1
+              pass_threshold: 1
+            - name: prompt/arm-scope-cae-token-request
+              description: "Requests `https://management.azure.com/.default` with context and `policy.TokenRequestOptions{EnableCAE: true}`."
+              weight: 1
+              pass_threshold: 1
+            - name: prompt/strategy-expiry-and-specific-failures
+              description: Reports the detected environment, selected strategy, token expiry, and specific authentication error details without printing the token.
+              weight: 1
+              pass_threshold: 1
+            - name: prompt/one-context-based-go-api
+              description: Correctly uses Go's single context-based credential API without fabricated sync and async variants.
+              weight: 1
+              pass_threshold: 1
+      - type: run-command
+        name: program/go-project-tests
+        config:
+          command: go
+          args:
+            - test
+            - -mod=readonly
+            - ./...
+          timeout: 3m
+artifacts:
+  include: ["**/*.go", "**/go.mod", "**/go.sum", "**/README.md"]
+  exclude: ["**/.vally/**", "**/vendor/**", "**/*.test"]

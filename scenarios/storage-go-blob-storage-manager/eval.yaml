@@ -1,0 +1,93 @@
+name: storage-go-blob-storage-manager
+description: Compare Azure tooling for an advanced Azure Blob Storage Go manager
+version: "1.0"
+type: capability
+environment:
+  files:
+    - src: ../../eval-workspace.gitignore
+      dest: .gitignore
+    - src: ../../eval-workspace-AGENTS.md
+      dest: AGENTS.md
+scoring:
+  weights: {}
+defaults:
+  runs: 1
+  timeout: 30m
+  model: gpt-5.6-sol
+  judge_model: gpt-5.6-sol
+stimuli:
+  - name: storage-dp-go-blob-manager
+    prompt: |-
+      Create a complete Go project that provides a reusable Azure Blob Storage management service.
+
+      Use the current `azblob` family and `DefaultAzureCredential`, with the storage endpoint and container read from environment variables. Configure exponential retry through the SDK and enable SDK diagnostics with `azcore/log`. Implement context-aware operations to upload a multi-gigabyte file without reading the whole file into memory, attach optional metadata and blob index tags, list every pager page without accumulating all results, stream a download to disk, and delete a blob. Prevent concurrent overwrites by acquiring a blob lease before overwrite and releasing it afterward. Handle typed `azcore.ResponseError` values, including 409 lease conflicts and 404 not found.
+
+      Include a main program that demonstrates upload, paged listing, streaming download, leased overwrite, and delete. Use the correct current blob, block blob, and lease APIs, secure configuration, and proper file/body cleanup. Include root `go.mod` and `go.sum` files.
+    tags:
+      service: storage
+      plane: data-plane
+      language: go
+      category: crud
+    graders:
+      - type: panel
+        name: prompt/full-case-review
+        weight: 1
+        config:
+          prompt: |-
+            Review the generated implementation against every criterion.
+            Score each criterion independently. Accept equivalent valid
+            implementations and judge code behavior rather than syntax.
+            Return every criterion name exactly as provided. The criterion
+            value must start with "prompt/" or "language/". Never copy a rubric
+            list number into the criterion value. For example, return
+            "prompt/foo", never "1. prompt/foo".
+          models:
+            - gpt-5.6-sol
+          aggregation: unanimous
+          scoring: binary
+          threshold: 0
+          overall_threshold: 0
+          evidence:
+            - trajectory
+            - repo
+          criteria:
+            - name: prompt/current-sdk-managed-identity-and-configuration
+              description: Uses current `azblob` family APIs with `DefaultAzureCredential`, an endpoint and container from environment variables, and no account keys or connection strings.
+              weight: 1
+              pass_threshold: 1
+            - name: prompt/exponential-retry-and-sdk-logging
+              description: Configures SDK exponential retry and enables request, response, and retry diagnostics through `azcore/log`.
+              weight: 1
+              pass_threshold: 1
+            - name: prompt/large-file-upload-metadata-and-tags
+              description: Uses a streaming or file-based block blob upload suitable for multi-gigabyte files without reading the whole file into memory, with metadata and distinct index tags.
+              weight: 1
+              pass_threshold: 1
+            - name: prompt/paged-list-streaming-download-delete
+              description: Iterates all listing pages without accumulating results, streams downloads to disk, and deletes blobs.
+              weight: 1
+              pass_threshold: 1
+            - name: prompt/lease-protected-overwrite
+              description: Uses actual blob lease and block blob APIs to acquire a lease before overwrite, pass the lease condition, and release the lease afterward.
+              weight: 1
+              pass_threshold: 1
+            - name: prompt/typed-not-found-and-lease-conflict-errors
+              description: Handles `*azcore.ResponseError` and distinguishes 404 not found and 409 lease conflict failures.
+              weight: 1
+              pass_threshold: 1
+            - name: prompt/context-cleanup-and-complete-demo
+              description: Provides reusable context-aware operations with proper file/body cleanup and demonstrates every requested operation.
+              weight: 1
+              pass_threshold: 1
+      - type: run-command
+        name: program/go-project-tests
+        config:
+          command: go
+          args:
+            - test
+            - -mod=readonly
+            - ./...
+          timeout: 3m
+artifacts:
+  include: ["**/*.go", "**/go.mod", "**/go.sum", "**/README.md"]
+  exclude: ["**/.vally/**", "**/vendor/**", "**/*.test"]

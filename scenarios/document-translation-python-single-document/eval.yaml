@@ -74,9 +74,9 @@ stimuli:
               pass_threshold: 1
             - name: prompt/creates-documenttranslatecontent-with-a-document-tuple-c
               description: |-
-                Creates `DocumentTranslateContent` with a document tuple containing input
-                filename, binary file object or bytes, and a media type derived from the
-                extension.
+                Rejects unsupported extensions, then creates `DocumentTranslateContent` with a
+                document tuple containing the input filename, binary file object or bytes, and
+                derived media type.
               weight: 1
               pass_threshold: 1
             - name: prompt/calls-translate-body-content-target-language-targetlangu
@@ -86,28 +86,8 @@ stimuli:
               pass_threshold: 1
             - name: prompt/writes-the-returned-bytes-directly-to-a-file-opened-in-b
               description: |-
-                Writes the returned bytes directly to a file opened in binary mode.
-              weight: 1
-              pass_threshold: 1
-            - name: prompt/does-not-use-the-batch-container-client-or-invent-a-sing
-              description: |-
-                Does not use the batch/container client or invent a single-document method on
-                it.
-              weight: 1
-              pass_threshold: 1
-            - name: prompt/does-not-submit-base64-json-or-omit-multipart-filename-c
-              description: |-
-                Does not submit base64 JSON or omit multipart filename/content-type metadata.
-              weight: 1
-              pass_threshold: 1
-            - name: prompt/does-not-decode-json-parse-or-stringify-the-binary-respo
-              description: |-
-                Does not decode, JSON-parse, or stringify the binary response before writing.
-              weight: 1
-              pass_threshold: 1
-            - name: prompt/does-not-write-a-known-or-hardcoded-translated-output
-              description: |-
-                Does not write a known or hardcoded translated output.
+                Writes the exact service-returned bytes to a file opened in binary mode without
+                decoding, parsing, or transforming them.
               weight: 1
               pass_threshold: 1
             - name: language/correct-package-imports
