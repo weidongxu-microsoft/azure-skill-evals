@@ -32,7 +32,7 @@ stimuli:
       
       - A **configuration/factory module** that connects securely to the Key Vault using the vault URL from an environment variable. The application runs in Azure and should authenticate using `DefaultAzureCredential` — no client secrets or certificates in code.
       
-      - A **secret rotation helper** that safely rotates a secret: delete the old secret, ensure the deletion is fully complete, then create the new secret with an updated value and expiry date. The rotation must be safe — don't assume deletion is instantaneous, since Key Vault's soft-delete feature means the secret may not be immediately gone. Use the long-running operation poller returned by `begin_delete_secret()`.
+      - A **secret rotation helper** that safely rotates a secret: delete the old secret, ensure the deletion is fully complete, then create the new secret with an updated value and expiry date. The rotation must be safe — don't assume deletion is instantaneous, since Key Vault's soft-delete feature means the secret may not be immediately gone. For the sync client, wait for the long-running operation poller returned by `begin_delete_secret()`. For the async client, `await delete_secret()`, which performs deletion polling internally.
       
       - A **main script** that demos both implementations: loading several config keys at startup, reading them from cache, refreshing one, printing a warning if any secret is near expiry, and performing a secret rotation (delete old, wait for completion, create new). Run the full demo with the sync implementation first, then repeat with the async implementation.
       
@@ -86,9 +86,9 @@ stimuli:
                 In-memory caching (e.g., `dict`) with bulk-load and single-key refresh
               weight: 1
               pass_threshold: 1
-            - name: prompt/secret-rotation-uses-begin-delete-secret-as-a-long-runni
+            - name: prompt/secret-rotation-uses-supported-sync-and-async-deletion-api
               description: |-
-                Secret rotation uses `begin_delete_secret()` as a long-running operation
+                Secret rotation uses sync `begin_delete_secret()` and async `await delete_secret()`
               weight: 1
               pass_threshold: 1
             - name: prompt/sync-uses-lropoller-calls-wait-or-result-to-wait-for-del
@@ -96,9 +96,9 @@ stimuli:
                 Sync uses `LROPoller` — calls `.wait()` or `.result()` to wait for delete completion
               weight: 1
               pass_threshold: 1
-            - name: prompt/async-uses-the-async-poller-await-poller-wait-for-delete
+            - name: prompt/async-awaits-delete-secret-until-delete-completes
               description: |-
-                Async uses the async poller — `await poller.wait()` for delete completion
+                Async awaits `delete_secret()`, whose SDK implementation polls until deletion completes
               weight: 1
               pass_threshold: 1
             - name: prompt/creates-new-secret-only-after-delete-completes-not-concu
@@ -116,14 +116,14 @@ stimuli:
                 Returns a default value when secret is not found (`ResourceNotFoundError`) ### Anti-Patterns (scenario-specific)
               weight: 1
               pass_threshold: 1
-            - name: prompt/not-using-fire-and-forget-delete-secret-without-the-long
+            - name: prompt/not-using-unawaited-async-delete-secret
               description: |-
-                NOT using fire-and-forget `delete_secret()` without the long-running operation
+                NOT calling async `delete_secret()` without awaiting it
               weight: 1
               pass_threshold: 1
-            - name: prompt/not-ignoring-the-poller-and-creating-the-new-secret-imme
+            - name: prompt/not-ignoring-sync-poller-before-creating-new-secret
               description: |-
-                NOT ignoring the poller and creating the new secret immediately
+                Sync does NOT ignore the deletion poller and create the new secret immediately
               weight: 1
               pass_threshold: 1
             - name: language/correct-package-imports
