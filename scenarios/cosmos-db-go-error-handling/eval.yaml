@@ -53,8 +53,7 @@ stimuli:
           threshold: 0
           overall_threshold: 0
           evidence:
-            - trajectory
-            - repo
+            - diff
           criteria:
             - name: prompt/current-azcosmos-and-environment-config
               description: Uses current first-party `azcosmos` and `azcore` modules with Cosmos configuration read from environment variables.

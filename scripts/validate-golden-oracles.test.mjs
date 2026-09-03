@@ -84,10 +84,10 @@ test("creates a patch that materializes golden files at workspace root", () => {
 
 test("adds a golden patch to the first stimulus", () => {
   const source =
-    "stimuli:\n  - name: example\n    prompt: hello\n    graders:\n      - type: panel\n        config:\n          evidence:\n            - trajectory\n            - repo\n";
+    "stimuli:\n  - name: example\n    prompt: hello\n    graders:\n      - type: panel\n        config:\n          evidence:\n            - diff\n";
   assert.equal(
     addGoldenPatch(source),
-    "stimuli:\n  - name: example\n    golden_patch:\n      path: .vally-oracle-golden.patch\n    prompt: hello\n    graders:\n      - type: panel\n        config:\n          evidence:\n            - trajectory\n            - repo\n            - golden_patch\n",
+    "stimuli:\n  - name: example\n    golden_patch:\n      path: .vally-oracle-golden.patch\n    prompt: hello\n    graders:\n      - type: panel\n        config:\n          evidence:\n            - diff\n            - golden_patch\n",
   );
 });
 

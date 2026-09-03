@@ -53,8 +53,7 @@ stimuli:
           threshold: 0
           overall_threshold: 0
           evidence:
-            - trajectory
-            - repo
+            - diff
           criteria:
             - name: prompt/model-and-category-partition-key
               description: Defines all requested ToDo fields including ETag and consistently uses `/category` with partition keys for point operations.

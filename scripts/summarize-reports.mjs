@@ -3,6 +3,9 @@ import path from "node:path";
 import process from "node:process";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
+const REPOSITORY_ROOT = fileURLToPath(new URL("../", import.meta.url));
+let evalServices;
+
 const expectedProgramChecks = {
   dotnet: ["program/dotnet-project-builds"],
   go: ["program/go-project-tests"],
@@ -29,6 +32,50 @@ function findFiles(root, name) {
 
 function shardKey({ language, variant }) {
   return `${language}/${variant}`;
+}
+
+function serviceKey({ service, variant }) {
+  return `${service}/${variant}`;
+}
+
+function loadEvalServices() {
+  if (evalServices) {
+    return evalServices;
+  }
+  evalServices = new Map();
+  const scenariosPath = path.join(REPOSITORY_ROOT, "scenarios");
+  for (const entry of readdirSync(scenariosPath, { withFileTypes: true })) {
+    if (!entry.isDirectory()) {
+      continue;
+    }
+    const evalPath = path.join(scenariosPath, entry.name, "eval.yaml");
+    let source;
+    try {
+      source = readFileSync(evalPath, "utf8");
+    } catch (error) {
+      if (error.code === "ENOENT") {
+        continue;
+      }
+      throw error;
+    }
+    const evalName = source.match(/^name:\s*(\S+)\s*$/m)?.[1];
+    const service = source.match(/^\s+service:\s*(\S+)\s*$/m)?.[1];
+    if (evalName && service) {
+      evalServices.set(evalName, service);
+    }
+  }
+  return evalServices;
+}
+
+function serviceForRow(row) {
+  if (typeof row.service === "string" && row.service) {
+    return row.service;
+  }
+  const service = loadEvalServices().get(row.evalName);
+  if (!service) {
+    throw new Error(`Service tag not found for ${row.evalName}`);
+  }
+  return service;
 }
 
 function extractCriteria(gradeResult) {
@@ -173,8 +220,17 @@ export function summarizeReports({ inputDir, expectedMatrix }) {
 
   const summaries = new Map();
   const variantSummaries = new Map();
+  const serviceSummaries = new Map();
   for (const row of rows) {
     const key = shardKey(row);
+    let service;
+    try {
+      service = serviceForRow(row);
+    } catch (error) {
+      problems.push(error.message);
+      service = "unknown";
+    }
+    const groupedServiceKey = serviceKey({ service, variant: row.variant });
     if (!summaries.has(key)) {
       summaries.set(key, {
         language: row.language,
@@ -195,16 +251,30 @@ export function summarizeReports({ inputDir, expectedMatrix }) {
         program: { passed: 0, total: 0 },
       });
     }
+    if (!serviceSummaries.has(groupedServiceKey)) {
+      serviceSummaries.set(groupedServiceKey, {
+        service,
+        variant: row.variant,
+        trials: 0,
+        prompt: { passed: 0, total: 0 },
+        languageCriteria: { passed: 0, total: 0 },
+        other: { passed: 0, total: 0 },
+        program: { passed: 0, total: 0 },
+      });
+    }
     const summary = summaries.get(key);
     const variantSummary = variantSummaries.get(row.variant);
+    const serviceSummary = serviceSummaries.get(groupedServiceKey);
     summary.trials += 1;
     variantSummary.trials += 1;
+    serviceSummary.trials += 1;
     const criteria = extractCriteria(row.gradeResult);
     if (criteria.length === 0) {
       problems.push(`No criterion results found: ${row.variant}/${row.evalName}`);
     } else {
       addCriteria(summary, criteria);
       addCriteria(variantSummary, criteria);
+      addCriteria(serviceSummary, criteria);
     }
     const programChecks = extractProgramChecks(row.gradeResult);
     if (programChecks.length === 0) {
@@ -218,9 +288,11 @@ export function summarizeReports({ inputDir, expectedMatrix }) {
       );
       summary.program.total += 1;
       variantSummary.program.total += 1;
+      serviceSummary.program.total += 1;
       if (matchingChecks.length === 1 && matchingChecks[0].passed) {
         summary.program.passed += 1;
         variantSummary.program.passed += 1;
+        serviceSummary.program.passed += 1;
       }
       if (matchingChecks.length === 0) {
         problems.push(
@@ -266,6 +338,23 @@ export function summarizeReports({ inputDir, expectedMatrix }) {
     }
     lines.push(
       `| ${variant} | ${summary.trials} | ${summary.prompt.passed}/${summary.prompt.total} (${percentage(summary.prompt.passed, summary.prompt.total)}) | ${summary.languageCriteria.passed}/${summary.languageCriteria.total} (${percentage(summary.languageCriteria.passed, summary.languageCriteria.total)}) | ${summary.program.passed}/${summary.program.total} (${percentage(summary.program.passed, summary.program.total)}) |`,
+    );
+  }
+
+  lines.push(
+    "",
+    "## Service totals",
+    "",
+    "| Service | Variant | Trials | Prompt | Language | Program |",
+    "|---|---|---:|---:|---:|---:|",
+  );
+  for (const summary of [...serviceSummaries.values()].sort(
+    (left, right) =>
+      left.service.localeCompare(right.service) ||
+      left.variant.localeCompare(right.variant),
+  )) {
+    lines.push(
+      `| ${summary.service} | ${summary.variant} | ${summary.trials} | ${summary.prompt.passed}/${summary.prompt.total} (${percentage(summary.prompt.passed, summary.prompt.total)}) | ${summary.languageCriteria.passed}/${summary.languageCriteria.total} (${percentage(summary.languageCriteria.passed, summary.languageCriteria.total)}) | ${summary.program.passed}/${summary.program.total} (${percentage(summary.program.passed, summary.program.total)}) |`,
     );
   }
 

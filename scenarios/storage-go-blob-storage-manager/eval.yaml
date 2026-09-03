@@ -49,8 +49,7 @@ stimuli:
           threshold: 0
           overall_threshold: 0
           evidence:
-            - trajectory
-            - repo
+            - diff
           criteria:
             - name: prompt/current-sdk-managed-identity-and-configuration
               description: Uses current `azblob` family APIs with `DefaultAzureCredential`, an endpoint and container from environment variables, and no account keys or connection strings.

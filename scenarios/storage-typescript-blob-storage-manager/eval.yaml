@@ -55,8 +55,7 @@ stimuli:
           threshold: 0
           overall_threshold: 0
           evidence:
-            - trajectory
-            - repo
+            - diff
           criteria:
             - name: prompt/configures-custom-retry-policy-via-storageretryoptions-e
               description: |-

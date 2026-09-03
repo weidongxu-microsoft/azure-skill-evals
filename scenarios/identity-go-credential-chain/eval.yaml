@@ -59,8 +59,7 @@ stimuli:
           threshold: 0
           overall_threshold: 0
           evidence:
-            - trajectory
-            - repo
+            - diff
           criteria:
             - name: prompt/actual-ordered-chained-token-credential
               description: Uses `azidentity.NewChainedTokenCredential` with explicitly ordered `azcore.TokenCredential` sources.

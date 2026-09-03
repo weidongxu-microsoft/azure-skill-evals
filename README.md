@@ -61,9 +61,9 @@ The workflow expands the selection into a language-by-variant matrix with at
 most six concurrent shards. Each shard uploads its machine-readable Vally
 results. An always-running fan-in job verifies shard completeness, detects
 duplicate or unsuccessful trials, and publishes independent prompt, language,
-and program-check totals by variant and shard. Workflow copies of the experiment files
-point MCP package installation at public npm; local experiment files retain the
-corporate Azure SDK feed.
+and program-check totals by variant, service, and shard. Workflow copies of the
+experiment files point MCP package installation at public npm; local experiment
+files retain the corporate Azure SDK feed.
 
 The same selector can be checked locally without running Vally:
 
@@ -95,11 +95,10 @@ one reported point per criterion. Panel thresholds are zero so every criterion
 vote is retained as observational data without gating the evaluation.
 Independent program graders compile, build, or type-check the generated
 project. Language experiments own the three environment variants and can run
-multiple evals. Focused-task workspaces start with a shared `.gitignore`;
-end-to-end solution workspaces use a source-and-project allowlist. All
-workspaces receive the shared `AGENTS.md`. Judges receive trajectory and
-repository evidence for focused tasks, while end-to-end solutions use the
-generated diff to avoid grading staged skill documentation.
+multiple evals. Every workspace starts with the shared cross-language
+source-and-project allowlist and receives the shared `AGENTS.md`. Judges receive
+only the generated diff so staged skills, dependencies, and build artifacts do
+not displace or contaminate application evidence.
 
 ## Scoring
 

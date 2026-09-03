@@ -68,8 +68,7 @@ stimuli:
           threshold: 0
           overall_threshold: 0
           evidence:
-            - trajectory
-            - repo
+            - diff
           criteria:
             - name: prompt/creates-agentsclient-from-azure-ai-agents-with-the-proje
               description: |-

@@ -53,8 +53,7 @@ stimuli:
           threshold: 0
           overall_threshold: 0
           evidence:
-            - trajectory
-            - repo
+            - diff
           criteria:
             - name: prompt/current-key-vault-go-sdk
               description: Uses current first-party `azsecrets`, `azidentity`, and `azcore` modules with vault configuration from the environment.

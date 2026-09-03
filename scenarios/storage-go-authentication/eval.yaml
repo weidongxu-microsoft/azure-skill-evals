@@ -48,8 +48,7 @@ stimuli:
           threshold: 0
           overall_threshold: 0
           evidence:
-            - trajectory
-            - repo
+            - diff
           criteria:
             - name: prompt/current-identity-and-blob-modules
               description: Uses current `azidentity` and `azblob` modules in a complete Go project.

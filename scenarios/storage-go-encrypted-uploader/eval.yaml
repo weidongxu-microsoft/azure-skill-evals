@@ -51,8 +51,7 @@ stimuli:
           threshold: 0
           overall_threshold: 0
           evidence:
-            - trajectory
-            - repo
+            - diff
           criteria:
             - name: prompt/key-vault-keys-not-secrets
               description: Uses `azkeys` remote key wrap/unwrap operations and does not use a Secrets client or retrieve private key material.

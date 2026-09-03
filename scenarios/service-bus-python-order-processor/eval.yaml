@@ -61,8 +61,7 @@ stimuli:
           threshold: 0
           overall_threshold: 0
           evidence:
-            - trajectory
-            - repo
+            - diff
           criteria:
             - name: prompt/sender-uses-servicebusclient-get-queue-sender-or-async-e
               description: |-

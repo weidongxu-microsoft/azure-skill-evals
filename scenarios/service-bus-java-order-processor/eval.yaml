@@ -59,8 +59,7 @@ stimuli:
           threshold: 0
           overall_threshold: 0
           evidence:
-            - trajectory
-            - repo
+            - diff
           criteria:
             - name: prompt/sender-uses-sender-queuename-buildclient-chain-or-async
               description: |-
