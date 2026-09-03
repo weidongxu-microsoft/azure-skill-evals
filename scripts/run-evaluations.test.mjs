@@ -87,8 +87,8 @@ test("builds only the two supported Go variants", () => {
 
   assert.deepEqual(buildShardMatrix(groups, "all"), {
     include: [
-      { language: "go", variant: "baseline", evaluations: 19 },
-      { language: "go", variant: "azure-skill-mcp", evaluations: 19 },
+      { language: "go", variant: "baseline", evaluations: 20 },
+      { language: "go", variant: "azure-skill-mcp", evaluations: 20 },
     ],
   });
   assert.throws(

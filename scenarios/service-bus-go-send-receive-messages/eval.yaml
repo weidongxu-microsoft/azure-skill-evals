@@ -1,0 +1,93 @@
+name: service-bus-go-send-receive-messages
+description: Compare Azure tooling for a Go Service Bus messaging lifecycle
+version: "1.0"
+type: capability
+environment:
+  files:
+    - src: ../../eval-workspace.gitignore
+      dest: .gitignore
+    - src: ../../eval-workspace-AGENTS.md
+      dest: AGENTS.md
+scoring:
+  weights: {}
+defaults:
+  runs: 1
+  timeout: 30m
+  model: gpt-5.6-sol
+  judge_model: gpt-5.6-sol
+stimuli:
+  - name: service-bus-dp-go-send-receive
+    prompt: |-
+      Write a complete Go program that demonstrates messaging with Azure Service Bus:
+      1. Create an `azservicebus.Client` using a connection string read from an environment variable
+      2. Create a queue sender and send one message
+      3. Send a batch of five messages using the actual `MessageBatch` APIs
+      4. Create a receiver, receive messages, and demonstrate complete, abandon, and dead-letter settlement
+      5. Implement a continuous, context-cancellable processing loop with message and error handler functions as Go's idiomatic equivalent to `ServiceBusProcessor`
+      6. Send to a topic and receive from a subscription
+
+      Use the current first-party Azure SDK for Go, context-aware calls, typed SDK error handling, and proper `Close` calls for the client, senders, and receivers. Never hardcode the connection string. Include root `go.mod` and `go.sum` files.
+    tags:
+      service: service-bus
+      plane: data-plane
+      language: go
+      category: send-receive
+    graders:
+      - type: panel
+        name: prompt/full-case-review
+        weight: 1
+        config:
+          prompt: |-
+            Review the generated implementation against every criterion.
+            Score each criterion independently. Accept equivalent valid
+            implementations and judge code behavior rather than syntax.
+            Return every criterion name exactly as provided. The criterion
+            value must start with "prompt/" or "language/". Never copy a rubric
+            list number into the criterion value. For example, return
+            "prompt/foo", never "1. prompt/foo".
+          models:
+            - gpt-5.6-sol
+          aggregation: unanimous
+          scoring: binary
+          threshold: 0
+          overall_threshold: 0
+          evidence:
+            - trajectory
+            - repo
+          criteria:
+            - name: prompt/current-azservicebus-and-secure-configuration
+              description: Uses the current `azservicebus` module and constructs the client from a connection string read from the environment, with no hardcoded secret.
+              weight: 1
+              pass_threshold: 1
+            - name: prompt/queue-single-and-message-batch
+              description: Creates a queue sender, sends one message, and sends five messages through `NewMessageBatch`, `AddMessage`, and `SendMessageBatch`.
+              weight: 1
+              pass_threshold: 1
+            - name: prompt/receive-and-settle
+              description: Receives queue messages and demonstrates `CompleteMessage`, `AbandonMessage`, and `DeadLetterMessage`.
+              weight: 1
+              pass_threshold: 1
+            - name: prompt/cancellable-handler-processing-loop
+              description: Implements a continuous context-cancellable receive loop that invokes distinct message and error handler functions.
+              weight: 1
+              pass_threshold: 1
+            - name: prompt/topic-subscription-and-cleanup
+              description: Sends to a topic, receives from a subscription, and properly closes the client, senders, and receivers.
+              weight: 1
+              pass_threshold: 1
+            - name: prompt/context-and-typed-sdk-errors
+              description: Uses contexts for SDK calls and handles typed `azservicebus.Error` and `azcore.ResponseError` values.
+              weight: 1
+              pass_threshold: 1
+      - type: run-command
+        name: program/go-project-tests
+        config:
+          command: go
+          args:
+            - test
+            - -mod=readonly
+            - ./...
+          timeout: 3m
+artifacts:
+  include: ["**/*.go", "**/go.mod", "**/go.sum", "**/README.md"]
+  exclude: ["**/.vally/**", "**/vendor/**", "**/*.test"]
