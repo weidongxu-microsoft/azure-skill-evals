@@ -81,7 +81,7 @@ const evalPaths = readdirSync(scenarioRoot, { withFileTypes: true })
   .map((entry) => join(scenarioRoot, entry.name, "eval.yaml"));
 
 test("every eval uses one complete model review and program checks", () => {
-  assert.equal(evalPaths.length, 135);
+  assert.equal(evalPaths.length, 136);
 
   for (const evalPath of evalPaths) {
     const source = readFileSync(evalPath, "utf8").replaceAll("\r\n", "\n");

@@ -16,6 +16,7 @@ evals:
   - ../../scenarios/storage-go-authentication/eval.yaml
   - ../../scenarios/storage-go-blob-storage-manager/eval.yaml
   - ../../scenarios/storage-go-encrypted-uploader/eval.yaml
+  - ../../scenarios/storage-go-error-handling/eval.yaml
   - ../../scenarios/storage-go-account-mgmt/eval.yaml
   - ../../scenarios/resource-manager-go-resource-group-crud/eval.yaml
   - ../../scenarios/identity-go-service-principal-auth/eval.yaml
