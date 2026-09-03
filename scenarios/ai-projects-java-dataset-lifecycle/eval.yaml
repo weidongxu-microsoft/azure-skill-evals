@@ -75,54 +75,35 @@ stimuli:
             - name: prompt/builds-datasetsclient-with-aiprojectclientbuilder-and-ca
               description: |-
                 Builds `DatasetsClient` with `AIProjectClientBuilder` and calls
-                `createDatasetWithFile` with the supplied name, version, and `Path`.
+                `createDatasetWithFile` with the supplied name, version, and `Path`, using the
+                project dataset API rather than a direct HTTP upload.
               weight: 1
               pass_threshold: 1
             - name: prompt/calls-getdatasetversion-with-the-same-name-and-version-a
               description: |-
                 Calls `getDatasetVersion` with the same name and version and prints typed
-                `DatasetVersion` metadata, including its type and data URL.
+                `DatasetVersion` name, version, ID, type, and data URL.
               weight: 1
               pass_threshold: 1
             - name: prompt/calls-getcredentials-for-that-exact-version-combines-dat
               description: |-
                 Calls `getCredentials` for that exact version, combines
                 `DatasetCredential.getBlobReference().getBlobUrl()` with its SAS credential, and
-                downloads the correct blob through `BlobClient`.
+                downloads the correct blob through `BlobClient`, not an invented dataset download
+                API or direct HTTP call, without displaying the SAS URL.
               weight: 1
               pass_threshold: 1
             - name: prompt/persists-the-blob-at-download-file-path-compares-its-byt
               description: |-
-                Persists the blob at `DOWNLOAD_FILE_PATH`, compares its bytes with the original
-                file, and prints a byte count derived from the verified download.
+                Persists the Blob SDK's downloaded bytes at `DOWNLOAD_FILE_PATH`, compares them
+                with the original file, fails on a mismatch, and prints their byte count only after
+                verification succeeds.
               weight: 1
               pass_threshold: 1
             - name: prompt/calls-deletedatasetversion-with-the-exact-name-and-versi
               description: |-
-                Calls `deleteDatasetVersion` with the exact name and version in cleanup after a
-                successful upload.
-              weight: 1
-              pass_threshold: 1
-            - name: prompt/does-not-invent-a-downloaddataset-api
-              description: |-
-                Does not invent a `downloadDataset` API.
-              weight: 1
-              pass_threshold: 1
-            - name: prompt/does-not-print-the-sas-url-hardcode-downloaded-content-o
-              description: |-
-                Does not print the SAS URL, hardcode downloaded content, or skip the byte
-                comparison.
-              weight: 1
-              pass_threshold: 1
-            - name: prompt/does-not-replace-the-project-dataset-upload-or-storage-b
-              description: |-
-                Does not replace the project dataset upload or Storage Blob download with direct
-                HTTP calls.
-              weight: 1
-              pass_threshold: 1
-            - name: prompt/does-not-delete-only-by-dataset-name-or-omit-cleanup-on
-              description: |-
-                Does not delete only by dataset name or omit cleanup on a post-upload failure.
+                After any successful upload, calls `deleteDatasetVersion` with the exact name and
+                version, including when later retrieval or download fails.
               weight: 1
               pass_threshold: 1
             - name: language/correct-dependencies-com-azure-not-com-microsoft-azure

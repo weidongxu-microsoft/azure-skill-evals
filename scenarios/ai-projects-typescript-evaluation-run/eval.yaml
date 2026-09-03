@@ -73,22 +73,24 @@ stimuli:
           criteria:
             - name: prompt/calls-project-getopenaiclient-rather-than-inventing-proj
               description: |-
-                Calls `project.getOpenAIClient()` rather than inventing
-                `project.evaluations`.
+                Calls `project.getOpenAIClient()` and uses its service Evals APIs rather than
+                inventing `project.evaluations`, calling chat completions, or calculating F1
+                locally.
               weight: 1
               pass_threshold: 1
             - name: prompt/calls-openaiclient-evals-create-with-a-custom-schema-and
               description: |-
-                Calls `openAIClient.evals.create` with a custom schema and an
-                `azure_ai_evaluator` criterion for `builtin.f1_score`; if required by current
-                OpenAI typings, any compatibility cast is limited to `testing_criteria`.
+                Calls `openAIClient.evals.create` for `hyoka-f1-evaluation` with:
+                - A custom schema with string fields `query`, `response`, and `ground_truth`.
+                - An `azure_ai_evaluator` for `builtin.f1_score`, mapped to the required item
+                  fields. Any compatibility cast is limited to `testing_criteria`.
               weight: 1
               pass_threshold: 1
             - name: prompt/creates-the-run-through-openaiclient-evals-runs-create-w
               description: |-
-                Creates the run through `openAIClient.evals.runs.create` with the created
+                Creates `hyoka-f1-run` through `openAIClient.evals.runs.create` with the created
                 evaluation ID and an inline `jsonl`/`file_content` source containing the exact
-                item.
+                required item.
               weight: 1
               pass_threshold: 1
             - name: prompt/polls-through-openaiclient-evals-runs-retrieve-until-an
@@ -99,35 +101,15 @@ stimuli:
               pass_threshold: 1
             - name: prompt/uses-openaiclient-evals-runs-outputitems-list-with-for-a
               description: |-
-                Uses `openAIClient.evals.runs.outputItems.list` with `for await...of`, traverses
-                every returned result, and prints its name, score, and passed state.
+                Uses `openAIClient.evals.runs.outputItems.list` with `for await...of` and, for each
+                output item:
+                - Prints its returned ID and status.
+                - Prints the name, score, and passed state read from every returned result object.
               weight: 1
               pass_threshold: 1
             - name: prompt/deletes-the-evaluation-with-its-exact-id
               description: |-
                 Deletes the evaluation with its exact ID.
-              weight: 1
-              pass_threshold: 1
-            - name: prompt/does-not-invent-project-evaluations-or-assume-the-create
-              description: |-
-                Does not invent `project.evaluations` or assume the create-run response is
-                terminal.
-              weight: 1
-              pass_threshold: 1
-            - name: prompt/does-not-hardcode-a-metric-name-score-or-pass-result-ins
-              description: |-
-                Does not hardcode a metric name, score, or pass result instead of traversing
-                returned result objects.
-              weight: 1
-              pass_threshold: 1
-            - name: prompt/does-not-collect-only-one-output-items-page-or-print-onl
-              description: |-
-                Does not collect only one output-items page or print only aggregate counts.
-              weight: 1
-              pass_threshold: 1
-            - name: prompt/does-not-substitute-a-chat-completion-call-or-locally-ca
-              description: |-
-                Does not substitute a chat completion call or locally calculate F1.
               weight: 1
               pass_threshold: 1
             - name: language/correct-azure-scoped-packages

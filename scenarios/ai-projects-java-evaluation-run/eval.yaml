@@ -76,21 +76,23 @@ stimuli:
             - name: prompt/calls-aiprojectclientbuilder-buildopenaiclient-rather-th
               description: |-
                 Calls `AIProjectClientBuilder.buildOpenAIClient()` rather than inventing an AI
-                Projects evaluations client.
+                Projects evaluations client, and uses its service Evals APIs rather than a chat
+                completion or locally calculated F1 score.
               weight: 1
               pass_threshold: 1
             - name: prompt/builds-evalcreateparams-with-a-custom-schema-and-adapts
               description: |-
-                Builds `EvalCreateParams` with a custom schema and adapts
-                `TestingCriterionAzureAIEvaluator` for `builtin.f1_score` through
-                `EvaluationsHelper.toTestingCriterion`.
+                Builds `EvalCreateParams` for `hyoka-f1-evaluation` with:
+                - A custom schema with string fields `query`, `response`, and `ground_truth`.
+                - `TestingCriterionAzureAIEvaluator` for `builtin.f1_score`, adapted through
+                  `EvaluationsHelper.toTestingCriterion` and mapped to the required item fields.
               weight: 1
               pass_threshold: 1
             - name: prompt/creates-the-run-through-openaiclient-evals-runs-create-w
               description: |-
-                Creates the run through `openAIClient.evals().runs().create` with the created
-                evaluation ID and a typed `CreateEvalJsonlRunDataSource` file-content source
-                containing the exact item.
+                Creates `hyoka-f1-run` through `openAIClient.evals().runs().create` with the
+                created evaluation ID and a typed `CreateEvalJsonlRunDataSource` file-content
+                source containing the exact required item.
               weight: 1
               pass_threshold: 1
             - name: prompt/polls-through-runs-retrieve-until-an-explicit-terminal-s
@@ -101,35 +103,15 @@ stimuli:
               pass_threshold: 1
             - name: prompt/uses-the-output-items-autopager-iterates-every-outputite
               description: |-
-                Uses the output-items `autoPager`, iterates every
-                `OutputItemListResponse.Result`, and prints its name, score, and passed state.
+                Uses the output-items `autoPager` and, for each output item:
+                - Prints its returned ID and status.
+                - Prints the name, score, and passed state read from every returned
+                  `OutputItemListResponse.Result`.
               weight: 1
               pass_threshold: 1
             - name: prompt/deletes-the-evaluation-with-its-exact-id
               description: |-
                 Deletes the evaluation with its exact ID.
-              weight: 1
-              pass_threshold: 1
-            - name: prompt/does-not-invent-projectclient-evaluations-or-assume-the
-              description: |-
-                Does not invent `projectClient.evaluations()` or assume the create-run response is
-                terminal.
-              weight: 1
-              pass_threshold: 1
-            - name: prompt/does-not-hardcode-a-metric-name-score-or-pass-result-ins
-              description: |-
-                Does not hardcode a metric name, score, or pass result instead of traversing
-                returned result objects.
-              weight: 1
-              pass_threshold: 1
-            - name: prompt/does-not-omit-output-item-paging-or-print-only-the-run-s
-              description: |-
-                Does not omit output-item paging or print only the run's aggregate counts.
-              weight: 1
-              pass_threshold: 1
-            - name: prompt/does-not-substitute-a-chat-completion-call-or-locally-ca
-              description: |-
-                Does not substitute a chat completion call or locally calculate F1.
               weight: 1
               pass_threshold: 1
             - name: language/correct-dependencies-com-azure-not-com-microsoft-azure

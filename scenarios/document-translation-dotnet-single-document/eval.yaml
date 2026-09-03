@@ -72,8 +72,9 @@ stimuli:
               pass_threshold: 1
             - name: prompt/wraps-the-input-stream-in-multipartformfiledata-with-the
               description: |-
-                Wraps the input stream in `MultipartFormFileData` with the input filename and a
-                media type derived from the extension, then creates `DocumentTranslateContent`.
+                Rejects unsupported extensions, then wraps the binary input stream in
+                `MultipartFormFileData` with its filename and derived media type and creates
+                `DocumentTranslateContent`.
               weight: 1
               pass_threshold: 1
             - name: prompt/calls-translateasync-targetlanguage-content
@@ -83,28 +84,8 @@ stimuli:
               pass_threshold: 1
             - name: prompt/writes-response-value-directly-as-bytes-to-the-output-st
               description: |-
-                Writes `response.Value` directly as bytes to the output stream.
-              weight: 1
-              pass_threshold: 1
-            - name: prompt/does-not-use-the-batch-container-client-or-invent-a-sing
-              description: |-
-                Does not use the batch/container client or invent a single-document method on
-                it.
-              weight: 1
-              pass_threshold: 1
-            - name: prompt/does-not-submit-base64-json-or-omit-multipart-filename-c
-              description: |-
-                Does not submit base64 JSON or omit multipart filename/content-type metadata.
-              weight: 1
-              pass_threshold: 1
-            - name: prompt/does-not-convert-the-binary-response-to-text-json-or-an
-              description: |-
-                Does not convert the binary response to text, JSON, or an object before writing.
-              weight: 1
-              pass_threshold: 1
-            - name: prompt/does-not-write-a-known-or-hardcoded-translated-output
-              description: |-
-                Does not write a known or hardcoded translated output.
+                Writes the exact service-returned `response.Value` bytes to the output stream
+                without decoding, parsing, or transforming them.
               weight: 1
               pass_threshold: 1
             - name: language/azure-identity-authentication

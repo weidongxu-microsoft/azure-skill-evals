@@ -76,7 +76,8 @@ stimuli:
             - name: prompt/builds-persistentagentsclient-with-persistentagentsclien
               description: |-
                 Builds `PersistentAgentsClient` with `PersistentAgentsClientBuilder`, then obtains
-                the administration, threads, messages, and runs subclients.
+                the administration, threads, messages, and runs subclients for the complete
+                workflow; a non-agents chat client is not equivalent.
               weight: 1
               pass_threshold: 1
             - name: prompt/creates-the-agent-with-createagentoptions-passing-the-de
@@ -104,36 +105,21 @@ stimuli:
               pass_threshold: 1
             - name: prompt/polls-by-calling-runsclient-getrun-with-the-thread-id-an
               description: |-
-                Polls by calling `RunsClient.getRun` with the thread ID and run ID until the run
-                leaves its nonterminal statuses.
+                After `RunsClient.createRun`, repeatedly calls `RunsClient.getRun` with the thread
+                ID and run ID until the run leaves its nonterminal statuses.
               weight: 1
               pass_threshold: 1
             - name: prompt/retrieves-messages-only-after-successful-completion-iter
               description: |-
                 Retrieves messages only after successful completion, iterates the paged SDK result
-                with `ListSortOrder.ASCENDING`, and extracts `MessageTextContent` values from
-                `MessageRole.AGENT` messages.
+                with `ListSortOrder.ASCENDING`, and prints text read from returned
+                `MessageTextContent` values in `MessageRole.AGENT` messages rather than a known or
+                hardcoded answer.
               weight: 1
               pass_threshold: 1
             - name: prompt/deletes-both-the-created-thread-and-the-created-agent-th
               description: |-
                 Deletes both the created thread and the created agent through their SDK clients.
-              weight: 1
-              pass_threshold: 1
-            - name: prompt/does-not-print-a-hardcoded-answer-instead-of-retrieving
-              description: |-
-                Does not print a hardcoded answer instead of retrieving agent messages.
-              weight: 1
-              pass_threshold: 1
-            - name: prompt/does-not-treat-the-initially-created-run-as-already-comp
-              description: |-
-                Does not treat the initially created run as already completed.
-              weight: 1
-              pass_threshold: 1
-            - name: prompt/does-not-substitute-an-azure-openai-chat-client-or-anoth
-              description: |-
-                Does not substitute an Azure OpenAI chat client or another non-agents API for the
-                Azure AI Agents thread and run workflow.
               weight: 1
               pass_threshold: 1
             - name: language/correct-dependencies-com-azure-not-com-microsoft-azure

@@ -74,7 +74,8 @@ stimuli:
           criteria:
             - name: prompt/creates-agentsclient-from-azure-ai-agents-with-the-proje
               description: |-
-                Creates `AgentsClient` from `azure.ai.agents` with the project endpoint.
+                Uses `AgentsClient` from `azure.ai.agents` with the project endpoint for the agent,
+                thread, message, and run workflow; a non-agents chat client is not equivalent.
               weight: 1
               pass_threshold: 1
             - name: prompt/calls-agents-client-create-agent-with-the-deployment-fro
@@ -96,37 +97,21 @@ stimuli:
               pass_threshold: 1
             - name: prompt/creates-the-run-with-the-created-thread-id-and-agent-id
               description: |-
-                Creates the run with the created thread ID and agent ID, then polls with
-                `agents_client.runs.get` or the SDK's combined create-and-process operation until a
-                terminal status is reached.
+                Creates the run with the created thread ID and agent ID, then refreshes it with
+                `agents_client.runs.get` or uses the SDK's combined create-and-process operation
+                until a terminal status is reached.
               weight: 1
               pass_threshold: 1
             - name: prompt/retrieves-messages-only-after-successful-completion-requ
               description: |-
                 Retrieves messages only after successful completion, requests
-                `ListSortOrder.ASCENDING`, and extracts text values from assistant
-                `text_messages`.
+                `ListSortOrder.ASCENDING`, and prints text read from returned assistant
+                `text_messages` rather than a known or hardcoded answer.
               weight: 1
               pass_threshold: 1
             - name: prompt/deletes-both-the-created-thread-and-the-created-agent-th
               description: |-
                 Deletes both the created thread and the created agent through `AgentsClient`.
-              weight: 1
-              pass_threshold: 1
-            - name: prompt/does-not-print-a-hardcoded-answer-instead-of-retrieving
-              description: |-
-                Does not print a hardcoded answer instead of retrieving agent messages.
-              weight: 1
-              pass_threshold: 1
-            - name: prompt/does-not-treat-the-initially-created-run-as-already-comp
-              description: |-
-                Does not treat the initially created run as already completed.
-              weight: 1
-              pass_threshold: 1
-            - name: prompt/does-not-substitute-an-azure-openai-chat-client-or-anoth
-              description: |-
-                Does not substitute an Azure OpenAI chat client or another non-agents API for the
-                Azure AI Agents thread and run workflow.
               weight: 1
               pass_threshold: 1
             - name: language/correct-package-imports

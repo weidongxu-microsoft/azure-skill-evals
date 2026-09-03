@@ -72,36 +72,20 @@ stimuli:
               pass_threshold: 1
             - name: prompt/calls-client-path-translate-post-exactly-once-with-body
               description: |-
-                Calls `client.path("/translate").post` exactly once with
-                `body: { inputs: [input] }` and checks `isUnexpected`.
+                Uses the `@azure-rest/ai-translation-text` 2.0.0 v2 client and calls
+                `client.path("/translate").post` exactly once with `body: { inputs: [input] }`,
+                then checks `isUnexpected`.
               weight: 1
               pass_threshold: 1
             - name: prompt/reads-the-returned-item-s-detectedlanguage-language-and
               description: |-
-                Reads the returned item's `detectedLanguage.language` and traverses every item
+                Prints the returned item's `detectedLanguage.language` and traverses every item
                 in its `translations` array.
               weight: 1
               pass_threshold: 1
             - name: prompt/prints-each-translation-s-returned-language-and-text-val
               description: |-
                 Prints each translation's returned `language` and `text` values.
-              weight: 1
-              pass_threshold: 1
-            - name: prompt/does-not-use-the-retired-v1-query-parameter-request-shap
-              description: |-
-                Does not use the retired v1 query-parameter request shape, invent a convenience
-                `translate` method, or use an obsolete package.
-              weight: 1
-              pass_threshold: 1
-            - name: prompt/does-not-make-separate-requests-for-french-and-japanese
-              description: |-
-                Does not make separate requests for French and Japanese or request only one
-                target.
-              weight: 1
-              pass_threshold: 1
-            - name: prompt/does-not-hardcode-the-detected-language-target-labels-or
-              description: |-
-                Does not hardcode the detected language, target labels, or translated output.
               weight: 1
               pass_threshold: 1
             - name: language/correct-azure-scoped-packages

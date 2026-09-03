@@ -97,29 +97,6 @@ stimuli:
                 `error.message` whenever error details are present.
               weight: 1
               pass_threshold: 1
-            - name: prompt/does-not-use-the-obsolete-planned-azure-rest-ai-translat
-              description: |-
-                Does not use the obsolete/planned
-                `@azure-rest/ai-translation-document` package, the single-document client, or
-                multipart upload workflow.
-              weight: 1
-              pass_threshold: 1
-            - name: prompt/does-not-omit-poller-completion-or-treat-starttranslatio
-              description: |-
-                Does not omit poller completion or treat `startTranslation` as a promise for
-                the final result.
-              weight: 1
-              pass_threshold: 1
-            - name: prompt/does-not-print-only-overall-counts-select-one-document-o
-              description: |-
-                Does not print only overall counts, select one document, or consume one page.
-              weight: 1
-              pass_threshold: 1
-            - name: prompt/does-not-omit-returned-document-failure-code-or-message
-              description: |-
-                Does not omit returned document failure code or message.
-              weight: 1
-              pass_threshold: 1
             - name: language/correct-azure-scoped-packages
               description: |-
                 All Azure SDK dependencies use @azure/ scoped packages (e.g., @azure/storage-blob, @azure/keyvault-secrets, @azure/identity). No deprecated unscoped packages (azure-storage, azure-arm-*, ms-rest-azure, @azure/ms-rest-*).

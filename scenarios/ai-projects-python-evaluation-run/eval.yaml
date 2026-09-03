@@ -76,20 +76,23 @@ stimuli:
             - name: prompt/calls-project-client-get-openai-client-rather-than-inven
               description: |-
                 Calls `project_client.get_openai_client()` rather than inventing
-                `project_client.evaluations`.
+                `project_client.evaluations`, and uses its service Evals APIs rather than a chat
+                completion or locally calculated F1 score.
               weight: 1
               pass_threshold: 1
             - name: prompt/calls-client-evals-create-with-datasourceconfigcustom-an
               description: |-
-                Calls `client.evals.create` with `DataSourceConfigCustom` and
-                `TestingCriterionAzureAIEvaluator` configured for `builtin.f1_score`.
+                Calls `client.evals.create` for `hyoka-f1-evaluation` with:
+                - `DataSourceConfigCustom` string fields `query`, `response`, and `ground_truth`.
+                - `TestingCriterionAzureAIEvaluator` for `builtin.f1_score`, mapped to the
+                  required item fields.
               weight: 1
               pass_threshold: 1
             - name: prompt/creates-the-run-through-client-evals-runs-create-with-th
               description: |-
-                Creates the run through `client.evals.runs.create` with the created evaluation ID
-                and a typed `CreateEvalJSONLRunDataSourceParam` file-content source containing the
-                exact item.
+                Creates `hyoka-f1-run` through `client.evals.runs.create` with the created
+                evaluation ID and a typed `CreateEvalJSONLRunDataSourceParam` file-content source
+                containing the exact required item.
               weight: 1
               pass_threshold: 1
             - name: prompt/polls-through-client-evals-runs-retrieve-until-an-explic
@@ -100,35 +103,14 @@ stimuli:
               pass_threshold: 1
             - name: prompt/traverses-the-pageable-result-from-client-evals-runs-out
               description: |-
-                Traverses the pageable result from `client.evals.runs.output_items.list`, then
-                traverses every output item's `results` to print name, score, and passed state.
+                Traverses every page from `client.evals.runs.output_items.list` and, for each item:
+                - Prints its returned ID and status.
+                - Prints the name, score, and passed state read from every returned result object.
               weight: 1
               pass_threshold: 1
             - name: prompt/deletes-the-evaluation-with-its-exact-id
               description: |-
                 Deletes the evaluation with its exact ID.
-              weight: 1
-              pass_threshold: 1
-            - name: prompt/does-not-invent-project-client-evaluations-or-assume-the
-              description: |-
-                Does not invent `project_client.evaluations` or assume the create-run response is
-                terminal.
-              weight: 1
-              pass_threshold: 1
-            - name: prompt/does-not-hardcode-a-metric-name-score-or-pass-result-ins
-              description: |-
-                Does not hardcode a metric name, score, or pass result instead of traversing
-                returned result objects.
-              weight: 1
-              pass_threshold: 1
-            - name: prompt/does-not-select-only-the-first-output-item-or-print-only
-              description: |-
-                Does not select only the first output item or print only aggregate counts.
-              weight: 1
-              pass_threshold: 1
-            - name: prompt/does-not-substitute-a-chat-completion-call-or-locally-ca
-              description: |-
-                Does not substitute a chat completion call or locally calculate F1.
               weight: 1
               pass_threshold: 1
             - name: language/correct-package-imports

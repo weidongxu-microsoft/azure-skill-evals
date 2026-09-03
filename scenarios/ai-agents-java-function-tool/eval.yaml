@@ -103,41 +103,27 @@ stimuli:
               pass_threshold: 1
             - name: prompt/produces-deterministic-json-by-invoking-local-code-rathe
               description: |-
-                Produces deterministic JSON by invoking local code rather than returning a fixed
-                assistant response.
+                Invokes local `get_weather` code only for required tool calls and returns JSON with:
+                - The requested location and unit.
+                - Temperature `21` for Seattle in `c`, or `70` for Seattle in `f`.
               weight: 1
               pass_threshold: 1
             - name: prompt/creates-tooloutput-values-with-each-originating-tool-cal
               description: |-
-                Creates `ToolOutput` values with each originating tool-call ID and submits them
-                through `RunsClient.submitToolOutputsToRun`.
+                Creates one `ToolOutput` for every required call with its originating tool-call ID
+                and submits all outputs through `RunsClient.submitToolOutputsToRun`.
               weight: 1
               pass_threshold: 1
             - name: prompt/resumes-polling-after-submission-requires-completed-stat
               description: |-
                 Resumes polling after submission, requires completed status, and retrieves
-                ascending `MessageRole.AGENT` text through `MessageTextContent`.
+                ascending `MessageRole.AGENT` `MessageTextContent` to print as the final response
+                rather than printing the local function result.
               weight: 1
               pass_threshold: 1
             - name: prompt/deletes-the-created-thread-and-agent
               description: |-
                 Deletes the created thread and agent.
-              weight: 1
-              pass_threshold: 1
-            - name: prompt/does-not-call-the-weather-function-before-the-service-re
-              description: |-
-                Does not call the weather function before the service requests it.
-              weight: 1
-              pass_threshold: 1
-            - name: prompt/does-not-discard-tool-call-ids-or-submit-one-output-for
-              description: |-
-                Does not discard tool-call IDs or submit one output for unrelated calls.
-              weight: 1
-              pass_threshold: 1
-            - name: prompt/does-not-stop-at-requires-action-or-print-the-local-func
-              description: |-
-                Does not stop at `REQUIRES_ACTION` or print the local function result as though it
-                were the final assistant response.
               weight: 1
               pass_threshold: 1
             - name: language/correct-dependencies-com-azure-not-com-microsoft-azure
