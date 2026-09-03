@@ -83,7 +83,7 @@ stimuli:
               weight: 1
               pass_threshold: 1
             - name: prompt/supported-authentication-and-secure-config
-              description: Uses Shared Key or account SAS authentication supported by the Go SDK's Blob Batch builder, reads credentials and resource configuration externally, and does not hardcode secrets; token credentials are not incorrectly presented as supported for this API.
+              description: The Go SDK's Blob Batch builder does not support token credentials such as `DefaultAzureCredential`; it requires Shared Key or account SAS authentication. Pass implementations that use an environment-provided account name and key, account SAS, or connection string backed by Shared Key. Fail hardcoded credentials or claims that token credentials work with this API.
               weight: 1
               pass_threshold: 1
             - name: prompt/context-and-useful-errors
