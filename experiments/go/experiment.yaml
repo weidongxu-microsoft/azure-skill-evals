@@ -19,6 +19,7 @@ evals:
   - ../../scenarios/storage-go-error-handling/eval.yaml
   - ../../scenarios/storage-go-polling-create-account/eval.yaml
   - ../../scenarios/storage-go-account-mgmt/eval.yaml
+  - ../../scenarios/storage-go-batch-blob-operations/eval.yaml
   - ../../scenarios/resource-manager-go-resource-group-crud/eval.yaml
   - ../../scenarios/identity-go-service-principal-auth/eval.yaml
   - ../../scenarios/identity-go-default-azure-credential/eval.yaml

@@ -1,0 +1,104 @@
+name: storage-go-batch-blob-operations
+description: Compare Azure tooling for Blob Storage batch operations in Go
+version: "1.0"
+type: capability
+environment:
+  files:
+    - src: ../../eval-workspace.gitignore
+      dest: .gitignore
+    - src: ../../eval-workspace-AGENTS.md
+      dest: AGENTS.md
+scoring:
+  weights: {}
+defaults:
+  runs: 1
+  timeout: 30m
+  model: gpt-5.6-sol
+  judge_model: gpt-5.6-sol
+stimuli:
+  - name: storage-dp-go-batch
+    prompt: |-
+      How do I perform batch operations on Azure Blob Storage in Go?
+      I have a container with thousands of blobs and need to:
+      1. Bulk delete 500 blobs, using the minimum number of batched HTTP requests allowed by the service
+      2. Bulk set the access tier of 200 blobs from Hot to Cool
+      3. Handle partial failures where some operations in the batch succeed and others fail
+      4. Understand the limits, including maximum operations per batch and request-size restrictions
+
+      Create a complete runnable Go project using the current Azure Blob Storage SDK. Use the Blob service batch APIs, include the required Go modules, read configuration and credentials from environment variables, and do not hardcode secrets. Explain the authentication methods supported by Blob Batch and include proper handling for top-level submission errors and individual operation failures.
+    tags:
+      service: storage
+      plane: data-plane
+      language: go
+      category: batch
+    graders:
+      - type: panel
+        name: prompt/full-case-review
+        weight: 1
+        config:
+          prompt: |-
+            Review the generated implementation against every criterion.
+            Score each criterion independently. Accept equivalent valid
+            implementations and judge code behavior rather than syntax.
+            Return every criterion name exactly as provided. The criterion
+            value must start with "prompt/" or "language/". Never copy a rubric
+            list number into the criterion value. For example, return
+            "prompt/foo", never "1. prompt/foo".
+          models:
+            - gpt-5.6-sol
+          aggregation: unanimous
+          scoring: binary
+          threshold: 0
+          overall_threshold: 0
+          evidence:
+            - trajectory
+            - repo
+          criteria:
+            - name: prompt/current-blob-storage-module
+              description: Uses the current `github.com/Azure/azure-sdk-for-go/sdk/storage/azblob` module and provides a complete root Go module manifest.
+              weight: 1
+              pass_threshold: 1
+            - name: prompt/service-batch-builder-and-submit
+              description: Creates batch builders from an authenticated `service.Client`, adds Blob operations, and submits each batch with `Client.SubmitBatch`.
+              weight: 1
+              pass_threshold: 1
+            - name: prompt/bulk-delete-in-two-batches
+              description: Bulk deletes all 500 requested blobs by chunking them into the minimum two service requests of at most 256 operations each.
+              weight: 1
+              pass_threshold: 1
+            - name: prompt/bulk-set-cool-tier
+              description: Adds and submits Set Tier operations for all 200 blobs using `blob.AccessTierCool` or an equivalent SDK constant.
+              weight: 1
+              pass_threshold: 1
+            - name: prompt/partial-failure-handling
+              description: Inspects every `BatchResponseItem` in `SubmitBatchResponse.Responses`, detects each non-nil per-operation `Error`, and reports enough operation identity and error detail to diagnose partial failures.
+              weight: 1
+              pass_threshold: 1
+            - name: prompt/top-level-response-error-handling
+              description: Handles top-level batch construction or submission failures and uses `errors.As` with `*azcore.ResponseError` to report Azure status and error-code details when available.
+              weight: 1
+              pass_threshold: 1
+            - name: prompt/batch-operation-and-size-limits
+              description: Correctly explains the maximum of 256 operations per batch and the applicable Blob Batch request-size restriction.
+              weight: 1
+              pass_threshold: 1
+            - name: prompt/supported-authentication-and-secure-config
+              description: Uses Shared Key or account SAS authentication supported by the Go SDK's Blob Batch builder, reads credentials and resource configuration externally, and does not hardcode secrets; token credentials are not incorrectly presented as supported for this API.
+              weight: 1
+              pass_threshold: 1
+            - name: prompt/context-and-useful-errors
+              description: Uses context-aware SDK calls, bounds execution appropriately, and returns useful wrapped errors rather than discarding failures.
+              weight: 1
+              pass_threshold: 1
+      - type: run-command
+        name: program/go-project-tests
+        config:
+          command: go
+          args:
+            - test
+            - -mod=readonly
+            - ./...
+          timeout: 3m
+artifacts:
+  include: ["**/*.go", "**/go.mod", "**/go.sum", "**/README.md"]
+  exclude: ["**/.vally/**", "**/vendor/**", "**/*.test"]
