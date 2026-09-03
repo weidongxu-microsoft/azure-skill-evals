@@ -130,11 +130,21 @@ test("every eval uses one complete model review and program checks", () => {
     );
     assert.equal(scopeMatches?.length, 1, evalPath);
     if (source.includes("      scope: end-to-end-solution")) {
-      assert.match(source, /^\s+evidence:\r?\n\s+- repo$/m, evalPath);
+      assert.match(source, /^\s+evidence:\r?\n\s+- diff$/m, evalPath);
+      assert.match(
+        source,
+        /^agent_environment:\n\s+files:\n\s+- src: \.\.\/\.\.\/eval-workspace-source\.gitignore\n\s+dest: \.gitignore/m,
+        evalPath,
+      );
     } else {
       assert.match(
         source,
         /^\s+evidence:\r?\n\s+- trajectory\r?\n\s+- repo$/m,
+        evalPath,
+      );
+      assert.match(
+        source,
+        /^agent_environment:\n\s+files:\n\s+- src: \.\.\/\.\.\/eval-workspace\.gitignore\n\s+dest: \.gitignore/m,
         evalPath,
       );
     }
@@ -145,7 +155,7 @@ test("every eval uses one complete model review and program checks", () => {
     );
     assert.match(
       source,
-      /^agent_environment:\n\s+files:\n\s+- src: \.\.\/\.\.\/eval-workspace\.gitignore\n\s+dest: \.gitignore\n\s+- src: \.\.\/\.\.\/eval-workspace-AGENTS\.md\n\s+dest: AGENTS\.md/m,
+      /^\s+- src: \.\.\/\.\.\/eval-workspace-AGENTS\.md\n\s+dest: AGENTS\.md/m,
       evalPath,
     );
     if (language === "java") {

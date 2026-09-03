@@ -4,7 +4,7 @@ version: "1.0"
 type: capability
 agent_environment:
   files:
-    - src: ../../eval-workspace.gitignore
+    - src: ../../eval-workspace-source.gitignore
       dest: .gitignore
     - src: ../../eval-workspace-AGENTS.md
       dest: AGENTS.md
@@ -114,7 +114,7 @@ stimuli:
           threshold: 0
           overall_threshold: 0
           evidence:
-            - repo
+            - diff
           criteria:
             - name: prompt/implements-a-complete-runnable-support-application
               description: |-

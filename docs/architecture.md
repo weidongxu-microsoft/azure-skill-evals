@@ -27,14 +27,15 @@ between arms.
 External skill repositories and npm packages are pinned in
 `dependencies.lock.json`. `scripts/bootstrap-dependencies.ps1` materializes the
 repositories under `.work/dependencies/`; generated dependencies and reports
-stay outside Git. Every eval stages `eval-workspace.gitignore` into its
-workspace before execution so package installs and build outputs do not enter
-the generated diff.
+stay outside Git. Focused tasks stage `eval-workspace.gitignore`; end-to-end
+solutions stage `eval-workspace-source.gitignore`, which allowlists source,
+manifests, configuration, fixtures, and project documentation while excluding
+dependencies, build output, caches, and runtime data.
 
-Each judge receives both the agent trajectory and a bounded snapshot of the
-complete generated workspace. This preserves answer-style implementations
-returned in Markdown while exposing final source and manifest files without
-depending on diff ordering.
+Focused-task judges receive both the agent trajectory and a bounded snapshot of
+the generated workspace. End-to-end solution judges receive the generated diff
+so large agent-visible skill directories cannot consume the repository
+snapshot budget.
 
 Every evaluation workspace also receives a shared `AGENTS.md` instruction that
 requires code requests to produce complete runnable projects with root-level
