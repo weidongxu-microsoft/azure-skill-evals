@@ -3,7 +3,7 @@ import { emptyState, type AssistantStateStore } from "./state-store.js";
 import type { AssistantState } from "./types.js";
 
 export class BlobStateStore implements AssistantStateStore {
-  private etag: string | undefined;
+  private readonly etags = new WeakMap<AssistantState, string | null>();
 
   public constructor(
     private readonly container: ContainerClient,
@@ -11,7 +11,7 @@ export class BlobStateStore implements AssistantStateStore {
   ) {}
 
   public async initialize(): Promise<void> {
-    await this.container.createIfNotExists();
+    await this.container.getProperties();
   }
 
   public async load(): Promise<AssistantState> {
@@ -19,7 +19,9 @@ export class BlobStateStore implements AssistantStateStore {
       const response = await this.container
         .getBlockBlobClient(this.blobName)
         .download();
-      this.etag = response.etag;
+      if (response.etag === undefined) {
+        throw new Error(`State blob ${this.blobName} returned no ETag.`);
+      }
       if (response.readableStreamBody === undefined) {
         throw new Error(`State blob ${this.blobName} returned no content.`);
       }
@@ -32,28 +34,38 @@ export class BlobStateStore implements AssistantStateStore {
       if (!isAssistantState(parsed)) {
         throw new Error(`State blob ${this.blobName} has an unsupported shape.`);
       }
+      this.etags.set(parsed, response.etag);
       return parsed;
     } catch (error) {
       if (hasStatusCode(error, 404)) {
-        this.etag = undefined;
-        return emptyState();
+        const state = emptyState();
+        this.etags.set(state, null);
+        return state;
       }
       throw error;
     }
   }
 
   public async save(state: AssistantState): Promise<void> {
+    const etag = this.etags.get(state);
+    if (etag === undefined) {
+      throw new Error("State must be loaded before it can be saved.");
+    }
     const content = Buffer.from(`${JSON.stringify(state, null, 2)}\n`, "utf8");
     const response = await this.container
       .getBlockBlobClient(this.blobName)
       .uploadData(content, {
         blobHTTPHeaders: { blobContentType: "application/json" },
         conditions:
-          this.etag === undefined
+          etag === null
             ? { ifNoneMatch: "*" }
-            : { ifMatch: this.etag },
+            : { ifMatch: etag },
       });
-    this.etag = response.etag;
+    if (response.etag === undefined) {
+      this.etags.delete(state);
+    } else {
+      this.etags.set(state, response.etag);
+    }
   }
 }
 

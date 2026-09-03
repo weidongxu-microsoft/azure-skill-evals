@@ -77,7 +77,6 @@ test("runs evaluation and deletes its temporary conversations", async () => {
       {
         id: "reset",
         query: "How do I reset it?",
-        context: "Hold reset for ten seconds.",
         groundTruth: "Hold reset for ten seconds.",
       },
     ]);
@@ -240,8 +239,14 @@ test("hosts the support workflow over HTTP", async () => {
     const health = await fetch(`${baseUrl}/health`);
     assert.equal(health.status, 200);
 
-    const ingest = await postJson(`${baseUrl}/admin/ingest`, {
-      manualPaths: ["manual.md"],
+    const beforeIngestion = await postJson(
+      `${baseUrl}/conversations/employee-1/messages`,
+      { question: "How do I reset it?" },
+    );
+    assert.equal(beforeIngestion.status, 409);
+
+    const ingest = await fetch(`${baseUrl}/admin/ingest`, {
+      method: "POST",
     });
     assert.equal(ingest.status, 201);
 
@@ -261,6 +266,15 @@ test("hosts the support workflow over HTTP", async () => {
       },
     );
     assert.equal(feedback.status, 201);
+
+    const unknownFeedback = await postJson(
+      `${baseUrl}/conversations/employee-1/feedback`,
+      {
+        responseId: "missing-response",
+        rating: "negative",
+      },
+    );
+    assert.equal(unknownFeedback.status, 404);
 
     gateway.nextSupported = false;
     const unsupported = await postJson(

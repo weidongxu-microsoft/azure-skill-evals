@@ -3,8 +3,7 @@
 This hosted TypeScript service ingests product manuals into Microsoft Foundry
 file search, maintains isolated multi-turn conversations, returns source
 citations, records unsupported questions and employee feedback, and runs
-groundedness and relevance evaluations. An administrative CLI uses the same
-application services and durable state.
+groundedness and relevance evaluations.
 
 Azure resources must already exist; this project does not provision or deploy
 infrastructure.
@@ -51,21 +50,17 @@ pnpm test
 ## Run
 
 ```powershell
-npm run admin -- ingest
-npm run admin -- ask employee-1 "How do I reset the Aero 300?"
-npm run admin -- ask employee-1 "How long should the status light flash?"
-npm run admin -- feedback employee-1 <response-id> positive "Clear answer"
-npm run admin -- evaluate
-npm run admin -- cleanup
+npm start
 ```
 
-Run `npm start` to host the HTTP service. It exposes `/health`,
-`/admin/ingest`, `/conversations/{id}/messages`,
+The service exposes `/health`, `/admin/ingest`,
+`/conversations/{id}/messages`,
 `/conversations/{id}/feedback`, `/admin/unresolved`,
 `/admin/evaluations`, `/admin/operations/{id}`, and `/admin/resources`.
 Evaluation requests return `202 Accepted`; poll the returned operation ID
 instead of holding an Azure HTTP request open while the evaluation runs.
 
-Run `cleanup` when finished so conversations, the agent version, vector store,
-and uploaded files are deleted in dependency order. The state blob remains as
-the durable audit record.
+Call `DELETE /admin/resources` with an authenticated administrator identity
+when finished. Conversations, the agent version, vector store, and uploaded
+files are deleted in dependency order. The state blob remains as the durable
+audit record.

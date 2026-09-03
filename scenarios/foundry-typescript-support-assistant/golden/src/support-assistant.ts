@@ -8,6 +8,20 @@ import type {
   SupportGateway,
 } from "./types.js";
 
+export type SupportAssistantErrorCode =
+  | "already_ingested"
+  | "not_ingested"
+  | "response_not_found";
+
+export class SupportAssistantError extends Error {
+  public constructor(
+    public readonly code: SupportAssistantErrorCode,
+    message: string,
+  ) {
+    super(message);
+  }
+}
+
 export class SupportAssistant {
   public constructor(
     private readonly gateway: SupportGateway,
@@ -17,7 +31,8 @@ export class SupportAssistant {
   public async ingest(manualPaths: string[]): Promise<void> {
     const state = await this.store.load();
     if (state.resources !== undefined) {
-      throw new Error(
+      throw new SupportAssistantError(
+        "already_ingested",
         "Manuals are already ingested. Run cleanup before ingesting again.",
       );
     }
@@ -44,7 +59,10 @@ export class SupportAssistant {
   ): Promise<SupportAnswer> {
     const state = await this.store.load();
     if (state.resources === undefined) {
-      throw new Error("Manuals must be ingested before asking questions.");
+      throw new SupportAssistantError(
+        "not_ingested",
+        "Manuals must be ingested before asking questions.",
+      );
     }
     const existingConversationId = state.conversations[localConversationId];
     const gatewayAnswer = await this.gateway.ask(
@@ -120,7 +138,8 @@ export class SupportAssistant {
         candidate.responseId === responseId,
     );
     if (answer === undefined) {
-      throw new Error(
+      throw new SupportAssistantError(
+        "response_not_found",
         `Response ${responseId} does not belong to conversation ${localConversationId}.`,
       );
     }
@@ -139,7 +158,10 @@ export class SupportAssistant {
   ): Promise<EvaluationMetric[]> {
     const state = await this.store.load();
     if (state.resources === undefined) {
-      throw new Error("Manuals must be ingested before running evaluations.");
+      throw new SupportAssistantError(
+        "not_ingested",
+        "Manuals must be ingested before running evaluations.",
+      );
     }
 
     const evaluationConversationIds: string[] = [];

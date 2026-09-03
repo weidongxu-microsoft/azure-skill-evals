@@ -12,8 +12,7 @@
     "build": "npm run clean && tsc",
     "lint": "eslint .",
     "test": "npm run build && node --test dist/tests/support-assistant.spec.js",
-    "start": "node dist/src/server-main.js",
-    "admin": "node dist/src/cli.js"
+    "start": "node dist/src/server-main.js"
   },
   "dependencies": {
     "@azure/ai-projects": "2.5.0",

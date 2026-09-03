@@ -3,8 +3,12 @@ import { randomUUID } from "node:crypto";
 import { resolve } from "node:path";
 import { URL } from "node:url";
 import { RestError } from "@azure/ai-projects";
+import { logError, logInfo } from "./app-logger.js";
 import { loadEvaluationCases } from "./evaluation-data.js";
-import type { SupportAssistant } from "./support-assistant.js";
+import {
+  SupportAssistantError,
+  type SupportAssistant,
+} from "./support-assistant.js";
 
 const MAX_BODY_BYTES = 1024 * 1024;
 const DEFAULT_MANUALS = [
@@ -55,13 +59,28 @@ export function createSupportServer(
       );
       sendJson(response, result.status, result.body);
     } catch (error) {
-      const status = error instanceof HttpError ? error.status : 500;
+      const status =
+        error instanceof HttpError
+          ? error.status
+          : error instanceof SupportAssistantError
+            ? supportErrorStatus(error)
+            : 500;
       const message =
         error instanceof RestError
           ? `Azure request failed: status=${String(error.statusCode)} code=${error.code ?? "unknown"} message=${error.message}`
           : error instanceof Error
             ? error.message
             : String(error);
+      logError(
+        "request.failed",
+        error instanceof SupportAssistantError
+          ? new Error(error.code)
+          : error,
+        {
+          method: request.method ?? "UNKNOWN",
+          status,
+        },
+      );
       sendJson(response, status, { error: message });
     }
   });
@@ -83,8 +102,9 @@ async function route(
   }
 
   if (request.method === "POST" && url.pathname === "/admin/ingest") {
-    await readJson(request);
+    logInfo("ingestion.started", { manualCount: DEFAULT_MANUALS.length });
     await assistant.ingest(DEFAULT_MANUALS);
+    logInfo("ingestion.completed", { manualCount: DEFAULT_MANUALS.length });
     return { status: 201, body: { status: "ingested" } };
   }
 
@@ -101,6 +121,10 @@ async function route(
       ),
       question,
     );
+    logInfo("answer.completed", {
+      citationCount: answer.citations.length,
+      supported: answer.supported,
+    });
     return { status: 200, body: answer };
   }
 
@@ -122,6 +146,7 @@ async function route(
       rating,
       optionalString(body, "comment"),
     );
+    logInfo("feedback.recorded", { rating });
     return { status: 201, body: { status: "recorded" } };
   }
 
@@ -133,15 +158,14 @@ async function route(
   }
 
   if (request.method === "POST" && url.pathname === "/admin/evaluations") {
-    const body = await readJson(request);
-    const datasetPath = resolve(
-      optionalString(body, "datasetPath") ?? DEFAULT_EVALUATION_DATASET,
-    );
     const operationId = startOperation(
       operations,
       async () =>
-        await assistant.evaluate(await loadEvaluationCases(datasetPath)),
+        await assistant.evaluate(
+          await loadEvaluationCases(DEFAULT_EVALUATION_DATASET),
+        ),
     );
+    logInfo("evaluation.queued", { operationId });
     return { status: 202, body: { operationId } };
   }
 
@@ -162,7 +186,9 @@ async function route(
         "Wait for active evaluation operations before cleanup.",
       );
     }
+    logInfo("cleanup.started");
     await assistant.cleanup();
+    logInfo("cleanup.completed");
     return { status: 200, body: { status: "deleted" } };
   }
 
@@ -266,11 +292,13 @@ async function executeOperation(
   try {
     const result = await operation();
     operations.set(operationId, { status: "completed", result });
+    logInfo("evaluation.completed", { operationId });
   } catch (error) {
     operations.set(operationId, {
       status: "failed",
       error: error instanceof Error ? error.message : String(error),
     });
+    logError("evaluation.failed", error, { operationId });
   }
 }
 
@@ -296,4 +324,8 @@ function scopedConversationId(
     throw new HttpError(400, "conversation ID is required.");
   }
   return `${principalId}:${conversationId}`;
+}
+
+function supportErrorStatus(error: SupportAssistantError): number {
+  return error.code === "response_not_found" ? 404 : 409;
 }

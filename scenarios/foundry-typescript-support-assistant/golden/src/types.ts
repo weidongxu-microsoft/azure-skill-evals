@@ -56,7 +56,6 @@ export interface AssistantState {
 export interface EvaluationCase {
   id: string;
   query: string;
-  context: string;
   groundTruth: string;
 }
 

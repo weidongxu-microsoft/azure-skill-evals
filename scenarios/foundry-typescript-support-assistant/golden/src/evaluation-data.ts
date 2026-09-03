@@ -22,7 +22,6 @@ function parseCase(line: string, lineNumber: number, path: string): EvaluationCa
     value === null ||
     !hasString(value, "id") ||
     !hasString(value, "query") ||
-    !hasString(value, "context") ||
     !hasString(value, "groundTruth")
   ) {
     throw new Error(
@@ -32,7 +31,6 @@ function parseCase(line: string, lineNumber: number, path: string): EvaluationCa
   return {
     id: readString(value, "id"),
     query: readString(value, "query"),
-    context: readString(value, "context"),
     groundTruth: readString(value, "groundTruth"),
   };
 }
