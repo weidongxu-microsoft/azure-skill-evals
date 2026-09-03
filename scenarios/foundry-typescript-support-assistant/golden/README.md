@@ -41,6 +41,8 @@ production-oriented level.
 
 ## Build and validate
 
+Use Node.js 24:
+
 ```powershell
 pnpm install --frozen-lockfile
 pnpm lint
