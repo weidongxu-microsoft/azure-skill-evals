@@ -44,8 +44,9 @@ The `Vally evaluations` workflow provides optional suite, language, service,
 plane, and scope filters plus a free-form tag field. Scope defaults to
 `focused-task`; clear it to leave scope unrestricted. Other empty inputs do
 not restrict the selection. Every active filter is combined with AND.
-Free-form tag clauses are separated with semicolons, and comma-separated
-values within one clause are alternatives:
+Comma-separated values within each structured tag input are alternatives
+(OR). Free-form tag clauses are separated with semicolons (AND), and their
+comma-separated values are also alternatives:
 
 ```text
 service=identity;language=python,typescript
