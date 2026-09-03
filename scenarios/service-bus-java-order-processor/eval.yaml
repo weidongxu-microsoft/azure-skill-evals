@@ -67,9 +67,10 @@ stimuli:
                 Sender uses `.sender().queueName().buildClient()` chain (or async equivalent)
               weight: 1
               pass_threshold: 1
-            - name: prompt/processor-uses-processor-queuename-processmessage-proces
+            - name: prompt/receives-orders-with-session-aware-processor-or-receiver
               description: |-
-                Processor uses `.processor().queueName().processMessage().processError()` chain ### Scenario-Specific Patterns
+                Receives orders with either a session processor callback chain or a
+                session-enabled receiver loop that preserves the session lock
               weight: 1
               pass_threshold: 1
             - name: prompt/batch-sending-creates-servicebusmessagebatch-checks-trya
@@ -112,14 +113,11 @@ stimuli:
                 Session ID keyed by customer name for ordered processing ### Scenario-Specific Error Handling
               weight: 1
               pass_threshold: 1
-            - name: prompt/error-handler-in-processor-logs-entity-path-and-error-so
+            - name: prompt/processing-errors-are-logged-with-available-context
               description: |-
-                Error handler in processor logs entity path and error source
-              weight: 1
-              pass_threshold: 1
-            - name: prompt/distinguishes-transient-vs-non-transient-errors-via-istr
-              description: |-
-                Distinguishes transient vs non-transient errors via `isTransient()` or `getReason()`
+                Processing errors are logged with the context exposed by the chosen
+                processor or receiver API; processor-only error context is not required
+                for receiver-based implementations
               weight: 1
               pass_threshold: 1
             - name: language/correct-dependencies-com-azure-not-com-microsoft-azure

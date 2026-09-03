@@ -85,10 +85,11 @@ stimuli:
                 reporting the terminal operation status.
               weight: 1
               pass_threshold: 1
-            - name: prompt/uses-getdocumentstatusesasync-with-await-foreach-so-ever
+            - name: prompt/traverses-every-returned-document-status-asynchronously
               description: |-
-                Uses `GetDocumentStatusesAsync` with `await foreach` so every page and document
-                is traversed.
+                Traverses every returned document status asynchronously using an equivalent
+                SDK pageable surface such as `GetDocumentStatusesAsync`,
+                `WaitForCompletionAsync().Value`, or `GetValuesAsync`.
               weight: 1
               pass_threshold: 1
             - name: prompt/prints-each-documentstatusresult-id-and-status-and-print
