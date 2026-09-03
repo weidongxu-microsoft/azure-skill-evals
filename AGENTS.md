@@ -68,6 +68,16 @@ oracle, not the only canonical answer. Run the same live model criteria against
 reference applications in separate oracle validation rather than ordinary unit
 tests.
 
+## Evaluation selection
+
+The manual `Vally evaluations` workflow defaults to `scope=focused-task`.
+Structured `language`, `service`, `plane`, and `scope` inputs remain text
+fields. Use comma-separated values for OR within one input, such as
+`language=go,java`. Different populated inputs are combined with AND.
+
+For `other_tags`, separate clauses with semicolons for AND and values with
+commas for OR, such as `service=identity;language=python,typescript`.
+
 ## Dependency locking
 
 Run:

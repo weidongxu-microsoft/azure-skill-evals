@@ -117,6 +117,23 @@ test("accepts comma-separated values within a tag", () => {
   assert.deepEqual(groups.map(({ language }) => language), ["python", "typescript"]);
 });
 
+test("accepts comma-separated values in structured tag filters", () => {
+  const groups = selectEvaluations(catalog, {
+    mode: "all",
+    language: "go,java",
+    service: "identity,storage",
+    scope: "focused-task",
+  });
+
+  assert.deepEqual(groups.map(({ language }) => language), ["java", "go"]);
+  assert.ok(
+    groups.flatMap(({ filters }) => filters).every(
+      (filter) =>
+        filter.includes("/identity-") || filter.includes("/storage-"),
+    ),
+  );
+});
+
 test("builds one shard per selected language and variant", () => {
   const groups = selectEvaluations(catalog, {
     mode: "suite",

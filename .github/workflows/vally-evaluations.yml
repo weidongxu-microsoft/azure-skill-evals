@@ -23,6 +23,7 @@ on:
         description: "Scope tag: focused-task or end-to-end-solution"
         required: false
         type: string
+        default: focused-task
       other_tags:
         description: Additional key=value filters separated by semicolons; combined with AND
         required: false

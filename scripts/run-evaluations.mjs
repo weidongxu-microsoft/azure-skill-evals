@@ -42,6 +42,13 @@ function hasFilterValue(value) {
   return Boolean(value?.trim());
 }
 
+export function parseFilterValues(value) {
+  return (value ?? "")
+    .split(",")
+    .map((item) => item.trim())
+    .filter(Boolean);
+}
+
 export function parseTagFilters(value) {
   if (!value?.trim()) {
     throw new Error("Tag selection requires at least one key=value filter.");
@@ -76,7 +83,7 @@ export function collectTagFilters(options) {
   const filters = [];
   for (const key of ["language", "service", "plane", "scope"]) {
     if (hasFilterValue(options[key])) {
-      filters.push({ key, values: [options[key].trim()] });
+      filters.push({ key, values: parseFilterValues(options[key]) });
     }
   }
   if (hasFilterValue(options.tags)) {
@@ -341,11 +348,14 @@ export function parseArguments(argv) {
   if (!new Set(["all", ...variants]).has(options.variant)) {
     throw new Error(`Unknown variant "${options.variant}".`);
   }
-  if (
-    hasFilterValue(options.language) &&
-    !new Set(languageExperiments.map(([language]) => language)).has(options.language)
-  ) {
-    throw new Error(`Unknown language "${options.language}".`);
+  const knownLanguages = new Set(
+    languageExperiments.map(([language]) => language),
+  );
+  const unknownLanguages = parseFilterValues(options.language).filter(
+    (language) => !knownLanguages.has(language),
+  );
+  if (unknownLanguages.length > 0) {
+    throw new Error(`Unknown language "${unknownLanguages[0]}".`);
   }
   if (!/^[A-Za-z0-9._/\\-]+$/.test(options.outputDir)) {
     throw new Error(`Unsafe output directory "${options.outputDir}".`);
@@ -435,10 +445,11 @@ export async function main(argv = process.argv.slice(2)) {
 
   let groups = selectEvaluations(catalog, options);
   if (hasFilterValue(options.language)) {
-    groups = groups.filter((group) => group.language === options.language);
+    const requestedLanguages = new Set(parseFilterValues(options.language));
+    groups = groups.filter((group) => requestedLanguages.has(group.language));
     if (groups.length === 0) {
       throw new Error(
-        `The requested selection contains no ${options.language} evaluations.`,
+        `The requested selection contains no ${[...requestedLanguages].join(", ")} evaluations.`,
       );
     }
   }
