@@ -135,10 +135,7 @@ stimuli:
               pass_threshold: 1
             - name: language/pagination-with-for-await-of
               description: |-
-                List/query operations completely consume the PagedAsyncIterableIterator
-                returned by SDK methods using `for await...of`, or use `byPage()` when
-                per-page control is needed. Returning collected results is acceptable when
-                the application API requires the complete listing.
+                List/query operations use for-await-of iteration over the PagedAsyncIterableIterator returned by SDK methods. Does not collect all pages into an array in memory (e.g., no Array.from() or manual page accumulation). Uses byPage() when per-page control is needed.
               weight: 1
               pass_threshold: 1
             - name: language/lro-pattern-beginxxx-polluntildone

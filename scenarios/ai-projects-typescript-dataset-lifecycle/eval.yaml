@@ -122,9 +122,7 @@ stimuli:
               pass_threshold: 1
             - name: language/async-await-pattern
               description: |-
-                Uses async/await for asynchronous operations and avoids callback-based
-                control flow. A terminal `main().catch(...)` rejection handler is an
-                acceptable entry-point pattern.
+                Uses async/await for all asynchronous operations. No raw .then()/.catch() chains when await is cleaner. No callback-based patterns. Top-level async function or IIFE for entry point.
               weight: 1
               pass_threshold: 1
             - name: language/pagination-with-for-await-of

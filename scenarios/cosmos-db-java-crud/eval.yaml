@@ -127,10 +127,7 @@ stimuli:
               pass_threshold: 1
             - name: language/pagination-pagediterable-pagedflux
               description: |-
-                List/query operations preserve or stream SDK pagination using the
-                service-specific pageable types, including `CosmosPagedIterable`,
-                `CosmosPagedFlux`, and `FeedResponse` page streams. Generic
-                `PagedIterable` or `PagedFlux` types are not required.
+                List/query operations return PagedIterable (sync) or PagedFlux (async). Does not flatten all pages into a raw List or Stream in memory.
               weight: 1
               pass_threshold: 1
             - name: language/lro-pattern-syncpoller-pollerflux
