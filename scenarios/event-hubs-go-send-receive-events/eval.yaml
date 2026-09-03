@@ -1,0 +1,91 @@
+name: event-hubs-go-send-receive-events
+description: Compare Azure tooling for an Event Hubs Go send and receive task
+version: "1.0"
+type: capability
+environment:
+  files:
+    - src: ../../eval-workspace.gitignore
+      dest: .gitignore
+    - src: ../../eval-workspace-AGENTS.md
+      dest: AGENTS.md
+scoring:
+  weights: {}
+defaults:
+  runs: 1
+  timeout: 30m
+  model: gpt-5.6-sol
+  judge_model: gpt-5.6-sol
+stimuli:
+  - name: event-hubs-dp-go-send-receive-events
+    prompt: |-
+      Create a Go project that demonstrates sending and receiving events with Azure Event Hubs.
+
+      **Write the code to files (use file-write tools, do not reply with code blocks).**
+
+      Read the fully qualified namespace, Event Hub name, consumer group, and Blob checkpoint container URL from environment variables. Authenticate all clients with one `DefaultAzureCredential`. Create a producer, build an `EventDataBatch` while respecting its size limit, and send it. Create a consumer and the first-party Blob checkpoint store, then use an `azeventhubs.Processor` to balance partitions. For each claimed partition, receive events, print their bodies, and update the checkpoint. Propagate and log processor and partition errors, honor context cancellation, and close clients.
+
+      Use current first-party Azure SDK for Go modules and context-aware APIs. Include root `go.mod` and `go.sum`.
+    tags:
+      service: event-hubs
+      plane: data-plane
+      language: go
+      category: streaming
+    graders:
+      - type: panel
+        name: prompt/full-case-review
+        weight: 1
+        config:
+          prompt: |-
+            Review the generated implementation against every criterion.
+            Score each criterion independently. Accept equivalent valid
+            implementations and judge code behavior rather than syntax.
+            Return every criterion name exactly as provided. The criterion
+            value must start with "prompt/" or "language/". Never copy a rubric
+            list number into the criterion value. For example, return
+            "prompt/foo", never "1. prompt/foo".
+          models:
+            - gpt-5.6-sol
+          aggregation: unanimous
+          scoring: binary
+          threshold: 0
+          overall_threshold: 0
+          evidence:
+            - trajectory
+            - repo
+          criteria:
+            - name: prompt/default-credential-and-environment
+              description: Uses one DefaultAzureCredential and reads all endpoints/entity names from environment variables.
+              weight: 1
+              pass_threshold: 1
+            - name: prompt/batched-event-publishing
+              description: Uses `NewEventDataBatch`, handles `AddEventData` size-limit errors, and calls `SendEventDataBatch`.
+              weight: 1
+              pass_threshold: 1
+            - name: prompt/blob-checkpoint-store
+              description: Builds a Blob container client and `checkpoints.NewBlobStore` for Event Hubs checkpointing.
+              weight: 1
+              pass_threshold: 1
+            - name: prompt/processor-partition-consumption
+              description: Uses `azeventhubs.NewProcessor`, runs it, handles every claimed partition, receives events, and prints event bodies.
+              weight: 1
+              pass_threshold: 1
+            - name: prompt/checkpoint-and-error-handling
+              description: Calls `UpdateCheckpoint` after processing and propagates/logs processor or partition errors.
+              weight: 1
+              pass_threshold: 1
+            - name: prompt/context-and-client-lifecycle
+              description: Honors context cancellation and closes producer, consumer, and partition clients.
+              weight: 1
+              pass_threshold: 1
+      - type: run-command
+        name: program/go-project-tests
+        config:
+          command: go
+          args:
+            - test
+            - -mod=readonly
+            - ./...
+          timeout: 3m
+artifacts:
+  include: ["**/*.go", "**/go.mod", "**/go.sum", "**/README.md"]
+  exclude: ["**/.vally/**", "**/vendor/**", "**/*.test"]
