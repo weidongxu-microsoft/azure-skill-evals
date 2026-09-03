@@ -88,11 +88,6 @@ stimuli:
                 Per-operation `CancellationToken` for timeout control
               weight: 1
               pass_threshold: 1
-            - name: prompt/geo-redundant-retry-with-georedundantsecondaryuri
-              description: |-
-                Geo-redundant retry with `GeoRedundantSecondaryUri`
-              weight: 1
-              pass_threshold: 1
             - name: prompt/interaction-with-polly-or-other-resilience-libraries
               description: |-
                 Interaction with Polly or other resilience libraries

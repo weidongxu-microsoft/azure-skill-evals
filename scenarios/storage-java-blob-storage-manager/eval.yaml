@@ -92,7 +92,9 @@ stimuli:
               pass_threshold: 1
             - name: prompt/properly-composes-reactive-chains-in-the-demo
               description: |-
-                Properly composes reactive chains in the demo
+                Properly composes reactive service operations with `Mono` and `Flux`.
+                Blocking at the console application's outer demo boundary is acceptable;
+                blocking inside reusable async service methods is not.
               weight: 1
               pass_threshold: 1
             - name: language/correct-dependencies-com-azure-not-com-microsoft-azure

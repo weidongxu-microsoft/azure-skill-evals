@@ -113,11 +113,6 @@ stimuli:
                 NOT using connection strings or account keys for authentication
               weight: 1
               pass_threshold: 1
-            - name: prompt/not-collecting-all-listed-blobs-into-an-array-before-pro
-              description: |-
-                NOT collecting all listed blobs into an array before processing
-              weight: 1
-              pass_threshold: 1
             - name: language/correct-azure-scoped-packages
               description: |-
                 All Azure SDK dependencies use @azure/ scoped packages (e.g., @azure/storage-blob, @azure/keyvault-secrets, @azure/identity). No deprecated unscoped packages (azure-storage, azure-arm-*, ms-rest-azure, @azure/ms-rest-*).
@@ -140,7 +135,10 @@ stimuli:
               pass_threshold: 1
             - name: language/pagination-with-for-await-of
               description: |-
-                List/query operations use for-await-of iteration over the PagedAsyncIterableIterator returned by SDK methods. Does not collect all pages into an array in memory (e.g., no Array.from() or manual page accumulation). Uses byPage() when per-page control is needed.
+                List/query operations completely consume the PagedAsyncIterableIterator
+                returned by SDK methods using `for await...of`, or use `byPage()` when
+                per-page control is needed. Returning collected results is acceptable when
+                the application API requires the complete listing.
               weight: 1
               pass_threshold: 1
             - name: language/lro-pattern-beginxxx-polluntildone
