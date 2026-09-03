@@ -59,9 +59,9 @@ The workflow expands the selection into a language-by-variant matrix with at
 most six concurrent shards. Each shard uploads its machine-readable Vally
 results. An always-running fan-in job verifies shard completeness, detects
 duplicate or unsuccessful trials, and publishes independent prompt, language,
-and program-check totals by variant and shard. Workflow copies of the experiment files
-point MCP package installation at public npm; local experiment files retain the
-corporate Azure SDK feed.
+and program-check totals by variant, service, and shard. Workflow copies of the
+experiment files point MCP package installation at public npm; local experiment
+files retain the corporate Azure SDK feed.
 
 The same selector can be checked locally without running Vally:
 

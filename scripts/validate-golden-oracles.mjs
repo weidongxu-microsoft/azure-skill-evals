@@ -101,11 +101,11 @@ export function addGoldenPatch(evalSource, patchPath = TEMP_PATCH) {
     stimulus,
     `$1    golden_patch:\n      path: ${patchPath}\n`,
   );
-  const repoEvidence = /^(\s+- repo\r?\n)/m;
-  if (!repoEvidence.test(withPatch)) {
-    throw new Error("Panel evidence does not include repo");
+  const diffEvidence = /^(\s+- diff\r?\n)/m;
+  if (!diffEvidence.test(withPatch)) {
+    throw new Error("Panel evidence does not include diff");
   }
-  return withPatch.replace(repoEvidence, "$1            - golden_patch\n");
+  return withPatch.replace(diffEvidence, "$1            - golden_patch\n");
 }
 
 export function adaptProgramCommandsForHost(

@@ -38,10 +38,15 @@ function result(
   evalName,
   variant,
   criteria,
-  { programs = [programFor("python")], status = "success" } = {},
+  {
+    programs = [programFor("python")],
+    service = "test-service",
+    status = "success",
+  } = {},
 ) {
   return {
     evalName,
+    service,
     variant,
     status,
     gradeResult: {
@@ -78,6 +83,7 @@ test("aggregates complete language and variant shards", () => {
       criterion("language/imports", false),
     ], {
       programs: [program("program/python-source-compiles", false)],
+      service: "storage",
     }),
   ]);
   writeShard(root, "dotnet", "baseline", 1, [
@@ -86,6 +92,7 @@ test("aggregates complete language and variant shards", () => {
       criterion("language/packages", true),
     ], {
       programs: [programFor("dotnet")],
+      service: "identity",
     }),
   ]);
 
@@ -111,6 +118,14 @@ test("aggregates complete language and variant shards", () => {
   assert.match(
     summary.markdown,
     /dotnet \| baseline \| 1\/1 \| 1\/1 \(100\.0%\) \| 1\/1 \(100\.0%\) \| 1\/1 \(100\.0%\)/,
+  );
+  assert.match(
+    summary.markdown,
+    /identity \| baseline \| 1 \| 1\/1 \(100\.0%\) \| 1\/1 \(100\.0%\) \| 1\/1 \(100\.0%\)/,
+  );
+  assert.match(
+    summary.markdown,
+    /storage \| baseline \| 1 \| 1\/1 \(100\.0%\) \| 0\/1 \(0\.0%\) \| 0\/1 \(0\.0%\)/,
   );
 });
 
