@@ -52,8 +52,7 @@ stimuli:
           threshold: 0
           overall_threshold: 0
           evidence:
-            - trajectory
-            - repo
+            - diff
           criteria:
             - name: prompt/current-blob-storage-module
               description: Uses the current `github.com/Azure/azure-sdk-for-go/sdk/storage/azblob` module and provides a complete root Go module manifest.

@@ -54,8 +54,7 @@ stimuli:
           threshold: 0
           overall_threshold: 0
           evidence:
-            - trajectory
-            - repo
+            - diff
           criteria:
             - name: prompt/current-azcosmos-module
               description: Uses the current `github.com/Azure/azure-sdk-for-go/sdk/data/azcosmos` module and a connection string read from configuration.

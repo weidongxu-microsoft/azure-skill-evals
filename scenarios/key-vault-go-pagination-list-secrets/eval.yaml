@@ -53,8 +53,7 @@ stimuli:
           threshold: 0
           overall_threshold: 0
           evidence:
-            - trajectory
-            - repo
+            - diff
           criteria:
             - name: prompt/current-sdk-default-credential-and-vault-config
               description: Uses current first-party modules, `DefaultAzureCredential`, and a vault URL read from environment configuration.

@@ -27,15 +27,14 @@ between arms.
 External skill repositories and npm packages are pinned in
 `dependencies.lock.json`. `scripts/bootstrap-dependencies.ps1` materializes the
 repositories under `.work/dependencies/`; generated dependencies and reports
-stay outside Git. Focused tasks stage `eval-workspace.gitignore`; end-to-end
-solutions stage `eval-workspace-source.gitignore`, which allowlists source,
-manifests, configuration, fixtures, and project documentation while excluding
-dependencies, build output, caches, and runtime data.
+stay outside Git. Every task stages the cross-language
+`eval-workspace.gitignore`, which allowlists source, manifests, configuration,
+fixtures, and project documentation while excluding dependencies, build
+output, caches, and runtime data.
 
-Focused-task judges receive both the agent trajectory and a bounded snapshot of
-the generated workspace. End-to-end solution judges receive the generated diff
-so large agent-visible skill directories cannot consume the repository
-snapshot budget.
+Every judge receives the generated diff. This keeps staged skills outside
+correctness evidence and prevents large agent-visible skill directories from
+consuming the repository snapshot budget.
 
 Every evaluation workspace also receives a shared `AGENTS.md` instruction that
 requires code requests to produce complete runnable projects with root-level
@@ -130,10 +129,10 @@ least three trials per arm before drawing comparative quality conclusions.
 
 - **Likelihood:** Medium
 - **Impact:** High
-- **Mitigation:** Vally 0.14 provides the response trajectory and bounded
-  repository evidence. Repository snapshots include up to 256 KiB of source
-  text with a 32 KiB per-file cap while excluding common dependency, cache, and
-  build directories.
+- **Mitigation:** Every evaluation uses generated-diff evidence with a shared
+  source-and-project allowlist. Trajectories remain diagnostic artifacts rather
+  than correctness evidence, and staged skills or generated build output do not
+  consume the judge's application evidence.
 
 ### Skill loading differs from plugin loading
 

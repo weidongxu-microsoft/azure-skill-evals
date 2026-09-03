@@ -51,8 +51,7 @@ stimuli:
           threshold: 0
           overall_threshold: 0
           evidence:
-            - trajectory
-            - repo
+            - diff
           criteria:
             - name: prompt/default-credential-and-environment
               description: Uses one DefaultAzureCredential and reads all endpoints/entity names from environment variables.

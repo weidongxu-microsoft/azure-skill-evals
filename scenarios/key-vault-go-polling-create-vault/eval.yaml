@@ -49,8 +49,7 @@ stimuli:
           threshold: 0
           overall_threshold: 0
           evidence:
-            - trajectory
-            - repo
+            - diff
           criteria:
             - name: prompt/current-armkeyvault-and-default-credential
               description: Uses current `armkeyvault`, `azsecrets`, and `azidentity.NewDefaultAzureCredential` modules with environment configuration.

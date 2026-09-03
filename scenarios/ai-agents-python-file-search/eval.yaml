@@ -68,8 +68,7 @@ stimuli:
           threshold: 0
           overall_threshold: 0
           evidence:
-            - trajectory
-            - repo
+            - diff
           criteria:
             - name: prompt/uploads-the-document-with-files-upload-and-poll-and-file
               description: |-

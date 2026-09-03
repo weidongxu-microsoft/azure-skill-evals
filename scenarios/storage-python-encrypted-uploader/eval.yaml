@@ -61,8 +61,7 @@ stimuli:
           threshold: 0
           overall_threshold: 0
           evidence:
-            - trajectory
-            - repo
+            - diff
           criteria:
             - name: prompt/uses-the-key-vault-keys-sdk-not-secrets-critical-distinc
               description: |-

@@ -53,8 +53,7 @@ stimuli:
           threshold: 0
           overall_threshold: 0
           evidence:
-            - trajectory
-            - repo
+            - diff
           criteria:
             - name: prompt/current-azservicebus-and-secure-configuration
               description: Uses the current `azservicebus` module and constructs the client from a connection string read from the environment, with no hardcoded secret.

@@ -70,8 +70,7 @@ stimuli:
           threshold: 0
           overall_threshold: 0
           evidence:
-            - trajectory
-            - repo
+            - diff
           criteria:
             - name: prompt/creates-aiprojectclient-and-calls-project-client-dataset
               description: |-

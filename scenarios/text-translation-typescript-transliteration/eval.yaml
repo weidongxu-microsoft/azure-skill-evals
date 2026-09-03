@@ -60,8 +60,7 @@ stimuli:
           threshold: 0
           overall_threshold: 0
           evidence:
-            - trajectory
-            - repo
+            - diff
           criteria:
             - name: prompt/calls-client-path-transliterate-post-with-the-supplied-t
               description: |-

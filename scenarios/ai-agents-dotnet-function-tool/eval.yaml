@@ -70,8 +70,7 @@ stimuli:
           threshold: 0
           overall_threshold: 0
           evidence:
-            - trajectory
-            - repo
+            - diff
           criteria:
             - name: prompt/defines-functiontooldefinition-for-get-weather-with-the
               description: |-

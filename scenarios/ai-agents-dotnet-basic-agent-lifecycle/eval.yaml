@@ -68,8 +68,7 @@ stimuli:
           threshold: 0
           overall_threshold: 0
           evidence:
-            - trajectory
-            - repo
+            - diff
           criteria:
             - name: prompt/uses-persistentagentsclient-from-azure-ai-agents-persist
               description: |-

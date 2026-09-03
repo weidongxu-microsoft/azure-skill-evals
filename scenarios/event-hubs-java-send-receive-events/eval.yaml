@@ -58,8 +58,7 @@ stimuli:
           threshold: 0
           overall_threshold: 0
           evidence:
-            - trajectory
-            - repo
+            - diff
           criteria:
             - name: prompt/azure-messaging-eventhubs-and-azure-messaging-eventhubs
               description: |-

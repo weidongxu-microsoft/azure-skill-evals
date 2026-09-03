@@ -48,8 +48,7 @@ stimuli:
           threshold: 0
           overall_threshold: 0
           evidence:
-            - trajectory
-            - repo
+            - diff
           criteria:
             - name: prompt/current-sdk-and-secure-authentication
               description: Uses current `azblob` and `azidentity` modules, `DefaultAzureCredential`, and endpoint/resource names from environment variables with no hardcoded secrets.
