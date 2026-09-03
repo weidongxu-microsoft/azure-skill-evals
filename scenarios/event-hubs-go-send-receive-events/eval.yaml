@@ -2,7 +2,7 @@ name: event-hubs-go-send-receive-events
 description: Compare Azure tooling for an Event Hubs Go send and receive task
 version: "1.0"
 type: capability
-environment:
+agent_environment:
   files:
     - src: ../../eval-workspace.gitignore
       dest: .gitignore
@@ -30,6 +30,7 @@ stimuli:
       plane: data-plane
       language: go
       category: streaming
+      scope: focused-task
     graders:
       - type: panel
         name: prompt/full-case-review
@@ -86,6 +87,6 @@ stimuli:
             - -mod=readonly
             - ./...
           timeout: 3m
-artifacts:
-  include: ["**/*.go", "**/go.mod", "**/go.sum", "**/README.md"]
-  exclude: ["**/.vally/**", "**/vendor/**", "**/*.test"]
+    artifacts:
+      include: ["**/*.go", "**/go.mod", "**/go.sum", "**/README.md"]
+      exclude: ["**/.vally/**", "**/vendor/**", "**/*.test"]

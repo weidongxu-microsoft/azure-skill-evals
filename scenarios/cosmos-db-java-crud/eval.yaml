@@ -2,7 +2,7 @@ name: cosmos-db-java-crud-items
 description: Compare Azure tooling for a Cosmos DB Java CRUD task
 version: "1.0"
 type: capability
-environment:
+agent_environment:
   files:
     - src: ../../eval-workspace.gitignore
       dest: .gitignore
@@ -36,6 +36,7 @@ stimuli:
       plane: data-plane
       language: java
       category: crud
+      scope: focused-task
     graders:
       - type: panel
         name: prompt/full-case-review
@@ -156,13 +157,13 @@ stimuli:
           args:
             - .vally/program-checks/java.mjs
           timeout: 3m
-artifacts:
-  include:
-    - "**/*.java"
-    - "**/pom.xml"
-    - "**/build.gradle"
-    - "**/build.gradle.kts"
-    - "**/README.md"
-  exclude:
-    - "**/.vally/**"
-    - "**/target/**"
+    artifacts:
+      include:
+        - "**/*.java"
+        - "**/pom.xml"
+        - "**/build.gradle"
+        - "**/build.gradle.kts"
+        - "**/README.md"
+      exclude:
+        - "**/.vally/**"
+        - "**/target/**"

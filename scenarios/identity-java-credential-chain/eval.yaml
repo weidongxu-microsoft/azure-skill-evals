@@ -2,7 +2,7 @@ name: identity-java-credential-chain
 description: Compare Azure tooling for environment-specific Java credential chains
 version: "1.0"
 type: capability
-environment:
+agent_environment:
   files:
     - src: ../../eval-workspace.gitignore
       dest: .gitignore
@@ -38,6 +38,7 @@ stimuli:
       plane: data-plane
       language: java
       category: authentication
+      scope: focused-task
     graders:
       - type: panel
         name: prompt/full-case-review
@@ -193,12 +194,12 @@ stimuli:
           args:
             - .vally/program-checks/java.mjs
           timeout: 3m
-artifacts:
-  include:
-    - "**/*.java"
-    - "**/pom.xml"
-    - "**/build.gradle"
-    - "**/build.gradle.kts"
-  exclude:
-    - "**/.vally/**"
-    - "**/target/**"
+    artifacts:
+      include:
+        - "**/*.java"
+        - "**/pom.xml"
+        - "**/build.gradle"
+        - "**/build.gradle.kts"
+      exclude:
+        - "**/.vally/**"
+        - "**/target/**"

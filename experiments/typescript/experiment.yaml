@@ -20,6 +20,7 @@ evals:
   - ../../scenarios/ai-projects-typescript-dataset-lifecycle/eval.yaml
   - ../../scenarios/ai-projects-typescript-evaluation-run/eval.yaml
   - ../../scenarios/ai-projects-typescript-project-resource-inventory/eval.yaml
+  - ../../scenarios/foundry-typescript-support-assistant/eval.yaml
   - ../../scenarios/document-translation-typescript-batch-container/eval.yaml
   - ../../scenarios/document-translation-typescript-single-document/eval.yaml
   - ../../scenarios/text-translation-typescript-multilingual-translation/eval.yaml

@@ -2,7 +2,7 @@ name: storage-java-blob-event-notifier
 description: Compare Azure tooling for a Java Blob Storage Event Grid notifier task
 version: "1.0"
 type: capability
-environment:
+agent_environment:
   files:
     - src: ../../eval-workspace.gitignore
       dest: .gitignore
@@ -40,6 +40,7 @@ stimuli:
       plane: data-plane
       language: java
       category: streaming
+      scope: focused-task
     graders:
       - type: panel
         name: prompt/full-case-review
@@ -175,12 +176,12 @@ stimuli:
           args:
             - .vally/program-checks/java.mjs
           timeout: 3m
-artifacts:
-  include:
-    - "**/*.java"
-    - "**/pom.xml"
-    - "**/build.gradle"
-    - "**/build.gradle.kts"
-  exclude:
-    - "**/.vally/**"
-    - "**/target/**"
+    artifacts:
+      include:
+        - "**/*.java"
+        - "**/pom.xml"
+        - "**/build.gradle"
+        - "**/build.gradle.kts"
+      exclude:
+        - "**/.vally/**"
+        - "**/target/**"

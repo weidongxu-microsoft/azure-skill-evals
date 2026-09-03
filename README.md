@@ -40,10 +40,11 @@ Pull requests targeting `main` run harness and model-grader configuration
 tests, strict evaluation linting, and dry-runs of all five language
 experiments. Agent and judge evaluations remain manual.
 
-The `Vally evaluations` workflow supports manual runs of all evaluations,
-evaluations matching tags, or one suite from `.vally.yaml`. Tag clauses are
-separated with semicolons, and comma-separated values within one clause are
-alternatives:
+The `Vally evaluations` workflow provides optional suite, language, service,
+plane, and scope filters plus a free-form tag field. Empty inputs do not
+restrict the selection. Every active filter is combined with AND. Free-form
+tag clauses are separated with semicolons, and comma-separated values within
+one clause are alternatives:
 
 ```text
 service=identity;language=python,typescript
@@ -67,6 +68,7 @@ The same selector can be checked locally without running Vally:
 ```powershell
 node scripts/run-evaluations.mjs --mode suite --suite cosmos-crud --select-only
 node scripts/run-evaluations.mjs --mode tags --tags "service=identity;language=python" --select-only
+node scripts/run-evaluations.mjs --mode all --suite end-to-end-solutions --scope end-to-end-solution --select-only
 node scripts/run-evaluations.mjs --mode all --variant all --matrix
 ```
 
@@ -90,12 +92,12 @@ Hyoka scenario criteria and every Hyoka model-based language criterion, with
 one reported point per criterion. Panel thresholds are zero so every criterion
 vote is retained as observational data without gating the evaluation.
 Independent program graders compile, build, or type-check the generated
-project. Language experiments own the three
-environment variants and can run multiple evals. Each workspace starts with a
-shared `.gitignore` and `AGENTS.md`. The instructions require complete runnable
-projects with root-level manifests, while the ignore rules keep installed
-dependencies and build outputs out of generated workspaces. Judges receive both
-the response trajectory and a bounded snapshot of the complete workspace.
+project. Language experiments own the three environment variants and can run
+multiple evals. Focused-task workspaces start with a shared `.gitignore`;
+end-to-end solution workspaces use a source-and-project allowlist. All
+workspaces receive the shared `AGENTS.md`. Judges receive trajectory and
+repository evidence for focused tasks, while end-to-end solutions use the
+generated diff to avoid grading staged skill documentation.
 
 ## Scoring
 

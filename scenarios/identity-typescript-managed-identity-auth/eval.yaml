@@ -2,7 +2,7 @@ name: identity-typescript-managed-identity-auth
 description: Compare Azure tooling for TypeScript managed identity authentication
 version: "1.0"
 type: capability
-environment:
+agent_environment:
   files:
     - src: ../../eval-workspace.gitignore
       dest: .gitignore
@@ -32,6 +32,7 @@ stimuli:
       plane: data-plane
       language: typescript
       category: auth
+      scope: focused-task
     graders:
       - type: panel
         name: prompt/full-case-review
@@ -154,13 +155,13 @@ stimuli:
             - tsc
             - --noEmit
           timeout: 2m
-artifacts:
-  include:
-    - "**/*.ts"
-    - "**/*.js"
-    - "**/package.json"
-    - "**/tsconfig.json"
-  exclude:
-    - "**/.vally/**"
-    - "**/node_modules/**"
-    - "**/dist/**"
+    artifacts:
+      include:
+        - "**/*.ts"
+        - "**/*.js"
+        - "**/package.json"
+        - "**/tsconfig.json"
+      exclude:
+        - "**/.vally/**"
+        - "**/node_modules/**"
+        - "**/dist/**"

@@ -2,7 +2,7 @@ name: identity-java-default-azure-credential
 description: Compare Azure tooling for DefaultAzureCredential authentication in Java
 version: "1.0"
 type: capability
-environment:
+agent_environment:
   files:
     - src: ../../eval-workspace.gitignore
       dest: .gitignore
@@ -34,6 +34,7 @@ stimuli:
       plane: data-plane
       language: java
       category: authentication
+      scope: focused-task
     graders:
       - type: panel
         name: prompt/full-case-review
@@ -144,12 +145,12 @@ stimuli:
           args:
             - .vally/program-checks/java.mjs
           timeout: 3m
-artifacts:
-  include:
-    - "**/*.java"
-    - "**/pom.xml"
-    - "**/build.gradle"
-    - "**/build.gradle.kts"
-  exclude:
-    - "**/.vally/**"
-    - "**/target/**"
+    artifacts:
+      include:
+        - "**/*.java"
+        - "**/pom.xml"
+        - "**/build.gradle"
+        - "**/build.gradle.kts"
+      exclude:
+        - "**/.vally/**"
+        - "**/target/**"

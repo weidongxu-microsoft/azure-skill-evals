@@ -1,0 +1,52 @@
+# Run these commands from the repository root with Azure CLI authenticated.
+# This script creates isolated temporary resources for qualifying the maintained
+# reference application. Deployment is not part of the evaluated agent task.
+
+az account set --subscription "Visual Studio Enterprise"
+
+az group create --name rg-foundry-support-ref-0902-wx84 --location eastus2 --tags purpose=reference-app-qualification temporary=true
+
+az cognitiveservices account create --name fsref0902wx84 --resource-group rg-foundry-support-ref-0902-wx84 --location eastus2 --kind AIServices --sku S0 --assign-identity --custom-domain fsref0902wx84 --allow-project-management true --yes
+
+az cognitiveservices account project create --name fsref0902wx84 --resource-group rg-foundry-support-ref-0902-wx84 --project-name supportref --location eastus2
+
+az cognitiveservices account deployment create --name fsref0902wx84 --resource-group rg-foundry-support-ref-0902-wx84 --deployment-name support-gpt5-mini --model-name gpt-5-mini --model-version 2025-08-07 --model-format OpenAI --sku-name GlobalStandard --sku-capacity 10
+
+az storage account create --name fsref0902wx84st --resource-group rg-foundry-support-ref-0902-wx84 --location eastus2 --sku Standard_LRS --kind StorageV2 --allow-blob-public-access false
+
+# Foundry requires its current Foundry-specific data-plane role. Azure AI
+# Developer applies to older hub/workspace resources and is not sufficient.
+az role assignment create --assignee-object-id $(az ad signed-in-user show --query id -o tsv) --assignee-principal-type User --role "Foundry User" --scope $(az cognitiveservices account show --resource-group rg-foundry-support-ref-0902-wx84 --name fsref0902wx84 --query id -o tsv)
+
+az role assignment create --assignee-object-id $(az cognitiveservices account project show --resource-group rg-foundry-support-ref-0902-wx84 --name fsref0902wx84 --project-name supportref --query identity.principalId -o tsv) --assignee-principal-type ServicePrincipal --role "Foundry User" --scope $(az cognitiveservices account show --resource-group rg-foundry-support-ref-0902-wx84 --name fsref0902wx84 --query id -o tsv)
+
+az extension add --name containerapp --upgrade --only-show-errors
+
+az containerapp env create --name fsref0902wx84-env --resource-group rg-foundry-support-ref-0902-wx84 --location eastus2 --logs-destination none
+
+az containerapp up --name fsref0902wx84-app --resource-group rg-foundry-support-ref-0902-wx84 --environment fsref0902wx84-env --source "scenarios\foundry-typescript-support-assistant\golden" --ingress external --target-port 3000 --system-assigned --env-vars FOUNDRY_PROJECT_ENDPOINT=https://fsref0902wx84.services.ai.azure.com/api/projects/supportref MODEL_DEPLOYMENT_NAME=support-gpt5-mini EVALUATION_MODEL_DEPLOYMENT_NAME=support-gpt5-mini STORAGE_ACCOUNT_ENDPOINT=https://fsref0902wx84st.blob.core.windows.net/ SUPPORT_ADMIN_PRINCIPAL_IDS=$(az ad signed-in-user show --query id -o tsv) AZURE_TOKEN_CREDENTIALS=prod PORT=3000
+
+az containerapp update --name fsref0902wx84-app --resource-group rg-foundry-support-ref-0902-wx84 --cpu 0.25 --memory 0.5Gi --min-replicas 0 --max-replicas 1
+
+az containerapp revision set-mode --name fsref0902wx84-app --resource-group rg-foundry-support-ref-0902-wx84 --mode single
+
+az role assignment create --assignee-object-id $(az containerapp show --name fsref0902wx84-app --resource-group rg-foundry-support-ref-0902-wx84 --query identity.principalId -o tsv) --assignee-principal-type ServicePrincipal --role "Foundry User" --scope $(az cognitiveservices account project show --resource-group rg-foundry-support-ref-0902-wx84 --name fsref0902wx84 --project-name supportref --query id -o tsv)
+
+az role assignment create --assignee-object-id $(az containerapp show --name fsref0902wx84-app --resource-group rg-foundry-support-ref-0902-wx84 --query identity.principalId -o tsv) --assignee-principal-type ServicePrincipal --role "Storage Blob Data Contributor" --scope $(az storage account show --resource-group rg-foundry-support-ref-0902-wx84 --name fsref0902wx84st --query id -o tsv)
+
+az containerapp revision restart --name fsref0902wx84-app --resource-group rg-foundry-support-ref-0902-wx84 --revision $(az containerapp show --name fsref0902wx84-app --resource-group rg-foundry-support-ref-0902-wx84 --query properties.latestRevisionName -o tsv)
+
+# Repeat the revision restart after creating conversations, feedback, and an
+# unresolved question. A follow-up request must reuse the same remote
+# conversation ID, and GET /admin/unresolved must retain the recorded item.
+
+# DELETE /admin/resources must delete remote conversations, the agent version,
+# vector store, and uploaded files. A later question must fail until ingestion
+# runs again. The durable unresolved-question audit record intentionally remains.
+
+# Platform authentication was not exercised during this qualification. Live
+# HTTP requests supplied X-MS-CLIENT-PRINCIPAL-ID directly to test application
+# authorization and user isolation; do not treat that as a production security
+# validation.
+
+az group delete --name rg-foundry-support-ref-0902-wx84 --yes --no-wait

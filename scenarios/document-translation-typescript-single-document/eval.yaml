@@ -2,7 +2,7 @@ name: document-translation-typescript-single-document
 description: "Can an application translate one local document with the synchronous document API and preserve the returned bytes?"
 version: "1.0"
 type: capability
-environment:
+agent_environment:
   files:
     - src: ../../eval-workspace.gitignore
       dest: .gitignore
@@ -41,6 +41,7 @@ stimuli:
       plane: data-plane
       language: typescript
       category: translation
+      scope: focused-task
     graders:
       - type: panel
         name: prompt/full-case-review
@@ -153,14 +154,14 @@ stimuli:
             - tsc
             - --noEmit
           timeout: 2m
-artifacts:
-  include:
-    - "**/*.ts"
-    - "**/*.js"
-    - "**/package.json"
-    - "**/tsconfig.json"
-    - "**/README.md"
-  exclude:
-    - "**/.vally/**"
-    - "**/node_modules/**"
-    - "**/dist/**"
+    artifacts:
+      include:
+        - "**/*.ts"
+        - "**/*.js"
+        - "**/package.json"
+        - "**/tsconfig.json"
+        - "**/README.md"
+      exclude:
+        - "**/.vally/**"
+        - "**/node_modules/**"
+        - "**/dist/**"

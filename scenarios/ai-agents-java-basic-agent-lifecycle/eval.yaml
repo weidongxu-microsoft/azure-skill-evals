@@ -2,7 +2,7 @@ name: ai-agents-java-basic-agent-lifecycle
 description: "Can an agent build a complete Azure AI Agents application that creates an agent conversation, runs it to completion, and reads the assistant response?"
 version: "1.0"
 type: capability
-environment:
+agent_environment:
   files:
     - src: ../../eval-workspace.gitignore
       dest: .gitignore
@@ -50,6 +50,7 @@ stimuli:
       plane: data-plane
       language: java
       category: agents
+      scope: focused-task
     graders:
       - type: panel
         name: prompt/full-case-review
@@ -184,13 +185,13 @@ stimuli:
           args:
             - .vally/program-checks/java.mjs
           timeout: 3m
-artifacts:
-  include:
-    - "**/*.java"
-    - "**/pom.xml"
-    - "**/build.gradle"
-    - "**/build.gradle.kts"
-    - "**/README.md"
-  exclude:
-    - "**/.vally/**"
-    - "**/target/**"
+    artifacts:
+      include:
+        - "**/*.java"
+        - "**/pom.xml"
+        - "**/build.gradle"
+        - "**/build.gradle.kts"
+        - "**/README.md"
+      exclude:
+        - "**/.vally/**"
+        - "**/target/**"

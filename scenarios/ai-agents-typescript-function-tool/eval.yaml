@@ -2,7 +2,7 @@ name: ai-agents-typescript-function-tool
 description: "Can an agent implement the Azure AI Agents required-action workflow for a local function tool?"
 version: "1.0"
 type: capability
-environment:
+agent_environment:
   files:
     - src: ../../eval-workspace.gitignore
       dest: .gitignore
@@ -48,6 +48,7 @@ stimuli:
       plane: data-plane
       language: typescript
       category: agents
+      scope: focused-task
     graders:
       - type: panel
         name: prompt/full-case-review
@@ -192,14 +193,14 @@ stimuli:
             - tsc
             - --noEmit
           timeout: 2m
-artifacts:
-  include:
-    - "**/*.ts"
-    - "**/*.js"
-    - "**/package.json"
-    - "**/tsconfig.json"
-    - "**/README.md"
-  exclude:
-    - "**/.vally/**"
-    - "**/node_modules/**"
-    - "**/dist/**"
+    artifacts:
+      include:
+        - "**/*.ts"
+        - "**/*.js"
+        - "**/package.json"
+        - "**/tsconfig.json"
+        - "**/README.md"
+      exclude:
+        - "**/.vally/**"
+        - "**/node_modules/**"
+        - "**/dist/**"

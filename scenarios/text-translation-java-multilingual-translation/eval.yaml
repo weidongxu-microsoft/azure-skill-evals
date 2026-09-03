@@ -2,7 +2,7 @@ name: text-translation-java-multilingual-translation
 description: "Can an application translate one supplied text into French and Japanese in one request and report the detected source language?"
 version: "1.0"
 type: capability
-environment:
+agent_environment:
   files:
     - src: ../../eval-workspace.gitignore
       dest: .gitignore
@@ -42,6 +42,7 @@ stimuli:
       plane: data-plane
       language: java
       category: translation
+      scope: focused-task
     graders:
       - type: panel
         name: prompt/full-case-review
@@ -151,13 +152,13 @@ stimuli:
           args:
             - .vally/program-checks/java.mjs
           timeout: 3m
-artifacts:
-  include:
-    - "**/*.java"
-    - "**/pom.xml"
-    - "**/build.gradle"
-    - "**/build.gradle.kts"
-    - "**/README.md"
-  exclude:
-    - "**/.vally/**"
-    - "**/target/**"
+    artifacts:
+      include:
+        - "**/*.java"
+        - "**/pom.xml"
+        - "**/build.gradle"
+        - "**/build.gradle.kts"
+        - "**/README.md"
+      exclude:
+        - "**/.vally/**"
+        - "**/target/**"

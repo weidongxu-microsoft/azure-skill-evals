@@ -2,7 +2,7 @@ name: identity-python-managed-identity-auth
 description: Compare Azure tooling for a Python managed identity authentication task
 version: "1.0"
 type: capability
-environment:
+agent_environment:
   files:
     - src: ../../eval-workspace.gitignore
       dest: .gitignore
@@ -36,6 +36,7 @@ stimuli:
       plane: data-plane
       language: python
       category: authentication
+      scope: focused-task
     graders:
       - type: panel
         name: prompt/full-case-review
@@ -121,13 +122,13 @@ stimuli:
           args:
             - .vally/program-checks/python.py
           timeout: 30s
-artifacts:
-  include:
-    - "**/*.py"
-    - "**/requirements*.txt"
-    - "**/pyproject.toml"
-    - "**/README.md"
-  exclude:
-    - "**/.vally/**"
-    - "**/.venv/**"
-    - "**/__pycache__/**"
+    artifacts:
+      include:
+        - "**/*.py"
+        - "**/requirements*.txt"
+        - "**/pyproject.toml"
+        - "**/README.md"
+      exclude:
+        - "**/.vally/**"
+        - "**/.venv/**"
+        - "**/__pycache__/**"

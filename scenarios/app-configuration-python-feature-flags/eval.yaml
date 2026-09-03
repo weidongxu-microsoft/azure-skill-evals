@@ -2,7 +2,7 @@ name: app-configuration-python-feature-flags
 description: Compare Azure tooling for an App Configuration Python feature flag task
 version: "1.0"
 type: capability
-environment:
+agent_environment:
   files:
     - src: ../../eval-workspace.gitignore
       dest: .gitignore
@@ -40,6 +40,7 @@ stimuli:
       plane: data-plane
       language: python
       category: crud
+      scope: focused-task
     graders:
       - type: panel
         name: prompt/full-case-review
@@ -140,13 +141,13 @@ stimuli:
           args:
             - .vally/program-checks/python.py
           timeout: 30s
-artifacts:
-  include:
-    - "**/*.py"
-    - "**/requirements*.txt"
-    - "**/pyproject.toml"
-    - "**/setup.py"
-  exclude:
-    - "**/.vally/**"
-    - "**/.venv/**"
-    - "**/__pycache__/**"
+    artifacts:
+      include:
+        - "**/*.py"
+        - "**/requirements*.txt"
+        - "**/pyproject.toml"
+        - "**/setup.py"
+      exclude:
+        - "**/.vally/**"
+        - "**/.venv/**"
+        - "**/__pycache__/**"

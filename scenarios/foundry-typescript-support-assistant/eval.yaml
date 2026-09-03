@@ -1,0 +1,336 @@
+name: foundry-typescript-support-assistant
+description: "Can an agent design a complete grounded product-support assistant with Microsoft Foundry without prescribed SDK symbols?"
+version: "1.0"
+type: capability
+agent_environment:
+  files:
+    - src: ../../eval-workspace-source.gitignore
+      dest: .gitignore
+    - src: ../../eval-workspace-AGENTS.md
+      dest: AGENTS.md
+    - src: materials/contoso-aero-300.md
+      dest: materials/contoso-aero-300.md
+    - src: materials/contoso-aero-300-warranty.md
+      dest: materials/contoso-aero-300-warranty.md
+scoring:
+  weights: {}
+defaults:
+  runs: 1
+  timeout: 30m
+  model: gpt-5.6-sol
+  judge_model: gpt-5.6-sol
+stimuli:
+  - name: foundry-dp-typescript-support-assistant
+    prompt: |-
+      Contoso needs an internal product-support assistant built with Microsoft
+      Foundry. Employees should be able to ask questions about product
+      documentation and receive answers grounded in that documentation.
+
+      Create a complete, runnable backend-only TypeScript application targeting
+      Node.js 24. Implement it as a long-running HTTP JSON API that listens on
+      a configurable port. Select appropriate current Microsoft Foundry
+      capabilities, Azure services, SDK packages, and application structure.
+
+      **Write the application to files in the workspace. Do not reply with code blocks.**
+
+      The application must:
+
+      - Expose employee question, follow-up, and feedback operations plus
+        administrator ingestion, unresolved-question review, evaluation, and
+        cleanup operations through HTTP JSON endpoints.
+      - Ingest the supplied product documentation files directly from
+        `materials/`.
+      - Ingest the product documentation for grounded retrieval and verify that
+        asynchronous ingestion has completed successfully before answering
+        questions.
+      - Use the Microsoft Foundry project directly in each grounded answer
+        request, with the selected retrieval capability supplying its grounding
+        context.
+      - Support isolated multi-turn conversations so a follow-up question can
+        use prior conversation context. Key durable conversation mappings by
+        authenticated employee identity and client conversation ID so they
+        survive application restarts.
+      - Return references identifying the source files that support an answer.
+        Derive each reference from identifiers returned by the retrieval or
+        answer service.
+      - Return a clearly identified unsupported response when the documentation
+        does not support an answer, and durably record the question for human
+        follow-up.
+      - Durably record positive or negative feedback for a specific response
+        and reject feedback that does not identify a known response.
+      - Store application state in a durable shared service that remains
+        available across application restarts.
+      - Include a small evaluation dataset with multiple cases and a runnable
+        evaluation workflow that submits generated answers to Microsoft
+        Foundry groundedness and relevance evaluators, waits for terminal
+        status, traverses all returned output items, and reports every metric.
+        Structure the evaluation code so more evaluators can be added later.
+      - Use an authenticated employee identity to isolate user conversations
+        and restrict ingestion, unresolved-question review, evaluation, and
+        cleanup operations to administrators.
+      - Read project endpoints, model deployment names, identity settings, and
+        other environment-specific settings from configuration. Authenticate
+        to Azure services with Microsoft Entra credentials.
+      - Handle unsuccessful terminal states, bounded polling, service errors,
+        actionable diagnostics, and cleanup of created cloud resources.
+      - Include meaningful automated tests for application behavior and failure
+        paths using mocks or fakes so the tests run offline.
+      - Include dependency manifests and standard `lint`, `build`, and `test`
+        package scripts, plus concise commands for installation, running, and
+        cleanup.
+
+      Treat the required Azure resources as pre-existing. The deliverable covers
+      application code and runtime configuration; resource provisioning,
+      infrastructure as code, and deployment automation are outside scope.
+    tags:
+      service: foundry
+      plane: data-plane
+      language: typescript
+      category: solution
+      scope: end-to-end-solution
+    graders:
+      - type: panel
+        name: prompt/full-case-review
+        weight: 1
+        config:
+          prompt: |-
+            Review the generated implementation against every criterion.
+            Score each criterion independently. Accept equivalent valid
+            implementations and judge code behavior rather than syntax. Trace
+            concrete imports, client construction, SDK calls, returned service
+            identifiers, persistence operations, and route-to-orchestration
+            call paths. Examples of SDK methods in the criteria are
+            nonexclusive evidence, not mandatory spellings. Fail interfaces,
+            configuration objects, mocks, comments, or disconnected snippets
+            that are not exercised by the runnable application.
+            Return every criterion name exactly as provided. The criterion
+            value must start with "prompt/" or "language/". Never copy a rubric
+            list number into the criterion value. For example, return
+            "prompt/foo", never "1. prompt/foo".
+          models:
+            - gpt-5.6-sol
+          aggregation: unanimous
+          scoring: binary
+          threshold: 0
+          overall_threshold: 0
+          evidence:
+            - diff
+          criteria:
+            - name: prompt/implements-a-complete-runnable-support-application
+              description: |-
+                - Production entry point -> `listen(...)`.
+                - HTTP routes -> production support orchestration.
+                - `package.json` -> `lint`, `build`, `test`, `start`.
+                - Build output contains the file executed by `start`.
+                No CLI-only or placeholder implementation.
+              weight: 1
+              pass_threshold: 1
+            - name: prompt/selects-coherent-current-foundry-and-azure-sdks
+              description: |-
+                - Current supported client -> configured Foundry project endpoint +
+                  Entra credential.
+                - Foundry project or project-scoped client -> answer generation.
+                - Supported Foundry evaluation client or API -> evaluation workflow.
+                - Request configuration uses the documented field names and value shapes
+                  for the selected SDK or API.
+                - Every declared service client -> invoked operation.
+              weight: 1
+              pass_threshold: 1
+            # Observed agent pattern: Azure AI Search is the common retrieval choice.
+            - name: prompt/ingests-product-documentation-and-waits-for-retrieval-readiness
+              description: |-
+                Choose one path for both supplied product documentation files:
+                - `files.create(...)` -> `vectorStores.files.create(...)` -> poll
+                  `vectorStores.files.retrieve(...).status` to `completed`.
+                - `SearchClient.uploadDocuments(...)` -> successful indexing result ->
+                  `SearchClient.getDocument(id)`.
+                - `BlockBlobClient.uploadData(...)` -> `SearchIndexerClient.runIndexer(...)` ->
+                  poll `SearchIndexerClient.getIndexerStatus(...).lastResult.status` to `success`.
+                No local-only readiness flag.
+              weight: 1
+              pass_threshold: 1
+            - name: prompt/returns-grounded-answers-with-service-citations
+              description: |-
+                One path is required:
+                - `responses.create({ include: ["file_search_call.results"] })` ->
+                  `output_text.annotations[type == "file_citation"].filename`.
+                - `responses.create(...agent_reference...)` ->
+                  `output_text.annotations[type == "url_citation"].{title,url}`.
+                - `SearchClient.search(...)` -> match `citationIds` to `result.document.id` ->
+                  `result.document.sourceFile`.
+                No hardcoded documentation filenames.
+              weight: 1
+              pass_threshold: 1
+            - name: prompt/preserves-isolated-multi-turn-conversations
+              description: |-
+                One path is required:
+                - `conversations.create()` or `threads.create()` -> persist returned ID by
+                  `employeeId + conversationId` -> reuse returned ID.
+                - Persist turns by `employeeId + conversationId` -> pass prior turns to the next
+                  Foundry answer call.
+                No process-memory-only state.
+              weight: 1
+              pass_threshold: 1
+            - name: prompt/records-unsupported-questions-for-follow-up
+              description: |-
+                - Detect `supported === false` or `output_text.startsWith("UNSUPPORTED:")`.
+                - Durable unresolved record -> question, response ID, creation time, and
+                  conversation key scoped by authenticated employee.
+              weight: 1
+              pass_threshold: 1
+            - name: prompt/records-validated-response-specific-feedback
+              description: |-
+                - Load persisted `responseId`.
+                - Verify that the authenticated `employeeId` owns the response.
+                - If the request supplies a conversation ID, also verify that scope;
+                  a globally unique persisted response ID plus employee ownership is valid.
+                - Reject an unknown response or any ownership/scope mismatch.
+                - Persist rating linked to `responseId`.
+              weight: 1
+              pass_threshold: 1
+            - name: prompt/runs-extensible-groundedness-and-relevance-evaluation
+              description: |-
+                - Evaluation definition -> groundedness + relevance evaluators in an
+                  extensible collection.
+                - Evaluator and model configuration matches the selected API schema
+                  (for example, Azure evaluator deployments use `deployment_name` when
+                  that is the documented field).
+                - Evaluation run -> retrieve or poll to terminal status.
+                - Traverse every returned output item and report every metric.
+                - Evaluator `context` -> results returned by the selected retrieval service,
+                  not hand-authored dataset context.
+              weight: 1
+              pass_threshold: 1
+            - name: prompt/uses-entra-identity-and-external-configuration
+              description: |-
+                - Environment variables -> endpoints, deployment, identity settings.
+                - `TokenCredential` -> every Azure client.
+                - Validated Entra token or trusted platform principal -> `employeeId`.
+                - Admin role or allowlist -> ingestion, review, evaluation, cleanup routes.
+              weight: 1
+              pass_threshold: 1
+            - name: prompt/handles-lifecycle-errors-and-bounded-waits
+              description: |-
+                - `pollUntilDone()` or deadline + delayed polling.
+                - Handle `failed`, `cancelled`/`canceled`, timeout.
+                - Narrow service failures to the selected SDK's structured error type and
+                  inspect its status or error code before producing actionable diagnostics
+                  (for example, `RestError.statusCode` or `APIError.status`).
+                No unbounded or delay-free polling.
+              weight: 1
+              pass_threshold: 1
+            - name: prompt/cleans-up-created-cloud-resources-safely
+              description: |-
+                - Delete only application-owned resources created by the selected retrieval
+                  and conversation path, in a dependency-safe order.
+                - Preserve persisted resource ownership until remote deletion succeeds.
+                - A failed cleanup or replacement must retain enough ownership information
+                  for a later retry; it must not orphan the previous resources.
+              weight: 1
+              pass_threshold: 1
+            - name: prompt/includes-meaningful-offline-automated-tests
+              description: |-
+                Executable `npm test` tests exercise HTTP routes and orchestration with
+                mocked or fake Azure clients. Test assertions cover:
+                - employee conversation isolation and follow-up context;
+                - unknown or mismatched feedback rejection;
+                - evaluator context from retrieved results;
+                - durable multi-record writes being atomic, or failure recovery/compensation
+                  when atomic writes are not used.
+                Declared mocks, test doubles, or unexecuted helper code are not evidence.
+              weight: 1
+              pass_threshold: 1
+            - name: prompt/excludes-provisioning-and-deployment
+              description: |-
+                No Bicep, ARM, Terraform, `az`/`azd` provisioning, or deployment workflow.
+              weight: 1
+              pass_threshold: 1
+            - name: language/correct-azure-scoped-packages
+              description: |-
+                All Azure SDK dependencies use @azure/ scoped packages (e.g., @azure/storage-blob, @azure/keyvault-secrets, @azure/identity). No deprecated unscoped packages (azure-storage, azure-arm-*, ms-rest-azure, @azure/ms-rest-*).
+              weight: 1
+              pass_threshold: 1
+            - name: language/azure-identity-for-authentication
+              description: |-
+                Includes @azure/identity as a dependency. For local development, DefaultAzureCredential is acceptable. For production code, uses a specific Entra token credential (e.g., ManagedIdentityCredential, ClientSecretCredential, WorkloadIdentityCredential) or configures DefaultAzureCredential with the AZURE_TOKEN_CREDENTIALS environment variable set to "prod" or a specific token credential. No hardcoded connection strings, account keys, SAS tokens, or secrets in code.
+              weight: 1
+              pass_threshold: 1
+            - name: language/client-constructor-with-endpoint-and-credential
+              description: |-
+                SDK clients constructed with endpoint URL and credential object, e.g. new BlobServiceClient(url, credential) or new SecretClient(vaultUrl, credential). No legacy constructor patterns or connection string-based construction when identity-based auth is available.
+              weight: 1
+              pass_threshold: 1
+            - name: language/async-await-pattern
+              description: |-
+                Uses async/await for all asynchronous operations. No raw .then()/.catch() chains when await is cleaner. No callback-based patterns. Top-level async function or IIFE for entry point.
+              weight: 1
+              pass_threshold: 1
+            - name: language/pagination-with-for-await-of
+              description: |-
+                Potentially large or unbounded list/query operations consume results
+                incrementally using the SDK's async iterator, `byPage()`, `fetchNext()`, or
+                continuation-token equivalent. `fetchAll()` or array materialization is
+                acceptable only when the query is demonstrably bounded to a small result
+                set, such as a point lookup or `TOP 1`.
+              weight: 1
+              pass_threshold: 1
+            - name: language/lro-pattern-beginxxx-polluntildone
+              description: |-
+                Uses the SDK's poller when the operation exposes one. For Foundry operations
+                that expose create/retrieve status APIs instead, bounded asynchronous polling
+                that handles every terminal state is valid. No unbounded or tight polling loops.
+              weight: 1
+              pass_threshold: 1
+            - name: language/resterror-exception-handling
+              description: |-
+                Catches RestError (from @azure/core-rest-pipeline or the service package) with statusCode inspection for error-specific handling. Not just generic Error or try/catch without type checking.
+              weight: 1
+              pass_threshold: 1
+            - name: language/no-deprecated-packages
+              description: |-
+                No deprecated or legacy Azure packages in package.json: azure-storage, azure-arm-*, ms-rest-azure, @azure/ms-rest-js, @azure/ms-rest-nodeauth, @azure/ms-rest-azure-js. All dependencies use the current @azure/* track.
+              weight: 1
+              pass_threshold: 1
+            - name: language/logging-via-azure-logger
+              description: |-
+                Uses @azure/logger with setLogLevel() or the AZURE_LOG_LEVEL environment variable for SDK diagnostic logging. No custom logging wrappers around SDK internals.
+              weight: 1
+              pass_threshold: 1
+            - name: language/package-json-with-correct-dependencies
+              description: |-
+                Includes a valid package.json with all required @azure/* dependencies listed. TypeScript projects include tsconfig.json and appropriate @types/* packages or use a recent TypeScript version with built-in types.
+              weight: 1
+              pass_threshold: 1
+      - type: run-command
+        name: program/typescript-dependencies-install
+        config:
+          command: npm
+          args:
+            - install
+            - --ignore-scripts
+            - --no-audit
+            - --no-fund
+          timeout: 3m
+      - type: run-command
+        name: program/typescript-type-checks
+        config:
+          command: npx
+          args:
+            - --no-install
+            - tsc
+            - --noEmit
+          timeout: 2m
+    artifacts:
+      include:
+        - "**/*.ts"
+        - "**/*.js"
+        - "**/*.json"
+        - "**/*.jsonl"
+        - "**/package.json"
+        - "**/tsconfig.json"
+        - "**/README.md"
+      exclude:
+        - "**/.vally/**"
+        - "**/node_modules/**"
+        - "**/dist/**"
+        - "**/.data/**"

@@ -2,7 +2,7 @@ name: identity-go-managed-identity-auth
 description: Compare Azure tooling for managed identity authentication in Go
 version: "1.0"
 type: capability
-environment:
+agent_environment:
   files:
     - src: ../../eval-workspace.gitignore
       dest: .gitignore
@@ -32,6 +32,7 @@ stimuli:
       plane: data-plane
       language: go
       category: auth
+      scope: focused-task
     graders:
       - type: panel
         name: prompt/full-case-review
@@ -94,18 +95,18 @@ stimuli:
             - -mod=readonly
             - ./...
           timeout: 3m
-artifacts:
-  include:
-    - "**/*.go"
-    - "**/go.mod"
-    - "**/go.sum"
-    - "**/README.md"
-  exclude:
-    - "**/.vally/**"
-    - "**/bin/**"
-    - "**/build/**"
-    - "**/dist/**"
-    - "**/vendor/**"
-    - "**/.cache/**"
-    - "**/*.test"
-    - "**/coverage.out"
+    artifacts:
+      include:
+        - "**/*.go"
+        - "**/go.mod"
+        - "**/go.sum"
+        - "**/README.md"
+      exclude:
+        - "**/.vally/**"
+        - "**/bin/**"
+        - "**/build/**"
+        - "**/dist/**"
+        - "**/vendor/**"
+        - "**/.cache/**"
+        - "**/*.test"
+        - "**/coverage.out"

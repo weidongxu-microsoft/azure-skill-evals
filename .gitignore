@@ -1,6 +1,7 @@
 node_modules/
 .ruff_cache/
 .work/
+.squad/
 reports/
 *.log
 __pycache__/

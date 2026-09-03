@@ -2,7 +2,7 @@ name: storage-python-blob-event-notifier
 description: Compare Azure tooling for a Python Blob Storage Event Grid notifier
 version: "1.0"
 type: capability
-environment:
+agent_environment:
   files:
     - src: ../../eval-workspace.gitignore
       dest: .gitignore
@@ -42,6 +42,7 @@ stimuli:
       plane: data-plane
       language: python
       category: streaming
+      scope: focused-task
     graders:
       - type: panel
         name: prompt/full-case-review
@@ -152,13 +153,13 @@ stimuli:
           args:
             - .vally/program-checks/python.py
           timeout: 30s
-artifacts:
-  include:
-    - "**/*.py"
-    - "**/requirements*.txt"
-    - "**/pyproject.toml"
-    - "**/setup.py"
-  exclude:
-    - "**/.vally/**"
-    - "**/.venv/**"
-    - "**/__pycache__/**"
+    artifacts:
+      include:
+        - "**/*.py"
+        - "**/requirements*.txt"
+        - "**/pyproject.toml"
+        - "**/setup.py"
+      exclude:
+        - "**/.vally/**"
+        - "**/.venv/**"
+        - "**/__pycache__/**"

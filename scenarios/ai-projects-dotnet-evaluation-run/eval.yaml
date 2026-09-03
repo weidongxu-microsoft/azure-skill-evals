@@ -2,7 +2,7 @@ name: ai-projects-dotnet-evaluation-run
 description: "Can an application use the project OpenAI Evals client to run a built-in evaluator and traverse metric results?"
 version: "1.0"
 type: capability
-environment:
+agent_environment:
   files:
     - src: ../../eval-workspace.gitignore
       dest: .gitignore
@@ -48,6 +48,7 @@ stimuli:
       plane: data-plane
       language: dotnet
       category: projects
+      scope: focused-task
     graders:
       - type: panel
         name: prompt/full-case-review
@@ -138,12 +139,12 @@ stimuli:
             - build
             - --nologo
           timeout: 3m
-artifacts:
-  include:
-    - "**/*.cs"
-    - "**/*.csproj"
-    - "**/README.md"
-  exclude:
-    - "**/.vally/**"
-    - "**/bin/**"
-    - "**/obj/**"
+    artifacts:
+      include:
+        - "**/*.cs"
+        - "**/*.csproj"
+        - "**/README.md"
+      exclude:
+        - "**/.vally/**"
+        - "**/bin/**"
+        - "**/obj/**"

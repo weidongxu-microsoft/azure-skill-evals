@@ -2,7 +2,7 @@ name: service-bus-typescript-send-receive-messages
 description: Compare Azure tooling for a Service Bus TypeScript send and receive task
 version: "1.0"
 type: capability
-environment:
+agent_environment:
   files:
     - src: ../../eval-workspace.gitignore
       dest: .gitignore
@@ -34,6 +34,7 @@ stimuli:
       plane: data-plane
       language: typescript
       category: streaming
+      scope: focused-task
     graders:
       - type: panel
         name: prompt/full-case-review
@@ -166,13 +167,13 @@ stimuli:
             - tsc
             - --noEmit
           timeout: 2m
-artifacts:
-  include:
-    - "**/*.ts"
-    - "**/*.js"
-    - "**/package.json"
-    - "**/tsconfig.json"
-  exclude:
-    - "**/.vally/**"
-    - "**/node_modules/**"
-    - "**/dist/**"
+    artifacts:
+      include:
+        - "**/*.ts"
+        - "**/*.js"
+        - "**/package.json"
+        - "**/tsconfig.json"
+      exclude:
+        - "**/.vally/**"
+        - "**/node_modules/**"
+        - "**/dist/**"

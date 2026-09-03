@@ -2,7 +2,7 @@ name: resource-manager-python-resource-group-crud
 description: Compare Azure tooling for a Python resource group lifecycle
 version: "1.0"
 type: capability
-environment:
+agent_environment:
   files:
     - src: ../../eval-workspace.gitignore
       dest: .gitignore
@@ -35,6 +35,7 @@ stimuli:
       plane: management-plane
       language: python
       category: crud
+      scope: focused-task
     graders:
       - type: panel
         name: prompt/full-case-review
@@ -125,13 +126,13 @@ stimuli:
           args:
             - .vally/program-checks/python.py
           timeout: 30s
-artifacts:
-  include:
-    - "**/*.py"
-    - "**/requirements*.txt"
-    - "**/pyproject.toml"
-    - "**/setup.py"
-  exclude:
-    - "**/.vally/**"
-    - "**/.venv/**"
-    - "**/__pycache__/**"
+    artifacts:
+      include:
+        - "**/*.py"
+        - "**/requirements*.txt"
+        - "**/pyproject.toml"
+        - "**/setup.py"
+      exclude:
+        - "**/.vally/**"
+        - "**/.venv/**"
+        - "**/__pycache__/**"

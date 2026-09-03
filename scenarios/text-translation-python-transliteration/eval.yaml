@@ -2,7 +2,7 @@ name: text-translation-python-transliteration
 description: "Can an application transliterate supplied text between supplied scripts and report the returned script metadata?"
 version: "1.0"
 type: capability
-environment:
+agent_environment:
   files:
     - src: ../../eval-workspace.gitignore
       dest: .gitignore
@@ -41,6 +41,7 @@ stimuli:
       plane: data-plane
       language: python
       category: translation
+      scope: focused-task
     graders:
       - type: panel
         name: prompt/full-case-review
@@ -115,13 +116,13 @@ stimuli:
           args:
             - .vally/program-checks/python.py
           timeout: 30s
-artifacts:
-  include:
-    - "**/*.py"
-    - "**/requirements*.txt"
-    - "**/pyproject.toml"
-    - "**/README.md"
-  exclude:
-    - "**/.vally/**"
-    - "**/.venv/**"
-    - "**/__pycache__/**"
+    artifacts:
+      include:
+        - "**/*.py"
+        - "**/requirements*.txt"
+        - "**/pyproject.toml"
+        - "**/README.md"
+      exclude:
+        - "**/.vally/**"
+        - "**/.venv/**"
+        - "**/__pycache__/**"

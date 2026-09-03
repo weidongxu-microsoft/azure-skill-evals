@@ -12,9 +12,11 @@ import { spawnSync } from "node:child_process";
 import test from "node:test";
 
 import {
+  adaptProgramCommandsForHost,
   addGoldenPatch,
   createGoldenPatch,
   listGoldenFiles,
+  oracleSummaryFailed,
   summarizeOracleOutcome,
 } from "./validate-golden-oracles.mjs";
 
@@ -89,6 +91,16 @@ test("adds a golden patch to the first stimulus", () => {
   );
 });
 
+test("uses Windows command shims only in temporary oracle specs", () => {
+  const source =
+    "config:\n  command: npm\n  args:\n    - install\nother:\n  command: npx\n  args:\n    - tsc\nthird:\n  command: node\n";
+  assert.equal(
+    adaptProgramCommandsForHost(source, "win32"),
+    "config:\n  command: cmd.exe\n  args:\n    - /d\n    - /s\n    - /c\n    - npm\n    - install\nother:\n  command: cmd.exe\n  args:\n    - /d\n    - /s\n    - /c\n    - npx\n    - tsc\nthird:\n  command: node\n",
+  );
+  assert.equal(adaptProgramCommandsForHost(source, "linux"), source);
+});
+
 test("summarizes prompt, language, and program outcomes independently", () => {
   const outcome = {
     status: "success",
@@ -124,4 +136,17 @@ test("summarizes prompt, language, and program outcomes independently", () => {
   assert.deepEqual(summary.prompt.map((result) => result.passed), [true]);
   assert.deepEqual(summary.language.map((result) => result.passed), [false]);
   assert.deepEqual(summary.program.map((result) => result.passed), [true]);
+  assert.equal(oracleSummaryFailed(summary), true);
+});
+
+test("fails an oracle summary with a language failure", () => {
+  assert.equal(
+    oracleSummaryFailed({
+      error: null,
+      prompt: [{ passed: true }],
+      language: [{ passed: false }],
+      program: [{ passed: true }],
+    }),
+    true,
+  );
 });

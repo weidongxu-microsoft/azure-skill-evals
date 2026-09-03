@@ -2,7 +2,7 @@ name: storage-java-account-mgmt
 description: Compare Azure tooling for an Azure Storage Java account management task
 version: "1.0"
 type: capability
-environment:
+agent_environment:
   files:
     - src: ../../eval-workspace.gitignore
       dest: .gitignore
@@ -37,6 +37,7 @@ stimuli:
       plane: management-plane
       language: java
       category: account-management
+      scope: focused-task
     graders:
       - type: panel
         name: prompt/full-case-review
@@ -162,12 +163,12 @@ stimuli:
           args:
             - .vally/program-checks/java.mjs
           timeout: 3m
-artifacts:
-  include:
-    - "**/*.java"
-    - "**/pom.xml"
-    - "**/build.gradle"
-    - "**/build.gradle.kts"
-  exclude:
-    - "**/.vally/**"
-    - "**/target/**"
+    artifacts:
+      include:
+        - "**/*.java"
+        - "**/pom.xml"
+        - "**/build.gradle"
+        - "**/build.gradle.kts"
+      exclude:
+        - "**/.vally/**"
+        - "**/target/**"

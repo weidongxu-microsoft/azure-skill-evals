@@ -2,7 +2,7 @@ name: app-configuration-go-config-values
 description: Compare Azure tooling for an App Configuration Go CRUD task
 version: "1.0"
 type: capability
-environment:
+agent_environment:
   files:
     - src: ../../eval-workspace.gitignore
       dest: .gitignore
@@ -33,6 +33,7 @@ stimuli:
       plane: data-plane
       language: go
       category: crud
+      scope: focused-task
     graders:
       - type: panel
         name: prompt/full-case-review
@@ -97,18 +98,18 @@ stimuli:
             - -mod=readonly
             - ./...
           timeout: 3m
-artifacts:
-  include:
-    - "**/*.go"
-    - "**/go.mod"
-    - "**/go.sum"
-    - "**/README.md"
-  exclude:
-    - "**/.vally/**"
-    - "**/bin/**"
-    - "**/build/**"
-    - "**/dist/**"
-    - "**/vendor/**"
-    - "**/.cache/**"
-    - "**/*.test"
-    - "**/coverage.out"
+    artifacts:
+      include:
+        - "**/*.go"
+        - "**/go.mod"
+        - "**/go.sum"
+        - "**/README.md"
+      exclude:
+        - "**/.vally/**"
+        - "**/bin/**"
+        - "**/build/**"
+        - "**/dist/**"
+        - "**/vendor/**"
+        - "**/.cache/**"
+        - "**/*.test"
+        - "**/coverage.out"

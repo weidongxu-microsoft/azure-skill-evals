@@ -108,6 +108,23 @@ export function addGoldenPatch(evalSource, patchPath = TEMP_PATCH) {
   return withPatch.replace(repoEvidence, "$1            - golden_patch\n");
 }
 
+export function adaptProgramCommandsForHost(
+  evalSource,
+  platform = process.platform,
+) {
+  if (platform !== "win32") return evalSource;
+  return evalSource.replace(
+    /^(\s+)command: (npm|npx)\r?\n\1args:\r?\n/gm,
+    (_match, indentation, command) =>
+      `${indentation}command: cmd.exe\n` +
+      `${indentation}args:\n` +
+      `${indentation}  - /d\n` +
+      `${indentation}  - /s\n` +
+      `${indentation}  - /c\n` +
+      `${indentation}  - ${command}\n`,
+  );
+}
+
 function walkDetails(result) {
   const pending = [result];
   const details = [];
@@ -149,6 +166,16 @@ export function summarizeOracleOutcome(outcome) {
       (detail) => detail.graderType === "run-command",
     ),
   };
+}
+
+export function oracleSummaryFailed(summary) {
+  return Boolean(
+    summary.error ||
+      summary.prompt.length === 0 ||
+      summary.prompt.some((result) => !result.passed) ||
+      summary.language.some((result) => !result.passed) ||
+      summary.program.some((result) => !result.passed),
+  );
 }
 
 function parseJsonLines(output) {
@@ -342,21 +369,22 @@ export async function main(argv = process.argv.slice(2)) {
       );
       writeFileSync(
         temporaryEval,
-        addGoldenPatch(readFileSync(evalPath, "utf8")),
+        adaptProgramCommandsForHost(
+          addGoldenPatch(readFileSync(evalPath, "utf8")),
+        ),
       );
 
       const positive = summarizeOracleOutcome(
         runOracle(temporaryEval).outcome,
       );
       const promptFailures = positive.prompt.filter((result) => !result.passed);
+      const languageFailures = positive.language.filter(
+        (result) => !result.passed,
+      );
       const programFailures = positive.program.filter(
         (result) => !result.passed,
       );
-      const positiveFailed =
-        positive.error ||
-        positive.prompt.length === 0 ||
-        promptFailures.length > 0 ||
-        programFailures.length > 0;
+      const positiveFailed = oracleSummaryFailed(positive);
       failed ||= Boolean(positiveFailed);
       const record = {
         error: positive.error,
@@ -381,7 +409,11 @@ export async function main(argv = process.argv.slice(2)) {
         ].join(" "),
       );
       if (positive.error) console.error(`  ${positive.error}`);
-      for (const failure of [...promptFailures, ...programFailures]) {
+      for (const failure of [
+        ...promptFailures,
+        ...languageFailures,
+        ...programFailures,
+      ]) {
         console.error(
           `  ${failure.metadata?.criterion ?? failure.name}: ${failure.evidence}`,
         );

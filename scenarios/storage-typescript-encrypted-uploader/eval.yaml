@@ -2,7 +2,7 @@ name: storage-typescript-encrypted-uploader
 description: Compare Azure tooling for a TypeScript encrypted Blob uploader task
 version: "1.0"
 type: capability
-environment:
+agent_environment:
   files:
     - src: ../../eval-workspace.gitignore
       dest: .gitignore
@@ -36,6 +36,7 @@ stimuli:
       plane: data-plane
       language: typescript
       category: crud
+      scope: focused-task
     graders:
       - type: panel
         name: prompt/full-case-review
@@ -253,14 +254,14 @@ stimuli:
             - tsc
             - --noEmit
           timeout: 2m
-artifacts:
-  include:
-    - "**/*.ts"
-    - "**/*.js"
-    - "**/package.json"
-    - "**/tsconfig.json"
-    - "**/README.md"
-  exclude:
-    - "**/.vally/**"
-    - "**/node_modules/**"
-    - "**/dist/**"
+    artifacts:
+      include:
+        - "**/*.ts"
+        - "**/*.js"
+        - "**/package.json"
+        - "**/tsconfig.json"
+        - "**/README.md"
+      exclude:
+        - "**/.vally/**"
+        - "**/node_modules/**"
+        - "**/dist/**"

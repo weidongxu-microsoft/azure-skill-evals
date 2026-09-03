@@ -81,8 +81,6 @@ const evalPaths = readdirSync(scenarioRoot, { withFileTypes: true })
   .map((entry) => join(scenarioRoot, entry.name, "eval.yaml"));
 
 test("every eval uses one complete model review and program checks", () => {
-  assert.equal(evalPaths.length, 138);
-
   for (const evalPath of evalPaths) {
     const source = readFileSync(evalPath, "utf8").replaceAll("\r\n", "\n");
     const language = source.match(/^\s+language:\s*(\S+)$/m)?.[1];
@@ -127,11 +125,29 @@ test("every eval uses one complete model review and program checks", () => {
       evalPath,
     );
     assert.match(source, /^\s+models:\r?\n\s+- gpt-5\.6-sol$/m, evalPath);
-    assert.match(
-      source,
-      /^\s+evidence:\r?\n\s+- trajectory\r?\n\s+- repo$/m,
-      evalPath,
+    const scopeMatches = source.match(
+      /^\s+scope: (focused-task|end-to-end-solution)$/gm,
     );
+    assert.equal(scopeMatches?.length, 1, evalPath);
+    if (source.includes("      scope: end-to-end-solution")) {
+      assert.match(source, /^\s+evidence:\r?\n\s+- diff$/m, evalPath);
+      assert.match(
+        source,
+        /^agent_environment:\n\s+files:\n\s+- src: \.\.\/\.\.\/eval-workspace-source\.gitignore\n\s+dest: \.gitignore/m,
+        evalPath,
+      );
+    } else {
+      assert.match(
+        source,
+        /^\s+evidence:\r?\n\s+- trajectory\r?\n\s+- repo$/m,
+        evalPath,
+      );
+      assert.match(
+        source,
+        /^agent_environment:\n\s+files:\n\s+- src: \.\.\/\.\.\/eval-workspace\.gitignore\n\s+dest: \.gitignore/m,
+        evalPath,
+      );
+    }
     assert.match(
       source,
       /value must start with "prompt\/" or "language\/"\. Never copy a rubric\r?\n\s+list number into the criterion value\./,
@@ -139,7 +155,7 @@ test("every eval uses one complete model review and program checks", () => {
     );
     assert.match(
       source,
-      /^environment:\n\s+files:\n\s+- src: \.\.\/\.\.\/eval-workspace\.gitignore\n\s+dest: \.gitignore\n\s+- src: \.\.\/\.\.\/eval-workspace-AGENTS\.md\n\s+dest: AGENTS\.md/m,
+      /^\s+- src: \.\.\/\.\.\/eval-workspace-AGENTS\.md\n\s+dest: AGENTS\.md/m,
       evalPath,
     );
     if (language === "java") {

@@ -2,7 +2,7 @@ name: ai-projects-java-evaluation-run
 description: "Can an application use the project OpenAI Evals client to run a built-in evaluator and traverse metric results?"
 version: "1.0"
 type: capability
-environment:
+agent_environment:
   files:
     - src: ../../eval-workspace.gitignore
       dest: .gitignore
@@ -50,6 +50,7 @@ stimuli:
       plane: data-plane
       language: java
       category: projects
+      scope: focused-task
     graders:
       - type: panel
         name: prompt/full-case-review
@@ -176,13 +177,13 @@ stimuli:
           args:
             - .vally/program-checks/java.mjs
           timeout: 3m
-artifacts:
-  include:
-    - "**/*.java"
-    - "**/pom.xml"
-    - "**/build.gradle"
-    - "**/build.gradle.kts"
-    - "**/README.md"
-  exclude:
-    - "**/.vally/**"
-    - "**/target/**"
+    artifacts:
+      include:
+        - "**/*.java"
+        - "**/pom.xml"
+        - "**/build.gradle"
+        - "**/build.gradle.kts"
+        - "**/README.md"
+      exclude:
+        - "**/.vally/**"
+        - "**/target/**"

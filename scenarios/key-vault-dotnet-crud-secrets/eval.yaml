@@ -2,7 +2,7 @@ name: key-vault-dotnet-crud-secrets
 description: Compare Azure tooling for a .NET Key Vault secret CRUD task
 version: "1.0"
 type: capability
-environment:
+agent_environment:
   files:
     - src: ../../eval-workspace.gitignore
       dest: .gitignore
@@ -32,6 +32,7 @@ stimuli:
       plane: data-plane
       language: dotnet
       category: crud
+      scope: focused-task
     graders:
       - type: panel
         name: prompt/full-case-review
@@ -106,11 +107,11 @@ stimuli:
             - build
             - --nologo
           timeout: 3m
-artifacts:
-  include:
-    - "**/*.cs"
-    - "**/*.csproj"
-  exclude:
-    - "**/.vally/**"
-    - "**/bin/**"
-    - "**/obj/**"
+    artifacts:
+      include:
+        - "**/*.cs"
+        - "**/*.csproj"
+      exclude:
+        - "**/.vally/**"
+        - "**/bin/**"
+        - "**/obj/**"

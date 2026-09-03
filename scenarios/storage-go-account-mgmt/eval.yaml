@@ -2,7 +2,7 @@ name: storage-go-account-mgmt
 description: Compare Azure tooling for an Azure Storage Go account management task
 version: "1.0"
 type: capability
-environment:
+agent_environment:
   files:
     - src: ../../eval-workspace.gitignore
       dest: .gitignore
@@ -35,6 +35,7 @@ stimuli:
       plane: management-plane
       language: go
       category: provisioning
+      scope: focused-task
     graders:
       - type: panel
         name: prompt/full-case-review
@@ -112,18 +113,18 @@ stimuli:
             - -mod=readonly
             - ./...
           timeout: 3m
-artifacts:
-  include:
-    - "**/*.go"
-    - "**/go.mod"
-    - "**/go.sum"
-    - "**/README.md"
-  exclude:
-    - "**/.vally/**"
-    - "**/bin/**"
-    - "**/build/**"
-    - "**/dist/**"
-    - "**/vendor/**"
-    - "**/.cache/**"
-    - "**/*.test"
-    - "**/coverage.out"
+    artifacts:
+      include:
+        - "**/*.go"
+        - "**/go.mod"
+        - "**/go.sum"
+        - "**/README.md"
+      exclude:
+        - "**/.vally/**"
+        - "**/bin/**"
+        - "**/build/**"
+        - "**/dist/**"
+        - "**/vendor/**"
+        - "**/.cache/**"
+        - "**/*.test"
+        - "**/coverage.out"

@@ -2,7 +2,7 @@ name: service-bus-dotnet-send-receive-messages
 description: Compare Azure tooling for a .NET Service Bus messaging lifecycle
 version: "1.0"
 type: capability
-environment:
+agent_environment:
   files:
     - src: ../../eval-workspace.gitignore
       dest: .gitignore
@@ -34,6 +34,7 @@ stimuli:
       plane: data-plane
       language: dotnet
       category: send-receive
+      scope: focused-task
     graders:
       - type: panel
         name: prompt/full-case-review
@@ -123,12 +124,12 @@ stimuli:
             - build
             - --nologo
           timeout: 3m
-artifacts:
-  include:
-    - "**/*.cs"
-    - "**/*.csproj"
-    - "**/README.md"
-  exclude:
-    - "**/.vally/**"
-    - "**/bin/**"
-    - "**/obj/**"
+    artifacts:
+      include:
+        - "**/*.cs"
+        - "**/*.csproj"
+        - "**/README.md"
+      exclude:
+        - "**/.vally/**"
+        - "**/bin/**"
+        - "**/obj/**"
