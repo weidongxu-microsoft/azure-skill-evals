@@ -7,6 +7,7 @@ evals:
   - ../../scenarios/cosmos-db-go-pagination-query-items/eval.yaml
   - ../../scenarios/cosmos-db-go-todo-repository/eval.yaml
   - ../../scenarios/event-hubs-go-send-receive-events/eval.yaml
+  - ../../scenarios/identity-go-credential-chain/eval.yaml
   - ../../scenarios/storage-go-account-mgmt/eval.yaml
   - ../../scenarios/resource-manager-go-resource-group-crud/eval.yaml
   - ../../scenarios/identity-go-service-principal-auth/eval.yaml
