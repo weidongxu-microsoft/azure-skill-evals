@@ -127,9 +127,12 @@ stimuli:
               pass_threshold: 1
             - name: prompt/selects-coherent-current-foundry-and-azure-sdks
               description: |-
-                - `new AIProjectClient(projectEndpoint, credential)`.
-                - Foundry project client -> answer generation.
-                - `getOpenAIClient().evals` -> evaluation workflow.
+                - Current supported client -> configured Foundry project endpoint +
+                  Entra credential.
+                - Foundry project or project-scoped client -> answer generation.
+                - Supported Foundry evaluation client or API -> evaluation workflow.
+                - Request configuration uses the documented field names and value shapes
+                  for the selected SDK or API.
                 - Every declared service client -> invoked operation.
               weight: 1
               pass_threshold: 1
@@ -178,17 +181,24 @@ stimuli:
             - name: prompt/records-validated-response-specific-feedback
               description: |-
                 - Load persisted `responseId`.
-                - Match authenticated `employeeId` and requested conversation scope.
-                - Reject missing or mismatched response.
+                - Verify that the authenticated `employeeId` owns the response.
+                - If the request supplies a conversation ID, also verify that scope;
+                  a globally unique persisted response ID plus employee ownership is valid.
+                - Reject an unknown response or any ownership/scope mismatch.
                 - Persist rating linked to `responseId`.
               weight: 1
               pass_threshold: 1
             - name: prompt/runs-extensible-groundedness-and-relevance-evaluation
               description: |-
-                - `evals.create(...)` -> groundedness + relevance criteria array.
-                - `evals.runs.create(...)` -> `evals.runs.retrieve(...)` to terminal status.
-                - `for await...of evals.runs.outputItems.list(...)` -> every output item.
-                - Evaluator `context` -> selected retrieval service results.
+                - Evaluation definition -> groundedness + relevance evaluators in an
+                  extensible collection.
+                - Evaluator and model configuration matches the selected API schema
+                  (for example, Azure evaluator deployments use `deployment_name` when
+                  that is the documented field).
+                - Evaluation run -> retrieve or poll to terminal status.
+                - Traverse every returned output item and report every metric.
+                - Evaluator `context` -> results returned by the selected retrieval service,
+                  not hand-authored dataset context.
               weight: 1
               pass_threshold: 1
             - name: prompt/uses-entra-identity-and-external-configuration
@@ -203,25 +213,31 @@ stimuli:
               description: |-
                 - `pollUntilDone()` or deadline + delayed polling.
                 - Handle `failed`, `cancelled`/`canceled`, timeout.
-                - Inspect `RestError.statusCode` or `APIError.status`.
+                - Narrow service failures to the selected SDK's structured error type and
+                  inspect its status or error code before producing actionable diagnostics
+                  (for example, `RestError.statusCode` or `APIError.status`).
                 No unbounded or delay-free polling.
               weight: 1
               pass_threshold: 1
             - name: prompt/cleans-up-created-cloud-resources-safely
               description: |-
-                - Foundry file search: conversation items -> conversation -> agent/version ->
-                  vector store -> files.
-                - Azure AI Search: application-owned documents or application-owned index only.
-                - Clear persisted ownership after remote deletion succeeds.
+                - Delete only application-owned resources created by the selected retrieval
+                  and conversation path, in a dependency-safe order.
+                - Preserve persisted resource ownership until remote deletion succeeds.
+                - A failed cleanup or replacement must retain enough ownership information
+                  for a later retry; it must not orphan the previous resources.
               weight: 1
               pass_threshold: 1
             - name: prompt/includes-meaningful-offline-automated-tests
               description: |-
-                `npm test` -> real HTTP service + orchestration with mocked Azure clients:
+                Executable `npm test` tests exercise HTTP routes and orchestration with
+                mocked or fake Azure clients. Test assertions cover:
                 - employee conversation isolation and follow-up context;
                 - unknown or mismatched feedback rejection;
                 - evaluator context from retrieved results;
-                - durable-write failure recovery or compensation.
+                - durable multi-record writes being atomic, or failure recovery/compensation
+                  when atomic writes are not used.
+                Declared mocks, test doubles, or unexecuted helper code are not evidence.
               weight: 1
               pass_threshold: 1
             - name: prompt/excludes-provisioning-and-deployment
@@ -251,7 +267,11 @@ stimuli:
               pass_threshold: 1
             - name: language/pagination-with-for-await-of
               description: |-
-                List/query operations use for-await-of iteration over the PagedAsyncIterableIterator returned by SDK methods. Does not collect all pages into an array in memory (e.g., no Array.from() or manual page accumulation). Uses byPage() when per-page control is needed.
+                Potentially large or unbounded list/query operations consume results
+                incrementally using the SDK's async iterator, `byPage()`, `fetchNext()`, or
+                continuation-token equivalent. `fetchAll()` or array materialization is
+                acceptable only when the query is demonstrably bounded to a small result
+                set, such as a point lookup or `TOP 1`.
               weight: 1
               pass_threshold: 1
             - name: language/lro-pattern-beginxxx-polluntildone
