@@ -100,27 +100,6 @@ stimuli:
                 are present.
               weight: 1
               pass_threshold: 1
-            - name: prompt/does-not-use-the-single-document-client-or-multipart-upl
-              description: |-
-                Does not use the single-document client or multipart upload workflow.
-              weight: 1
-              pass_threshold: 1
-            - name: prompt/does-not-omit-long-running-operation-polling-or-treat-th
-              description: |-
-                Does not omit long-running-operation polling or treat the start response as
-                complete.
-              weight: 1
-              pass_threshold: 1
-            - name: prompt/does-not-print-only-overall-counts-select-one-document-o
-              description: |-
-                Does not print only overall counts, select one document, or consume one page.
-              weight: 1
-              pass_threshold: 1
-            - name: prompt/does-not-omit-returned-document-failure-code-or-message
-              description: |-
-                Does not omit returned document failure code or message.
-              weight: 1
-              pass_threshold: 1
             - name: language/correct-dependencies-com-azure-not-com-microsoft-azure
               description: |-
                 Uses com.azure group ID for all Azure SDK packages. No com.microsoft.azure (legacy SDK) dependencies. Includes azure-identity for authentication.

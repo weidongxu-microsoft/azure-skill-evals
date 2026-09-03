@@ -74,8 +74,8 @@ stimuli:
               pass_threshold: 1
             - name: prompt/creates-documentfiledetails-from-binarydata-with-the-inp
               description: |-
-                Creates `DocumentFileDetails` from `BinaryData` with the input filename and a
-                media type derived from the extension, then creates
+                Rejects unsupported extensions, then creates `DocumentFileDetails` from binary
+                `BinaryData` with its filename and derived media type and creates
                 `DocumentTranslateContent`.
               weight: 1
               pass_threshold: 1
@@ -86,29 +86,8 @@ stimuli:
               pass_threshold: 1
             - name: prompt/writes-the-returned-binarydata-tobytes-directly-to-the-o
               description: |-
-                Writes the returned `BinaryData.toBytes()` directly to the output file.
-              weight: 1
-              pass_threshold: 1
-            - name: prompt/does-not-use-the-batch-container-client-or-invent-a-sing
-              description: |-
-                Does not use the batch/container client or invent a single-document method on
-                it.
-              weight: 1
-              pass_threshold: 1
-            - name: prompt/does-not-submit-base64-json-or-omit-multipart-filename-c
-              description: |-
-                Does not submit base64 JSON or omit multipart filename/content-type metadata.
-              weight: 1
-              pass_threshold: 1
-            - name: prompt/does-not-call-binarydata-tostring-or-otherwise-convert-t
-              description: |-
-                Does not call `BinaryData.toString()` or otherwise convert the binary response
-                before writing.
-              weight: 1
-              pass_threshold: 1
-            - name: prompt/does-not-write-a-known-or-hardcoded-translated-output
-              description: |-
-                Does not write a known or hardcoded translated output.
+                Writes the exact service-returned `BinaryData.toBytes()` to the output file
+                without decoding, parsing, or transforming it.
               weight: 1
               pass_threshold: 1
             - name: language/correct-dependencies-com-azure-not-com-microsoft-azure

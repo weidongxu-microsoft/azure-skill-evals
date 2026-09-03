@@ -64,9 +64,10 @@ stimuli:
           criteria:
             - name: prompt/passes-the-four-supplied-values-to-texttranslationclient
               description: |-
-                Passes the four supplied values to
-                `TextTranslationClient.TransliterateAsync(language, fromScript, toScript,
-                text)` without swapping the script codes.
+                Uses `TextTranslationClient` from `Azure.AI.Translation.Text` 2.0.0 and passes the
+                four supplied values to
+                `TransliterateAsync(language, fromScript, toScript, text)` without swapping the
+                script codes.
               weight: 1
               pass_threshold: 1
             - name: prompt/reads-a-returned-transliteratedtext-rather-than-a-transl
@@ -76,24 +77,8 @@ stimuli:
               pass_threshold: 1
             - name: prompt/prints-both-transliteratedtext-text-and-transliteratedte
               description: |-
-                Prints both `TransliteratedText.Text` and `TransliteratedText.Script`.
-              weight: 1
-              pass_threshold: 1
-            - name: prompt/does-not-call-translateasync-invent-a-transliteration-op
-              description: |-
-                Does not call `TranslateAsync`, invent a transliteration operation group, or use
-                an obsolete package/API.
-              weight: 1
-              pass_threshold: 1
-            - name: prompt/does-not-swap-fromscript-and-toscript
-              description: |-
-                Does not swap `fromScript` and `toScript`.
-              weight: 1
-              pass_threshold: 1
-            - name: prompt/does-not-echo-the-input-text-or-requested-target-script
-              description: |-
-                Does not echo the input text or requested target-script code as if they were
-                returned output.
+                Prints both `TransliteratedText.Text` and `TransliteratedText.Script` read from the
+                service-returned result rather than echoing the input text or target-script code.
               weight: 1
               pass_threshold: 1
             - name: language/azure-identity-authentication

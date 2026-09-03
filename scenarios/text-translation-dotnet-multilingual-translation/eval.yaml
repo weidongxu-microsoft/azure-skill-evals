@@ -72,34 +72,19 @@ stimuli:
               pass_threshold: 1
             - name: prompt/calls-texttranslationclient-translateasync-exactly-once
               description: |-
-                Calls `TextTranslationClient.TranslateAsync` exactly once for the input item.
+                Uses `TextTranslationClient` from `Azure.AI.Translation.Text` 2.0.0 and calls
+                `TranslateAsync` exactly once for the input item through the current client API.
               weight: 1
               pass_threshold: 1
             - name: prompt/reads-translatedtextitem-detectedlanguage-language-and-t
               description: |-
-                Reads `TranslatedTextItem.DetectedLanguage.Language` and traverses every
+                Prints `TranslatedTextItem.DetectedLanguage.Language` and traverses every
                 `TranslationText` in `Translations`.
               weight: 1
               pass_threshold: 1
             - name: prompt/prints-each-translation-s-returned-language-and-text-val
               description: |-
                 Prints each translation's returned `Language` and `Text` values.
-              weight: 1
-              pass_threshold: 1
-            - name: prompt/does-not-invent-a-translations-operation-group-or-use-an
-              description: |-
-                Does not invent a translations operation group or use an obsolete package/API.
-              weight: 1
-              pass_threshold: 1
-            - name: prompt/does-not-make-separate-requests-for-french-and-japanese
-              description: |-
-                Does not make separate requests for French and Japanese or request only one
-                target.
-              weight: 1
-              pass_threshold: 1
-            - name: prompt/does-not-hardcode-the-detected-language-target-labels-or
-              description: |-
-                Does not hardcode the detected language, target labels, or translated output.
               weight: 1
               pass_threshold: 1
             - name: language/azure-identity-authentication

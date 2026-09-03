@@ -75,20 +75,22 @@ stimuli:
               description: |-
                 Gets `EvaluationClient` from
                 `projectClient.ProjectOpenAIClient.GetEvaluationClient()` rather than inventing an
-                AI Projects evaluations operation group.
+                AI Projects evaluations operation group, and uses this service Evals API rather
+                than a chat completion or locally calculated F1 score.
               weight: 1
               pass_threshold: 1
             - name: prompt/creates-the-evaluation-with-createevaluationasync-a-cust
               description: |-
-                Creates the evaluation with `CreateEvaluationAsync`, a custom schema, and an
-                `azure_ai_evaluator` criterion whose evaluator name is `builtin.f1_score` and
-                whose data mapping references the required item fields.
+                Creates `hyoka-f1-evaluation` with `CreateEvaluationAsync` and:
+                - A custom schema with string fields `query`, `response`, and `ground_truth`.
+                - An `azure_ai_evaluator` for `builtin.f1_score` mapping `response` and
+                  `ground_truth` to those item fields.
               weight: 1
               pass_threshold: 1
             - name: prompt/calls-createevaluationrunasync-with-the-created-evaluati
               description: |-
-                Calls `CreateEvaluationRunAsync` with the created evaluation ID and an inline
-                `jsonl`/`file_content` source containing the exact item.
+                Creates `hyoka-f1-run` with `CreateEvaluationRunAsync`, the created evaluation ID,
+                and an inline `jsonl`/`file_content` source containing the exact required item.
               weight: 1
               pass_threshold: 1
             - name: prompt/polls-through-getevaluationrunasync-until-an-explicit-te
@@ -99,35 +101,15 @@ stimuli:
               pass_threshold: 1
             - name: prompt/uses-getevaluationrunoutputitemsasync-pagination-and-tra
               description: |-
-                Uses `GetEvaluationRunOutputItemsAsync` pagination and traverses each output
-                item's returned results to print metric name, score, and passed state.
+                Traverses every `GetEvaluationRunOutputItemsAsync` page and, for each output item:
+                - Prints its returned ID and status.
+                - Prints the metric name, score, and passed state read from every returned result
+                  object.
               weight: 1
               pass_threshold: 1
             - name: prompt/deletes-the-evaluation-with-its-exact-id
               description: |-
                 Deletes the evaluation with its exact ID.
-              weight: 1
-              pass_threshold: 1
-            - name: prompt/does-not-invent-projectclient-evaluations-or-assume-the
-              description: |-
-                Does not invent `projectClient.Evaluations` or assume the create-run response is
-                terminal.
-              weight: 1
-              pass_threshold: 1
-            - name: prompt/does-not-hardcode-a-metric-name-score-or-pass-result-ins
-              description: |-
-                Does not hardcode a metric name, score, or pass result instead of traversing
-                returned result objects.
-              weight: 1
-              pass_threshold: 1
-            - name: prompt/does-not-omit-output-item-pagination-or-print-only-the-r
-              description: |-
-                Does not omit output-item pagination or print only the run's aggregate counts.
-              weight: 1
-              pass_threshold: 1
-            - name: prompt/does-not-substitute-a-chat-completion-call-or-locally-ca
-              description: |-
-                Does not substitute a chat completion call or locally calculate F1.
               weight: 1
               pass_threshold: 1
             - name: language/azure-identity-authentication

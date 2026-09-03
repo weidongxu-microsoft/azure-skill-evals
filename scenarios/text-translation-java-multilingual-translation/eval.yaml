@@ -74,34 +74,19 @@ stimuli:
               pass_threshold: 1
             - name: prompt/calls-texttranslationclient-translate-exactly-once-with
               description: |-
-                Calls `TextTranslationClient.translate` exactly once with the input item.
+                Uses `TextTranslationClient` from `com.azure:azure-ai-translation-text` 2.0.2 and
+                calls `translate` exactly once with the input item through the current client API.
               weight: 1
               pass_threshold: 1
             - name: prompt/reads-translatedtextitem-getdetectedlanguage-getlanguage
               description: |-
-                Reads `TranslatedTextItem.getDetectedLanguage().getLanguage()` and traverses
+                Prints `TranslatedTextItem.getDetectedLanguage().getLanguage()` and traverses
                 every `TranslationText` returned by `getTranslations()`.
               weight: 1
               pass_threshold: 1
             - name: prompt/prints-each-translation-s-returned-getlanguage-and-gette
               description: |-
                 Prints each translation's returned `getLanguage()` and `getText()` values.
-              weight: 1
-              pass_threshold: 1
-            - name: prompt/does-not-invent-a-translations-operation-group-or-use-an
-              description: |-
-                Does not invent a translations operation group or use an obsolete package/API.
-              weight: 1
-              pass_threshold: 1
-            - name: prompt/does-not-make-separate-requests-for-french-and-japanese
-              description: |-
-                Does not make separate requests for French and Japanese or request only one
-                target.
-              weight: 1
-              pass_threshold: 1
-            - name: prompt/does-not-hardcode-the-detected-language-target-labels-or
-              description: |-
-                Does not hardcode the detected language, target labels, or translated output.
               weight: 1
               pass_threshold: 1
             - name: language/correct-dependencies-com-azure-not-com-microsoft-azure

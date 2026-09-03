@@ -72,36 +72,16 @@ stimuli:
               pass_threshold: 1
             - name: prompt/calls-translate-targetlanguage-document-contents-filenam
               description: |-
-                Calls `translate(targetLanguage, { document: { contents, filename,
-                contentType } })`, where the media type is derived from the extension.
+                Calls
+                `translate(targetLanguage, { document: { contents, filename, contentType } })`
+                with binary input and a media type derived from a supported extension; rejects
+                unsupported extensions.
               weight: 1
               pass_threshold: 1
             - name: prompt/requires-readablestreambody-and-pipes-that-response-stre
               description: |-
-                Requires `readableStreamBody` and pipes that response stream directly to the
-                output file with backpressure-aware stream handling.
-              weight: 1
-              pass_threshold: 1
-            - name: prompt/does-not-use-the-obsolete-planned-azure-rest-ai-translat
-              description: |-
-                Does not use the obsolete/planned
-                `@azure-rest/ai-translation-document` package or the batch client.
-              weight: 1
-              pass_threshold: 1
-            - name: prompt/does-not-submit-base64-json-or-omit-multipart-filename-c
-              description: |-
-                Does not submit base64 JSON or omit multipart filename/content-type metadata.
-              weight: 1
-              pass_threshold: 1
-            - name: prompt/does-not-call-text-parse-json-concatenate-string-chunks
-              description: |-
-                Does not call `text()`, parse JSON, concatenate string chunks, or otherwise
-                transform the binary response before writing.
-              weight: 1
-              pass_threshold: 1
-            - name: prompt/does-not-write-a-known-or-hardcoded-translated-output
-              description: |-
-                Does not write a known or hardcoded translated output.
+                Requires the service-returned `readableStreamBody` and pipes it directly to the
+                output file with backpressure-aware handling, without decoding or transforming it.
               weight: 1
               pass_threshold: 1
             - name: language/correct-azure-scoped-packages

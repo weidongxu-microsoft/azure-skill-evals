@@ -73,13 +73,15 @@ stimuli:
           criteria:
             - name: prompt/uploads-filedetails-through-uploadfilerequest-with-filep
               description: |-
-                Uploads `FileDetails` through `UploadFileRequest` with `FilePurpose.AGENTS`.
+                Creates a document containing the exact required fact and uploads its `FileDetails`
+                through `UploadFileRequest` with `FilePurpose.AGENTS`.
               weight: 1
               pass_threshold: 1
             - name: prompt/creates-a-vector-store-with-the-uploaded-file-id-polls-i
               description: |-
                 Creates a vector store with the uploaded file ID, polls its status while indexing,
-                and requires `VectorStoreStatus.COMPLETED`.
+                and requires `VectorStoreStatus.COMPLETED` before creating the run. Fails if
+                indexing ends unsuccessfully.
               weight: 1
               pass_threshold: 1
             - name: prompt/adds-both-filesearchtooldefinition-and-filesearchtoolres
@@ -90,37 +92,23 @@ stimuli:
               pass_threshold: 1
             - name: prompt/creates-the-thread-exact-grounded-question-and-run-with
               description: |-
-                Creates the thread, exact grounded question, and run with the created IDs.
+                Creates the thread with the exact grounded question unchanged, without adding a
+                local path or uploaded file ID, and creates the run with the file-search-configured
+                agent.
               weight: 1
               pass_threshold: 1
             - name: prompt/polls-the-run-through-queued-and-in-progress-states-requ
               description: |-
                 Polls the run through queued and in-progress states, requires
-                `RunStatus.COMPLETED`, and retrieves ascending `MessageRole.AGENT` text through
-                `MessageTextContent`.
+                `RunStatus.COMPLETED`, and prints text read from returned ascending
+                `MessageRole.AGENT` `MessageTextContent`. Printing the known document fact directly
+                from local code does not satisfy this criterion.
               weight: 1
               pass_threshold: 1
             - name: prompt/deletes-the-thread-before-the-agent-then-deletes-the-vec
               description: |-
                 Deletes the thread before the agent, then deletes the vector store before the
                 uploaded file.
-              weight: 1
-              pass_threshold: 1
-            - name: prompt/does-not-put-a-local-file-path-or-uploaded-file-id-direc
-              description: |-
-                Does not put a local file path or uploaded file ID directly in the user message as
-                a substitute for file-search tool resources.
-              weight: 1
-              pass_threshold: 1
-            - name: prompt/does-not-start-the-run-before-vector-store-indexing-comp
-              description: |-
-                Does not start the run before vector-store indexing completes.
-              weight: 1
-              pass_threshold: 1
-            - name: prompt/does-not-print-the-known-document-fact-directly-as-thoug
-              description: |-
-                Does not print the known document fact directly as though it were the agent's
-                grounded response.
               weight: 1
               pass_threshold: 1
             - name: language/correct-dependencies-com-azure-not-com-microsoft-azure

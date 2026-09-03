@@ -73,54 +73,35 @@ stimuli:
             - name: prompt/creates-aiprojectclient-and-calls-datasets-uploadfileasy
               description: |-
                 Creates `AIProjectClient` and calls `Datasets.UploadFileAsync` with the supplied
-                name, version, and file path.
+                name, version, and file path, using the project dataset API rather than a direct
+                HTTP upload.
               weight: 1
               pass_threshold: 1
             - name: prompt/calls-datasets-getdatasetasync-with-the-same-name-and-ve
               description: |-
                 Calls `Datasets.GetDatasetAsync` with the same name and version and prints typed
-                `AIProjectDataset` metadata, including its concrete dataset type and `DataUri`.
+                `AIProjectDataset` name, version, ID, concrete type, and `DataUri`.
               weight: 1
               pass_threshold: 1
             - name: prompt/calls-datasets-getcredentialsasync-for-that-exact-versio
               description: |-
                 Calls `Datasets.GetCredentialsAsync` for that exact version, uses
                 `DatasetCredential.BlobReference.BlobUri` plus its SAS credential to address the
-                correct blob, and downloads it through `BlobContainerClient`/`BlobClient`.
+                correct blob, and downloads it through `BlobContainerClient`/`BlobClient`, not an
+                invented dataset download API or direct HTTP call, without displaying the SAS URI.
               weight: 1
               pass_threshold: 1
             - name: prompt/persists-the-blob-at-download-file-path-compares-its-byt
               description: |-
-                Persists the blob at `DOWNLOAD_FILE_PATH`, compares its bytes with the original
-                file, and prints a byte count derived from the verified download.
+                Persists the Blob SDK's downloaded bytes at `DOWNLOAD_FILE_PATH`, compares them
+                with the original file, fails on a mismatch, and prints their byte count only after
+                verification succeeds.
               weight: 1
               pass_threshold: 1
             - name: prompt/calls-datasets-deleteasync-with-the-exact-name-and-versi
               description: |-
-                Calls `Datasets.DeleteAsync` with the exact name and version in cleanup after a
-                successful upload.
-              weight: 1
-              pass_threshold: 1
-            - name: prompt/does-not-invent-a-datasets-download-or-datasets-download
-              description: |-
-                Does not invent a `Datasets.Download` or `Datasets.DownloadAsync` API.
-              weight: 1
-              pass_threshold: 1
-            - name: prompt/does-not-print-the-sas-uri-hardcode-downloaded-content-o
-              description: |-
-                Does not print the SAS URI, hardcode downloaded content, or skip the byte
-                comparison.
-              weight: 1
-              pass_threshold: 1
-            - name: prompt/does-not-replace-the-project-dataset-upload-or-storage-b
-              description: |-
-                Does not replace the project dataset upload or Storage Blob download with direct
-                HTTP calls.
-              weight: 1
-              pass_threshold: 1
-            - name: prompt/does-not-delete-only-by-dataset-name-or-omit-cleanup-on
-              description: |-
-                Does not delete only by dataset name or omit cleanup on a post-upload failure.
+                After any successful upload, calls `Datasets.DeleteAsync` with the exact name and
+                version, including when later retrieval or download fails.
               weight: 1
               pass_threshold: 1
             - name: language/azure-identity-authentication
