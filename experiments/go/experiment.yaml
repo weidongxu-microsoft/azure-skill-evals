@@ -4,6 +4,7 @@ evals:
   - ../../scenarios/app-configuration-go-feature-flags/eval.yaml
   - ../../scenarios/cosmos-db-go-crud/eval.yaml
   - ../../scenarios/cosmos-db-go-error-handling/eval.yaml
+  - ../../scenarios/cosmos-db-go-pagination-query-items/eval.yaml
   - ../../scenarios/storage-go-account-mgmt/eval.yaml
   - ../../scenarios/resource-manager-go-resource-group-crud/eval.yaml
   - ../../scenarios/identity-go-service-principal-auth/eval.yaml
