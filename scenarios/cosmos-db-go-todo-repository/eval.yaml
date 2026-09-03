@@ -1,0 +1,93 @@
+name: cosmos-db-go-todo-repository
+description: Compare Azure tooling for a production-oriented Cosmos DB Go repository
+version: "1.0"
+type: capability
+environment:
+  files:
+    - src: ../../eval-workspace.gitignore
+      dest: .gitignore
+    - src: ../../eval-workspace-AGENTS.md
+      dest: AGENTS.md
+scoring:
+  weights: {}
+defaults:
+  runs: 1
+  timeout: 30m
+  model: gpt-5.6-sol
+  judge_model: gpt-5.6-sol
+stimuli:
+  - name: cosmos-db-dp-go-todo-repository
+    prompt: |-
+      Create a Go project implementing a ToDo CRUD repository backed by Azure Cosmos DB for NoSQL.
+
+      **Write the code to files (use file-write tools, do not reply with code blocks).**
+
+      Define a ToDo model with id, title, description, completed status, created timestamp, category partition key, and ETag. Implement create, read, update, delete, and query-by-category operations. Log each operation's request charge. Prevent lost updates by passing the ETag read with the item as an If-Match condition and report HTTP 412 as a clear conflict. Use a parameterized query and process every pager page, logging item count, continuation token, and RU charge per page.
+
+      Connect using an endpoint from `AZURE_COSMOS_ENDPOINT` and `DefaultAzureCredential`. Create the database and container when absent, tolerating 409 conflicts. Configure a 90-day default TTL and exclude `/description/?` from indexing. Demonstrate the CRUD lifecycle in main.
+
+      Use current first-party Azure SDK for Go modules, context-aware APIs, and typed Azure errors. Include root `go.mod` and `go.sum`.
+    tags:
+      service: cosmos-db
+      plane: data-plane
+      language: go
+      category: crud
+    graders:
+      - type: panel
+        name: prompt/full-case-review
+        weight: 1
+        config:
+          prompt: |-
+            Review the generated implementation against every criterion.
+            Score each criterion independently. Accept equivalent valid
+            implementations and judge code behavior rather than syntax.
+            Return every criterion name exactly as provided. The criterion
+            value must start with "prompt/" or "language/". Never copy a rubric
+            list number into the criterion value. For example, return
+            "prompt/foo", never "1. prompt/foo".
+          models:
+            - gpt-5.6-sol
+          aggregation: unanimous
+          scoring: binary
+          threshold: 0
+          overall_threshold: 0
+          evidence:
+            - trajectory
+            - repo
+          criteria:
+            - name: prompt/model-and-category-partition-key
+              description: Defines all requested ToDo fields including ETag and consistently uses `/category` with partition keys for point operations.
+              weight: 1
+              pass_threshold: 1
+            - name: prompt/default-credential-and-container-policy
+              description: Uses DefaultAzureCredential, tolerates typed 409 conflicts, sets TTL to 7776000 seconds, and excludes `/description/?` from indexing.
+              weight: 1
+              pass_threshold: 1
+            - name: prompt/crud-and-request-charges
+              description: Implements all CRUD methods and logs `RequestCharge` from each response.
+              weight: 1
+              pass_threshold: 1
+            - name: prompt/etag-optimistic-concurrency
+              description: Captures response ETag, passes it through `ItemOptions.IfMatchEtag` on replacement, and identifies HTTP 412 conflicts clearly.
+              weight: 1
+              pass_threshold: 1
+            - name: prompt/parameterized-paged-query
+              description: Uses `QueryParameters`, a bounded `PageSizeHint`, fully iterates the pager, and logs per-page count, continuation token, and RU charge.
+              weight: 1
+              pass_threshold: 1
+            - name: prompt/context-and-typed-errors
+              description: Uses context-aware SDK calls and structured `*azcore.ResponseError` handling for 404, 409, and 412 cases.
+              weight: 1
+              pass_threshold: 1
+      - type: run-command
+        name: program/go-project-tests
+        config:
+          command: go
+          args:
+            - test
+            - -mod=readonly
+            - ./...
+          timeout: 3m
+artifacts:
+  include: ["**/*.go", "**/go.mod", "**/go.sum", "**/README.md"]
+  exclude: ["**/.vally/**", "**/vendor/**", "**/*.test"]

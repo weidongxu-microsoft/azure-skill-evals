@@ -1,0 +1,110 @@
+name: app-configuration-go-feature-flags
+description: Compare Azure tooling for an App Configuration Go feature flag task
+version: "1.0"
+type: capability
+environment:
+  files:
+    - src: ../../eval-workspace.gitignore
+      dest: .gitignore
+    - src: ../../eval-workspace-AGENTS.md
+      dest: AGENTS.md
+scoring:
+  weights: {}
+defaults:
+  runs: 1
+  timeout: 30m
+  model: gpt-5.6-sol
+  judge_model: gpt-5.6-sol
+stimuli:
+  - name: app-configuration-dp-go-feature-flags
+    prompt: |-
+      Create a Go project that implements a feature flag and configuration management system backed by Azure App Configuration.
+
+      **Write the code to files (use file-write tools, do not reply with code blocks).**
+
+      The project needs:
+
+      - A configuration service that retrieves settings from App Configuration. It should support fetching a single setting by key, fetching a setting with a specific label (to distinguish environments like "production" vs "staging"), and listing all settings that match a key prefix (returned as a map). It should also avoid re-downloading values that have not changed since the last read by using ETag-based conditional requests.
+
+      - A feature flag evaluator that reads feature flags from App Configuration. Feature flags use the `.appconfig.featureflag/` key prefix and store their state as a JSON payload. The evaluator should check whether a flag is enabled and support percentage-based rollout. For percentage rollout, deterministically decide whether a user ID is included using a consistent cryptographic hash so the same user always gets the same result.
+
+      - A configuration watcher that periodically polls a configurable list of sentinel keys. When a sentinel's ETag or value changes, trigger a full refresh of all cached configuration.
+
+      - A main program that connects to the endpoint from `AZURE_APPCONFIG_ENDPOINT` using `DefaultAzureCredential`, reads labeled and prefix-filtered settings, evaluates a feature flag for sample user IDs, and runs the watcher until the context is canceled.
+
+      Use the current first-party Azure SDK for Go modules, context-aware APIs, and structured Azure error handling. Include a root `go.mod` and `go.sum`.
+    tags:
+      service: app-configuration
+      plane: data-plane
+      language: go
+      category: crud
+    graders:
+      - type: panel
+        name: prompt/full-case-review
+        weight: 1
+        config:
+          prompt: |-
+            Review the generated implementation against every criterion.
+            Score each criterion independently. Accept equivalent valid
+            implementations and judge code behavior rather than syntax.
+            Return every criterion name exactly as provided. The criterion
+            value must start with "prompt/" or "language/". Never copy a rubric
+            list number into the criterion value. For example, return
+            "prompt/foo", never "1. prompt/foo".
+          models:
+            - gpt-5.6-sol
+          aggregation: unanimous
+          scoring: binary
+          threshold: 0
+          overall_threshold: 0
+          evidence:
+            - trajectory
+            - repo
+          criteria:
+            - name: prompt/current-go-sdk-and-default-credential
+              description: Uses `azappconfig` with `azidentity.NewDefaultAzureCredential()` and reads the endpoint from the environment.
+              weight: 1
+              pass_threshold: 1
+            - name: prompt/single-labeled-and-prefix-setting-reads
+              description: Supports single-key and labeled reads plus `NewListSettingsPager()` with a key-prefix filter, returning all pages as a map.
+              weight: 1
+              pass_threshold: 1
+            - name: prompt/etag-conditional-caching
+              description: Caches settings with their ETags and uses `GetSettingOptions.OnlyIfChanged` to avoid downloading unchanged values.
+              weight: 1
+              pass_threshold: 1
+            - name: prompt/feature-flag-json-representation
+              description: Reads `.appconfig.featureflag/` settings and parses their JSON payload, including enabled state and percentage filters.
+              weight: 1
+              pass_threshold: 1
+            - name: prompt/deterministic-percentage-rollout
+              description: Uses a stable cryptographic hash of flag and user identity for deterministic percentage rollout, not randomness.
+              weight: 1
+              pass_threshold: 1
+            - name: prompt/sentinel-watcher-refresh
+              description: Polls configurable sentinel keys and interval, detects ETag or value changes, and performs a full cached-prefix refresh.
+              weight: 1
+              pass_threshold: 1
+            - name: prompt/context-and-typed-errors
+              description: Uses contexts for SDK calls and cancellation and handles `*azcore.ResponseError` with structured status/code details.
+              weight: 1
+              pass_threshold: 1
+      - type: run-command
+        name: program/go-project-tests
+        config:
+          command: go
+          args:
+            - test
+            - -mod=readonly
+            - ./...
+          timeout: 3m
+artifacts:
+  include:
+    - "**/*.go"
+    - "**/go.mod"
+    - "**/go.sum"
+    - "**/README.md"
+  exclude:
+    - "**/.vally/**"
+    - "**/vendor/**"
+    - "**/*.test"

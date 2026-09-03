@@ -1,0 +1,97 @@
+name: key-vault-go-pagination-list-secrets
+description: Compare Azure tooling for a Go Key Vault secret pagination task
+version: "1.0"
+type: capability
+environment:
+  files:
+    - src: ../../eval-workspace.gitignore
+      dest: .gitignore
+    - src: ../../eval-workspace-AGENTS.md
+      dest: AGENTS.md
+scoring:
+  weights: {}
+defaults:
+  runs: 1
+  timeout: 30m
+  model: gpt-5.6-sol
+  judge_model: gpt-5.6-sol
+stimuli:
+  - name: key-vault-dp-go-pagination
+    prompt: |-
+      Write a complete Go program that lists all secrets in an Azure Key Vault that can
+      contain hundreds of secrets. Use the current first-party `azsecrets`, `azidentity`,
+      and `azcore` modules, `DefaultAzureCredential`, and a vault URL from environment
+      configuration. Use `NewListSecretPropertiesPager` with an explicit page loop.
+      Print each secret's name, content type, enabled status, and created date, and call
+      out disabled secrets without reading secret values. Handle page-level failures as
+      typed `*azcore.ResponseError` values. Explain the Go pager abstraction and do not
+      invent separate sync and async variants; Go uses one context-based API. Include
+      root `go.mod` and `go.sum` files.
+    tags:
+      service: key-vault
+      plane: data-plane
+      language: go
+      category: pagination
+    graders:
+      - type: panel
+        name: prompt/full-case-review
+        weight: 1
+        config:
+          prompt: |-
+            Review the generated implementation against every criterion.
+            Score each criterion independently. Accept equivalent valid
+            implementations and judge code behavior rather than syntax.
+            Return every criterion name exactly as provided. The criterion
+            value must start with "prompt/" or "language/". Never copy a rubric
+            list number into the criterion value. For example, return
+            "prompt/foo", never "1. prompt/foo".
+          models:
+            - gpt-5.6-sol
+          aggregation: unanimous
+          scoring: binary
+          threshold: 0
+          overall_threshold: 0
+          evidence:
+            - trajectory
+            - repo
+          criteria:
+            - name: prompt/current-sdk-default-credential-and-vault-config
+              description: Uses current first-party modules, `DefaultAzureCredential`, and a vault URL read from environment configuration.
+              weight: 1
+              pass_threshold: 1
+            - name: prompt/list-secret-properties-pager
+              description: Uses `Client.NewListSecretPropertiesPager` and explicitly loops through every page with context.
+              weight: 1
+              pass_threshold: 1
+            - name: prompt/prints-required-secret-metadata
+              description: Prints name, content type, enabled status, and created date from exact Go `SecretProperties` fields without reading values.
+              weight: 1
+              pass_threshold: 1
+            - name: prompt/disabled-secret-handling
+              description: Explicitly identifies disabled secrets while safely handling nil metadata pointers.
+              weight: 1
+              pass_threshold: 1
+            - name: prompt/page-level-typed-errors
+              description: Handles `NextPage` failures using `errors.As` with `*azcore.ResponseError` and reports status and error code.
+              weight: 1
+              pass_threshold: 1
+            - name: prompt/one-context-based-go-pager
+              description: Correctly explains and uses Go's one context-based generic pager without fabricated sync and async variants.
+              weight: 1
+              pass_threshold: 1
+            - name: prompt/complete-runnable-project
+              description: Includes a complete runnable Go project with pinned module dependencies.
+              weight: 1
+              pass_threshold: 1
+      - type: run-command
+        name: program/go-project-tests
+        config:
+          command: go
+          args:
+            - test
+            - -mod=readonly
+            - ./...
+          timeout: 3m
+artifacts:
+  include: ["**/*.go", "**/go.mod", "**/go.sum", "**/README.md"]
+  exclude: ["**/.vally/**", "**/vendor/**", "**/*.test"]

@@ -1,0 +1,101 @@
+name: key-vault-go-error-handling
+description: Compare Azure tooling for a Go Key Vault error-handling task
+version: "1.0"
+type: capability
+environment:
+  files:
+    - src: ../../eval-workspace.gitignore
+      dest: .gitignore
+    - src: ../../eval-workspace-AGENTS.md
+      dest: AGENTS.md
+scoring:
+  weights: {}
+defaults:
+  runs: 1
+  timeout: 30m
+  model: gpt-5.6-sol
+  judge_model: gpt-5.6-sol
+stimuli:
+  - name: key-vault-dp-go-error-handling
+    prompt: |-
+      How do I properly handle errors when working with Azure Key Vault secrets in Go?
+      Create a complete runnable project using the current first-party `azsecrets`,
+      `azidentity`, and `azcore` modules. Read the vault URL from environment
+      configuration, authenticate without hardcoded credentials, and use contexts.
+      Demonstrate typed `*azcore.ResponseError` handling for access denied (403), secret
+      not found (404), conflicts including soft-delete and purge-protection scenarios
+      (409), and throttling (429). Extract status, service error code, and retry-after
+      headers where available. Configure the SDK retry policy and provide safe Azure SDK
+      diagnostics/logging guidance. Include root `go.mod` and `go.sum` files.
+    tags:
+      service: key-vault
+      plane: data-plane
+      language: go
+      category: error-handling
+    graders:
+      - type: panel
+        name: prompt/full-case-review
+        weight: 1
+        config:
+          prompt: |-
+            Review the generated implementation against every criterion.
+            Score each criterion independently. Accept equivalent valid
+            implementations and judge code behavior rather than syntax.
+            Return every criterion name exactly as provided. The criterion
+            value must start with "prompt/" or "language/". Never copy a rubric
+            list number into the criterion value. For example, return
+            "prompt/foo", never "1. prompt/foo".
+          models:
+            - gpt-5.6-sol
+          aggregation: unanimous
+          scoring: binary
+          threshold: 0
+          overall_threshold: 0
+          evidence:
+            - trajectory
+            - repo
+          criteria:
+            - name: prompt/current-key-vault-go-sdk
+              description: Uses current first-party `azsecrets`, `azidentity`, and `azcore` modules with vault configuration from the environment.
+              weight: 1
+              pass_threshold: 1
+            - name: prompt/typed-response-error-status-and-code
+              description: Handles failures with `errors.As` to `*azcore.ResponseError` and reports status and service error code.
+              weight: 1
+              pass_threshold: 1
+            - name: prompt/handles-403-and-404
+              description: Diagnoses 403 RBAC/access-policy failures and distinguishes a missing secret from a soft-deleted secret on 404.
+              weight: 1
+              pass_threshold: 1
+            - name: prompt/handles-409-soft-delete-and-purge
+              description: Handles 409 conflict scenarios and explains soft-delete and purge-protection implications.
+              weight: 1
+              pass_threshold: 1
+            - name: prompt/handles-429-retry-after
+              description: Handles 429 and extracts `Retry-After` or `x-ms-retry-after-ms` from the raw response when available.
+              weight: 1
+              pass_threshold: 1
+            - name: prompt/sdk-retry-configuration
+              description: Configures retry count, delay, maximum delay, and per-try timeout through `azsecrets.ClientOptions`.
+              weight: 1
+              pass_threshold: 1
+            - name: prompt/safe-diagnostics-guidance
+              description: Provides actionable Azure SDK logging guidance while warning against exposing secret values or authorization data.
+              weight: 1
+              pass_threshold: 1
+            - name: prompt/context-aware-runnable-project
+              description: Provides a complete runnable project using context-aware Key Vault operations.
+              weight: 1
+              pass_threshold: 1
+      - type: run-command
+        name: program/go-project-tests
+        config:
+          command: go
+          args:
+            - test
+            - -mod=readonly
+            - ./...
+          timeout: 3m
+artifacts:
+  include: ["**/*.go", "**/go.mod", "**/go.sum", "**/README.md"]
+  exclude: ["**/.vally/**", "**/vendor/**", "**/*.test"]

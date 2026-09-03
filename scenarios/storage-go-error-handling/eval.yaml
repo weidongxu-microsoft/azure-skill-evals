@@ -1,0 +1,92 @@
+name: storage-go-error-handling
+description: Compare Azure tooling for Blob Storage error handling in Go
+version: "1.0"
+type: capability
+environment:
+  files:
+    - src: ../../eval-workspace.gitignore
+      dest: .gitignore
+    - src: ../../eval-workspace-AGENTS.md
+      dest: AGENTS.md
+scoring:
+  weights: {}
+defaults:
+  runs: 1
+  timeout: 30m
+  model: gpt-5.6-sol
+  judge_model: gpt-5.6-sol
+stimuli:
+  - name: storage-dp-go-error-handling
+    prompt: |-
+      How do I properly handle errors when working with Azure Blob Storage in Go?
+      Create a complete runnable project using the current `azblob` SDK and `DefaultAzureCredential`. Read the storage endpoint, container, and blob names from environment variables. Show idiomatic `errors.As` handling for `*azcore.ResponseError`, extract `StatusCode` and `ErrorCode`, and distinguish 404 not found, 403 access denied, 409 conflict, and 429 throttling.
+
+      Demonstrate conditional failures for an ETag mismatch and a missing or invalid blob lease. Configure exponential retry through `azblob.ClientOptions`, enable request/response/retry diagnostics through `azcore/log`, use context-aware calls and secure configuration, and clean up response bodies. Include root `go.mod`, `go.sum`, and a concise `README.md` explaining the examples.
+    tags:
+      service: storage
+      plane: data-plane
+      language: go
+      category: error-handling
+    graders:
+      - type: panel
+        name: prompt/full-case-review
+        weight: 1
+        config:
+          prompt: |-
+            Review the generated implementation against every criterion.
+            Score each criterion independently. Accept equivalent valid
+            implementations and judge code behavior rather than syntax.
+            Return every criterion name exactly as provided. The criterion
+            value must start with "prompt/" or "language/". Never copy a rubric
+            list number into the criterion value. For example, return
+            "prompt/foo", never "1. prompt/foo".
+          models:
+            - gpt-5.6-sol
+          aggregation: unanimous
+          scoring: binary
+          threshold: 0
+          overall_threshold: 0
+          evidence:
+            - trajectory
+            - repo
+          criteria:
+            - name: prompt/current-sdk-and-secure-authentication
+              description: Uses current `azblob` and `azidentity` modules, `DefaultAzureCredential`, and endpoint/resource names from environment variables with no hardcoded secrets.
+              weight: 1
+              pass_threshold: 1
+            - name: prompt/typed-response-error-details
+              description: Uses `errors.As` with `*azcore.ResponseError` and extracts both `StatusCode` and `ErrorCode`.
+              weight: 1
+              pass_threshold: 1
+            - name: prompt/status-specific-handling
+              description: Distinguishes and clearly reports 404, 403, 409, and 429 failures.
+              weight: 1
+              pass_threshold: 1
+            - name: prompt/etag-and-lease-conditional-failures
+              description: Demonstrates requests with a mismatched ETag condition and an invalid or missing lease condition.
+              weight: 1
+              pass_threshold: 1
+            - name: prompt/client-options-exponential-retry
+              description: Configures exponential retry through `azblob.ClientOptions` and `azcore` retry options.
+              weight: 1
+              pass_threshold: 1
+            - name: prompt/azcore-log-diagnostics
+              description: Enables Azure SDK request, response, and retry diagnostics through `azcore/log`.
+              weight: 1
+              pass_threshold: 1
+            - name: prompt/context-errors-and-cleanup
+              description: Uses context-aware calls, returns useful wrapped errors, and closes download response bodies.
+              weight: 1
+              pass_threshold: 1
+      - type: run-command
+        name: program/go-project-tests
+        config:
+          command: go
+          args:
+            - test
+            - -mod=readonly
+            - ./...
+          timeout: 3m
+artifacts:
+  include: ["**/*.go", "**/go.mod", "**/go.sum", "**/README.md"]
+  exclude: ["**/.vally/**", "**/vendor/**", "**/*.test"]
