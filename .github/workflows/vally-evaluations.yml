@@ -8,24 +8,24 @@ on:
         required: false
         type: string
       language:
-        description: "Language tag; comma-separated values are OR"
+        description: "Language tag: python, dotnet, java, typescript, or go"
         required: false
         type: string
       service:
-        description: "Service tag; comma-separated values are OR"
+        description: "Service tag: app-configuration, cosmos-db, event-hubs, foundry, identity, key-vault, resource-manager, service-bus, or storage"
         required: false
         type: string
       plane:
-        description: "Plane tag; comma-separated values are OR"
+        description: "Plane tag: data-plane or management-plane"
         required: false
         type: string
       scope:
-        description: "Scope tag; comma-separated values are OR"
+        description: "Scope tag: focused-task or end-to-end-solution"
         required: false
         type: string
         default: focused-task
       other_tags:
-        description: key=value filters; commas are OR and semicolons are AND
+        description: Additional key=value filters separated by semicolons; combined with AND
         required: false
         type: string
       variant:
