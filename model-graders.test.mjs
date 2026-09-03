@@ -125,11 +125,19 @@ test("every eval uses one complete model review and program checks", () => {
       evalPath,
     );
     assert.match(source, /^\s+models:\r?\n\s+- gpt-5\.6-sol$/m, evalPath);
-    assert.match(
-      source,
-      /^\s+evidence:\r?\n\s+- trajectory\r?\n\s+- repo$/m,
-      evalPath,
-    );
+    if (
+      evalPath.endsWith(
+        join("foundry-typescript-support-assistant", "eval.yaml"),
+      )
+    ) {
+      assert.match(source, /^\s+evidence:\r?\n\s+- repo$/m, evalPath);
+    } else {
+      assert.match(
+        source,
+        /^\s+evidence:\r?\n\s+- trajectory\r?\n\s+- repo$/m,
+        evalPath,
+      );
+    }
     assert.match(
       source,
       /value must start with "prompt\/" or "language\/"\. Never copy a rubric\r?\n\s+list number into the criterion value\./,

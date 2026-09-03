@@ -113,7 +113,6 @@ stimuli:
           threshold: 0
           overall_threshold: 0
           evidence:
-            - trajectory
             - repo
           criteria:
             - name: prompt/implements-a-complete-runnable-support-application
