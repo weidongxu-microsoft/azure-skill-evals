@@ -4,6 +4,10 @@ paths:
   results: reports/
 
 suites:
+  end-to-end-solutions:
+    description: Complete applications combining multiple Azure services
+    evals:
+      - scenarios/foundry-typescript-support-assistant/eval.yaml
   ai-agents-basic-agent-lifecycle:
     description: Foundry agent lifecycle evaluation across four languages
     evals:

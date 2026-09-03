@@ -27,6 +27,7 @@ stimuli:
       plane: data-plane
       language: go
       category: error-handling
+      scope: focused-task
     graders:
       - type: panel
         name: prompt/full-case-review

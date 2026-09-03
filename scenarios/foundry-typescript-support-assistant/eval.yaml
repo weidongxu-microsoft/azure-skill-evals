@@ -87,6 +87,7 @@ stimuli:
       plane: data-plane
       language: typescript
       category: solution
+      scope: end-to-end-solution
     graders:
       - type: panel
         name: prompt/full-case-review

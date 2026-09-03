@@ -34,6 +34,7 @@ stimuli:
       plane: data-plane
       language: typescript
       category: streaming
+      scope: focused-task
     graders:
       - type: panel
         name: prompt/full-case-review

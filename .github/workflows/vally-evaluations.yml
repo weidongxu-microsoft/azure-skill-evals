@@ -3,22 +3,28 @@ name: Vally evaluations
 on:
   workflow_dispatch:
     inputs:
-      selection:
-        description: Select all evaluations, evaluations matching tags, or one named suite
-        required: true
-        type: choice
-        default: all
-        options:
-          - suite
-          - tags
-          - all
       suite:
-        description: Suite from .vally.yaml; used when selection is suite
+        description: Suite from .vally.yaml; blank means no suite filter
         required: false
         type: string
-        default: cosmos-crud
-      tags:
-        description: Semicolon-separated filters, for example service=identity;language=python
+      language:
+        description: "Language tag: python, dotnet, java, typescript, or go"
+        required: false
+        type: string
+      service:
+        description: "Service tag: app-configuration, cosmos-db, event-hubs, foundry, identity, key-vault, resource-manager, service-bus, or storage"
+        required: false
+        type: string
+      plane:
+        description: "Plane tag: data-plane or management-plane"
+        required: false
+        type: string
+      scope:
+        description: "Scope tag: focused-task or end-to-end-solution"
+        required: false
+        type: string
+      other_tags:
+        description: Additional key=value filters separated by semicolons; combined with AND
         required: false
         type: string
       variant:
@@ -61,17 +67,25 @@ jobs:
       - name: Resolve evaluation shards
         id: matrix
         env:
-          SELECTION: ${{ inputs.selection }}
           SUITE: ${{ inputs.suite }}
-          TAGS: ${{ inputs.tags }}
+          LANGUAGE_FILTER: ${{ inputs.language }}
+          SERVICE: ${{ inputs.service }}
+          PLANE: ${{ inputs.plane }}
+          SCOPE: ${{ inputs.scope }}
+          OTHER_TAGS: ${{ inputs.other_tags }}
           VARIANT: ${{ inputs.variant }}
         shell: bash
         run: |
-          args=(--mode "$SELECTION" --variant "$VARIANT" --matrix)
-          if [[ "$SELECTION" == "suite" ]]; then
+          args=(--mode all --variant "$VARIANT" --matrix)
+          if [[ -n "$SUITE" ]]; then
             args+=(--suite "$SUITE")
-          elif [[ "$SELECTION" == "tags" ]]; then
-            args+=(--tags "$TAGS")
+          fi
+          [[ -z "$LANGUAGE_FILTER" ]] || args+=(--language "$LANGUAGE_FILTER")
+          [[ -z "$SERVICE" ]] || args+=(--service "$SERVICE")
+          [[ -z "$PLANE" ]] || args+=(--plane "$PLANE")
+          [[ -z "$SCOPE" ]] || args+=(--scope "$SCOPE")
+          if [[ -n "$OTHER_TAGS" ]]; then
+            args+=(--tags "$OTHER_TAGS")
           fi
           matrix=$(node scripts/run-evaluations.mjs "${args[@]}")
           echo "matrix=$matrix" >> "$GITHUB_OUTPUT"
@@ -153,19 +167,25 @@ jobs:
         continue-on-error: true
         env:
           GITHUB_TOKEN: ${{ github.token }}
-          SELECTION: ${{ inputs.selection }}
           SUITE: ${{ inputs.suite }}
-          TAGS: ${{ inputs.tags }}
+          SERVICE: ${{ inputs.service }}
+          PLANE: ${{ inputs.plane }}
+          SCOPE: ${{ inputs.scope }}
+          OTHER_TAGS: ${{ inputs.other_tags }}
           LANGUAGE: ${{ matrix.language }}
           VARIANT: ${{ matrix.variant }}
           DRY_RUN: ${{ inputs.dry_run }}
         shell: bash
         run: |
-          args=(--mode "$SELECTION" --language "$LANGUAGE" --variant "$VARIANT" --output-dir reports)
-          if [[ "$SELECTION" == "suite" ]]; then
+          args=(--mode all --language "$LANGUAGE" --variant "$VARIANT" --output-dir reports)
+          if [[ -n "$SUITE" ]]; then
             args+=(--suite "$SUITE")
-          elif [[ "$SELECTION" == "tags" ]]; then
-            args+=(--tags "$TAGS")
+          fi
+          [[ -z "$SERVICE" ]] || args+=(--service "$SERVICE")
+          [[ -z "$PLANE" ]] || args+=(--plane "$PLANE")
+          [[ -z "$SCOPE" ]] || args+=(--scope "$SCOPE")
+          if [[ -n "$OTHER_TAGS" ]]; then
+            args+=(--tags "$OTHER_TAGS")
           fi
           if [[ "$DRY_RUN" == "true" ]]; then
             args+=(--dry-run)

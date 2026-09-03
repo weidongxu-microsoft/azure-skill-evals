@@ -40,10 +40,11 @@ Pull requests targeting `main` run harness and model-grader configuration
 tests, strict evaluation linting, and dry-runs of all five language
 experiments. Agent and judge evaluations remain manual.
 
-The `Vally evaluations` workflow supports manual runs of all evaluations,
-evaluations matching tags, or one suite from `.vally.yaml`. Tag clauses are
-separated with semicolons, and comma-separated values within one clause are
-alternatives:
+The `Vally evaluations` workflow provides optional suite, language, service,
+plane, and scope filters plus a free-form tag field. Empty inputs do not
+restrict the selection. Every active filter is combined with AND. Free-form
+tag clauses are separated with semicolons, and comma-separated values within
+one clause are alternatives:
 
 ```text
 service=identity;language=python,typescript
@@ -67,6 +68,7 @@ The same selector can be checked locally without running Vally:
 ```powershell
 node scripts/run-evaluations.mjs --mode suite --suite cosmos-crud --select-only
 node scripts/run-evaluations.mjs --mode tags --tags "service=identity;language=python" --select-only
+node scripts/run-evaluations.mjs --mode all --suite end-to-end-solutions --scope end-to-end-solution --select-only
 node scripts/run-evaluations.mjs --mode all --variant all --matrix
 ```
 

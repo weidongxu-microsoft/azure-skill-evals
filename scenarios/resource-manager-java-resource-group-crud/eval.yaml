@@ -36,6 +36,7 @@ stimuli:
       plane: management-plane
       language: java
       category: crud
+      scope: focused-task
     graders:
       - type: panel
         name: prompt/full-case-review

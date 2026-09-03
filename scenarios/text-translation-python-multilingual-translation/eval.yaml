@@ -42,6 +42,7 @@ stimuli:
       plane: data-plane
       language: python
       category: translation
+      scope: focused-task
     graders:
       - type: panel
         name: prompt/full-case-review

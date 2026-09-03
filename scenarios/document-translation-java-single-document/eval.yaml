@@ -43,6 +43,7 @@ stimuli:
       plane: data-plane
       language: java
       category: translation
+      scope: focused-task
     graders:
       - type: panel
         name: prompt/full-case-review

@@ -5,6 +5,7 @@ import { fileURLToPath } from "node:url";
 
 import {
   buildShardMatrix,
+  collectTagFilters,
   loadCatalog,
   parseTagFilters,
   runExperimentGroups,
@@ -38,6 +39,59 @@ test("intersects tag clauses", () => {
   const groups = selectEvaluations(catalog, {
     mode: "tags",
     tags: "service=identity;language=python",
+  });
+
+  test("intersects suite and structured tag filters", () => {
+    const groups = selectEvaluations(catalog, {
+      mode: "all",
+      suite: "identity-default-azure-credential",
+      language: "typescript",
+      service: "identity",
+      plane: "data-plane",
+      scope: "focused-task",
+    });
+
+    assert.deepEqual(groups.map(({ language }) => language), ["typescript"]);
+    assert.equal(groups[0].filters.length, 1);
+  });
+
+  test("combines structured and free-form tag filters", () => {
+    const groups = selectEvaluations(catalog, {
+      mode: "all",
+      language: "typescript",
+      service: "foundry",
+      plane: "data-plane",
+      scope: "end-to-end-solution",
+      tags: "category=solution",
+    });
+
+    assert.equal(groups.length, 1);
+    assert.deepEqual(groups[0].filters, [
+      "../../scenarios/foundry-typescript-support-assistant/eval.yaml",
+    ]);
+  });
+
+  test("treats empty structured filters as unrestricted", () => {
+    assert.deepEqual(
+      collectTagFilters({
+        language: "",
+        service: "",
+        plane: "",
+        scope: undefined,
+        tags: "",
+      }),
+      [],
+    );
+  });
+
+  test("selects the end-to-end solution suite", () => {
+    const groups = selectEvaluations(catalog, {
+      mode: "all",
+      suite: "end-to-end-solutions",
+    });
+
+    assert.deepEqual(groups.map(({ language }) => language), ["typescript"]);
+    assert.equal(groups[0].filters.length, 1);
   });
 
   assert.deepEqual(groups.map(({ language }) => language), ["python"]);

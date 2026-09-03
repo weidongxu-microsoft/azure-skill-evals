@@ -125,11 +125,11 @@ test("every eval uses one complete model review and program checks", () => {
       evalPath,
     );
     assert.match(source, /^\s+models:\r?\n\s+- gpt-5\.6-sol$/m, evalPath);
-    if (
-      evalPath.endsWith(
-        join("foundry-typescript-support-assistant", "eval.yaml"),
-      )
-    ) {
+    const scopeMatches = source.match(
+      /^\s+scope: (focused-task|end-to-end-solution)$/gm,
+    );
+    assert.equal(scopeMatches?.length, 1, evalPath);
+    if (source.includes("      scope: end-to-end-solution")) {
       assert.match(source, /^\s+evidence:\r?\n\s+- repo$/m, evalPath);
     } else {
       assert.match(

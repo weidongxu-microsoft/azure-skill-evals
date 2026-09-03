@@ -35,6 +35,7 @@ stimuli:
       plane: management-plane
       language: typescript
       category: crud
+      scope: focused-task
     graders:
       - type: panel
         name: prompt/full-case-review

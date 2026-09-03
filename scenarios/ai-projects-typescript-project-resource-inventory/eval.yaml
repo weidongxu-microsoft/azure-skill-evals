@@ -43,6 +43,7 @@ stimuli:
       plane: data-plane
       language: typescript
       category: projects
+      scope: focused-task
     graders:
       - type: panel
         name: prompt/full-case-review

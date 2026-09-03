@@ -38,6 +38,7 @@ stimuli:
       plane: data-plane
       language: python
       category: streaming
+      scope: focused-task
     graders:
       - type: panel
         name: prompt/full-case-review

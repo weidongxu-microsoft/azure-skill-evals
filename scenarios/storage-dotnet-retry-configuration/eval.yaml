@@ -34,6 +34,7 @@ stimuli:
       plane: data-plane
       language: dotnet
       category: retries
+      scope: focused-task
     graders:
       - type: panel
         name: prompt/full-case-review

@@ -38,6 +38,10 @@ function normalizeRepoPath(value) {
   return path.posix.normalize(value.replaceAll("\\", "/"));
 }
 
+function hasFilterValue(value) {
+  return Boolean(value?.trim());
+}
+
 export function parseTagFilters(value) {
   if (!value?.trim()) {
     throw new Error("Tag selection requires at least one key=value filter.");
@@ -66,6 +70,19 @@ export function parseTagFilters(value) {
       }
       return { key, values };
     });
+}
+
+export function collectTagFilters(options) {
+  const filters = [];
+  for (const key of ["language", "service", "plane", "scope"]) {
+    if (hasFilterValue(options[key])) {
+      filters.push({ key, values: [options[key].trim()] });
+    }
+  }
+  if (hasFilterValue(options.tags)) {
+    filters.push(...parseTagFilters(options.tags));
+  }
+  return filters;
 }
 
 export function parseSuites(contents) {
@@ -192,39 +209,41 @@ export function loadCatalog(root) {
 }
 
 export function selectEvaluations(catalog, options) {
-  let selected;
+  if (!new Set(["all", "suite", "tags"]).has(options.mode)) {
+    throw new Error(`Unknown selection mode "${options.mode}".`);
+  }
+  if (options.mode === "suite" && !hasFilterValue(options.suite)) {
+    throw new Error("Suite selection requires --suite <name>.");
+  }
 
-  switch (options.mode) {
-    case "all":
-      selected = catalog.entries;
-      break;
-    case "suite": {
-      const suitePaths = catalog.suites.get(options.suite);
-      if (!suitePaths) {
-        throw new Error(
-          `Unknown suite "${options.suite}". Available suites: ${[...catalog.suites.keys()].join(", ")}`,
-        );
-      }
-      const experimentPaths = new Set(catalog.entries.map((entry) => entry.repoPath));
-      const missingPaths = suitePaths.filter((suitePath) => !experimentPaths.has(suitePath));
-      if (missingPaths.length > 0) {
-        throw new Error(
-          `Suite "${options.suite}" contains evaluations not declared by a language experiment: ${missingPaths.join(", ")}`,
-        );
-      }
-      const suiteSet = new Set(suitePaths);
-      selected = catalog.entries.filter((entry) => suiteSet.has(entry.repoPath));
-      break;
-    }
-    case "tags": {
-      const filters = parseTagFilters(options.tags);
-      selected = catalog.entries.filter((entry) =>
-        entry.tagSets.some((tagSet) => matchesTags(tagSet, filters)),
+  let selected = catalog.entries;
+  if (hasFilterValue(options.suite)) {
+    const suiteName = options.suite.trim();
+    const suitePaths = catalog.suites.get(suiteName);
+    if (!suitePaths) {
+      throw new Error(
+        `Unknown suite "${suiteName}". Available suites: ${[...catalog.suites.keys()].join(", ")}`,
       );
-      break;
     }
-    default:
-      throw new Error(`Unknown selection mode "${options.mode}".`);
+    const experimentPaths = new Set(catalog.entries.map((entry) => entry.repoPath));
+    const missingPaths = suitePaths.filter((suitePath) => !experimentPaths.has(suitePath));
+    if (missingPaths.length > 0) {
+      throw new Error(
+        `Suite "${suiteName}" contains evaluations not declared by a language experiment: ${missingPaths.join(", ")}`,
+      );
+    }
+    const suiteSet = new Set(suitePaths);
+    selected = catalog.entries.filter((entry) => suiteSet.has(entry.repoPath));
+  }
+
+  const filters = collectTagFilters(options);
+  if (options.mode === "tags" && filters.length === 0) {
+    throw new Error("Tag selection requires at least one key=value filter.");
+  }
+  if (filters.length > 0) {
+    selected = selected.filter((entry) =>
+      entry.tagSets.some((tagSet) => matchesTags(tagSet, filters)),
+    );
   }
 
   if (selected.length === 0) {
@@ -284,9 +303,17 @@ export function parseArguments(argv) {
     } else if (argument === "--matrix") {
       options.matrix = true;
     } else if (
-      ["--mode", "--suite", "--tags", "--variant", "--language", "--output-dir"].includes(
-        argument,
-      )
+      [
+        "--mode",
+        "--suite",
+        "--tags",
+        "--variant",
+        "--language",
+        "--service",
+        "--plane",
+        "--scope",
+        "--output-dir",
+      ].includes(argument)
     ) {
       const value = argv[index + 1];
       if (!value) {
@@ -299,6 +326,9 @@ export function parseArguments(argv) {
           "--tags": "tags",
           "--variant": "variant",
           "--language": "language",
+          "--service": "service",
+          "--plane": "plane",
+          "--scope": "scope",
           "--output-dir": "outputDir",
         }[argument]
       ] = value;
@@ -312,7 +342,7 @@ export function parseArguments(argv) {
     throw new Error(`Unknown variant "${options.variant}".`);
   }
   if (
-    options.language &&
+    hasFilterValue(options.language) &&
     !new Set(languageExperiments.map(([language]) => language)).has(options.language)
   ) {
     throw new Error(`Unknown language "${options.language}".`);
@@ -323,10 +353,6 @@ export function parseArguments(argv) {
   if (normalizeRepoPath(options.outputDir).split("/").includes("..")) {
     throw new Error(`Output directory must stay within the repository.`);
   }
-  if (options.mode === "suite" && !options.suite) {
-    throw new Error("Suite selection requires --suite <name>.");
-  }
-
   return options;
 }
 
@@ -408,7 +434,7 @@ export async function main(argv = process.argv.slice(2)) {
   }
 
   let groups = selectEvaluations(catalog, options);
-  if (options.language) {
+  if (hasFilterValue(options.language)) {
     groups = groups.filter((group) => group.language === options.language);
     if (groups.length === 0) {
       throw new Error(
@@ -439,6 +465,10 @@ export async function main(argv = process.argv.slice(2)) {
       {
         mode: options.mode,
         suite: options.suite,
+        language: options.language,
+        service: options.service,
+        plane: options.plane,
+        scope: options.scope,
         tags: options.tags,
         variant: options.variant,
         evaluations: groups.reduce((total, group) => total + group.filters.length, 0),

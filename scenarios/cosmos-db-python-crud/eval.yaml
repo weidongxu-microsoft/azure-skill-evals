@@ -38,6 +38,7 @@ stimuli:
       plane: data-plane
       language: python
       category: crud
+      scope: focused-task
       scenario: cosmos-db-python-crud-items
     graders:
       - type: panel

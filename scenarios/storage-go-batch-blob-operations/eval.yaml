@@ -31,6 +31,7 @@ stimuli:
       plane: data-plane
       language: go
       category: batch
+      scope: focused-task
     graders:
       - type: panel
         name: prompt/full-case-review

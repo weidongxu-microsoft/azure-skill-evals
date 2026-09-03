@@ -33,6 +33,7 @@ stimuli:
       plane: data-plane
       language: dotnet
       category: pagination
+      scope: focused-task
     graders:
       - type: panel
         name: prompt/full-case-review
