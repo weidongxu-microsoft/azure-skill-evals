@@ -31,7 +31,7 @@ foreach ($goldenRoot in $goldenRoots) {
         $validated = $true
     }
 
-    foreach ($project in Get-ChildItem $goldenRoot -File -Filter *.csproj) {
+    foreach ($project in Get-ChildItem $goldenRoot -Recurse -File -Filter *.csproj) {
         dotnet build $project.FullName --nologo --verbosity quiet
         if ($LASTEXITCODE -ne 0) {
             throw ".NET reference application validation failed: $($project.FullName)"

@@ -1,0 +1,298 @@
+name: foundry-python-support-assistant
+description: "Can an agent design a complete grounded product-support assistant with Microsoft Foundry without prescribed SDK symbols?"
+version: "1.0"
+type: capability
+agent_environment:
+  files:
+    - src: ../../eval-workspace.gitignore
+      dest: .gitignore
+    - src: ../../eval-workspace-AGENTS.md
+      dest: AGENTS.md
+    - src: ../../scripts/program-checks/python.py
+      dest: .vally/program-checks/python.py
+    - src: materials/contoso-aero-300.md
+      dest: materials/contoso-aero-300.md
+    - src: materials/contoso-aero-300-warranty.md
+      dest: materials/contoso-aero-300-warranty.md
+scoring:
+  weights: {}
+defaults:
+  runs: 1
+  timeout: 30m
+  model: gpt-5.6-sol
+  judge_model: gpt-5.6-sol
+stimuli:
+  - name: foundry-dp-python-support-assistant
+    prompt: |-
+      Contoso needs an internal product-support assistant built with Microsoft
+      Foundry. Employees should be able to ask questions about product
+      documentation and receive answers grounded in that documentation.
+
+      Create a complete, runnable backend-only Python application targeting
+      Python 3.12 or later. Implement it as a long-running HTTP JSON API that
+      listens on a configurable port. Select appropriate current Microsoft
+      Foundry capabilities, Azure services, SDK packages, and application
+      structure.
+
+      **Write the application to files in the workspace. Do not reply with code blocks.**
+
+      The application must:
+
+      - Expose employee question, follow-up, and feedback operations plus
+        administrator ingestion, unresolved-question review, evaluation, and
+        cleanup operations through HTTP JSON endpoints.
+      - Ingest the supplied product documentation files directly from
+        `materials/`.
+      - Ingest the product documentation for grounded retrieval and verify that
+        asynchronous ingestion has completed successfully before answering
+        questions.
+      - Use the Microsoft Foundry project directly in each grounded answer
+        request, with the selected retrieval capability supplying its grounding
+        context.
+      - Support isolated multi-turn conversations so a follow-up question can
+        use prior conversation context. Key durable conversation mappings by
+        authenticated employee identity and client conversation ID so they
+        survive application restarts.
+      - Return references identifying the source files that support an answer.
+        Derive each reference from identifiers returned by the retrieval or
+        answer service.
+      - Return a clearly identified unsupported response when the documentation
+        does not support an answer, and durably record the question for human
+        follow-up.
+      - Durably record positive or negative feedback for a specific response
+        and reject feedback that does not identify a known response.
+      - Store application state in a durable shared service that remains
+        available across application restarts.
+      - Include a small evaluation dataset with multiple cases and a runnable
+        evaluation workflow that submits generated answers to Microsoft
+        Foundry groundedness and relevance evaluators, waits for terminal
+        status, traverses all returned output items, and reports every metric.
+        Structure the evaluation code so more evaluators can be added later.
+      - Use an authenticated employee identity to isolate user conversations
+        and restrict ingestion, unresolved-question review, evaluation, and
+        cleanup operations to administrators.
+      - Read project endpoints, model deployment names, identity settings, and
+        other environment-specific settings from configuration. Authenticate
+        to Azure services with Microsoft Entra credentials.
+      - Handle unsuccessful terminal states, bounded polling, service errors,
+        actionable diagnostics, and cleanup of created cloud resources.
+      - Include meaningful automated tests for application behavior and failure
+        paths using mocks or fakes so the tests run offline.
+      - Include dependency manifests and concise commands for installation,
+        Ruff linting, compilation, testing, running, and cleanup.
+
+      Treat the required Azure resources as pre-existing. The deliverable covers
+      application code and runtime configuration; resource provisioning,
+      infrastructure as code, and deployment automation are outside scope.
+    tags:
+      service: foundry
+      plane: data-plane
+      language: python
+      category: solution
+      scope: end-to-end-solution
+    graders:
+      - type: panel
+        name: prompt/full-case-review
+        weight: 1
+        config:
+          prompt: |-
+            Review the generated implementation against every criterion.
+            Score each criterion independently. Accept equivalent valid
+            implementations and judge code behavior rather than syntax. Trace
+            concrete imports, client construction, SDK or REST calls, returned
+            service identifiers, persistence operations, and
+            route-to-orchestration call paths. Examples of methods and
+            endpoints in the criteria are nonexclusive evidence, not mandatory
+            spellings. Fail interfaces, configuration objects, mocks, comments,
+            or disconnected snippets that are not exercised by the runnable
+            application.
+            Return every criterion name exactly as provided. The criterion
+            value must start with "prompt/" or "language/". Never copy a rubric
+            list number into the criterion value. For example, return
+            "prompt/foo", never "1. prompt/foo".
+          models:
+            - gpt-5.6-sol
+          aggregation: unanimous
+          scoring: binary
+          threshold: 0
+          overall_threshold: 0
+          evidence:
+            - diff
+          criteria:
+            - name: prompt/implements-a-complete-runnable-support-application
+              description: |-
+                - Production entry point -> long-running HTTP `serve_forever()` or
+                  equivalent.
+                - HTTP routes -> production support orchestration.
+                - Dependency manifest -> installable application and test dependencies.
+                - README -> lint, compile, test, run, and cleanup commands.
+                No CLI-only or placeholder implementation.
+              weight: 1
+              pass_threshold: 1
+            - name: prompt/selects-coherent-current-foundry-and-azure-sdks
+              description: |-
+                - Current supported Python client or supported project-scoped REST client ->
+                  configured Foundry project endpoint + Entra credential.
+                - Foundry project or its `/openai/v1` endpoint -> answer generation.
+                - Supported Foundry evaluation client or API -> evaluation workflow.
+                - Request configuration uses documented field names and value shapes.
+                - Every declared Azure service client -> invoked operation.
+              weight: 1
+              pass_threshold: 1
+            - name: prompt/ingests-product-documentation-and-waits-for-retrieval-readiness
+              description: |-
+                Choose one path for both supplied product documentation files:
+                - `files.create(...)` -> `vector_stores.files.create(...)` -> poll
+                  `vector_stores.files.retrieve(...).status` to `completed`.
+                - `POST /openai/v1/files` -> `POST /vector_stores/{id}/files` -> bounded
+                  `GET` polling to `completed`.
+                - `SearchClient.upload_documents(...)` -> successful indexing result ->
+                  `SearchClient.get_document(...)`.
+                - Blob upload -> run an Azure AI Search indexer -> bounded status polling
+                  to `success`.
+                No local-only readiness flag.
+              weight: 1
+              pass_threshold: 1
+            - name: prompt/returns-grounded-answers-with-service-citations
+              description: |-
+                One path is required:
+                - Foundry Responses request includes file-search results -> parse
+                  `output_text.annotations[type == "file_citation"].filename`.
+                - Foundry agent response -> parse
+                  `output_text.annotations[type == "url_citation"].{title,url}`.
+                - `SearchClient.search(...)` -> match returned citation IDs to result IDs ->
+                  returned `sourceFile`.
+                No hardcoded documentation filenames.
+              weight: 1
+              pass_threshold: 1
+            - name: prompt/preserves-isolated-multi-turn-conversations
+              description: |-
+                One path is required:
+                - Create a Foundry conversation or thread -> persist returned ID by
+                  authenticated `employeeId + conversationId` -> reuse returned ID.
+                - Persist turns by authenticated `employeeId + conversationId` -> pass prior
+                  turns to the next Foundry answer call.
+                No process-memory-only state.
+              weight: 1
+              pass_threshold: 1
+            - name: prompt/records-unsupported-questions-for-follow-up
+              description: |-
+                - Detect `supported is False` or output beginning with `UNSUPPORTED:`.
+                - Durable unresolved record -> question, response ID, creation time, and
+                  conversation key scoped by authenticated employee.
+              weight: 1
+              pass_threshold: 1
+            - name: prompt/records-validated-response-specific-feedback
+              description: |-
+                - Load persisted `responseId`.
+                - Verify that the authenticated `employeeId` owns the response.
+                - If the request supplies a conversation ID, also verify that scope;
+                  a globally unique persisted response ID plus employee ownership is valid.
+                - Reject an unknown response or any ownership/scope mismatch.
+                - Persist rating linked to `responseId`.
+              weight: 1
+              pass_threshold: 1
+            - name: prompt/runs-extensible-groundedness-and-relevance-evaluation
+              description: |-
+                - Evaluation definition -> groundedness + relevance evaluators in an
+                  extensible collection.
+                - Evaluator and model configuration matches the selected API schema
+                  (for example, Azure evaluator deployments use `deployment_name`).
+                - Evaluation run -> retrieve or poll to terminal status.
+                - Traverse every returned output item and report every metric.
+                - Evaluator `context` -> results returned by the selected retrieval service,
+                  not hand-authored dataset context.
+              weight: 1
+              pass_threshold: 1
+            - name: prompt/uses-entra-identity-and-external-configuration
+              description: |-
+                - Environment variables -> endpoints, deployment, identity settings.
+                - An `azure.identity` `TokenCredential` -> every Azure client or REST token.
+                - Validated Entra token or trusted platform principal -> `employeeId`.
+                - Admin role or allowlist -> ingestion, review, evaluation, cleanup routes.
+              weight: 1
+              pass_threshold: 1
+            - name: prompt/handles-lifecycle-errors-and-bounded-waits
+              description: |-
+                - Deadline + delayed polling.
+                - Handle `failed`, `cancelled`/`canceled`, timeout.
+                - Narrow Azure SDK failures to `HttpResponseError` or a service subclass and
+                  inspect status/error code; a structured Foundry REST exception carrying
+                  status and service code is also valid.
+                No unbounded or delay-free polling.
+              weight: 1
+              pass_threshold: 1
+            - name: prompt/cleans-up-created-cloud-resources-safely
+              description: |-
+                - Delete only application-owned resources created by the selected retrieval
+                  and conversation path, in a dependency-safe order.
+                - Preserve persisted resource ownership until remote deletion succeeds.
+                - A failed cleanup or replacement must retain enough ownership information
+                  for a later retry; it must not orphan the previous resources.
+              weight: 1
+              pass_threshold: 1
+            - name: prompt/includes-meaningful-offline-automated-tests
+              description: |-
+                Executable Python tests exercise HTTP routes and orchestration with mocked or
+                fake Azure clients. Test assertions cover:
+                - employee conversation isolation and follow-up context;
+                - unknown or mismatched feedback rejection;
+                - evaluator context from retrieved results;
+                - durable multi-record writes being atomic, or failure recovery/compensation
+                  when atomic writes are not used.
+                Declared mocks, test doubles, or unexecuted helper code are not evidence.
+              weight: 1
+              pass_threshold: 1
+            - name: prompt/excludes-provisioning-and-deployment
+              description: |-
+                No Bicep, ARM, Terraform, `az`/`azd` provisioning, or deployment workflow.
+              weight: 1
+              pass_threshold: 1
+            - name: language/correct-package-imports
+              description: |-
+                Imports use the latest azure-sdk-for-python package structure (azure.*), not deprecated packages.
+              weight: 1
+              pass_threshold: 1
+            - name: language/defaultazurecredential-usage
+              description: |-
+                Authentication matches what the prompt asks for. If the prompt explicitly requires a connection string (or other key-based auth), using `from_connection_string()` / connection-string-based clients is correct and should pass. Otherwise, authentication must use DefaultAzureCredential from azure-identity (or another `azure.identity` credential), not connection strings or hardcoded keys. Hardcoded secrets/keys/connection strings in source code always fail — required values should come from environment variables or a secret store.
+              weight: 1
+              pass_threshold: 1
+            - name: language/context-manager-for-clients
+              description: |-
+                Azure SDK clients that support context managers are used with `with` statements or explicitly closed.
+              weight: 1
+              pass_threshold: 1
+            - name: language/async-client-usage
+              description: |-
+                If async operations are requested, code uses the async client variant with proper await patterns.
+              weight: 1
+              pass_threshold: 1
+            - name: language/proper-exception-handling
+              description: |-
+                Azure SDK exceptions (HttpResponseError and subclasses) are caught and handled appropriately.
+              weight: 1
+              pass_threshold: 1
+      - type: run-command
+        name: program/python-source-compiles
+        config:
+          command: python
+          args:
+            - .vally/program-checks/python.py
+          timeout: 30s
+    artifacts:
+      include:
+        - "**/*.py"
+        - "**/*.json"
+        - "**/*.jsonl"
+        - "**/requirements*.txt"
+        - "**/pyproject.toml"
+        - "**/.env.example"
+        - "**/README.md"
+      exclude:
+        - "**/.vally/**"
+        - "**/.venv/**"
+        - "**/__pycache__/**"
+        - "**/.pytest_cache/**"
+        - "**/.ruff_cache/**"
+        - "**/.data/**"

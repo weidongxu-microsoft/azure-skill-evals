@@ -5,8 +5,11 @@ paths:
 
 suites:
   end-to-end-solutions:
-    description: Complete applications combining multiple Azure services
+    description: Complete applications combining multiple Azure services across four languages
     evals:
+      - scenarios/foundry-python-support-assistant/eval.yaml
+      - scenarios/foundry-dotnet-support-assistant/eval.yaml
+      - scenarios/foundry-java-support-assistant/eval.yaml
       - scenarios/foundry-typescript-support-assistant/eval.yaml
   ai-agents-basic-agent-lifecycle:
     description: Foundry agent lifecycle evaluation across four languages

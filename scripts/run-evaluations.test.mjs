@@ -103,9 +103,27 @@ test("selects the end-to-end solution suite", () => {
     suite: "end-to-end-solutions",
   });
 
-  assert.deepEqual(groups[0].filters, [
-    "../../scenarios/foundry-typescript-support-assistant/eval.yaml",
-  ]);
+  assert.deepEqual(
+    groups.map(({ language, filters }) => ({ language, filters })),
+    [
+      {
+        language: "python",
+        filters: ["../../scenarios/foundry-python-support-assistant/eval.yaml"],
+      },
+      {
+        language: "dotnet",
+        filters: ["../../scenarios/foundry-dotnet-support-assistant/eval.yaml"],
+      },
+      {
+        language: "java",
+        filters: ["../../scenarios/foundry-java-support-assistant/eval.yaml"],
+      },
+      {
+        language: "typescript",
+        filters: ["../../scenarios/foundry-typescript-support-assistant/eval.yaml"],
+      },
+    ],
+  );
 });
 
 test("accepts comma-separated values within a tag", () => {

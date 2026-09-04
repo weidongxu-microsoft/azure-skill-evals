@@ -29,6 +29,7 @@ evals:
   - ../../scenarios/document-translation-java-single-document/eval.yaml
   - ../../scenarios/text-translation-java-multilingual-translation/eval.yaml
   - ../../scenarios/text-translation-java-transliteration/eval.yaml
+  - ../../scenarios/foundry-java-support-assistant/eval.yaml
 vary:
   - /environment/skills
   - /environment/mcpServers

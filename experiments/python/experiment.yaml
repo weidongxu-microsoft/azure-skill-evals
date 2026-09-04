@@ -29,6 +29,7 @@ evals:
   - ../../scenarios/document-translation-python-single-document/eval.yaml
   - ../../scenarios/text-translation-python-multilingual-translation/eval.yaml
   - ../../scenarios/text-translation-python-transliteration/eval.yaml
+  - ../../scenarios/foundry-python-support-assistant/eval.yaml
 vary:
   - /environment/skills
   - /environment/mcpServers

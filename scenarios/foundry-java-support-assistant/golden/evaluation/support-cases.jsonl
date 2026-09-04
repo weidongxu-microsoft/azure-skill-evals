@@ -1,0 +1,2 @@
+{"id":"reset-procedure","query":"How do I reset an Aero 300, and how can I tell that the reset worked?","groundTruth":"Disconnect power, hold Reset for 10 seconds, reconnect power, and wait for the light to turn solid green."}
+{"id":"warranty-duration","query":"How long is the Aero 300 hardware warranty, and does it cover accidental damage?","groundTruth":"The warranty lasts two years and does not cover accidental damage."}

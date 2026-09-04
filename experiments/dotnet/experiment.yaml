@@ -30,6 +30,7 @@ evals:
   - ../../scenarios/document-translation-dotnet-single-document/eval.yaml
   - ../../scenarios/text-translation-dotnet-multilingual-translation/eval.yaml
   - ../../scenarios/text-translation-dotnet-transliteration/eval.yaml
+  - ../../scenarios/foundry-dotnet-support-assistant/eval.yaml
 vary:
   - /environment/skills
   - /environment/mcpServers
