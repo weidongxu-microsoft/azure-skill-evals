@@ -25,6 +25,7 @@ import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Duration;
 import java.time.OffsetDateTime;
@@ -34,13 +35,217 @@ import java.util.List;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicReference;
 import org.junit.jupiter.api.Test;
 import reactor.core.publisher.Mono;
 
 final class SupportAssistantTest {
     private static final FoundryResources RESOURCES =
-        new FoundryResources("vector-store-1", List.of("file-1"));
+        new FoundryResources(
+            "vector-store-1",
+            List.of("file-1"),
+            "contoso-product-support-test",
+            "1");
     private final ObjectMapper mapper = new ObjectMapper();
+
+    @Test
+    void createsInvokesAndDeletesManagedPromptAgent() throws Exception {
+        AtomicBoolean responseCreated = new AtomicBoolean();
+        AtomicReference<JsonNode> responseBody = new AtomicReference<>();
+        List<String> cleanupOrder = new ArrayList<>();
+        FakePromptAgentOperations promptAgents =
+            new FakePromptAgentOperations(cleanupOrder);
+        com.sun.net.httpserver.HttpServer backend =
+            com.sun.net.httpserver.HttpServer.create(
+                new InetSocketAddress("127.0.0.1", 0), 0);
+        backend.createContext("/", exchange -> {
+            String path = exchange.getRequestURI().getPath();
+            String method = exchange.getRequestMethod();
+            if ("POST".equals(method)
+                    && path.endsWith("/vector_stores")) {
+                sendBackend(exchange, 200, "{\"id\":\"vector-store-1\"}");
+            } else if ("POST".equals(method)
+                    && path.endsWith(
+                        "/vector_stores/vector-store-1/files")) {
+                sendBackend(exchange, 200, "{\"id\":\"attached-1\"}");
+            } else if ("POST".equals(method)
+                    && path.endsWith("/files")) {
+                sendBackend(exchange, 200, "{\"id\":\"file-1\"}");
+            } else if ("GET".equals(method)
+                    && path.endsWith(
+                        "/vector_stores/vector-store-1/files/attached-1")) {
+                sendBackend(exchange, 200, "{\"status\":\"completed\"}");
+            } else if ("POST".equals(method)
+                    && path.endsWith("/conversations")) {
+                sendBackend(exchange, 200, "{\"id\":\"conversation-1\"}");
+            } else if ("GET".equals(method)
+                    && path.endsWith(
+                        "/conversations/conversation-1/items")) {
+                sendBackend(
+                    exchange,
+                    200,
+                    responseCreated.get()
+                        ? "{\"data\":[{\"id\":\"assistant-1\"}],"
+                            + "\"has_more\":false}"
+                        : "{\"data\":[],\"has_more\":false}");
+            } else if ("POST".equals(method)
+                    && path.endsWith("/responses")) {
+                responseBody.set(mapper.readTree(
+                    exchange.getRequestBody().readAllBytes()));
+                responseCreated.set(true);
+                sendBackend(
+                    exchange,
+                    200,
+                    "{\"id\":\"response-1\",\"status\":\"completed\","
+                        + "\"output\":["
+                        + "{\"type\":\"file_search_call\",\"results\":["
+                        + "{\"text\":\"Retrieved reset instructions.\"}]},"
+                        + "{\"type\":\"message\",\"content\":["
+                        + "{\"type\":\"output_text\","
+                        + "\"text\":\"Hold reset for ten seconds.\","
+                        + "\"annotations\":[{\"type\":\"file_citation\","
+                        + "\"file_id\":\"file-1\","
+                        + "\"filename\":\"manual.md\"}]}]}]}");
+            } else if ("DELETE".equals(method)
+                    && path.endsWith("/vector_stores/vector-store-1")) {
+                cleanupOrder.add("vector-store");
+                sendBackend(exchange, 204, "");
+            } else if ("DELETE".equals(method)
+                    && path.endsWith("/files/file-1")) {
+                cleanupOrder.add("file");
+                sendBackend(exchange, 204, "");
+            } else {
+                sendBackend(exchange, 500, "unexpected");
+            }
+        });
+        backend.start();
+        Path document = Files.createTempFile("contoso-support", ".md");
+        Files.writeString(document, "Product documentation.");
+        TokenCredential credential = requestContext -> Mono.just(
+            new AccessToken(
+                "test-token", OffsetDateTime.now().plusHours(1)));
+        try (FoundryRestGateway gateway = new FoundryRestGateway(
+                URI.create(
+                    "http://127.0.0.1:" + backend.getAddress().getPort()
+                        + "/api/projects/support"),
+                credential,
+                "answer-model",
+                "evaluation-model",
+                "https://ai.azure.com/.default",
+                mapper,
+                HttpClient.newHttpClient(),
+                Duration.ofMillis(1),
+                Duration.ofSeconds(1),
+                promptAgents)) {
+            FoundryResources resources =
+                gateway.ingest(List.of(document));
+            assertEquals("answer-model", promptAgents.modelDeployment);
+            assertEquals(
+                "vector-store-1", promptAgents.vectorStoreId);
+            assertEquals(
+                "contoso-product-support-test",
+                resources.agentName());
+            assertEquals("7", resources.agentVersion());
+
+            gateway.ask(resources, null, "How do I reset it?");
+
+            JsonNode agentReference =
+                responseBody.get().path("agent_reference");
+            assertEquals(
+                resources.agentName(),
+                agentReference.path("name").asText());
+            assertEquals(
+                resources.agentVersion(),
+                agentReference.path("version").asText());
+            assertEquals(false, responseBody.get().has("model"));
+            assertEquals(false, responseBody.get().has("instructions"));
+            assertEquals(false, responseBody.get().has("tools"));
+
+            cleanupOrder.clear();
+            gateway.cleanup(resources, List.of());
+            assertEquals(
+                List.of("agent", "vector-store", "file"),
+                cleanupOrder);
+        } finally {
+            Files.deleteIfExists(document);
+            backend.stop(0);
+        }
+    }
+
+    @Test
+    void compensatesAmbiguousPromptAgentCreationFailure()
+        throws Exception {
+        List<String> cleanupOrder = new ArrayList<>();
+        FakePromptAgentOperations promptAgents =
+            new FakePromptAgentOperations(cleanupOrder);
+        promptAgents.createFailure =
+            new com.azure.core.exception.HttpRequestException(
+                "Create response was lost.",
+                new com.azure.core.http.HttpRequest(
+                    com.azure.core.http.HttpMethod.POST,
+                    "https://example.test/agents"));
+        com.sun.net.httpserver.HttpServer backend =
+            com.sun.net.httpserver.HttpServer.create(
+                new InetSocketAddress("127.0.0.1", 0), 0);
+        backend.createContext("/", exchange -> {
+            String path = exchange.getRequestURI().getPath();
+            String method = exchange.getRequestMethod();
+            if ("POST".equals(method)
+                    && path.endsWith("/vector_stores")) {
+                sendBackend(exchange, 200, "{\"id\":\"vector-store-1\"}");
+            } else if ("POST".equals(method)
+                    && path.endsWith(
+                        "/vector_stores/vector-store-1/files")) {
+                sendBackend(exchange, 200, "{\"id\":\"attached-1\"}");
+            } else if ("POST".equals(method)
+                    && path.endsWith("/files")) {
+                sendBackend(exchange, 200, "{\"id\":\"file-1\"}");
+            } else if ("GET".equals(method)
+                    && path.endsWith(
+                        "/vector_stores/vector-store-1/files/attached-1")) {
+                sendBackend(exchange, 200, "{\"status\":\"completed\"}");
+            } else if ("DELETE".equals(method)
+                    && path.endsWith("/vector_stores/vector-store-1")) {
+                cleanupOrder.add("vector-store");
+                sendBackend(exchange, 204, "");
+            } else if ("DELETE".equals(method)
+                    && path.endsWith("/files/file-1")) {
+                cleanupOrder.add("file");
+                sendBackend(exchange, 204, "");
+            } else {
+                sendBackend(exchange, 500, "unexpected");
+            }
+        });
+        backend.start();
+        Path document = Files.createTempFile("contoso-support", ".md");
+        Files.writeString(document, "Product documentation.");
+        TokenCredential credential = requestContext -> Mono.just(
+            new AccessToken(
+                "test-token", OffsetDateTime.now().plusHours(1)));
+        try (FoundryRestGateway gateway = new FoundryRestGateway(
+                URI.create(
+                    "http://127.0.0.1:" + backend.getAddress().getPort()
+                        + "/api/projects/support"),
+                credential,
+                "answer-model",
+                "evaluation-model",
+                "https://ai.azure.com/.default",
+                mapper,
+                HttpClient.newHttpClient(),
+                Duration.ofMillis(1),
+                Duration.ofSeconds(1),
+                promptAgents)) {
+            assertThrows(
+                com.azure.core.exception.HttpRequestException.class,
+                () -> gateway.ingest(List.of(document)));
+            assertEquals(
+                List.of("agent", "vector-store", "file"),
+                cleanupOrder);
+        } finally {
+            Files.deleteIfExists(document);
+            backend.stop(0);
+        }
+    }
 
     @Test
     void isolatesEmployeesAndReusesFollowUpConversation()
@@ -547,6 +752,46 @@ final class SupportAssistantTest {
                         com.azure.core.http.HttpMethod.PUT,
                         "https://example.test/state"));
             }
+        }
+    }
+
+    private static final class FakePromptAgentOperations
+        implements PromptAgentOperations {
+        private final List<String> cleanupOrder;
+        private String modelDeployment;
+        private String vectorStoreId;
+        private String ownedAgentName;
+        private RuntimeException createFailure;
+
+        FakePromptAgentOperations(List<String> cleanupOrder) {
+            this.cleanupOrder = cleanupOrder;
+        }
+
+        @Override
+        public AgentIdentity create(
+            String agentName,
+            String modelDeployment,
+            String instructions,
+            String vectorStoreId) {
+            this.modelDeployment = modelDeployment;
+            this.vectorStoreId = vectorStoreId;
+            this.ownedAgentName = agentName;
+            assertEquals(true, agentName.startsWith(
+                "contoso-product-support-"));
+            assertEquals(true, instructions.contains(
+                "internal product-support assistant"));
+            if (createFailure != null) {
+                throw createFailure;
+            }
+            ownedAgentName = "contoso-product-support-test";
+            return new AgentIdentity(
+                ownedAgentName, "7");
+        }
+
+        @Override
+        public void deleteAgent(String agentName) {
+            assertEquals(ownedAgentName, agentName);
+            cleanupOrder.add("agent");
         }
     }
 

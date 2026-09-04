@@ -9,6 +9,10 @@ import com.azure.core.credential.AccessToken;
 import com.azure.core.credential.TokenCredential;
 import com.azure.core.credential.TokenRequestContext;
 import com.azure.core.exception.ClientAuthenticationException;
+import com.azure.core.exception.HttpResponseException;
+import com.azure.core.exception.HttpRequestException;
+import com.azure.core.exception.ServiceResponseException;
+import com.contoso.support.PromptAgentOperations.AgentIdentity;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -47,6 +51,13 @@ public final class FoundryRestGateway
         Set.of("completed", "failed", "cancelled");
     private static final Set<String> EVALUATION_TERMINAL_STATUSES =
         Set.of("completed", "failed", "cancelled", "canceled");
+    private static final String AGENT_INSTRUCTIONS =
+        "You are Contoso's internal product-support assistant. "
+            + "Search the indexed product documentation before answering. "
+            + "Answer only from retrieved documentation. If it does not "
+            + "support an answer, begin with 'UNSUPPORTED:'. Never use "
+            + "general knowledge to fill gaps. Preserve file citations "
+            + "for supported answers.";
 
     private final URI baseUri;
     private final TokenCredential credential;
@@ -58,6 +69,7 @@ public final class FoundryRestGateway
     private final ScheduledExecutorService scheduler;
     private final Duration pollInterval;
     private final Duration operationTimeout;
+    private final PromptAgentOperations promptAgents;
 
     public FoundryRestGateway(
         URI projectEndpoint,
@@ -77,7 +89,9 @@ public final class FoundryRestGateway
                 .connectTimeout(Duration.ofSeconds(30))
                 .build(),
             Duration.ofSeconds(2),
-            Duration.ofMinutes(10));
+            Duration.ofMinutes(10),
+            new AzurePromptAgentOperations(
+                projectEndpoint, credential));
     }
 
     FoundryRestGateway(
@@ -90,6 +104,31 @@ public final class FoundryRestGateway
         HttpClient httpClient,
         Duration pollInterval,
         Duration operationTimeout) {
+        this(
+            projectEndpoint,
+            credential,
+            modelDeployment,
+            evaluationModelDeployment,
+            tokenScope,
+            mapper,
+            httpClient,
+            pollInterval,
+            operationTimeout,
+            new AzurePromptAgentOperations(
+                projectEndpoint, credential));
+    }
+
+    FoundryRestGateway(
+        URI projectEndpoint,
+        TokenCredential credential,
+        String modelDeployment,
+        String evaluationModelDeployment,
+        String tokenScope,
+        ObjectMapper mapper,
+        HttpClient httpClient,
+        Duration pollInterval,
+        Duration operationTimeout,
+        PromptAgentOperations promptAgents) {
         baseUri = URI.create(
             projectEndpoint.toString().replaceAll("/+$", "")
                 + "/openai/v1/");
@@ -101,6 +140,7 @@ public final class FoundryRestGateway
         this.httpClient = httpClient;
         this.pollInterval = pollInterval;
         this.operationTimeout = operationTimeout;
+        this.promptAgents = promptAgents;
         scheduler = Executors.newSingleThreadScheduledExecutor();
     }
 
@@ -118,6 +158,11 @@ public final class FoundryRestGateway
                 "name", "contoso-support-" + Instant.now().getEpochSecond()));
         String vectorStoreId = requiredText(vectorStore, "id");
         List<String> fileIds = new ArrayList<>();
+        String agentName =
+            "contoso-product-support-"
+                + UUID.randomUUID().toString().replace("-", "")
+                    .substring(0, 12);
+        String agentVersion = null;
         try {
             for (Path documentPath : documentPaths) {
                 String fileId = uploadFile(documentPath);
@@ -137,12 +182,26 @@ public final class FoundryRestGateway
                             + " ended with status " + status + ".");
                 }
             }
-            return new FoundryResources(vectorStoreId, fileIds);
-        } catch (ClientAuthenticationException | FoundryHttpException | IOException
-                 | IllegalStateException error) {
+            AgentIdentity agent = promptAgents.create(
+                agentName,
+                modelDeployment,
+                AGENT_INSTRUCTIONS,
+                vectorStoreId);
+            agentName = agent.name();
+            agentVersion = agent.version();
+            return new FoundryResources(
+                vectorStoreId, fileIds, agentName, agentVersion);
+        } catch (FoundryHttpException | HttpRequestException
+                 | HttpResponseException | IOException
+                 | IllegalStateException | ServiceResponseException error) {
             try {
                 cleanup(
-                    new FoundryResources(vectorStoreId, fileIds), List.of());
+                    new FoundryResources(
+                        vectorStoreId,
+                        fileIds,
+                        agentName,
+                        agentVersion),
+                    List.of());
             } catch (CleanupException cleanupError) {
                 error.addSuppressed(cleanupError);
             }
@@ -155,6 +214,13 @@ public final class FoundryRestGateway
         FoundryResources resources,
         String conversationId,
         String question) throws IOException {
+        if (resources.agentName() == null
+                || resources.agentName().isBlank()) {
+            throw new IllegalStateException(
+                "Managed prompt-agent state is missing. An administrator "
+                    + "must clean up and initialize the product "
+                    + "documentation again.");
+        }
         String activeConversationId = conversationId;
         boolean createdConversation = false;
         if (activeConversationId == null) {
@@ -182,23 +248,17 @@ public final class FoundryRestGateway
         }
         try {
             ObjectNode body = mapper.createObjectNode();
-            body.put("model", modelDeployment);
             body.put("conversation", activeConversationId);
             body.put("input", question);
-            body.put(
-                "instructions",
-                "You are Contoso's internal product-support assistant. "
-                    + "Search the indexed product documentation before answering. "
-                    + "Answer only from retrieved documentation. If it does not "
-                    + "support an answer, begin with 'UNSUPPORTED:'. Preserve "
-                    + "file citations for supported answers.");
-            ObjectNode tool = mapper.createObjectNode()
-                .put("type", "file_search")
-                .put("max_num_results", 10);
-            tool.putArray("vector_store_ids")
-                .add(resources.vectorStoreId());
-            body.putArray("tools").add(tool);
-            body.put("tool_choice", "required");
+            ObjectNode agentReference =
+                body.putObject("agent_reference")
+                    .put("type", "agent_reference")
+                    .put("name", resources.agentName());
+            if (resources.agentVersion() != null
+                    && !resources.agentVersion().isBlank()) {
+                agentReference.put(
+                    "version", resources.agentVersion());
+            }
             body.putArray("include").add("file_search_call.results");
 
             ObjectNode response = sendJson("POST", "responses", body);
@@ -432,6 +492,13 @@ public final class FoundryRestGateway
                 () -> deleteConversation(conversationId), failures);
         }
         throwCleanupFailures(failures);
+        if (resources.agentName() != null
+                && !resources.agentName().isBlank()) {
+            deleteForCleanup(
+                () -> deletePromptAgent(resources),
+                failures);
+        }
+        throwCleanupFailures(failures);
         deleteForCleanup(
             () -> sendJson(
                 "DELETE",
@@ -446,6 +513,10 @@ public final class FoundryRestGateway
                 failures);
         }
         throwCleanupFailures(failures);
+    }
+
+    private void deletePromptAgent(FoundryResources resources) {
+        promptAgents.deleteAgent(resources.agentName());
     }
 
     @Override
@@ -632,6 +703,13 @@ public final class FoundryRestGateway
         } catch (CleanupException error) {
             failures.add(error);
         } catch (ClientAuthenticationException error) {
+            failures.add(error);
+        } catch (HttpResponseException error) {
+            if (error.getResponse() == null
+                    || error.getResponse().getStatusCode() != 404) {
+                failures.add(error);
+            }
+        } catch (HttpRequestException | ServiceResponseException error) {
             failures.add(error);
         } catch (IOException error) {
             failures.add(new IllegalStateException(error));

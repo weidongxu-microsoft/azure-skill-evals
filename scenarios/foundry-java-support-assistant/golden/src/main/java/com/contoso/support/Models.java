@@ -13,7 +13,11 @@ public final class Models {
     public record Citation(String fileId, String filename) {
     }
 
-    public record FoundryResources(String vectorStoreId, List<String> fileIds) {
+    public record FoundryResources(
+        String vectorStoreId,
+        List<String> fileIds,
+        String agentName,
+        String agentVersion) {
         public FoundryResources {
             fileIds = List.copyOf(fileIds);
         }

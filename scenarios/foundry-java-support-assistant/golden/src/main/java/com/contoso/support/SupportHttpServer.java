@@ -5,6 +5,9 @@ import static com.contoso.support.Models.EvaluationMetric;
 import static com.contoso.support.Models.SupportAnswer;
 
 import com.azure.core.exception.ClientAuthenticationException;
+import com.azure.core.exception.HttpRequestException;
+import com.azure.core.exception.HttpResponseException;
+import com.azure.core.exception.ServiceResponseException;
 import com.azure.storage.blob.models.BlobStorageException;
 import com.contoso.support.FoundryRestGateway.CleanupException;
 import com.contoso.support.FoundryRestGateway.FoundryHttpException;
@@ -128,6 +131,14 @@ public final class SupportHttpServer implements AutoCloseable {
                     "error", error.getMessage(),
                     "azureStatus", error.getStatusCode(),
                     "azureCode", String.valueOf(error.getErrorCode())));
+        } catch (HttpRequestException | HttpResponseException
+                 | ServiceResponseException error) {
+            sendJson(
+                exchange,
+                502,
+                Map.of(
+                    "error", error.getMessage(),
+                    "azureCode", "agent_operation_failed"));
         } catch (JsonProcessingException error) {
             sendJson(exchange, 400, Map.of("error", "Invalid JSON."));
         } catch (IllegalArgumentException error) {

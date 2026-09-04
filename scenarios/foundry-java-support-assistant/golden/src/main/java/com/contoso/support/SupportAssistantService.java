@@ -57,7 +57,9 @@ public final class SupportAssistantService {
                 AssistantState reloaded = reloadAfterFailedSave(
                     "Could not verify ingestion state for vectorStoreId="
                         + resources.vectorStoreId() + " fileIds="
-                        + String.join(",", resources.fileIds()) + ".",
+                        + String.join(",", resources.fileIds())
+                        + " agentName=" + resources.agentName()
+                        + " agentVersion=" + resources.agentVersion() + ".",
                     error);
                 if (resourcesMatch(reloaded.resources, resources)) {
                     return;
@@ -71,7 +73,11 @@ public final class SupportAssistantService {
                         new IllegalStateException(
                             "Durable state contains different resource "
                                 + "ownership: vectorStoreId="
-                                + reloaded.resources.vectorStoreId() + "."));
+                                + reloaded.resources.vectorStoreId()
+                                + " agentName="
+                                + reloaded.resources.agentName()
+                                + " agentVersion="
+                                + reloaded.resources.agentVersion() + "."));
                 }
                 try {
                     gateway.cleanup(resources, List.of());
@@ -344,7 +350,11 @@ public final class SupportAssistantService {
         FoundryResources expected) {
         return actual != null
             && actual.vectorStoreId().equals(expected.vectorStoreId())
-            && actual.fileIds().equals(expected.fileIds());
+            && actual.fileIds().equals(expected.fileIds())
+            && java.util.Objects.equals(
+                actual.agentName(), expected.agentName())
+            && java.util.Objects.equals(
+                actual.agentVersion(), expected.agentVersion());
     }
 
     private static boolean answerCommitted(

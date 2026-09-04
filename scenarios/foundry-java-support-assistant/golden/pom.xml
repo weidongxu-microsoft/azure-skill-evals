@@ -12,6 +12,7 @@
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     <jackson.version>2.20.0</jackson.version>
     <junit.version>5.13.4</junit.version>
+    <azure-ai-agents.version>2.4.0</azure-ai-agents.version>
   </properties>
 
   <dependencyManagement>
@@ -27,6 +28,11 @@
   </dependencyManagement>
 
   <dependencies>
+    <dependency>
+      <groupId>com.azure</groupId>
+      <artifactId>azure-ai-agents</artifactId>
+      <version>${azure-ai-agents.version}</version>
+    </dependency>
     <dependency>
       <groupId>com.azure</groupId>
       <artifactId>azure-identity</artifactId>

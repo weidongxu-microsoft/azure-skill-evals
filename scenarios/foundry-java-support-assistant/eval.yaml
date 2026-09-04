@@ -48,6 +48,11 @@ stimuli:
       - Use the Microsoft Foundry project directly in each grounded answer
         request, with the selected retrieval capability supplying its grounding
         context.
+      - Register the support assistant as a managed prompt agent in the supplied
+        Microsoft Foundry project. Create it during administrator
+        initialization, persist its returned identity, use it for every
+        grounded answer and evaluation, and delete only prompt agent resources
+        created by the application.
       - Support isolated multi-turn conversations so a follow-up question can
         use prior conversation context. Key durable conversation mappings by
         authenticated employee identity and client conversation ID so they
@@ -135,6 +140,23 @@ stimuli:
                 - Supported Foundry evaluation client or API -> evaluation workflow.
                 - Request configuration uses documented field names and value shapes.
                 - Every declared Azure service client -> invoked operation.
+              weight: 1
+              pass_threshold: 1
+            - name: prompt/uses-a-foundry-managed-prompt-agent
+              description: |-
+                - Foundry project agent creation API -> create a prompt agent after
+                  retrieval readiness is confirmed.
+                - Agent definition -> configured model, support instructions, and retrieval
+                  tool bound to the selected retrieval resource.
+                - Service-returned agent identity -> persist with the application's owned
+                  cloud-resource identifiers -> use for grounded answers, evaluation cases,
+                  and cleanup.
+                - Grounded answers and evaluation cases -> invoke that created agent through
+                  an agent reference or agent-scoped response client.
+                - Cleanup -> delete only that application-created agent resource after its
+                  conversations and before its referenced retrieval resources.
+                An OpenAI client request with locally repeated instructions and tools, but
+                no Foundry project-agent creation operation, does not satisfy this criterion.
               weight: 1
               pass_threshold: 1
             - name: prompt/ingests-product-documentation-and-waits-for-retrieval-readiness
