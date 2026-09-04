@@ -46,6 +46,11 @@ stimuli:
       - Use the Microsoft Foundry project directly in each grounded answer
         request, with the selected retrieval capability supplying its grounding
         context.
+      - Register the support assistant as a managed prompt agent in the supplied
+        Microsoft Foundry project. Create it during administrator
+        initialization, use it for every grounded answer and evaluation, record
+        which agent configuration produced each result, and delete only prompt
+        agent resources created by the application.
       - Support isolated multi-turn conversations so a follow-up question can
         use prior conversation context. Key durable conversation mappings by
         authenticated employee identity and client conversation ID so they
@@ -134,6 +139,26 @@ stimuli:
                 - Request configuration uses the documented field names and value shapes
                   for the selected SDK or API.
                 - Every declared service client -> invoked operation.
+              weight: 1
+              pass_threshold: 1
+            - name: prompt/uses-a-versioned-foundry-prompt-agent
+              description: |-
+                - Project or agent client -> create an immutable prompt agent version after
+                  retrieval readiness is confirmed.
+                - Agent version definition -> configured model, support instructions, and
+                  retrieval tool. The selected retrieval resource, such as a vector store
+                  or search connection and index, is bound either in that definition or
+                  through supported runtime configuration such as structured inputs.
+                - Persist the returned agent name and version with the application's owned
+                  cloud-resource identifiers.
+                - Grounded answers and evaluation cases -> invoke that exact persisted
+                  version through an agent reference or version-scoped response client,
+                  binding the application-owned retrieval resource when it is not fixed in
+                  the version definition.
+                - Cleanup -> delete only the application-created version after its
+                  conversations and before its referenced retrieval resources.
+                Repeating local instructions and tools in ordinary model requests without a
+                Foundry agent version does not satisfy this criterion.
               weight: 1
               pass_threshold: 1
             # Observed agent pattern: Azure AI Search is the common retrieval choice.
