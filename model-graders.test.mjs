@@ -80,6 +80,15 @@ const evalPaths = readdirSync(scenarioRoot, { withFileTypes: true })
   .filter((entry) => entry.isDirectory())
   .map((entry) => join(scenarioRoot, entry.name, "eval.yaml"));
 
+test("workspace diff includes modern .NET solution files", () => {
+  const source = readFileSync(
+    fileURLToPath(new URL("./eval-workspace.gitignore", import.meta.url)),
+    "utf8",
+  );
+
+  assert.match(source, /^!\*\.slnx$/m);
+});
+
 test("every eval uses one complete model review and program checks", () => {
   for (const evalPath of evalPaths) {
     const source = readFileSync(evalPath, "utf8").replaceAll("\r\n", "\n");
@@ -132,6 +141,14 @@ test("every eval uses one complete model review and program checks", () => {
     assert.match(source, /^\s+evidence:\r?\n\s+- diff$/m, evalPath);
     if (evalPath.includes("foundry-") && evalPath.includes("-support-assistant")) {
       assert.match(source, /^\s+output_delivery: workspace$/m, evalPath);
+      assert.match(
+        source,
+        /^\s+workspace_evidence_max_chars: 128000$/m,
+        evalPath,
+      );
+    }
+    if (evalPath.includes("foundry-dotnet-support-assistant")) {
+      assert.match(source, /^\s+- "\*\*\/\*\.slnx"$/m, evalPath);
     }
     assert.match(
       source,

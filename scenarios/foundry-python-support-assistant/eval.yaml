@@ -124,6 +124,7 @@ stimuli:
           evidence:
             - diff
           output_delivery: workspace
+          workspace_evidence_max_chars: 128000
           criteria:
             - name: prompt/implements-a-complete-runnable-support-application
               description: |-

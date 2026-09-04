@@ -35,6 +35,7 @@
 !*.fsproj
 !*.vbproj
 !*.sln
+!*.slnx
 !Directory.Build.props
 !Directory.Build.targets
 !NuGet.config

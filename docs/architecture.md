@@ -35,6 +35,8 @@ output, caches, and runtime data.
 Judges receive the generated diff by default. Large solution evaluations use
 workspace-delivered diff evidence so judges can retrieve relevant parts of the
 complete patch without including staged skills, dependencies, or build output.
+The Foundry solution panels allow 128,000 retrieved evidence characters per
+judge while retaining Vally's 64,000-character default for smaller evaluations.
 
 Every evaluation workspace also receives a shared `AGENTS.md` instruction that
 requires code requests to produce complete runnable projects with root-level
