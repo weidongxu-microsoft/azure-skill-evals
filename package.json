@@ -21,12 +21,12 @@
   "devDependencies": {
     "@github/copilot": "1.0.71",
     "@github/copilot-sdk": "1.0.7",
-    "@microsoft/vally": "file:vendor/vally/microsoft-vally-0.15.0-repo-ignore-dirs.tgz",
+    "@microsoft/vally": "file:vendor/vally/microsoft-vally-0.15.0-panel-workspace-delivery.tgz",
     "@microsoft/vally-cli": "0.15.0"
   },
   "pnpm": {
     "overrides": {
-      "@microsoft/vally": "file:vendor/vally/microsoft-vally-0.15.0-repo-ignore-dirs.tgz"
+      "@microsoft/vally": "file:vendor/vally/microsoft-vally-0.15.0-panel-workspace-delivery.tgz"
     }
   },
   "engines": {

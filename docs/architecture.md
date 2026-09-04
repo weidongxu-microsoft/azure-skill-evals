@@ -32,10 +32,9 @@ stay outside Git. Every task stages the cross-language
 fixtures, and project documentation while excluding dependencies, build
 output, caches, and runtime data.
 
-Judges receive the generated diff by default. Large solution evaluations may
-use bounded repository evidence when they declare every staged skill directory
-in `repo_ignore_dirs`. This keeps dependencies, build output, and agent-visible
-skill documentation outside correctness evidence.
+Judges receive the generated diff by default. Large solution evaluations use
+workspace-delivered diff evidence so judges can retrieve relevant parts of the
+complete patch without including staged skills, dependencies, or build output.
 
 Every evaluation workspace also receives a shared `AGENTS.md` instruction that
 requires code requests to produce complete runnable projects with root-level

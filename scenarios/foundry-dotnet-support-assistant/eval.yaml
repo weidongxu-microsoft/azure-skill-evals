@@ -119,65 +119,8 @@ stimuli:
           threshold: 0
           overall_threshold: 0
           evidence:
-            - repo
-          repo_ignore_dirs:
-            - airunway-aks-setup
-            - appinsights-instrumentation
-            - azure-ai
-            - azure-ai-agents-persistent-dotnet
-            - azure-ai-document-intelligence-dotnet
-            - azure-ai-openai-dotnet
-            - azure-ai-projects-dotnet
-            - azure-ai-voicelive-dotnet
-            - azure-aigateway
-            - azure-app-onboard
-            - azure-app-onboard-prereq
-            - azure-cloud-migrate
-            - azure-compliance
-            - azure-compute
-            - azure-cost
-            - azure-deploy
-            - azure-diagnostics
-            - azure-enterprise-infra-planner
-            - azure-eventgrid-dotnet
-            - azure-eventhub-dotnet
-            - azure-identity-dotnet
-            - azure-kubernetes
-            - azure-kusto
-            - azure-maps-search-dotnet
-            - azure-messaging
-            - azure-mgmt-apicenter-dotnet
-            - azure-mgmt-apimanagement-dotnet
-            - azure-mgmt-applicationinsights-dotnet
-            - azure-mgmt-arizeaiobservabilityeval-dotnet
-            - azure-mgmt-botservice-dotnet
-            - azure-mgmt-fabric-dotnet
-            - azure-mgmt-mongodbatlas-dotnet
-            - azure-mgmt-weightsandbiases-dotnet
-            - azure-prepare
-            - azure-quotas
-            - azure-reliability
-            - azure-resource-lookup
-            - azure-resource-manager-cosmosdb-dotnet
-            - azure-resource-manager-durabletask-dotnet
-            - azure-resource-manager-mysql-dotnet
-            - azure-resource-manager-playwright-dotnet
-            - azure-resource-manager-postgresql-dotnet
-            - azure-resource-manager-redis-dotnet
-            - azure-resource-manager-sql-dotnet
-            - azure-resource-visualizer
-            - azure-search-documents-dotnet
-            - azure-security-keyvault-keys-dotnet
-            - azure-servicebus-dotnet
-            - azure-storage
-            - azure-upgrade
-            - azure-validate
-            - entra-agent-id
-            - entra-app-registration
-            - m365-agents-dotnet
-            - microsoft-azure-webjobs-extensions-authentication-events-dotnet
-            - microsoft-foundry
-            - python-appservice-deploy
+            - diff
+          output_delivery: workspace
           criteria:
             - name: prompt/implements-a-complete-runnable-support-application
               description: |-

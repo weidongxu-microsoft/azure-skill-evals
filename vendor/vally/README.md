@@ -1,8 +1,8 @@
 # Vally test package
 
-`microsoft-vally-0.15.0-repo-ignore-dirs.tgz` is built from Vally `v0.15.0`
-with prototype support for additive `repo_ignore_dirs` on prompt and panel
-graders.
+`microsoft-vally-0.15.0-panel-workspace-delivery.tgz` is built from Vally
+commit `6c5e767a`, based on Vally `v0.15.0`, with prototype support for
+`output_delivery: workspace` on panel graders.
 
 SHA-256:
-`01E6AA08B89C84E658EB90FA679C7833580EDCE2366B7144C7325ABE1EB23D34`
+`A2536750E7450FEEC192B544E65512E96FBDE7702520F65F3E3B41EB256A4635`

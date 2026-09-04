@@ -129,15 +129,9 @@ test("every eval uses one complete model review and program checks", () => {
       /^\s+scope: (focused-task|end-to-end-solution)$/gm,
     );
     assert.equal(scopeMatches?.length, 1, evalPath);
-    if (source.includes("repo_ignore_dirs:")) {
-      assert.match(source, /^\s+evidence:\r?\n\s+- repo$/m, evalPath);
-      assert.match(
-        source,
-        /^\s+repo_ignore_dirs:\r?\n(?:\s+- [a-z0-9.-]+\r?\n?)+/m,
-        evalPath,
-      );
-    } else {
-      assert.match(source, /^\s+evidence:\r?\n\s+- diff$/m, evalPath);
+    assert.match(source, /^\s+evidence:\r?\n\s+- diff$/m, evalPath);
+    if (evalPath.includes("foundry-") && evalPath.includes("-support-assistant")) {
+      assert.match(source, /^\s+output_delivery: workspace$/m, evalPath);
     }
     assert.match(
       source,
@@ -173,40 +167,5 @@ test("every eval uses one complete model review and program checks", () => {
       assert.doesNotMatch(source, /scripts\/program-checks\/python\.py/, evalPath);
     }
     assert.doesNotMatch(source, /^    environment:/m, evalPath);
-  }
-});
-
-test("Foundry support scenarios exclude every configured skill from repo evidence", () => {
-  for (const language of ["dotnet", "java", "python", "typescript"]) {
-    const experiment = readFileSync(
-      fileURLToPath(
-        new URL(`./experiments/${language}/experiment.yaml`, import.meta.url),
-      ),
-      "utf8",
-    ).replaceAll("\r\n", "\n");
-    const evalSource = readFileSync(
-      join(scenarioRoot, `foundry-${language}-support-assistant`, "eval.yaml"),
-      "utf8",
-    ).replaceAll("\r\n", "\n");
-
-    const configuredSkills = [
-      ...new Set(
-        [...experiment.matchAll(/\/skills\/([a-z0-9.-]+)$/gm)].map(
-          (match) => match[1],
-        ),
-      ),
-    ].sort();
-    const ignoreBlock = evalSource.match(
-      /^\s+repo_ignore_dirs:\n((?:\s+- [a-z0-9.-]+\n)+)\s+criteria:/m,
-    );
-
-    assert.ok(ignoreBlock, language);
-    const ignoredSkills = [
-      ...ignoreBlock[1].matchAll(/^\s+- ([a-z0-9.-]+)$/gm),
-    ]
-      .map((match) => match[1])
-      .sort();
-
-    assert.deepEqual(ignoredSkills, configuredSkills, language);
   }
 });
