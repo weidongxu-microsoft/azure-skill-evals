@@ -48,9 +48,9 @@ stimuli:
         context.
       - Register the support assistant as a managed prompt agent in the supplied
         Microsoft Foundry project. Create it during administrator
-        initialization, use it for every grounded answer and evaluation, record
-        which agent configuration produced each result, and delete only prompt
-        agent resources created by the application.
+        initialization, persist its returned identity, use it for every
+        grounded answer and evaluation, and delete only prompt agent resources
+        created by the application.
       - Support isolated multi-turn conversations so a follow-up question can
         use prior conversation context. Key durable conversation mappings by
         authenticated employee identity and client conversation ID so they

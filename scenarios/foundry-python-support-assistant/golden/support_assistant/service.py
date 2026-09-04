@@ -303,7 +303,9 @@ class SupportAssistant:
     ) -> bool:
         identifiers = (
             f"vectorStoreId={resources.vector_store_id} "
-            f"fileIds={','.join(resources.file_ids)}"
+            f"fileIds={','.join(resources.file_ids)} "
+            f"agentName={resources.agent_name or '<none>'} "
+            f"agentVersion={resources.agent_version or '<none>'}"
         )
         reloaded = self._reload_after_failed_save(
             f"Could not verify ingestion state for {identifiers}.",
@@ -320,7 +322,10 @@ class SupportAssistant:
                 error,
                 RuntimeError(
                     "Durable state contains different resource ownership: "
-                    f"vectorStoreId={reloaded.resources.vector_store_id}."
+                    f"vectorStoreId={reloaded.resources.vector_store_id} "
+                    f"agentName={reloaded.resources.agent_name or '<none>'} "
+                    "agentVersion="
+                    f"{reloaded.resources.agent_version or '<none>'}."
                 ),
             ],
         )

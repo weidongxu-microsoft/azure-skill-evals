@@ -2,13 +2,23 @@ from __future__ import annotations
 
 import time
 from collections.abc import Iterator, Sequence
+from contextlib import suppress
 from pathlib import Path
 from typing import Any, Protocol
 from urllib.parse import quote
+from uuid import uuid4
 
 import httpx
+from azure.ai.projects import AIProjectClient
+from azure.ai.projects.models import FileSearchTool, PromptAgentDefinition
 from azure.core.credentials import TokenCredential
-from azure.core.exceptions import ClientAuthenticationError, HttpResponseError
+from azure.core.exceptions import (
+    ClientAuthenticationError,
+    HttpResponseError,
+    ResourceNotFoundError,
+    ServiceRequestError,
+    ServiceResponseError,
+)
 
 from .models import (
     Citation,
@@ -67,6 +77,7 @@ class FoundryRestGateway:
         poll_interval_seconds: float = 2.0,
         timeout_seconds: float = 600.0,
         client: httpx.Client | None = None,
+        project_client: AIProjectClient | None = None,
     ) -> None:
         self._base_url = f"{project_endpoint.rstrip('/')}/openai/v1"
         self._credential = credential
@@ -77,10 +88,17 @@ class FoundryRestGateway:
         self._timeout = timeout_seconds
         self._client = client or httpx.Client(timeout=60)
         self._owns_client = client is None
+        self._project_client = project_client or AIProjectClient(
+            endpoint=project_endpoint,
+            credential=credential,
+        )
+        self._owns_project_client = project_client is None
 
     def close(self) -> None:
         if self._owns_client:
             self._client.close()
+        if self._owns_project_client:
+            self._project_client.close()
 
     def ingest(self, document_paths: Sequence[Path]) -> FoundryResources:
         if not document_paths:
@@ -92,7 +110,8 @@ class FoundryRestGateway:
         )
         vector_store_id = _required_string(vector_store, "id")
         file_ids: list[str] = []
-        resources = FoundryResources(vector_store_id, file_ids)
+        agent_name = f"contoso-product-support-{uuid4().hex[:12]}"
+        agent_version = ""
         try:
             for document_path in document_paths:
                 with document_path.open("rb") as content:
@@ -123,24 +142,62 @@ class FoundryRestGateway:
                     raise RuntimeError(
                         f"Indexing {document_path.name} ended with status {status}."
                     )
-            return FoundryResources(vector_store_id, list(file_ids))
+            created_agent = self._project_client.agents.create_version(
+                agent_name=agent_name,
+                definition=PromptAgentDefinition(
+                    model=self._model,
+                    instructions=(
+                        "You are Contoso's internal product-support assistant. "
+                        "Use file search before answering every product question. "
+                        "Answer only from the indexed product documentation. If "
+                        "the documentation does not support an answer, begin with "
+                        "'UNSUPPORTED:'. Never use general knowledge to fill gaps. "
+                        "Preserve file citations for supported answers."
+                    ),
+                    tools=[
+                        FileSearchTool(vector_store_ids=[vector_store_id])
+                    ],
+                    tool_choice="required",
+                ),
+                description="Contoso product-support assistant.",
+            )
+            agent_name = created_agent.name
+            agent_version = created_agent.version
+            return FoundryResources(
+                vector_store_id,
+                list(file_ids),
+                agent_name,
+                agent_version,
+            )
         except (
             ClientAuthenticationError,
             HttpResponseError,
             httpx.RequestError,
             OSError,
             RuntimeError,
+            ServiceRequestError,
+            ServiceResponseError,
             TimeoutError,
             ValueError,
         ) as error:
             try:
-                self.cleanup(resources, [])
+                self.cleanup(
+                    FoundryResources(
+                        vector_store_id,
+                        list(file_ids),
+                        agent_name,
+                        agent_version,
+                    ),
+                    [],
+                )
             except (
                 ClientAuthenticationError,
                 ExceptionGroup,
                 HttpResponseError,
                 httpx.RequestError,
                 RuntimeError,
+                ServiceRequestError,
+                ServiceResponseError,
                 TimeoutError,
             ) as cleanup_error:
                 raise ExceptionGroup(
@@ -155,6 +212,11 @@ class FoundryRestGateway:
         conversation_id: str | None,
         question: str,
     ) -> GatewayAnswer:
+        if not resources.agent_name or not resources.agent_version:
+            raise RuntimeError(
+                "Managed prompt-agent state is missing. An administrator must "
+                "clean up and initialize the product documentation again."
+            )
         active_conversation_id = conversation_id
         created_conversation = False
         if active_conversation_id is None:
@@ -193,24 +255,13 @@ class FoundryRestGateway:
                 "POST",
                 "/responses",
                 json_body={
-                    "model": self._model,
                     "conversation": active_conversation_id,
                     "input": question,
-                    "instructions": (
-                        "You are Contoso's internal product-support assistant. "
-                        "Search the indexed product documentation before answering. "
-                        "Answer only from retrieved documentation. If it does not "
-                        "support an answer, begin with 'UNSUPPORTED:'. Preserve "
-                        "file citations for supported answers."
-                    ),
-                    "tools": [
-                        {
-                            "type": "file_search",
-                            "vector_store_ids": [resources.vector_store_id],
-                            "max_num_results": 10,
-                        }
-                    ],
-                    "tool_choice": "required",
+                    "agent_reference": {
+                        "type": "agent_reference",
+                        "name": resources.agent_name,
+                        "version": resources.agent_version,
+                    },
                     "include": ["file_search_call.results"],
                 },
             )
@@ -448,6 +499,12 @@ class FoundryRestGateway:
                 failures,
             )
         self._raise_cleanup_failures(failures)
+        if resources.agent_name:
+            self._delete_for_cleanup(
+                lambda: self._delete_agent(resources),
+                failures,
+            )
+        self._raise_cleanup_failures(failures)
         self._delete_for_cleanup(
             lambda: self._request(
                 "DELETE",
@@ -465,6 +522,19 @@ class FoundryRestGateway:
             )
         self._raise_cleanup_failures(failures)
 
+    def _delete_agent(self, resources: FoundryResources) -> None:
+        with suppress(ResourceNotFoundError):
+            if resources.agent_version:
+                self._project_client.agents.delete_version(
+                    agent_name=resources.agent_name,
+                    agent_version=resources.agent_version,
+                )
+            else:
+                self._project_client.agents.delete(
+                    agent_name=resources.agent_name,
+                    force=True,
+                )
+
     def _delete_for_cleanup(
         self, operation: Any, failures: list[Exception]
     ) -> None:
@@ -476,8 +546,11 @@ class FoundryRestGateway:
         except (
             ClientAuthenticationError,
             ExceptionGroup,
+            HttpResponseError,
             httpx.RequestError,
             RuntimeError,
+            ServiceRequestError,
+            ServiceResponseError,
             TimeoutError,
         ) as error:
             failures.append(error)

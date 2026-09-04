@@ -14,6 +14,8 @@ class Citation:
 class FoundryResources:
     vector_store_id: str
     file_ids: list[str]
+    agent_name: str | None = None
+    agent_version: str | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -76,7 +78,7 @@ class EvaluationMetric:
 
 @dataclass(slots=True)
 class AssistantState:
-    version: int = 1
+    version: int = 2
     resources: FoundryResources | None = None
     conversations: dict[str, str] = field(default_factory=dict)
     answers: list[StoredAnswer] = field(default_factory=list)
@@ -94,7 +96,10 @@ def state_to_dict(state: AssistantState) -> dict[str, Any]:
 
 
 def state_from_dict(value: object) -> AssistantState:
-    if not isinstance(value, dict) or value.get("version") != 1:
+    if (
+        not isinstance(value, dict)
+        or value.get("version") not in {1, 2}
+    ):
         raise ValueError("State has an unsupported shape.")
     conversations = value.get("conversations")
     answers = value.get("answers")
@@ -111,6 +116,8 @@ def state_from_dict(value: object) -> AssistantState:
         else FoundryResources(
             vector_store_id=_required_string(resources_value, "vector_store_id"),
             file_ids=_string_list(resources_value, "file_ids"),
+            agent_name=_optional_string(resources_value, "agent_name"),
+            agent_version=_optional_string(resources_value, "agent_version"),
         )
     )
     return AssistantState(
