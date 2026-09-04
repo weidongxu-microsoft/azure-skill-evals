@@ -97,10 +97,8 @@ Independent program graders compile, build, or type-check the generated
 project. Language experiments own the three environment variants and can run
 multiple evals. Every workspace starts with the shared cross-language
 source-and-project allowlist and receives the shared `AGENTS.md`. Judges receive
-the generated diff by default. Large solution evaluations may instead use
-bounded repository evidence with explicit skill-directory exclusions so
-dependencies, build artifacts, and staged skills do not displace application
-source.
+only the generated diff so staged skills, dependencies, and build artifacts do
+not displace or contaminate application evidence.
 
 ## Scoring
 

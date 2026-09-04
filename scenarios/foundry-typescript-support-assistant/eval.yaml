@@ -119,61 +119,7 @@ stimuli:
           threshold: 0
           overall_threshold: 0
           evidence:
-            - repo
-          repo_ignore_dirs:
-            - airunway-aks-setup
-            - appinsights-instrumentation
-            - applicationinsights-web-ts
-            - azure-ai
-            - azure-ai-contentsafety-ts
-            - azure-ai-document-intelligence-ts
-            - azure-ai-projects-ts
-            - azure-ai-translation-ts
-            - azure-ai-voicelive-ts
-            - azure-aigateway
-            - azure-app-onboard
-            - azure-app-onboard-prereq
-            - azure-appconfiguration-ts
-            - azure-cloud-migrate
-            - azure-compliance
-            - azure-compute
-            - azure-cosmos-ts
-            - azure-cost
-            - azure-deploy
-            - azure-diagnostics
-            - azure-enterprise-infra-planner
-            - azure-eventhub-ts
-            - azure-identity-ts
-            - azure-keyvault-keys-ts
-            - azure-keyvault-secrets-ts
-            - azure-kubernetes
-            - azure-kusto
-            - azure-messaging
-            - azure-microsoft-playwright-testing-ts
-            - azure-monitor-opentelemetry-ts
-            - azure-postgres-ts
-            - azure-prepare
-            - azure-quotas
-            - azure-reliability
-            - azure-resource-lookup
-            - azure-resource-visualizer
-            - azure-search-documents-ts
-            - azure-servicebus-ts
-            - azure-storage
-            - azure-storage-blob-ts
-            - azure-storage-file-share-ts
-            - azure-storage-queue-ts
-            - azure-upgrade
-            - azure-validate
-            - azure-web-pubsub-ts
-            - entra-agent-id
-            - entra-app-registration
-            - frontend-ui-dark-ts
-            - m365-agents-ts
-            - microsoft-foundry
-            - python-appservice-deploy
-            - react-flow-node-ts
-            - zustand-store-ts
+            - diff
           criteria:
             - name: prompt/implements-a-complete-runnable-support-application
               description: |-
