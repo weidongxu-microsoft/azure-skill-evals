@@ -45,6 +45,8 @@ public sealed class SupportAssistantService(
             {
                 AssistantState reloaded = await ReloadAfterFailedSaveAsync(
                     "Could not verify ingestion state for " +
+                    $"agentName={resources.AgentName} " +
+                    $"agentVersion={resources.AgentVersion} " +
                     $"vectorStoreId={resources.VectorStoreId} " +
                     $"fileIds={string.Join(',', resources.FileIds)}.",
                     error);
@@ -56,6 +58,7 @@ public sealed class SupportAssistantService(
                 {
                     throw new AggregateException(
                         "Ingestion state is ambiguous for " +
+                        $"agentName={resources.AgentName}; " +
                         $"vectorStoreId={resources.VectorStoreId}; " +
                         "no Foundry resources were deleted.",
                         error,
@@ -416,6 +419,8 @@ public sealed class SupportAssistantService(
         FoundryResources? actual,
         FoundryResources expected) =>
         actual is not null &&
+        actual.AgentName == expected.AgentName &&
+        actual.AgentVersion == expected.AgentVersion &&
         actual.VectorStoreId == expected.VectorStoreId &&
         actual.FileIds.SequenceEqual(expected.FileIds, StringComparer.Ordinal);
 

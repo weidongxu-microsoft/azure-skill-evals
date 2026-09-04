@@ -5,7 +5,11 @@ namespace Contoso.SupportAssistant;
 
 public sealed record Citation(string FileId, string Filename);
 
-public sealed record FoundryResources(string VectorStoreId, List<string> FileIds);
+public sealed record FoundryResources(
+    string VectorStoreId,
+    List<string> FileIds,
+    string? AgentName = null,
+    string? AgentVersion = null);
 
 public sealed record SupportAnswer(
     string ConversationId,

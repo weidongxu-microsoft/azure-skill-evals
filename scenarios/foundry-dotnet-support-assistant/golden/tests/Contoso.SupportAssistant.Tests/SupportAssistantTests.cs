@@ -13,7 +13,62 @@ namespace Contoso.SupportAssistant.Tests;
 public sealed class SupportAssistantTests
 {
     private static readonly FoundryResources Resources =
-        new("vector-store-1", ["file-1"]);
+        new("vector-store-1", ["file-1"], "support-agent", "1");
+
+    [Fact]
+    public async Task CreatesAndInvokesManagedPromptAgent()
+    {
+        ManagedAgentHandler handler = new();
+        using HttpClient client = new(handler);
+        FoundryRestGateway gateway = new(
+            new Uri("https://example.test/api/projects/support"),
+            new StaticCredential(),
+            client,
+            "answer-model",
+            "evaluation-model",
+            "https://ai.azure.com/.default");
+        string document = Path.GetTempFileName();
+        await File.WriteAllTextAsync(
+            document,
+            "Reset instructions.",
+            TestContext.Current.CancellationToken);
+
+        try
+        {
+            FoundryResources resources = await gateway.IngestAsync(
+                [document],
+                TestContext.Current.CancellationToken);
+            GatewayAnswer answer = await gateway.AskAsync(
+                resources,
+                "conversation-1",
+                "How do I reset it?",
+                TestContext.Current.CancellationToken);
+
+            Assert.Equal("support-agent", resources.AgentName);
+            Assert.Equal("1", resources.AgentVersion);
+            Assert.True(handler.IngestionCompletedBeforeAgentCreation);
+            JsonObject definition =
+                handler.AgentRequest!["definition"]!.AsObject();
+            Assert.Equal("prompt", definition["kind"]!.GetValue<string>());
+            Assert.Equal(
+                "answer-model", definition["model"]!.GetValue<string>());
+            Assert.Equal(
+                "file_search",
+                definition["tools"]![0]!["type"]!.GetValue<string>());
+            JsonObject reference =
+                handler.ResponseRequest!["agent_reference"]!.AsObject();
+            Assert.Equal(
+                "support-agent", reference["name"]!.GetValue<string>());
+            Assert.Equal("1", reference["version"]!.GetValue<string>());
+            Assert.Null(handler.ResponseRequest["instructions"]);
+            Assert.Null(handler.ResponseRequest["tools"]);
+            Assert.Equal("response-1", answer.ResponseId);
+        }
+        finally
+        {
+            File.Delete(document);
+        }
+    }
 
     [Fact]
     public async Task IsolatesEmployeesAndReusesFollowUpConversation()
@@ -663,5 +718,121 @@ public sealed class SupportAssistantTests
                 new InvalidOperationException(
                     $"Unexpected request: {request.Method} {request.RequestUri}"));
         }
+    }
+
+    private sealed class ManagedAgentHandler : HttpMessageHandler
+    {
+        public JsonObject? AgentRequest { get; private set; }
+
+        public JsonObject? ResponseRequest { get; private set; }
+
+        public bool IngestionCompletedBeforeAgentCreation { get; private set; }
+
+        protected override async Task<HttpResponseMessage> SendAsync(
+            HttpRequestMessage request,
+            CancellationToken cancellationToken)
+        {
+            string path = request.RequestUri!.AbsolutePath;
+            if (request.Method == HttpMethod.Post &&
+                path.EndsWith("/vector_stores", StringComparison.Ordinal))
+            {
+                return Json(new { id = "vector-store-1" });
+            }
+            if (request.Method == HttpMethod.Post &&
+                path.EndsWith("/files", StringComparison.Ordinal) &&
+                !path.Contains("/vector_stores/", StringComparison.Ordinal))
+            {
+                return Json(new { id = "file-1" });
+            }
+            if (request.Method == HttpMethod.Post &&
+                path.EndsWith(
+                    "/vector_stores/vector-store-1/files",
+                    StringComparison.Ordinal))
+            {
+                return Json(new { id = "file-1" });
+            }
+            if (request.Method == HttpMethod.Get &&
+                path.EndsWith(
+                    "/vector_stores/vector-store-1/files/file-1",
+                    StringComparison.Ordinal))
+            {
+                IngestionCompletedBeforeAgentCreation = true;
+                return Json(new { status = "completed" });
+            }
+            if (request.Method == HttpMethod.Post &&
+                path.Contains("/agents/", StringComparison.Ordinal) &&
+                path.EndsWith("/versions", StringComparison.Ordinal))
+            {
+                AgentRequest = JsonNode.Parse(
+                    await request.Content!.ReadAsStringAsync(
+                        cancellationToken))!.AsObject();
+                return Json(new { name = "support-agent", version = "1" });
+            }
+            if (request.Method == HttpMethod.Get &&
+                path.EndsWith(
+                    "/conversations/conversation-1/items",
+                    StringComparison.Ordinal))
+            {
+                return Json(new
+                {
+                    data = Array.Empty<object>(),
+                    has_more = false
+                });
+            }
+            if (request.Method == HttpMethod.Post &&
+                path.EndsWith("/responses", StringComparison.Ordinal))
+            {
+                ResponseRequest = JsonNode.Parse(
+                    await request.Content!.ReadAsStringAsync(
+                        cancellationToken))!.AsObject();
+                return Json(new
+                {
+                    id = "response-1",
+                    status = "completed",
+                    output = new object[]
+                    {
+                        new
+                        {
+                            type = "file_search_call",
+                            results = new[]
+                            {
+                                new { text = "Retrieved reset instructions." }
+                            }
+                        },
+                        new
+                        {
+                            type = "message",
+                            content = new[]
+                            {
+                                new
+                                {
+                                    type = "output_text",
+                                    text = "Hold reset for ten seconds.",
+                                    annotations = new[]
+                                    {
+                                        new
+                                        {
+                                            type = "file_citation",
+                                            file_id = "file-1",
+                                            filename = "manual.md"
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                });
+            }
+
+            return await Task.FromException<HttpResponseMessage>(
+                new InvalidOperationException(
+                    $"Unexpected request: {request.Method} {request.RequestUri}"));
+        }
+
+        private static HttpResponseMessage Json(object value) =>
+            new(HttpStatusCode.OK)
+            {
+                Content = JsonContent.Create(value)
+            };
     }
 }

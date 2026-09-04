@@ -1,10 +1,11 @@
 # Contoso Foundry support assistant
 
-.NET 10 backend API using the Microsoft Foundry project-scoped OpenAI v1
-Responses, Files, Vector Stores, Conversations, and Evals APIs. Azure Blob
-Storage holds one ETag-guarded state document containing employee-scoped
-conversation mappings, responses, unresolved questions, feedback, and resource
-ownership.
+.NET 10 backend API that creates a Microsoft Foundry managed prompt agent and
+uses the project-scoped OpenAI v1 Responses, Files, Vector Stores,
+Conversations, and Evals APIs. The persisted agent identity is used for every
+answer and evaluation case. Azure Blob Storage holds one ETag-guarded state
+document containing employee-scoped conversation mappings, responses,
+unresolved questions, feedback, and resource ownership.
 
 Azure resources must already exist. This application contains no provisioning
 or deployment automation.
@@ -32,6 +33,6 @@ Routes are `/health`, `/admin/ingest`,
 authenticate requests and set `X-MS-CLIENT-PRINCIPAL-ID`.
 
 Call `DELETE /admin/resources` as an administrator to remove application-owned
-Foundry conversations, vector stores, and files in dependency order. Ownership
-remains in Blob Storage when remote cleanup fails so the operation can be
-retried.
+Foundry conversations, the application-owned prompt agent, vector stores, and
+files in dependency order. Ownership remains in Blob Storage when remote
+cleanup fails so the operation can be retried.

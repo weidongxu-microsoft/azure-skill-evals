@@ -51,6 +51,14 @@ public sealed class FoundryHttpException(
 
 public sealed class FoundryRestGateway : IFoundryGateway
 {
+    private const string AgentsApiVersion = "v1";
+    private const string AgentInstructions =
+        "You are Contoso's internal product-support assistant. " +
+        "Search the indexed product documentation before answering. " +
+        "Answer only from retrieved documentation. If it does not support " +
+        "an answer, begin with 'UNSUPPORTED:'. Never use general knowledge " +
+        "to fill gaps. Preserve file citations for supported answers.";
+
     private static readonly HashSet<string> FileTerminalStatuses =
         new(StringComparer.OrdinalIgnoreCase)
         {
@@ -64,6 +72,7 @@ public sealed class FoundryRestGateway : IFoundryGateway
         };
 
     private readonly Uri _baseUri;
+    private readonly Uri _projectBaseUri;
     private readonly TokenCredential _credential;
     private readonly HttpClient _httpClient;
     private readonly string _modelDeployment;
@@ -82,6 +91,8 @@ public sealed class FoundryRestGateway : IFoundryGateway
         TimeSpan? pollInterval = null,
         TimeSpan? operationTimeout = null)
     {
+        _projectBaseUri = new Uri(
+            $"{projectEndpoint.ToString().TrimEnd('/')}/");
         _baseUri = new Uri(
             $"{projectEndpoint.ToString().TrimEnd('/')}/openai/v1/");
         _credential = credential;
@@ -114,7 +125,10 @@ public sealed class FoundryRestGateway : IFoundryGateway
             cancellationToken);
         string vectorStoreId = RequiredString(vectorStore, "id");
         List<string> fileIds = [];
-        FoundryResources resources = new(vectorStoreId, fileIds);
+        string agentName =
+            $"contoso-product-support-{Guid.NewGuid():N}"[..56];
+        FoundryResources resources =
+            new(vectorStoreId, fileIds, agentName);
 
         try
         {
@@ -138,7 +152,38 @@ public sealed class FoundryRestGateway : IFoundryGateway
                 }
             }
 
-            return new FoundryResources(vectorStoreId, [.. fileIds]);
+            JsonObject createdAgent = await SendProjectJsonAsync(
+                HttpMethod.Post,
+                $"agents/{Escape(agentName)}/versions" +
+                    $"?api-version={AgentsApiVersion}",
+                new JsonObject
+                {
+                    ["definition"] = new JsonObject
+                    {
+                        ["kind"] = "prompt",
+                        ["model"] = _modelDeployment,
+                        ["instructions"] = AgentInstructions,
+                        ["tools"] = new JsonArray
+                        {
+                            new JsonObject
+                            {
+                                ["type"] = "file_search",
+                                ["vector_store_ids"] =
+                                    new JsonArray(vectorStoreId),
+                                ["max_num_results"] = 10
+                            }
+                        },
+                        ["tool_choice"] = "required"
+                    }
+                },
+                cancellationToken);
+            string agentVersion =
+                RequiredString(createdAgent, "version");
+            return new FoundryResources(
+                vectorStoreId,
+                [.. fileIds],
+                RequiredString(createdAgent, "name"),
+                agentVersion);
         }
         catch (Exception error) when (
             IsGatewayFailure(error))
@@ -207,31 +252,25 @@ public sealed class FoundryRestGateway : IFoundryGateway
 
         try
         {
+            string agentName = resources.AgentName
+                ?? throw new InvalidOperationException(
+                    "The persisted resources do not identify a managed prompt agent.");
+            string agentVersion = resources.AgentVersion
+                ?? throw new InvalidOperationException(
+                    "The persisted resources do not identify a prompt-agent version.");
             JsonObject response = await SendJsonAsync(
                 HttpMethod.Post,
                 "responses",
                 new JsonObject
                 {
-                    ["model"] = _modelDeployment,
                     ["conversation"] = activeConversationId,
                     ["input"] = question,
-                    ["instructions"] =
-                        "You are Contoso's internal product-support assistant. " +
-                        "Search the indexed product documentation before answering. " +
-                        "Answer only from retrieved documentation. If it does not " +
-                        "support an answer, begin with 'UNSUPPORTED:'. Preserve " +
-                        "file citations for supported answers.",
-                    ["tools"] = new JsonArray
+                    ["agent_reference"] = new JsonObject
                     {
-                        new JsonObject
-                        {
-                            ["type"] = "file_search",
-                            ["vector_store_ids"] = new JsonArray(
-                                resources.VectorStoreId),
-                            ["max_num_results"] = 10
-                        }
+                        ["type"] = "agent_reference",
+                        ["name"] = agentName,
+                        ["version"] = agentVersion
                     },
-                    ["tool_choice"] = "required",
                     ["include"] = new JsonArray("file_search_call.results")
                 },
                 cancellationToken);
@@ -557,6 +596,19 @@ public sealed class FoundryRestGateway : IFoundryGateway
         }
         ThrowCleanupFailures(failures);
 
+        if (!string.IsNullOrWhiteSpace(resources.AgentName))
+        {
+            await DeleteForCleanupAsync(
+                () => SendProjectJsonAsync(
+                    HttpMethod.Delete,
+                    $"agents/{Escape(resources.AgentName)}" +
+                        $"?api-version={AgentsApiVersion}",
+                    null,
+                    cancellationToken),
+                failures);
+            ThrowCleanupFailures(failures);
+        }
+
         await DeleteForCleanupAsync(
             () => SendJsonAsync(
                 HttpMethod.Delete,
@@ -674,6 +726,22 @@ public sealed class FoundryRestGateway : IFoundryGateway
     {
         using HttpRequestMessage request = new(
             method, new Uri(_baseUri, path));
+        if (body is not null)
+        {
+            request.Content = JsonContent.Create(body);
+        }
+
+        return await SendAsync(request, cancellationToken);
+    }
+
+    private async Task<JsonObject> SendProjectJsonAsync(
+        HttpMethod method,
+        string path,
+        JsonObject? body,
+        CancellationToken cancellationToken)
+    {
+        using HttpRequestMessage request = new(
+            method, new Uri(_projectBaseUri, path));
         if (body is not null)
         {
             request.Content = JsonContent.Create(body);
