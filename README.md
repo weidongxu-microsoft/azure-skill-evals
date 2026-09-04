@@ -70,7 +70,7 @@ The same selector can be checked locally without running Vally:
 ```powershell
 node scripts/run-evaluations.mjs --mode suite --suite cosmos-crud --select-only
 node scripts/run-evaluations.mjs --mode tags --tags "service=identity;language=python" --select-only
-node scripts/run-evaluations.mjs --mode all --suite end-to-end-solutions --scope end-to-end-solution --select-only
+node scripts/run-evaluations.mjs --mode all --suite foundry-support-assistant --scope end-to-end-solution --select-only
 node scripts/run-evaluations.mjs --mode all --variant all --matrix
 ```
 

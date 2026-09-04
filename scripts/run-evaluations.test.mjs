@@ -97,10 +97,10 @@ test("treats empty structured filters as unrestricted", () => {
   );
 });
 
-test("selects the end-to-end solution suite", () => {
+test("selects the Foundry support assistant suite", () => {
   const groups = selectEvaluations(catalog, {
     mode: "all",
-    suite: "end-to-end-solutions",
+    suite: "foundry-support-assistant",
   });
 
   assert.deepEqual(

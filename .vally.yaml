@@ -4,8 +4,8 @@ paths:
   results: reports/
 
 suites:
-  end-to-end-solutions:
-    description: Complete applications combining multiple Azure services across four languages
+  foundry-support-assistant:
+    description: Foundry support assistant evaluation across four languages
     evals:
       - scenarios/foundry-python-support-assistant/eval.yaml
       - scenarios/foundry-dotnet-support-assistant/eval.yaml
