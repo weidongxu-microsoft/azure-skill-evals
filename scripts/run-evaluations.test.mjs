@@ -97,15 +97,33 @@ test("treats empty structured filters as unrestricted", () => {
   );
 });
 
-test("selects the end-to-end solution suite", () => {
+test("selects the Foundry support assistant suite", () => {
   const groups = selectEvaluations(catalog, {
     mode: "all",
-    suite: "end-to-end-solutions",
+    suite: "foundry-support-assistant",
   });
 
-  assert.deepEqual(groups[0].filters, [
-    "../../scenarios/foundry-typescript-support-assistant/eval.yaml",
-  ]);
+  assert.deepEqual(
+    groups.map(({ language, filters }) => ({ language, filters })),
+    [
+      {
+        language: "python",
+        filters: ["../../scenarios/foundry-python-support-assistant/eval.yaml"],
+      },
+      {
+        language: "dotnet",
+        filters: ["../../scenarios/foundry-dotnet-support-assistant/eval.yaml"],
+      },
+      {
+        language: "java",
+        filters: ["../../scenarios/foundry-java-support-assistant/eval.yaml"],
+      },
+      {
+        language: "typescript",
+        filters: ["../../scenarios/foundry-typescript-support-assistant/eval.yaml"],
+      },
+    ],
+  );
 });
 
 test("accepts comma-separated values within a tag", () => {

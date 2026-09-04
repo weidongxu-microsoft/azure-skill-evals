@@ -1,4 +1,4 @@
-name: foundry-typescript-support-assistant
+name: foundry-java-support-assistant
 description: "Can an agent design a complete grounded product-support assistant with Microsoft Foundry without prescribed SDK symbols?"
 version: "1.0"
 type: capability
@@ -8,6 +8,8 @@ agent_environment:
       dest: .gitignore
     - src: ../../eval-workspace-AGENTS.md
       dest: AGENTS.md
+    - src: ../../scripts/program-checks/java.mjs
+      dest: .vally/program-checks/java.mjs
     - src: materials/contoso-aero-300.md
       dest: materials/contoso-aero-300.md
     - src: materials/contoso-aero-300-warranty.md
@@ -20,15 +22,15 @@ defaults:
   model: gpt-5.6-sol
   judge_model: gpt-5.6-sol
 stimuli:
-  - name: foundry-dp-typescript-support-assistant
+  - name: foundry-dp-java-support-assistant
     prompt: |-
       Contoso needs an internal product-support assistant built with Microsoft
       Foundry. Employees should be able to ask questions about product
       documentation and receive answers grounded in that documentation.
 
-      Create a complete, runnable backend-only TypeScript application targeting
-      Node.js 24. Implement it as a long-running HTTP JSON API that listens on
-      a configurable port. Select appropriate current Microsoft Foundry
+      Create a complete, runnable backend-only Java 17 application built with
+      Maven. Implement it as a long-running HTTP JSON API that listens on a
+      configurable port. Select appropriate current Microsoft Foundry
       capabilities, Azure services, SDK packages, and application structure.
 
       **Write the application to files in the workspace. Do not reply with code blocks.**
@@ -80,9 +82,8 @@ stimuli:
         actionable diagnostics, and cleanup of created cloud resources.
       - Include meaningful automated tests for application behavior and failure
         paths using mocks or fakes so the tests run offline.
-      - Include dependency manifests and standard `lint`, `build`, and `test`
-        package scripts, plus concise commands for installation, running, and
-        cleanup.
+      - Include a Maven project manifest and concise compile, test, run, and
+        cleanup commands.
 
       Treat the required Azure resources as pre-existing. The deliverable covers
       application code and runtime configuration; resource provisioning,
@@ -90,7 +91,7 @@ stimuli:
     tags:
       service: foundry
       plane: data-plane
-      language: typescript
+      language: java
       category: solution
       scope: end-to-end-solution
     graders:
@@ -102,12 +103,13 @@ stimuli:
             Review the generated implementation against every criterion.
             Score each criterion independently. Accept equivalent valid
             implementations and judge code behavior rather than syntax. Trace
-            concrete imports, client construction, SDK calls, returned service
-            identifiers, persistence operations, and route-to-orchestration
-            call paths. Examples of SDK methods in the criteria are
-            nonexclusive evidence, not mandatory spellings. Fail interfaces,
-            configuration objects, mocks, comments, or disconnected snippets
-            that are not exercised by the runnable application.
+            concrete imports, client construction, SDK or REST calls, returned
+            service identifiers, persistence operations, and
+            route-to-orchestration call paths. Examples of methods and
+            endpoints in the criteria are nonexclusive evidence, not mandatory
+            spellings. Fail interfaces, configuration objects, mocks, comments,
+            or disconnected snippets that are not exercised by the runnable
+            application.
             Return every criterion name exactly as provided. The criterion
             value must start with "prompt/" or "language/". Never copy a rubric
             list number into the criterion value. For example, return
@@ -123,22 +125,21 @@ stimuli:
           criteria:
             - name: prompt/implements-a-complete-runnable-support-application
               description: |-
-                - Production entry point -> `listen(...)`.
-                - HTTP routes -> production support orchestration.
-                - `package.json` -> `lint`, `build`, `test`, `start`.
-                - Build output contains the file executed by `start`.
+                - Production entry point -> `HttpServer.start()` and a long-running process.
+                - HTTP handlers -> production support orchestration.
+                - `pom.xml` -> buildable application and executable tests.
+                - README -> compile, test, run, and cleanup commands.
                 No CLI-only or placeholder implementation.
               weight: 1
               pass_threshold: 1
             - name: prompt/selects-coherent-current-foundry-and-azure-sdks
               description: |-
-                - Current supported client -> configured Foundry project endpoint +
-                  Entra credential.
-                - Foundry project or project-scoped client -> answer generation.
+                - Current supported Java client or supported project-scoped REST client ->
+                  configured Foundry project endpoint + Entra credential.
+                - Foundry project or its `/openai/v1` endpoint -> answer generation.
                 - Supported Foundry evaluation client or API -> evaluation workflow.
-                - Request configuration uses the documented field names and value shapes
-                  for the selected SDK or API.
-                - Every declared service client -> invoked operation.
+                - Request configuration uses documented field names and value shapes.
+                - Every declared Azure service client -> invoked operation.
               weight: 1
               pass_threshold: 1
             - name: prompt/uses-a-foundry-managed-prompt-agent
@@ -158,44 +159,45 @@ stimuli:
                 no Foundry project-agent creation operation, does not satisfy this criterion.
               weight: 1
               pass_threshold: 1
-            # Observed agent pattern: Azure AI Search is the common retrieval choice.
             - name: prompt/ingests-product-documentation-and-waits-for-retrieval-readiness
               description: |-
                 Choose one path for both supplied product documentation files:
-                - `files.create(...)` -> `vectorStores.files.create(...)` -> poll
-                  `vectorStores.files.retrieve(...).status` to `completed`.
-                - `SearchClient.uploadDocuments(...)` -> successful indexing result ->
-                  `SearchClient.getDocument(id)`.
-                - `BlockBlobClient.uploadData(...)` -> `SearchIndexerClient.runIndexer(...)` ->
-                  poll `SearchIndexerClient.getIndexerStatus(...).lastResult.status` to `success`.
+                - Upload through a Foundry/OpenAI file client -> attach to a vector store ->
+                  bounded status polling to `completed`.
+                - `POST /openai/v1/files` -> `POST /vector_stores/{id}/files` -> bounded
+                  `GET` polling to `completed`.
+                - `SearchClient.indexDocuments(...)` -> successful indexing result ->
+                  `getDocument(...)`.
+                - Blob upload -> run an Azure AI Search indexer -> bounded status polling
+                  to `success`.
                 No local-only readiness flag.
               weight: 1
               pass_threshold: 1
             - name: prompt/returns-grounded-answers-with-service-citations
               description: |-
                 One path is required:
-                - `responses.create({ include: ["file_search_call.results"] })` ->
+                - Foundry Responses request includes file-search results -> parse
                   `output_text.annotations[type == "file_citation"].filename`.
-                - `responses.create(...agent_reference...)` ->
+                - Foundry agent response -> parse
                   `output_text.annotations[type == "url_citation"].{title,url}`.
-                - `SearchClient.search(...)` -> match `citationIds` to `result.document.id` ->
-                  `result.document.sourceFile`.
+                - `SearchClient.search(...)` -> match returned citation IDs to result IDs ->
+                  returned source filename.
                 No hardcoded documentation filenames.
               weight: 1
               pass_threshold: 1
             - name: prompt/preserves-isolated-multi-turn-conversations
               description: |-
                 One path is required:
-                - `conversations.create()` or `threads.create()` -> persist returned ID by
-                  `employeeId + conversationId` -> reuse returned ID.
-                - Persist turns by `employeeId + conversationId` -> pass prior turns to the next
-                  Foundry answer call.
+                - Create a Foundry conversation or thread -> persist returned ID by
+                  authenticated `employeeId + conversationId` -> reuse returned ID.
+                - Persist turns by authenticated `employeeId + conversationId` -> pass prior
+                  turns to the next Foundry answer call.
                 No process-memory-only state.
               weight: 1
               pass_threshold: 1
             - name: prompt/records-unsupported-questions-for-follow-up
               description: |-
-                - Detect `supported === false` or `output_text.startsWith("UNSUPPORTED:")`.
+                - Detect `supported == false` or output beginning with `UNSUPPORTED:`.
                 - Durable unresolved record -> question, response ID, creation time, and
                   conversation key scoped by authenticated employee.
               weight: 1
@@ -215,8 +217,7 @@ stimuli:
                 - Evaluation definition -> groundedness + relevance evaluators in an
                   extensible collection.
                 - Evaluator and model configuration matches the selected API schema
-                  (for example, Azure evaluator deployments use `deployment_name` when
-                  that is the documented field).
+                  (for example, Azure evaluator deployments use `deployment_name`).
                 - Evaluation run -> retrieve or poll to terminal status.
                 - Traverse every returned output item and report every metric.
                 - Evaluator `context` -> results returned by the selected retrieval service,
@@ -226,18 +227,19 @@ stimuli:
             - name: prompt/uses-entra-identity-and-external-configuration
               description: |-
                 - Environment variables -> endpoints, deployment, identity settings.
-                - `TokenCredential` -> every Azure client.
+                - A `com.azure.core.credential.TokenCredential` -> every Azure client or REST
+                  token.
                 - Validated Entra token or trusted platform principal -> `employeeId`.
                 - Admin role or allowlist -> ingestion, review, evaluation, cleanup routes.
               weight: 1
               pass_threshold: 1
             - name: prompt/handles-lifecycle-errors-and-bounded-waits
               description: |-
-                - `pollUntilDone()` or deadline + delayed polling.
+                - Deadline + delayed polling without a tight loop.
                 - Handle `failed`, `cancelled`/`canceled`, timeout.
-                - Narrow service failures to the selected SDK's structured error type and
-                  inspect its status or error code before producing actionable diagnostics
-                  (for example, `RestError.statusCode` or `APIError.status`).
+                - Narrow SDK failures to `BlobStorageException`, `HttpResponseException`, or
+                  the selected service exception and inspect status/error code; a structured
+                  Foundry REST exception carrying status and service code is also valid.
                 No unbounded or delay-free polling.
               weight: 1
               pass_threshold: 1
@@ -252,7 +254,7 @@ stimuli:
               pass_threshold: 1
             - name: prompt/includes-meaningful-offline-automated-tests
               description: |-
-                Executable `npm test` tests exercise HTTP routes and orchestration with
+                Executable `mvn test` tests exercise HTTP handlers and orchestration with
                 mocked or fake Azure clients. Test assertions cover:
                 - employee conversation isolation and follow-up context;
                 - unknown or mismatched feedback rejection;
@@ -267,92 +269,77 @@ stimuli:
                 No Bicep, ARM, Terraform, `az`/`azd` provisioning, or deployment workflow.
               weight: 1
               pass_threshold: 1
-            - name: language/correct-azure-scoped-packages
+            - name: language/correct-dependencies-com-azure-not-com-microsoft-azure
               description: |-
-                All Azure SDK dependencies use @azure/ scoped packages (e.g., @azure/storage-blob, @azure/keyvault-secrets, @azure/identity). No deprecated unscoped packages (azure-storage, azure-arm-*, ms-rest-azure, @azure/ms-rest-*).
+                Uses com.azure group ID for all Azure SDK packages. No com.microsoft.azure (legacy SDK) dependencies. Includes azure-identity for authentication.
               weight: 1
               pass_threshold: 1
-            - name: language/azure-identity-for-authentication
+            - name: language/azure-sdk-bom-for-version-management
               description: |-
-                Includes @azure/identity as a dependency. For local development, DefaultAzureCredential is acceptable. For production code, uses a specific Entra token credential (e.g., ManagedIdentityCredential, ClientSecretCredential, WorkloadIdentityCredential) or configures DefaultAzureCredential with the AZURE_TOKEN_CREDENTIALS environment variable set to "prod" or a specific token credential. No hardcoded connection strings, account keys, SAS tokens, or secrets in code.
+                Uses azure-sdk-bom in dependencyManagement to manage Azure SDK versions instead of hardcoding individual artifact versions. Dependencies should omit <version> tags when managed by the BOM.
               weight: 1
               pass_threshold: 1
-            - name: language/client-constructor-with-endpoint-and-credential
+            - name: language/correct-imports-no-legacy-no-internal-packages
               description: |-
-                SDK clients constructed with endpoint URL and credential object, e.g. new BlobServiceClient(url, credential) or new SecretClient(vaultUrl, credential). No legacy constructor patterns or connection string-based construction when identity-based auth is available.
+                All imports use com.azure.* packages. No com.microsoft.azure.* (legacy) or com.azure.*.implementation.* (internal API) imports.
               weight: 1
               pass_threshold: 1
-            - name: language/async-await-pattern
+            - name: language/defaultazurecredential-authentication
               description: |-
-                Uses async/await for all asynchronous operations. No raw .then()/.catch() chains when await is cleaner. No callback-based patterns. Top-level async function or IIFE for entry point.
+                Uses DefaultAzureCredential or another com.azure.identity credential. No hardcoded connection strings, account keys, SAS tokens, or secrets.
               weight: 1
               pass_threshold: 1
-            - name: language/pagination-with-for-await-of
+            - name: language/client-builder-pattern
               description: |-
-                Potentially large or unbounded list/query operations consume results
-                incrementally using the SDK's async iterator, `byPage()`, `fetchNext()`, or
-                continuation-token equivalent. `fetchAll()` or array materialization is
-                acceptable only when the query is demonstrably bounded to a small result
-                set, such as a point lookup or `TOP 1`.
+                SDK clients constructed using *ClientBuilder classes with .endpoint() or .vaultUrl() and .credential(). No legacy constructors (CloudStorageAccount, DocumentClient, KeyVaultClient).
               weight: 1
               pass_threshold: 1
-            - name: language/lro-pattern-beginxxx-polluntildone
+            - name: language/no-deprecated-legacy-classes
               description: |-
-                Uses the SDK's poller when the operation exposes one. For Foundry operations
-                that expose create/retrieve status APIs instead, bounded asynchronous polling
-                that handles every terminal state is valid. No unbounded or tight polling loops.
+                No deprecated classes from the old SDK (CloudStorageAccount, CloudBlobClient, DocumentClient, QueueClient, ApplicationTokenCredentials, MSICredentials, ConnectionStringBuilder).
               weight: 1
               pass_threshold: 1
-            - name: language/resterror-exception-handling
+            - name: language/pagination-pagediterable-pagedflux
               description: |-
-                Catches RestError (from @azure/core-rest-pipeline or the service package) with statusCode inspection for error-specific handling. Not just generic Error or try/catch without type checking.
+                List/query operations return PagedIterable (sync) or PagedFlux (async). Does not flatten all pages into a raw List or Stream in memory.
               weight: 1
               pass_threshold: 1
-            - name: language/no-deprecated-packages
+            - name: language/lro-pattern-syncpoller-pollerflux
               description: |-
-                No deprecated or legacy Azure packages in package.json: azure-storage, azure-arm-*, ms-rest-azure, @azure/ms-rest-js, @azure/ms-rest-nodeauth, @azure/ms-rest-azure-js. All dependencies use the current @azure/* track.
+                Long-running operations use SyncPoller (sync) or PollerFlux (async) with begin* method prefix. No Thread.sleep() polling loops.
               weight: 1
               pass_threshold: 1
-            - name: language/logging-via-azure-logger
+            - name: language/async-uses-project-reactor-mono-flux
               description: |-
-                Uses @azure/logger with setLogLevel() or the AZURE_LOG_LEVEL environment variable for SDK diagnostic logging. No custom logging wrappers around SDK internals.
+                Async code uses Project Reactor types (Mono, Flux). Not CompletableFuture (wrong), not RxJava (wrong), not sync wrapped in ExecutorService. No .block() inside async service implementations.
               weight: 1
               pass_threshold: 1
-            - name: language/package-json-with-correct-dependencies
+            - name: language/service-specific-exception-handling
               description: |-
-                Includes a valid package.json with all required @azure/* dependencies listed. TypeScript projects include tsconfig.json and appropriate @types/* packages or use a recent TypeScript version with built-in types.
+                Catches service-specific exceptions (BlobStorageException, CosmosException, ServiceBusException, HttpResponseException) with status code inspection. Not just generic Exception catches.
+              weight: 1
+              pass_threshold: 1
+            - name: language/try-with-resources-for-clients
+              description: |-
+                All Azure SDK client instances that implement AutoCloseable are used within try-with-resources blocks or explicitly closed in a finally block.
               weight: 1
               pass_threshold: 1
       - type: run-command
-        name: program/typescript-dependencies-install
+        name: program/java-project-compiles
         config:
-          command: npm
+          command: node
           args:
-            - install
-            - --ignore-scripts
-            - --no-audit
-            - --no-fund
+            - .vally/program-checks/java.mjs
           timeout: 3m
-      - type: run-command
-        name: program/typescript-type-checks
-        config:
-          command: npx
-          args:
-            - --no-install
-            - tsc
-            - --noEmit
-          timeout: 2m
     artifacts:
       include:
-        - "**/*.ts"
-        - "**/*.js"
+        - "**/*.java"
+        - "**/pom.xml"
         - "**/*.json"
         - "**/*.jsonl"
-        - "**/package.json"
-        - "**/tsconfig.json"
+        - "**/.env.example"
         - "**/README.md"
       exclude:
         - "**/.vally/**"
-        - "**/node_modules/**"
-        - "**/dist/**"
+        - "**/target/**"
         - "**/.data/**"

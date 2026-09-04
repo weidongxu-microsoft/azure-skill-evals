@@ -1,0 +1,24 @@
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.0.31903.59
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Contoso.SupportAssistant", "src\Contoso.SupportAssistant\Contoso.SupportAssistant.csproj", "{43109D77-FB82-430C-BE7D-AB0A67A15BE8}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Contoso.SupportAssistant.Tests", "tests\Contoso.SupportAssistant.Tests\Contoso.SupportAssistant.Tests.csproj", "{9259DE82-F614-4A47-B1F7-F6A5F6A7BC12}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{43109D77-FB82-430C-BE7D-AB0A67A15BE8}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{43109D77-FB82-430C-BE7D-AB0A67A15BE8}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{43109D77-FB82-430C-BE7D-AB0A67A15BE8}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{43109D77-FB82-430C-BE7D-AB0A67A15BE8}.Release|Any CPU.Build.0 = Release|Any CPU
+		{9259DE82-F614-4A47-B1F7-F6A5F6A7BC12}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{9259DE82-F614-4A47-B1F7-F6A5F6A7BC12}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{9259DE82-F614-4A47-B1F7-F6A5F6A7BC12}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{9259DE82-F614-4A47-B1F7-F6A5F6A7BC12}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+EndGlobal
