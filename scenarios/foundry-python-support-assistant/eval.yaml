@@ -122,7 +122,76 @@ stimuli:
           threshold: 0
           overall_threshold: 0
           evidence:
-            - diff
+            - repo
+          repo_ignore_dirs:
+            - agent-framework-azure-ai-py
+            - airunway-aks-setup
+            - appinsights-instrumentation
+            - azure-ai
+            - azure-ai-contentsafety-py
+            - azure-ai-contentunderstanding-py
+            - azure-ai-language-conversations-py
+            - azure-ai-ml-py
+            - azure-ai-projects-py
+            - azure-ai-textanalytics-py
+            - azure-ai-transcription-py
+            - azure-ai-translation-document-py
+            - azure-ai-translation-text-py
+            - azure-ai-vision-imageanalysis-py
+            - azure-ai-voicelive-py
+            - azure-aigateway
+            - azure-app-onboard
+            - azure-app-onboard-prereq
+            - azure-appconfiguration-py
+            - azure-cloud-migrate
+            - azure-compliance
+            - azure-compute
+            - azure-containerregistry-py
+            - azure-cosmos-db-py
+            - azure-cosmos-py
+            - azure-cost
+            - azure-data-tables-py
+            - azure-deploy
+            - azure-diagnostics
+            - azure-enterprise-infra-planner
+            - azure-eventgrid-py
+            - azure-eventhub-py
+            - azure-identity-py
+            - azure-keyvault-py
+            - azure-kubernetes
+            - azure-kusto
+            - azure-messaging
+            - azure-messaging-webpubsubservice-py
+            - azure-mgmt-apicenter-py
+            - azure-mgmt-apimanagement-py
+            - azure-mgmt-botservice-py
+            - azure-mgmt-fabric-py
+            - azure-monitor-ingestion-py
+            - azure-monitor-opentelemetry-exporter-py
+            - azure-monitor-opentelemetry-py
+            - azure-monitor-query-py
+            - azure-prepare
+            - azure-quotas
+            - azure-reliability
+            - azure-resource-lookup
+            - azure-resource-visualizer
+            - azure-search-documents-py
+            - azure-servicebus-py
+            - azure-speech-to-text-rest-py
+            - azure-storage
+            - azure-storage-blob-py
+            - azure-storage-file-datalake-py
+            - azure-storage-file-share-py
+            - azure-storage-queue-py
+            - azure-upgrade
+            - azure-validate
+            - entra-agent-id
+            - entra-app-registration
+            - fastapi-router-py
+            - m365-agents-py
+            - microsoft-foundry
+            - pydantic-models-py
+            - python-appservice-deploy
           criteria:
             - name: prompt/implements-a-complete-runnable-support-application
               description: |-

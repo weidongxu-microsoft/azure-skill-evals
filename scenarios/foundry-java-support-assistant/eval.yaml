@@ -121,7 +121,62 @@ stimuli:
           threshold: 0
           overall_threshold: 0
           evidence:
-            - diff
+            - repo
+          repo_ignore_dirs:
+            - airunway-aks-setup
+            - appinsights-instrumentation
+            - azure-ai
+            - azure-ai-agents-persistent-java
+            - azure-ai-anomalydetector-java
+            - azure-ai-contentsafety-java
+            - azure-ai-formrecognizer-java
+            - azure-ai-projects-java
+            - azure-ai-vision-imageanalysis-java
+            - azure-ai-voicelive-java
+            - azure-aigateway
+            - azure-app-onboard
+            - azure-app-onboard-prereq
+            - azure-appconfiguration-java
+            - azure-cloud-migrate
+            - azure-communication-callautomation-java
+            - azure-communication-callingserver-java
+            - azure-communication-chat-java
+            - azure-communication-common-java
+            - azure-communication-sms-java
+            - azure-compliance
+            - azure-compute
+            - azure-compute-batch-java
+            - azure-cosmos-java
+            - azure-cost
+            - azure-data-tables-java
+            - azure-deploy
+            - azure-diagnostics
+            - azure-enterprise-infra-planner
+            - azure-eventgrid-java
+            - azure-eventhub-java
+            - azure-identity-java
+            - azure-kubernetes
+            - azure-kusto
+            - azure-messaging
+            - azure-messaging-webpubsub-java
+            - azure-monitor-ingestion-java
+            - azure-monitor-opentelemetry-exporter-java
+            - azure-monitor-query-java
+            - azure-prepare
+            - azure-quotas
+            - azure-reliability
+            - azure-resource-lookup
+            - azure-resource-visualizer
+            - azure-security-keyvault-keys-java
+            - azure-security-keyvault-secrets-java
+            - azure-storage
+            - azure-storage-blob-java
+            - azure-upgrade
+            - azure-validate
+            - entra-agent-id
+            - entra-app-registration
+            - microsoft-foundry
+            - python-appservice-deploy
           criteria:
             - name: prompt/implements-a-complete-runnable-support-application
               description: |-

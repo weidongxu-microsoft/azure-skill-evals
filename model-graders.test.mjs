@@ -175,3 +175,38 @@ test("every eval uses one complete model review and program checks", () => {
     assert.doesNotMatch(source, /^    environment:/m, evalPath);
   }
 });
+
+test("Foundry support scenarios exclude every configured skill from repo evidence", () => {
+  for (const language of ["dotnet", "java", "python", "typescript"]) {
+    const experiment = readFileSync(
+      fileURLToPath(
+        new URL(`./experiments/${language}/experiment.yaml`, import.meta.url),
+      ),
+      "utf8",
+    ).replaceAll("\r\n", "\n");
+    const evalSource = readFileSync(
+      join(scenarioRoot, `foundry-${language}-support-assistant`, "eval.yaml"),
+      "utf8",
+    ).replaceAll("\r\n", "\n");
+
+    const configuredSkills = [
+      ...new Set(
+        [...experiment.matchAll(/\/skills\/([a-z0-9.-]+)$/gm)].map(
+          (match) => match[1],
+        ),
+      ),
+    ].sort();
+    const ignoreBlock = evalSource.match(
+      /^\s+repo_ignore_dirs:\n((?:\s+- [a-z0-9.-]+\n)+)\s+criteria:/m,
+    );
+
+    assert.ok(ignoreBlock, language);
+    const ignoredSkills = [
+      ...ignoreBlock[1].matchAll(/^\s+- ([a-z0-9.-]+)$/gm),
+    ]
+      .map((match) => match[1])
+      .sort();
+
+    assert.deepEqual(ignoredSkills, configuredSkills, language);
+  }
+});
