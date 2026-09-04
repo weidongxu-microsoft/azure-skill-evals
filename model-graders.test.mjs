@@ -129,7 +129,16 @@ test("every eval uses one complete model review and program checks", () => {
       /^\s+scope: (focused-task|end-to-end-solution)$/gm,
     );
     assert.equal(scopeMatches?.length, 1, evalPath);
-    assert.match(source, /^\s+evidence:\r?\n\s+- diff$/m, evalPath);
+    if (source.includes("repo_ignore_dirs:")) {
+      assert.match(source, /^\s+evidence:\r?\n\s+- repo$/m, evalPath);
+      assert.match(
+        source,
+        /^\s+repo_ignore_dirs:\r?\n(?:\s+- [a-z0-9.-]+\r?\n?)+/m,
+        evalPath,
+      );
+    } else {
+      assert.match(source, /^\s+evidence:\r?\n\s+- diff$/m, evalPath);
+    }
     assert.match(
       source,
       /^agent_environment:\n\s+files:\n\s+- src: \.\.\/\.\.\/eval-workspace\.gitignore\n\s+dest: \.gitignore/m,
