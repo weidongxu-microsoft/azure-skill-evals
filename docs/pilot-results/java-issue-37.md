@@ -45,14 +45,18 @@ Foundry support assistant, and Service Bus send/receive.
 |---|---:|---:|---:|---:|---:|---:|---:|
 | `baseline` | 1.64 min | 5,203,309 | 223 | 361 | 0 | 0 | 99 |
 | `azure-skill-mcp` | 3.48 min | 20,754,073 | 447 | 793 | 18 | 185 | 101 |
-| `azure-skill-mcp-microsoft-skill` | 2.99 min | 20,266,920 | 416 | 708 | 39 | 125 | 91 |
+| `azure-skill-mcp-microsoft-skill` | 2.99 min | 20,266,920 | 416 | 708 | 37 | 125 | 91 |
 
 The Azure-only arm activated four general skills. The Java-suite arm activated
 relevant Java SDK skills for Agents, AI Projects, App Configuration, Cosmos DB,
-Event Grid, Event Hubs, Identity, Key Vault, Storage, and Translation, while
-also activating some general Azure skills. Azure MCP use was primarily
-documentation lookup and best-practice retrieval. Skill activation and MCP
-calls were diagnostic evidence only and did not affect scoring.
+Event Grid, Event Hubs, Identity, Key Vault, and Storage, while also activating
+some general Azure skills. Two additional calls failed to activate the
+translation-specific Java skills: `azure-ai-translation-document-java` and
+`azure-ai-translation-text-java`. One affected trajectory used the general
+`azure-ai` skill instead; the other had no successful skill activation. Azure
+MCP use was primarily documentation lookup and best-practice retrieval. Skill
+activation and MCP calls were diagnostic evidence only and did not affect
+scoring.
 
 Web research primarily used Microsoft Learn, Maven Central, Azure SDK
 documentation, and Azure SDK GitHub source. Some agents fetched mutable
