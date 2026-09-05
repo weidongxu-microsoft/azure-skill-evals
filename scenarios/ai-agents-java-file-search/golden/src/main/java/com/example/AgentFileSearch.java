@@ -38,6 +38,7 @@ public final class AgentFileSearch {
         VectorStore vectorStore = null;
         PersistentAgent agent = null;
         PersistentAgentThread thread = null;
+        Throwable primaryFailure = null;
         try {
             uploadedFile = files.uploadFile(new UploadFileRequest(
                 new FileDetails(BinaryData.fromString(GUIDE)).setFilename("trail-guide.txt"),
@@ -67,20 +68,57 @@ public final class AgentFileSearch {
                 thread.getId(),
                 runs.createRun(new CreateRunOptions(thread.getId(), agent.getId())));
             printReturnedAgentText(messages, thread.getId(), completedRun);
+        } catch (InterruptedException | RuntimeException | Error failure) {
+            primaryFailure = failure;
+            throw failure;
         } finally {
+            RuntimeException cleanupFailure = null;
             if (thread != null) {
-                threads.deleteThread(thread.getId());
+                String threadId = thread.getId();
+                cleanupFailure = cleanup(
+                    cleanupFailure,
+                    () -> threads.deleteThread(threadId));
             }
             if (agent != null) {
-                administration.deleteAgent(agent.getId());
+                String agentId = agent.getId();
+                cleanupFailure = cleanup(
+                    cleanupFailure,
+                    () -> administration.deleteAgent(agentId));
             }
             if (vectorStore != null) {
-                vectorStores.deleteVectorStore(vectorStore.getId());
+                String vectorStoreId = vectorStore.getId();
+                cleanupFailure = cleanup(
+                    cleanupFailure,
+                    () -> vectorStores.deleteVectorStore(vectorStoreId));
             }
             if (uploadedFile != null) {
-                files.deleteFile(uploadedFile.getId());
+                String fileId = uploadedFile.getId();
+                cleanupFailure = cleanup(
+                    cleanupFailure,
+                    () -> files.deleteFile(fileId));
+            }
+            if (cleanupFailure != null) {
+                if (primaryFailure != null) {
+                    primaryFailure.addSuppressed(cleanupFailure);
+                } else {
+                    throw cleanupFailure;
+                }
             }
         }
+    }
+
+    private static RuntimeException cleanup(
+        RuntimeException previousFailure,
+        Runnable operation) {
+        try {
+            operation.run();
+        } catch (RuntimeException failure) {
+            if (previousFailure == null) {
+                return failure;
+            }
+            previousFailure.addSuppressed(failure);
+        }
+        return previousFailure;
     }
 
     private static VectorStore waitForVectorStore(

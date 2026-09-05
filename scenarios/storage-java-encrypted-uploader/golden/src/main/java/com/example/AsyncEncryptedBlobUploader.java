@@ -34,11 +34,6 @@ public final class AsyncEncryptedBlobUploader {
             byte[] plaintext) {
         return clients.keyAsyncClient()
                 .getKey(keyName)
-                .flatMap(key -> encryptAndUpload(
-                        container,
-                        blobName,
-                        key.getId(),
-                        plaintext))
                 .onErrorMap(HttpResponseException.class, exception -> {
                     System.err.printf(
                             "Key Vault key request failed: status=%d message=%s. "
@@ -46,7 +41,12 @@ public final class AsyncEncryptedBlobUploader {
                             exception.getResponse().getStatusCode(),
                             exception.getMessage());
                     return exception;
-                });
+                })
+                .flatMap(key -> encryptAndUpload(
+                        container,
+                        blobName,
+                        key.getId(),
+                        plaintext));
     }
 
     private Mono<EncryptionResult> encryptAndUpload(

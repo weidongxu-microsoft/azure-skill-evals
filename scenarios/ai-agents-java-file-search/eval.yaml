@@ -113,6 +113,7 @@ stimuli:
             - name: prompt/deletes-file-search-resources-in-order
               description: |-
                 - Delete the created thread before the created agent.
+                - Delete the created agent before its referenced vector store.
                 - Delete the created vector store before the uploaded file.
               weight: 1
               pass_threshold: 1

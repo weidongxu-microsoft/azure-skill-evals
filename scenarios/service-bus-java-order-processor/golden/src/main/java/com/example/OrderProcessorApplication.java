@@ -24,6 +24,7 @@ import java.time.Duration;
 import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.Map;
+import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
 public final class OrderProcessorApplication {
@@ -376,11 +377,12 @@ public final class OrderProcessorApplication {
         }
 
         Mono<Void> processOrders() {
-            return sessions.acceptNextSession()
-                    .flatMapMany(receiver -> receiver.receiveMessages()
-                            .take(Duration.ofSeconds(35))
-                            .concatMap(message -> settle(receiver, message))
-                            .doFinally(signal -> receiver.close()))
+            return Flux.range(0, 2)
+                    .concatMap(ignored -> sessions.acceptNextSession()
+                            .flatMapMany(receiver -> receiver.receiveMessages()
+                                    .take(Duration.ofSeconds(35))
+                                    .concatMap(message -> settle(receiver, message))
+                                    .doFinally(signal -> receiver.close())))
                     .then();
         }
 

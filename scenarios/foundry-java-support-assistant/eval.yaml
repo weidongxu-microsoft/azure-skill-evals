@@ -141,10 +141,10 @@ stimuli:
               pass_threshold: 1
             - name: prompt/uses-a-foundry-managed-prompt-agent
               description: |-
-                - After retrieval readiness, create a Foundry project prompt agent with the configured model and support instructions.
+                - Create a Foundry project prompt agent with the configured model and support instructions.
                 - Bind its retrieval tool to the created retrieval resource.
                 - Persist the service-returned agent identity with application-owned resource IDs.
-                - Use that created agent for every grounded answer and evaluation case.
+                - Verify retrieval readiness before using that agent for grounded answers or evaluation cases.
                 - Delete only the application-created agent, after its conversations and before referenced retrieval resources.
               weight: 1
               pass_threshold: 1
