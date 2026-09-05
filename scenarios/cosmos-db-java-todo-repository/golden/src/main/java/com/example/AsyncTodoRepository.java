@@ -27,7 +27,7 @@ public final class AsyncTodoRepository {
                         new CosmosItemRequestOptions())
                 .doOnNext(response ->
                         logCharge("async create", response.getRequestCharge()))
-                .map(CosmosItemResponse::getItem)
+                .map(AsyncTodoRepository::itemWithResponseEtag)
                 .onErrorMap(CosmosException.class, error -> translate("create", error));
     }
 
@@ -35,7 +35,7 @@ public final class AsyncTodoRepository {
         return container.readItem(id, new PartitionKey(category), TodoItem.class)
                 .doOnNext(response ->
                         logCharge("async read", response.getRequestCharge()))
-                .map(CosmosItemResponse::getItem)
+                .map(AsyncTodoRepository::itemWithResponseEtag)
                 .onErrorMap(CosmosException.class, error -> translate("read", error));
     }
 
@@ -53,7 +53,7 @@ public final class AsyncTodoRepository {
                         options)
                 .doOnNext(response ->
                         logCharge("async update", response.getRequestCharge()))
-                .map(CosmosItemResponse::getItem)
+                .map(AsyncTodoRepository::itemWithResponseEtag)
                 .onErrorMap(CosmosException.class, error -> translate("update", error));
     }
 
@@ -98,6 +98,13 @@ public final class AsyncTodoRepository {
                     exception);
             default -> exception;
         };
+    }
+
+    private static TodoItem itemWithResponseEtag(
+            CosmosItemResponse<TodoItem> response) {
+        TodoItem item = response.getItem();
+        item.setEtag(response.getETag());
+        return item;
     }
 
     private static void logCharge(String operation, double requestCharge) {

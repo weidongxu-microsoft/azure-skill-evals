@@ -58,94 +58,48 @@ stimuli:
           evidence:
             - diff
           criteria:
-            - name: prompt/maven-dependency-for-azure-storage-blob-and-azure-identi
+            - name: prompt/blob-project-and-auth
               description: |-
-                Maven dependency for `azure-storage-blob` and `azure-identity`
+                - Declare compatible `azure-storage-blob` and `azure-identity` Maven dependencies.
+                - Build the Blob service client with `DefaultAzureCredential`.
+                - Obtain the storage endpoint from external configuration.
               weight: 1
               pass_threshold: 1
-            - name: prompt/blobserviceclientbuilder-with-defaultazurecredential
+            - name: prompt/idempotent-container-create
               description: |-
-                `BlobServiceClientBuilder` with `DefaultAzureCredential`
+                - Target the exact container name `my-container`.
+                - Create it only when absent, using `createIfNotExists()` or an equivalent race-safe existence flow.
               weight: 1
               pass_threshold: 1
-            - name: prompt/blobcontainerclient-create-and-exists-check
+            - name: prompt/upload-required-blob
               description: |-
-                `BlobContainerClient.create()` and `exists()` check
+                - Read the local file `data.txt`.
+                - Upload it as the exact blob name `uploads/data.txt`.
+                - Preserve the local file's contents in the uploaded blob.
               weight: 1
               pass_threshold: 1
-            - name: prompt/blobclient-uploadfromfile-and-downloadtofile
+            - name: prompt/list-blob-details
               description: |-
-                `BlobClient.uploadFromFile()` and `downloadToFile()`
+                - Iterate all blobs returned for `my-container`.
+                - Print each blob's name and size.
               weight: 1
               pass_threshold: 1
-            - name: prompt/blobcontainerclient-listblobs-iteration
+            - name: prompt/download-required-blob
               description: |-
-                `BlobContainerClient.listBlobs()` iteration
+                - Download `uploads/data.txt`.
+                - Write the downloaded bytes to the exact local file `data-downloaded.txt`.
               weight: 1
               pass_threshold: 1
-            - name: prompt/blobclient-delete-and-blobcontainerclient-delete
+            - name: prompt/blob-cleanup
               description: |-
-                `BlobClient.delete()` and `BlobContainerClient.delete()`
+                - Delete `uploads/data.txt` after the download.
+                - Delete `my-container` only after its blob cleanup.
               weight: 1
               pass_threshold: 1
-            - name: prompt/blobstorageexception-handling-with-status-codes
+            - name: prompt/blob-storage-error-handling
               description: |-
-                `BlobStorageException` handling with status codes
-              weight: 1
-              pass_threshold: 1
-            - name: language/correct-dependencies-com-azure-not-com-microsoft-azure
-              description: |-
-                Uses com.azure group ID for all Azure SDK packages. No com.microsoft.azure (legacy SDK) dependencies. Includes azure-identity for authentication.
-              weight: 1
-              pass_threshold: 1
-            - name: language/azure-sdk-bom-for-version-management
-              description: |-
-                Uses azure-sdk-bom in dependencyManagement to manage Azure SDK versions instead of hardcoding individual artifact versions. Dependencies should omit <version> tags when managed by the BOM.
-              weight: 1
-              pass_threshold: 1
-            - name: language/correct-imports-no-legacy-no-internal-packages
-              description: |-
-                All imports use com.azure.* packages. No com.microsoft.azure.* (legacy) or com.azure.*.implementation.* (internal API) imports.
-              weight: 1
-              pass_threshold: 1
-            - name: language/defaultazurecredential-authentication
-              description: |-
-                Uses DefaultAzureCredential or another com.azure.identity credential. No hardcoded connection strings, account keys, SAS tokens, or secrets.
-              weight: 1
-              pass_threshold: 1
-            - name: language/client-builder-pattern
-              description: |-
-                SDK clients constructed using *ClientBuilder classes with .endpoint() or .vaultUrl() and .credential(). No legacy constructors (CloudStorageAccount, DocumentClient, KeyVaultClient).
-              weight: 1
-              pass_threshold: 1
-            - name: language/no-deprecated-legacy-classes
-              description: |-
-                No deprecated classes from the old SDK (CloudStorageAccount, CloudBlobClient, DocumentClient, QueueClient, ApplicationTokenCredentials, MSICredentials, ConnectionStringBuilder).
-              weight: 1
-              pass_threshold: 1
-            - name: language/pagination-pagediterable-pagedflux
-              description: |-
-                List/query operations return PagedIterable (sync) or PagedFlux (async). Does not flatten all pages into a raw List or Stream in memory.
-              weight: 1
-              pass_threshold: 1
-            - name: language/lro-pattern-syncpoller-pollerflux
-              description: |-
-                Long-running operations use SyncPoller (sync) or PollerFlux (async) with begin* method prefix. No Thread.sleep() polling loops.
-              weight: 1
-              pass_threshold: 1
-            - name: language/async-uses-project-reactor-mono-flux
-              description: |-
-                Async code uses Project Reactor types (Mono, Flux). Not CompletableFuture (wrong), not RxJava (wrong), not sync wrapped in ExecutorService. No .block() inside async service implementations.
-              weight: 1
-              pass_threshold: 1
-            - name: language/service-specific-exception-handling
-              description: |-
-                Catches service-specific exceptions (BlobStorageException, CosmosException, ServiceBusException, HttpResponseException) with status code inspection. Not just generic Exception catches.
-              weight: 1
-              pass_threshold: 1
-            - name: language/try-with-resources-for-clients
-              description: |-
-                All Azure SDK client instances that implement AutoCloseable are used within try-with-resources blocks or explicitly closed in a finally block.
+                - Handle `BlobStorageException` around storage operations.
+                - Report the status code and actionable service error details.
               weight: 1
               pass_threshold: 1
       - type: run-command

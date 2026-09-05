@@ -12,6 +12,9 @@ public final class Main {
         System.out.println("Detected environment: " + environment);
         System.out.println(
                 "Selected strategy: " + CredentialFactory.strategyFor(environment));
+        boolean caeEnabled =
+                !"false".equalsIgnoreCase(System.getenv("AZURE_ENABLE_CAE"));
+        System.out.println("CAE requested: " + caeEnabled);
 
         TokenCredential credential =
                 CredentialFactory.buildCredential(environment);
@@ -19,8 +22,10 @@ public final class Main {
             return;
         }
 
-        boolean syncSucceeded = ConnectivityTester.testSync(credential);
-        boolean asyncSucceeded = ConnectivityTester.testAsync(credential).block();
+        boolean syncSucceeded =
+                ConnectivityTester.testSync(credential, caeEnabled);
+        boolean asyncSucceeded =
+                ConnectivityTester.testAsync(credential, caeEnabled).block();
         if (!syncSucceeded || !asyncSucceeded) {
             System.exit(1);
         }

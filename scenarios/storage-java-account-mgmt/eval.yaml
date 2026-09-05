@@ -60,99 +60,56 @@ stimuli:
           evidence:
             - diff
           criteria:
-            - name: prompt/azure-resourcemanager-storage-maven-dependency
+            - name: prompt/storage-management-project
               description: |-
-                `azure-resourcemanager-storage` Maven dependency
+                - Declare `com.azure.resourcemanager:azure-resourcemanager-storage`.
+                - Declare Azure Identity when it is not already supplied transitively.
+                - Use compatible direct versions or an Azure SDK BOM.
               weight: 1
               pass_threshold: 1
-            - name: prompt/storagemanager-authenticate-with-credential-and-profile
+            - name: prompt/storage-manager-authentication
               description: |-
-                `StorageManager.authenticate()` with credential and profile
+                - Create a `DefaultAzureCredential`.
+                - Authenticate `StorageManager` with that credential and an Azure profile.
+                - Select the configured subscription.
               weight: 1
               pass_threshold: 1
-            - name: prompt/storageaccounts-define-withregion-withexistingresourcegr
+            - name: prompt/storage-account-creation
               description: |-
-                `storageAccounts().define().withRegion().withExistingResourceGroup().withSku().create()`
+                - Create a storage account in the target resource group.
+                - Use exactly the `eastus` region.
+                - Use exactly the `Standard_LRS` SKU.
               weight: 1
               pass_threshold: 1
-            - name: prompt/fluent-builder-pattern-for-account-creation
+            - name: prompt/list-storage-accounts
               description: |-
-                Fluent builder pattern for account creation
+                - List storage accounts in the specified resource group.
+                - Iterate the returned management collection and expose each account.
               weight: 1
               pass_threshold: 1
-            - name: prompt/storageaccounts-listbyresourcegroup-for-listing
+            - name: prompt/get-storage-account
               description: |-
-                `storageAccounts().listByResourceGroup()` for listing
+                - Retrieve the created account from its resource group and account name.
+                - Read and expose its management properties.
               weight: 1
               pass_threshold: 1
-            - name: prompt/storageaccounts-getbyresourcegroup-for-details
+            - name: prompt/enable-blob-versioning
               description: |-
-                `storageAccounts().getByResourceGroup()` for details
+                - Update the account's Blob Service Properties.
+                - Enable blob versioning and apply the service-properties update.
+                - Changing an access tier alone does not satisfy this criterion.
               weight: 1
               pass_threshold: 1
-            - name: prompt/update-withblobaccesstier-or-service-properties-update
+            - name: prompt/delete-storage-account
               description: |-
-                `update().withBlobAccessTier()` or service properties update
+                - Delete the created account by resource group and account name.
+                - Treat the management SDK's synchronous `void` deletion as complete; no poller is required.
               weight: 1
               pass_threshold: 1
-            - name: prompt/storageaccounts-deletebyresourcegroup
+            - name: prompt/storage-management-failures
               description: |-
-                `storageAccounts().deleteByResourceGroup()`
-              weight: 1
-              pass_threshold: 1
-            - name: language/correct-dependencies-com-azure-not-com-microsoft-azure
-              description: |-
-                Uses com.azure group ID for all Azure SDK packages. No com.microsoft.azure (legacy SDK) dependencies. Includes azure-identity for authentication.
-              weight: 1
-              pass_threshold: 1
-            - name: language/azure-sdk-bom-for-version-management
-              description: |-
-                Uses azure-sdk-bom in dependencyManagement to manage Azure SDK versions instead of hardcoding individual artifact versions. Dependencies should omit <version> tags when managed by the BOM.
-              weight: 1
-              pass_threshold: 1
-            - name: language/correct-imports-no-legacy-no-internal-packages
-              description: |-
-                All imports use com.azure.* packages. No com.microsoft.azure.* (legacy) or com.azure.*.implementation.* (internal API) imports.
-              weight: 1
-              pass_threshold: 1
-            - name: language/defaultazurecredential-authentication
-              description: |-
-                Uses DefaultAzureCredential or another com.azure.identity credential. No hardcoded connection strings, account keys, SAS tokens, or secrets.
-              weight: 1
-              pass_threshold: 1
-            - name: language/client-builder-pattern
-              description: |-
-                SDK clients constructed using *ClientBuilder classes with .endpoint() or .vaultUrl() and .credential(). No legacy constructors (CloudStorageAccount, DocumentClient, KeyVaultClient).
-              weight: 1
-              pass_threshold: 1
-            - name: language/no-deprecated-legacy-classes
-              description: |-
-                No deprecated classes from the old SDK (CloudStorageAccount, CloudBlobClient, DocumentClient, QueueClient, ApplicationTokenCredentials, MSICredentials, ConnectionStringBuilder).
-              weight: 1
-              pass_threshold: 1
-            - name: language/pagination-pagediterable-pagedflux
-              description: |-
-                List/query operations return PagedIterable (sync) or PagedFlux (async). Does not flatten all pages into a raw List or Stream in memory.
-              weight: 1
-              pass_threshold: 1
-            - name: language/lro-pattern-syncpoller-pollerflux
-              description: |-
-                Long-running operations use SyncPoller (sync) or PollerFlux (async) with begin* method prefix. No Thread.sleep() polling loops.
-              weight: 1
-              pass_threshold: 1
-            - name: language/async-uses-project-reactor-mono-flux
-              description: |-
-                Async code uses Project Reactor types (Mono, Flux). Not CompletableFuture (wrong), not RxJava (wrong), not sync wrapped in ExecutorService. No .block() inside async service implementations.
-              weight: 1
-              pass_threshold: 1
-            - name: language/service-specific-exception-handling
-              description: |-
-                Catches service-specific exceptions (BlobStorageException, CosmosException, ServiceBusException, HttpResponseException) with status code inspection. Not just generic Exception catches.
-              weight: 1
-              pass_threshold: 1
-            - name: language/try-with-resources-for-clients
-              description: |-
-                All Azure SDK client instances that implement AutoCloseable are used within try-with-resources blocks or explicitly closed in a finally block.
+                - Handle Azure management or HTTP failures around account operations.
+                - Report actionable status or service error details when available.
               weight: 1
               pass_threshold: 1
       - type: run-command

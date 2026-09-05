@@ -60,94 +60,48 @@ stimuli:
           evidence:
             - diff
           criteria:
-            - name: prompt/azure-data-appconfiguration-maven-dependency
+            - name: prompt/configures-app-configuration-with-a-connection-string
               description: |-
-                `azure-data-appconfiguration` Maven dependency
+                - Include the `com.azure:azure-data-appconfiguration` Maven dependency.
+                - Build `ConfigurationClient` with `ConfigurationClientBuilder`.
+                - Supply a connection string to the builder; token credentials are not required.
               weight: 1
               pass_threshold: 1
-            - name: prompt/configurationclientbuilder-and-configurationclient
+            - name: prompt/sets-default-and-production-values
               description: |-
-                `ConfigurationClientBuilder` and `ConfigurationClient`
+                - Set key `app:Settings:FontSize` with value `24` and no label.
+                - Set the same key with value `24` and label `Production`.
+                - Any valid current `setConfigurationSetting` overload is accepted.
               weight: 1
               pass_threshold: 1
-            - name: prompt/setconfigurationsetting-with-key-value-label
+            - name: prompt/retrieves-and-prints-the-setting-value
               description: |-
-                `setConfigurationSetting()` with key, value, label
+                - Retrieve `app:Settings:FontSize` from App Configuration by key.
+                - Print the service-returned value `24`.
               weight: 1
               pass_threshold: 1
-            - name: prompt/getconfigurationsetting-by-key-and-label
+            - name: prompt/lists-the-exact-key-filter-results
               description: |-
-                `getConfigurationSetting()` by key and label
+                - List settings with key filter `app:Settings:*`.
+                - Consume the returned settings rather than issuing a disconnected list call.
               weight: 1
               pass_threshold: 1
-            - name: prompt/listconfigurationsettings-with-settingselector
+            - name: prompt/creates-the-beta-feature-flag
               description: |-
-                `listConfigurationSettings()` with `SettingSelector`
+                - Create a feature flag named `BetaFeature`.
+                - A typed `FeatureFlagConfigurationSetting` or equivalent correctly formed App Configuration feature-flag setting is valid.
               weight: 1
               pass_threshold: 1
-            - name: prompt/featureflagconfigurationsetting-for-feature-flags
+            - name: prompt/deletes-the-font-size-setting
               description: |-
-                `FeatureFlagConfigurationSetting` for feature flags
+                - Delete the setting by key `app:Settings:FontSize`.
+                - Use a current App Configuration delete operation or equivalent overload.
               weight: 1
               pass_threshold: 1
-            - name: prompt/deleteconfigurationsetting-and-exception-handling
+            - name: prompt/handles-app-configuration-http-errors
               description: |-
-                `deleteConfigurationSetting()` and exception handling
-              weight: 1
-              pass_threshold: 1
-            - name: language/correct-dependencies-com-azure-not-com-microsoft-azure
-              description: |-
-                Uses com.azure group ID for all Azure SDK packages. No com.microsoft.azure (legacy SDK) dependencies. Includes azure-identity for authentication.
-              weight: 1
-              pass_threshold: 1
-            - name: language/azure-sdk-bom-for-version-management
-              description: |-
-                Uses azure-sdk-bom in dependencyManagement to manage Azure SDK versions instead of hardcoding individual artifact versions. Dependencies should omit <version> tags when managed by the BOM.
-              weight: 1
-              pass_threshold: 1
-            - name: language/correct-imports-no-legacy-no-internal-packages
-              description: |-
-                All imports use com.azure.* packages. No com.microsoft.azure.* (legacy) or com.azure.*.implementation.* (internal API) imports.
-              weight: 1
-              pass_threshold: 1
-            - name: language/defaultazurecredential-authentication
-              description: |-
-                Uses DefaultAzureCredential or another com.azure.identity credential. No hardcoded connection strings, account keys, SAS tokens, or secrets.
-              weight: 1
-              pass_threshold: 1
-            - name: language/client-builder-pattern
-              description: |-
-                SDK clients constructed using *ClientBuilder classes with .endpoint() or .vaultUrl() and .credential(). No legacy constructors (CloudStorageAccount, DocumentClient, KeyVaultClient).
-              weight: 1
-              pass_threshold: 1
-            - name: language/no-deprecated-legacy-classes
-              description: |-
-                No deprecated classes from the old SDK (CloudStorageAccount, CloudBlobClient, DocumentClient, QueueClient, ApplicationTokenCredentials, MSICredentials, ConnectionStringBuilder).
-              weight: 1
-              pass_threshold: 1
-            - name: language/pagination-pagediterable-pagedflux
-              description: |-
-                List/query operations return PagedIterable (sync) or PagedFlux (async). Does not flatten all pages into a raw List or Stream in memory.
-              weight: 1
-              pass_threshold: 1
-            - name: language/lro-pattern-syncpoller-pollerflux
-              description: |-
-                Long-running operations use SyncPoller (sync) or PollerFlux (async) with begin* method prefix. No Thread.sleep() polling loops.
-              weight: 1
-              pass_threshold: 1
-            - name: language/async-uses-project-reactor-mono-flux
-              description: |-
-                Async code uses Project Reactor types (Mono, Flux). Not CompletableFuture (wrong), not RxJava (wrong), not sync wrapped in ExecutorService. No .block() inside async service implementations.
-              weight: 1
-              pass_threshold: 1
-            - name: language/service-specific-exception-handling
-              description: |-
-                Catches service-specific exceptions (BlobStorageException, CosmosException, ServiceBusException, HttpResponseException) with status code inspection. Not just generic Exception catches.
-              weight: 1
-              pass_threshold: 1
-            - name: language/try-with-resources-for-clients
-              description: |-
-                All Azure SDK client instances that implement AutoCloseable are used within try-with-resources blocks or explicitly closed in a finally block.
+                - Catch `HttpResponseException` around service operations.
+                - Report useful HTTP or service error details.
               weight: 1
               pass_threshold: 1
       - type: run-command

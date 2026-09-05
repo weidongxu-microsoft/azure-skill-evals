@@ -1,9 +1,11 @@
 package com.example;
 
+import com.azure.core.credential.TokenCredential;
 import com.azure.core.exception.HttpResponseException;
 import com.azure.core.util.BinaryData;
 import com.azure.messaging.eventgrid.EventGridEvent;
 import com.azure.messaging.eventgrid.EventGridPublisherClient;
+import com.azure.messaging.eventgrid.EventGridPublisherClientBuilder;
 
 import java.util.List;
 import java.util.logging.Level;
@@ -17,11 +19,18 @@ public final class EventPublisher {
         this.client = client;
     }
 
+    public EventPublisher(String topicEndpoint, TokenCredential credential) {
+        this(new EventGridPublisherClientBuilder()
+                .endpoint(topicEndpoint)
+                .credential(credential)
+                .buildEventGridEventPublisherClient());
+    }
+
     public void publish(String subject, List<DownstreamNotification> notifications) {
         List<EventGridEvent> events = notifications.stream()
                 .map(notification -> new EventGridEvent(
                         subject,
-                        "Contoso.Documents.Processed",
+                        notification.eventType(),
                         BinaryData.fromObject(notification),
                         "1.0"))
                 .toList();

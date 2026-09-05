@@ -32,8 +32,14 @@ public final class AsyncBlobEventHandler {
                         result.getT1().getAccessTier()))
                 .then()
                 .onErrorResume(BlobStorageException.class, exception -> {
-                    if (exception.getStatusCode() == 404) {
-                        LOGGER.warning("Blob disappeared before it could be read: " + blobSubject.blobName());
+                    if (isExpectedRace(exception)) {
+                        LOGGER.warning(
+                                "Blob changed before it could be read: "
+                                        + blobSubject.blobName()
+                                        + ", status="
+                                        + exception.getStatusCode()
+                                        + ", code="
+                                        + exception.getErrorCode());
                         return Mono.empty();
                     }
                     return Mono.error(exception);
@@ -44,5 +50,10 @@ public final class AsyncBlobEventHandler {
         BlobSubject blobSubject = BlobSubject.parse(subject);
         return Mono.fromRunnable(() ->
                 LOGGER.info("Blob deleted: " + blobSubject.containerName() + "/" + blobSubject.blobName()));
+    }
+
+    private static boolean isExpectedRace(BlobStorageException exception) {
+        int status = exception.getStatusCode();
+        return status == 404 || status == 409 || status == 412;
     }
 }

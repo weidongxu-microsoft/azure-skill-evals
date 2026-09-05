@@ -68,6 +68,19 @@ public final class AsyncAppConfigurationService {
         return getSettingsByPrefixAsync(prefix).then();
     }
 
+    public Mono<Void> refreshAllCachedAsync() {
+        return reactor.core.publisher.Flux.fromIterable(Map.copyOf(cache).values())
+                .concatMap(setting ->
+                        client.getConfigurationSetting(
+                                setting.getKey(), setting.getLabel())
+                                .doOnNext(refreshed -> cache.put(
+                                        cacheKey(
+                                                refreshed.getKey(),
+                                                refreshed.getLabel()),
+                                        refreshed)))
+                .then();
+    }
+
     private ConditionalResult conditionalResult(
             Response<ConfigurationSetting> response,
             ConfigurationSetting cached,

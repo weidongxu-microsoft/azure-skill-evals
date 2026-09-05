@@ -59,96 +59,92 @@ stimuli:
           evidence:
             - diff
           criteria:
-            - name: prompt/configures-custom-retry-policy-exponential-backoff-max-r
+            - name: prompt/blob-manager-project-and-auth
               description: |-
-                Configures custom retry policy (exponential backoff, max retries, delay)
+                - Declare compatible Blob Storage, Identity, and Reactor dependencies.
+                - Read the storage account endpoint from an environment variable.
+                - Authenticate sync and async clients with managed identity and no shared keys or connection strings.
               weight: 1
               pass_threshold: 1
-            - name: prompt/sets-per-request-or-per-operation-timeout
+            - name: prompt/configurable-retry-policy
               description: |-
-                Sets per-request or per-operation timeout
+                - Configure exponential backoff for transient Blob Storage failures.
+                - Make the maximum retries and retry delay configurable.
+                - Apply the policy to both sync and async clients.
               weight: 1
               pass_threshold: 1
-            - name: prompt/enables-http-logging-httplogoptions
+            - name: prompt/per-request-timeout
               description: |-
-                Enables HTTP logging (`HttpLogOptions`)
+                - Configure a true timeout for each individual HTTP request, such as retry `tryTimeout`.
+                - Apply the per-request timeout to sync and async clients.
+                - An overall operation timeout alone does not satisfy this criterion.
               weight: 1
               pass_threshold: 1
-            - name: prompt/implements-blob-lease-acquisition-before-overwrite-lease
+            - name: prompt/configurable-http-logging
               description: |-
-                Implements blob lease acquisition before overwrite (lease-specific API)
+                - Enable Azure HTTP request and response logging on the clients.
+                - Select the logging detail from external configuration.
               weight: 1
               pass_threshold: 1
-            - name: prompt/implements-parallel-block-upload-for-large-files-paralle
+            - name: prompt/bounded-memory-upload
               description: |-
-                Implements parallel/block upload for large files (`ParallelTransferOptions`, not manual chunking)
+                - Upload multi-gigabyte files without loading the entire file into memory.
+                - Use bounded streaming, staged blocks, transfer options, or an equivalent bounded-memory strategy.
+                - Configure transfer or request behavior so slow connections can make progress.
               weight: 1
               pass_threshold: 1
-            - name: prompt/sets-blob-index-tags-on-upload-not-just-metadata-map-str
+            - name: prompt/upload-metadata-and-tags
               description: |-
-                Sets blob index tags on upload (not just metadata) — `Map<String, String>` via upload options
+                - Provide sync and async upload operations.
+                - Accept optional blob metadata and optional blob index tags.
+                - Persist both metadata and index tags with the uploaded blob.
+                - Keep metadata and tags distinct in the SDK request.
               weight: 1
               pass_threshold: 1
-            - name: prompt/properly-composes-reactive-chains-in-the-demo
+            - name: prompt/blob-download
               description: |-
-                Properly composes reactive service operations with `Mono` and `Flux`.
-                Blocking at the console application's outer demo boundary is acceptable;
-                blocking inside reusable async service methods is not.
+                - Provide sync and async download operations.
+                - Stream or write downloaded content to the caller's destination without unnecessary whole-file buffering.
               weight: 1
               pass_threshold: 1
-            - name: language/correct-dependencies-com-azure-not-com-microsoft-azure
+            - name: prompt/blob-listing
               description: |-
-                Uses com.azure group ID for all Azure SDK packages. No com.microsoft.azure (legacy SDK) dependencies. Includes azure-identity for authentication.
+                - Provide sync and async container listing operations.
+                - Preserve iteration or backpressure rather than requiring all results in memory.
               weight: 1
               pass_threshold: 1
-            - name: language/azure-sdk-bom-for-version-management
+            - name: prompt/blob-deletion
               description: |-
-                Uses azure-sdk-bom in dependencyManagement to manage Azure SDK versions instead of hardcoding individual artifact versions. Dependencies should omit <version> tags when managed by the BOM.
+                - Provide sync and async deletion operations.
+                - Expose unsuccessful deletion instead of reporting false success.
               weight: 1
               pass_threshold: 1
-            - name: language/correct-imports-no-legacy-no-internal-packages
+            - name: prompt/lease-protected-overwrite
               description: |-
-                All imports use com.azure.* packages. No com.microsoft.azure.* (legacy) or com.azure.*.implementation.* (internal API) imports.
+                - Acquire a lease before overwriting an existing blob.
+                - Supply the lease condition to the overwrite request.
+                - Release the lease after the update or failure.
               weight: 1
               pass_threshold: 1
-            - name: language/defaultazurecredential-authentication
+            - name: prompt/async-blob-manager
               description: |-
-                Uses DefaultAzureCredential or another com.azure.identity credential. No hardcoded connection strings, account keys, SAS tokens, or secrets.
+                - Compose async upload, list, download, lease/overwrite, and delete with Reactor.
+                - Do not block inside reusable async service methods.
+                - Blocking once at the console application's outer boundary is acceptable.
               weight: 1
               pass_threshold: 1
-            - name: language/client-builder-pattern
+            - name: prompt/blob-manager-demo
               description: |-
-                SDK clients constructed using *ClientBuilder classes with .endpoint() or .vaultUrl() and .credential(). No legacy constructors (CloudStorageAccount, DocumentClient, KeyVaultClient).
+                - Run upload with tags, list, download, lease-protected overwrite, and delete synchronously first.
+                - Repeat every operation asynchronously afterward.
+                - Print status for each operation in execution order.
               weight: 1
               pass_threshold: 1
-            - name: language/no-deprecated-legacy-classes
+            - name: prompt/blob-manager-failures
               description: |-
-                No deprecated classes from the old SDK (CloudStorageAccount, CloudBlobClient, DocumentClient, QueueClient, ApplicationTokenCredentials, MSICredentials, ConnectionStringBuilder).
-              weight: 1
-              pass_threshold: 1
-            - name: language/pagination-pagediterable-pagedflux
-              description: |-
-                List/query operations return PagedIterable (sync) or PagedFlux (async). Does not flatten all pages into a raw List or Stream in memory.
-              weight: 1
-              pass_threshold: 1
-            - name: language/lro-pattern-syncpoller-pollerflux
-              description: |-
-                Long-running operations use SyncPoller (sync) or PollerFlux (async) with begin* method prefix. No Thread.sleep() polling loops.
-              weight: 1
-              pass_threshold: 1
-            - name: language/async-uses-project-reactor-mono-flux
-              description: |-
-                Async code uses Project Reactor types (Mono, Flux). Not CompletableFuture (wrong), not RxJava (wrong), not sync wrapped in ExecutorService. No .block() inside async service implementations.
-              weight: 1
-              pass_threshold: 1
-            - name: language/service-specific-exception-handling
-              description: |-
-                Catches service-specific exceptions (BlobStorageException, CosmosException, ServiceBusException, HttpResponseException) with status code inspection. Not just generic Exception catches.
-              weight: 1
-              pass_threshold: 1
-            - name: language/try-with-resources-for-clients
-              description: |-
-                All Azure SDK client instances that implement AutoCloseable are used within try-with-resources blocks or explicitly closed in a finally block.
+                - Handle Blob Storage failures for sync and async operations.
+                - Report actionable status or service details.
+                - Preserve transient errors for the configured retry policy.
               weight: 1
               pass_threshold: 1
       - type: run-command

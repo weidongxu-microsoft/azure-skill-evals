@@ -4,6 +4,7 @@ import com.azure.storage.blob.BlobAsyncClient;
 import com.azure.storage.blob.BlobContainerAsyncClient;
 import com.azure.storage.blob.BlobServiceAsyncClient;
 import com.azure.storage.blob.models.BlobRequestConditions;
+import com.azure.storage.blob.models.BlobStorageException;
 import com.azure.storage.blob.models.ParallelTransferOptions;
 import com.azure.storage.blob.options.BlobDownloadToFileOptions;
 import com.azure.storage.blob.options.BlobUploadFromFileOptions;
@@ -31,8 +32,12 @@ public final class BlobStorageAsyncManager {
     }
 
     public Mono<Void> ensureContainerAsync(String containerName) {
-        System.out.printf("Ensuring container %s asynchronously%n", containerName);
-        return asyncContainerClient(containerName).createIfNotExists().then();
+        return reportFailures(
+                "create container",
+                Mono.defer(() -> {
+                    System.out.printf("Ensuring container %s asynchronously%n", containerName);
+                    return asyncContainerClient(containerName).createIfNotExists().then();
+                }));
     }
 
     public Mono<Void> uploadBlobAsync(
@@ -41,31 +46,44 @@ public final class BlobStorageAsyncManager {
             Path filePath,
             Map<String, String> metadata,
             Map<String, String> indexTags) {
-        System.out.printf("Uploading %s asynchronously%n", blobName);
-        return asyncBlobClient(containerName, blobName)
-                .uploadFromFileWithResponse(asyncUploadOptions(filePath, metadata, indexTags))
-                .timeout(asyncOperationTimeout)
-                .then();
+        return reportFailures(
+                "upload blob",
+                Mono.defer(() -> {
+                    System.out.printf("Uploading %s asynchronously%n", blobName);
+                    return asyncBlobClient(containerName, blobName)
+                            .uploadFromFileWithResponse(
+                                    asyncUploadOptions(filePath, metadata, indexTags))
+                            .timeout(asyncOperationTimeout)
+                            .then();
+                }));
     }
 
     public Mono<Void> listBlobsAsync(String containerName) {
-        System.out.printf("Listing blobs in %s asynchronously%n", containerName);
-        return asyncContainerClient(containerName)
-                .listBlobs()
-                .doOnNext(item -> System.out.printf(
-                        "Blob %s has size %d bytes%n",
-                        item.getName(),
-                        item.getProperties().getContentLength()))
-                .then();
+        return reportFailures(
+                "list blobs",
+                Mono.defer(() -> {
+                    System.out.printf("Listing blobs in %s asynchronously%n", containerName);
+                    return asyncContainerClient(containerName)
+                            .listBlobs()
+                            .doOnNext(item -> System.out.printf(
+                                    "Blob %s has size %d bytes%n",
+                                    item.getName(),
+                                    item.getProperties().getContentLength()))
+                            .then();
+                }));
     }
 
     public Mono<Void> downloadBlobAsync(String containerName, String blobName, Path destination) {
-        System.out.printf("Downloading %s asynchronously%n", blobName);
         BlobDownloadToFileOptions options = new BlobDownloadToFileOptions(destination.toString());
-        return asyncBlobClient(containerName, blobName)
-                .downloadToFileWithResponse(options)
-                .timeout(asyncOperationTimeout)
-                .then();
+        return reportFailures(
+                "download blob",
+                Mono.defer(() -> {
+                    System.out.printf("Downloading %s asynchronously%n", blobName);
+                    return asyncBlobClient(containerName, blobName)
+                            .downloadToFileWithResponse(options)
+                            .timeout(asyncOperationTimeout)
+                            .then();
+                }));
     }
 
     public Mono<Void> overwriteWithLeaseAsync(
@@ -75,35 +93,65 @@ public final class BlobStorageAsyncManager {
             Map<String, String> metadata,
             Map<String, String> indexTags,
             String leaseId) {
-        System.out.printf("Overwriting %s with a lease asynchronously%n", blobName);
         BlobAsyncClient blobClient = asyncBlobClient(containerName, blobName);
         BlobLeaseAsyncClient leaseClient = new BlobLeaseClientBuilder()
                 .blobAsyncClient(blobClient)
                 .leaseId(leaseId)
                 .buildAsyncClient();
-        BlobUploadFromFileOptions overwriteOptions = new BlobUploadFromFileOptions(filePath.toString())
-                .setMetadata(metadata)
-                .setTags(indexTags)
-                .setParallelTransferOptions(asyncTransferOptions)
-                .setRequestConditions(new BlobRequestConditions().setLeaseId(leaseId));
-        Mono<String> acquireStep = leaseClient.acquireLease(30);
-        Mono<Void> overwriteStep = blobClient
-                .uploadFromFileWithResponse(overwriteOptions)
-                .timeout(asyncOperationTimeout)
-                .then();
-        return acquireStep
-                .then(overwriteStep)
-                .then(leaseClient.releaseLease());
+        return reportFailures(
+                "lease-protected overwrite",
+                Mono.defer(() -> {
+                    System.out.printf(
+                            "Overwriting %s with a lease asynchronously%n",
+                            blobName);
+                    return Mono.usingWhen(
+                            leaseClient.acquireLease(30),
+                            acquiredLeaseId -> {
+                                BlobUploadFromFileOptions overwriteOptions =
+                                        new BlobUploadFromFileOptions(filePath.toString())
+                                                .setMetadata(metadata)
+                                                .setTags(indexTags)
+                                                .setParallelTransferOptions(asyncTransferOptions)
+                                                .setRequestConditions(
+                                                        new BlobRequestConditions()
+                                                                .setLeaseId(acquiredLeaseId));
+                                return blobClient
+                                        .uploadFromFileWithResponse(overwriteOptions)
+                                        .timeout(asyncOperationTimeout)
+                                        .then();
+                            },
+                            ignored -> leaseClient.releaseLease(),
+                            (ignored, error) -> leaseClient.releaseLease(),
+                            ignored -> leaseClient.releaseLease());
+                }));
     }
 
     public Mono<Void> deleteBlobAsync(String containerName, String blobName) {
-        System.out.printf("Deleting %s asynchronously%n", blobName);
-        return asyncBlobClient(containerName, blobName).deleteIfExists().then();
+        return reportFailures(
+                "delete blob",
+                Mono.defer(() -> {
+                    System.out.printf("Deleting %s asynchronously%n", blobName);
+                    return asyncBlobClient(containerName, blobName)
+                            .deleteIfExists()
+                            .flatMap(deleted -> deleted
+                                    ? Mono.<Void>empty()
+                                    : Mono.<Void>error(new IllegalStateException(
+                                            "Blob did not exist: " + blobName)));
+                }));
     }
 
     public Mono<Void> deleteContainerAsync(String containerName) {
-        System.out.printf("Deleting container %s asynchronously%n", containerName);
-        return asyncContainerClient(containerName).deleteIfExists().then();
+        return reportFailures(
+                "delete container",
+                Mono.defer(() -> {
+                    System.out.printf("Deleting container %s asynchronously%n", containerName);
+                    return asyncContainerClient(containerName)
+                            .deleteIfExists()
+                            .flatMap(deleted -> deleted
+                                    ? Mono.<Void>empty()
+                                    : Mono.<Void>error(new IllegalStateException(
+                                            "Container did not exist: " + containerName)));
+                }));
     }
 
     private BlobUploadFromFileOptions asyncUploadOptions(
@@ -122,5 +170,15 @@ public final class BlobStorageAsyncManager {
 
     private BlobAsyncClient asyncBlobClient(String containerName, String blobName) {
         return asyncContainerClient(containerName).getBlobAsyncClient(blobName);
+    }
+
+    private static Mono<Void> reportFailures(String operation, Mono<Void> action) {
+        return action.doOnError(BlobStorageException.class, exception ->
+                System.err.printf(
+                        "Blob Storage %s failed: status=%d, code=%s, message=%s%n",
+                        operation,
+                        exception.getStatusCode(),
+                        exception.getErrorCode(),
+                        exception.getMessage()));
     }
 }

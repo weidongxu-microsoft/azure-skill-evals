@@ -60,94 +60,49 @@ stimuli:
           evidence:
             - diff
           criteria:
-            - name: prompt/azure-messaging-servicebus-maven-dependency
+            - name: prompt/service-bus-project
               description: |-
-                `azure-messaging-servicebus` Maven dependency
+                - Declare the `com.azure:azure-messaging-servicebus` Maven dependency.
+                - Use current public `com.azure.messaging.servicebus` APIs.
               weight: 1
               pass_threshold: 1
-            - name: prompt/servicebusclientbuilder-with-connection-string
+            - name: prompt/service-bus-authentication
               description: |-
-                `ServiceBusClientBuilder` with connection string
+                - Configure `ServiceBusClientBuilder` with a connection string, or with a fully qualified namespace and Azure credential.
+                - Obtain authentication values from external configuration rather than embedding secrets.
               weight: 1
               pass_threshold: 1
-            - name: prompt/servicebussenderclient-and-servicebusmessage
+            - name: prompt/queue-sending
               description: |-
-                `ServiceBusSenderClient` and `ServiceBusMessage`
+                - Build a queue sender and send one `ServiceBusMessage`.
+                - Build a message batch containing exactly five additional messages.
+                - Check every batch addition and handle a message that does not fit before sending the accepted batch.
               weight: 1
               pass_threshold: 1
-            - name: prompt/createmessagebatch-and-tryaddmessage
+            - name: prompt/queue-receive-and-settlement
               description: |-
-                `createMessageBatch()` and `tryAddMessage()`
+                - Receive queue messages with `receiveMessages(...)`.
+                - Process each received message and explicitly complete it.
               weight: 1
               pass_threshold: 1
-            - name: prompt/servicebusreceiverclient-receivemessages-and-complete
+            - name: prompt/processor-lifecycle
               description: |-
-                `ServiceBusReceiverClient.receiveMessages()` and `complete()`
+                - Configure continuous message and error handlers on a `ServiceBusProcessorClient`.
+                - Start the processor before processing.
+                - Stop or close the processor after the demonstration.
               weight: 1
               pass_threshold: 1
-            - name: prompt/servicebusprocessorclient-with-processmessage-and-proces
+            - name: prompt/topic-subscription-flow
               description: |-
-                `ServiceBusProcessorClient` with `processMessage` and `processError` handlers
+                - Send a message through a topic sender.
+                - Receive and settle it through a receiver configured for that topic's subscription.
               weight: 1
               pass_threshold: 1
-            - name: prompt/topic-operations-with-topicname-and-subscriptionname-on
+            - name: prompt/service-bus-failure-handling
               description: |-
-                Topic operations with `.topicName()` and `.subscriptionName()` on the builder
-              weight: 1
-              pass_threshold: 1
-            - name: language/correct-dependencies-com-azure-not-com-microsoft-azure
-              description: |-
-                Uses com.azure group ID for all Azure SDK packages. No com.microsoft.azure (legacy SDK) dependencies. Includes azure-identity for authentication.
-              weight: 1
-              pass_threshold: 1
-            - name: language/azure-sdk-bom-for-version-management
-              description: |-
-                Uses azure-sdk-bom in dependencyManagement to manage Azure SDK versions instead of hardcoding individual artifact versions. Dependencies should omit <version> tags when managed by the BOM.
-              weight: 1
-              pass_threshold: 1
-            - name: language/correct-imports-no-legacy-no-internal-packages
-              description: |-
-                All imports use com.azure.* packages. No com.microsoft.azure.* (legacy) or com.azure.*.implementation.* (internal API) imports.
-              weight: 1
-              pass_threshold: 1
-            - name: language/defaultazurecredential-authentication
-              description: |-
-                Uses DefaultAzureCredential or another com.azure.identity credential. No hardcoded connection strings, account keys, SAS tokens, or secrets.
-              weight: 1
-              pass_threshold: 1
-            - name: language/client-builder-pattern
-              description: |-
-                SDK clients constructed using *ClientBuilder classes with .endpoint() or .vaultUrl() and .credential(). No legacy constructors (CloudStorageAccount, DocumentClient, KeyVaultClient).
-              weight: 1
-              pass_threshold: 1
-            - name: language/no-deprecated-legacy-classes
-              description: |-
-                No deprecated classes from the old SDK (CloudStorageAccount, CloudBlobClient, DocumentClient, QueueClient, ApplicationTokenCredentials, MSICredentials, ConnectionStringBuilder).
-              weight: 1
-              pass_threshold: 1
-            - name: language/pagination-pagediterable-pagedflux
-              description: |-
-                List/query operations return PagedIterable (sync) or PagedFlux (async). Does not flatten all pages into a raw List or Stream in memory.
-              weight: 1
-              pass_threshold: 1
-            - name: language/lro-pattern-syncpoller-pollerflux
-              description: |-
-                Long-running operations use SyncPoller (sync) or PollerFlux (async) with begin* method prefix. No Thread.sleep() polling loops.
-              weight: 1
-              pass_threshold: 1
-            - name: language/async-uses-project-reactor-mono-flux
-              description: |-
-                Async code uses Project Reactor types (Mono, Flux). Not CompletableFuture (wrong), not RxJava (wrong), not sync wrapped in ExecutorService. No .block() inside async service implementations.
-              weight: 1
-              pass_threshold: 1
-            - name: language/service-specific-exception-handling
-              description: |-
-                Catches service-specific exceptions (BlobStorageException, CosmosException, ServiceBusException, HttpResponseException) with status code inspection. Not just generic Exception catches.
-              weight: 1
-              pass_threshold: 1
-            - name: language/try-with-resources-for-clients
-              description: |-
-                All Azure SDK client instances that implement AutoCloseable are used within try-with-resources blocks or explicitly closed in a finally block.
+                - Handle `ServiceBusException` or equivalent Service Bus failures.
+                - Report the failure reason and whether it is transient when that information is available.
+                - Close all senders, receivers, and processors on success and failure paths.
               weight: 1
               pass_threshold: 1
       - type: run-command

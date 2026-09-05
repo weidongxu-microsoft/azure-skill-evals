@@ -20,5 +20,10 @@
       <artifactId>azure-storage-blob</artifactId>
       <version>12.35.1</version>
     </dependency>
+    <dependency>
+      <groupId>io.projectreactor</groupId>
+      <artifactId>reactor-core</artifactId>
+      <version>3.7.11</version>
+    </dependency>
   </dependencies>
 </project>

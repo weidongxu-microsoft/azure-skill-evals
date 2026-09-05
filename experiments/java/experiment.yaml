@@ -141,4 +141,4 @@ variants:
         - ../../.work/dependencies/microsoft-skills/.github/plugins/azure-sdk-java/skills/azure-storage-blob-java
       mcpServers: *azure-mcp
 execution:
-  workers: 1
+  workers: 6

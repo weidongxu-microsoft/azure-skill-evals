@@ -18,11 +18,13 @@ import com.azure.ai.agents.persistent.models.RunStatus;
 import com.azure.ai.agents.persistent.models.ThreadMessage;
 import com.azure.ai.agents.persistent.models.ThreadRun;
 import com.azure.identity.DefaultAzureCredentialBuilder;
+import java.util.concurrent.TimeUnit;
 
 public final class BasicAgentLifecycle {
     private static final String AGENT_NAME = "hyoka-basic-agent";
     private static final String AGENT_INSTRUCTIONS = "Answer the user's question clearly and concisely.";
     private static final String USER_MESSAGE = "What is the capital of France?";
+    private static final long RUN_TIMEOUT_NANOS = TimeUnit.MINUTES.toNanos(2);
 
     private BasicAgentLifecycle() {
     }
@@ -52,12 +54,9 @@ public final class BasicAgentLifecycle {
             thread = threadsClient.createThread();
             messagesClient.createMessage(thread.getId(), MessageRole.USER, USER_MESSAGE);
 
-            ThreadRun run = runsClient.createRun(new CreateRunOptions(thread.getId(), agent.getId()));
-            while (RunStatus.QUEUED.equals(run.getStatus())
-                || RunStatus.IN_PROGRESS.equals(run.getStatus())) {
-                Thread.sleep(500);
-                run = runsClient.getRun(thread.getId(), run.getId());
-            }
+            ThreadRun run = waitForSuccessfulRun(
+                runsClient,
+                runsClient.createRun(new CreateRunOptions(thread.getId(), agent.getId())));
 
             if (!RunStatus.COMPLETED.equals(run.getStatus())) {
                 throw new IllegalStateException("Agent run ended with status " + run.getStatus());
@@ -83,6 +82,22 @@ public final class BasicAgentLifecycle {
                 administrationClient.deleteAgent(agent.getId());
             }
         }
+    }
+
+    private static ThreadRun waitForSuccessfulRun(
+        RunsClient runsClient,
+        ThreadRun run) throws InterruptedException {
+        long deadline = System.nanoTime() + RUN_TIMEOUT_NANOS;
+        while (RunStatus.QUEUED.equals(run.getStatus())
+            || RunStatus.IN_PROGRESS.equals(run.getStatus())) {
+            if (System.nanoTime() >= deadline) {
+                throw new IllegalStateException(
+                    "Agent run timed out after two minutes: " + run.getId());
+            }
+            Thread.sleep(500);
+            run = runsClient.getRun(run.getThreadId(), run.getId());
+        }
+        return run;
     }
 
     private static String requireEnvironmentVariable(String name) {

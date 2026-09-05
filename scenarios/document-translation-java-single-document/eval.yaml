@@ -66,83 +66,39 @@ stimuli:
           evidence:
             - diff
           criteria:
-            - name: prompt/constructs-singledocumenttranslationclient-not-documentt
+            - name: prompt/exact-single-document-arguments
               description: |-
-                Constructs `SingleDocumentTranslationClient`, not
-                `DocumentTranslationClient`.
+                - Accepts exactly three arguments: local document path, target-language code, and output path.
+                - Any other count -> usage guidance and no service request.
+                - All three supplied values flow to their corresponding input, request, and output roles.
               weight: 1
               pass_threshold: 1
-            - name: prompt/creates-documentfiledetails-from-binarydata-with-the-inp
+            - name: prompt/document-translation-client-authentication
               description: |-
-                Rejects unsupported extensions, then creates `DocumentFileDetails` from binary
-                `BinaryData` with its filename and derived media type and creates
-                `DocumentTranslateContent`.
+                - Declares `com.azure:azure-ai-translation-document` version 2.0.1.
+                - `AZURE_DOCUMENT_TRANSLATION_ENDPOINT` flows into a synchronous single-document client.
+                - A supported token credential or non-hardcoded key credential flows into that client.
               weight: 1
               pass_threshold: 1
-            - name: prompt/calls-translate-targetlanguage-content
+            - name: prompt/binary-document-and-media-type
               description: |-
-                Calls `translate(targetLanguage, content)`.
+                - Opens the supplied local document as binary data.
+                - Supported extension -> matching media type plus original filename in the SDK request content.
+                - Unsupported extension -> clear rejection before translation.
               weight: 1
               pass_threshold: 1
-            - name: prompt/writes-the-returned-binarydata-tobytes-directly-to-the-o
+            - name: prompt/immediate-single-document-translation
               description: |-
-                Writes the exact service-returned `BinaryData.toBytes()` to the output file
-                without decoding, parsing, or transforming it.
+                - File content, filename, media type, and supplied target language flow into one current single-document translation operation.
+                - Uses `SingleDocumentTranslationClient` and any supported equivalent overload or options form.
+                - Treats the operation as an immediate synchronous response, not a batch LRO.
               weight: 1
               pass_threshold: 1
-            - name: language/correct-dependencies-com-azure-not-com-microsoft-azure
+            - name: prompt/preserve-returned-document-bytes
               description: |-
-                Uses com.azure group ID for all Azure SDK packages. No com.microsoft.azure (legacy SDK) dependencies. Includes azure-identity for authentication.
-              weight: 1
-              pass_threshold: 1
-            - name: language/azure-sdk-bom-for-version-management
-              description: |-
-                Uses azure-sdk-bom in dependencyManagement to manage Azure SDK versions instead of hardcoding individual artifact versions. Dependencies should omit <version> tags when managed by the BOM.
-              weight: 1
-              pass_threshold: 1
-            - name: language/correct-imports-no-legacy-no-internal-packages
-              description: |-
-                All imports use com.azure.* packages. No com.microsoft.azure.* (legacy) or com.azure.*.implementation.* (internal API) imports.
-              weight: 1
-              pass_threshold: 1
-            - name: language/defaultazurecredential-authentication
-              description: |-
-                Uses DefaultAzureCredential or another com.azure.identity credential. No hardcoded connection strings, account keys, SAS tokens, or secrets.
-              weight: 1
-              pass_threshold: 1
-            - name: language/client-builder-pattern
-              description: |-
-                SDK clients constructed using *ClientBuilder classes with .endpoint() or .vaultUrl() and .credential(). No legacy constructors (CloudStorageAccount, DocumentClient, KeyVaultClient).
-              weight: 1
-              pass_threshold: 1
-            - name: language/no-deprecated-legacy-classes
-              description: |-
-                No deprecated classes from the old SDK (CloudStorageAccount, CloudBlobClient, DocumentClient, QueueClient, ApplicationTokenCredentials, MSICredentials, ConnectionStringBuilder).
-              weight: 1
-              pass_threshold: 1
-            - name: language/pagination-pagediterable-pagedflux
-              description: |-
-                List/query operations return PagedIterable (sync) or PagedFlux (async). Does not flatten all pages into a raw List or Stream in memory.
-              weight: 1
-              pass_threshold: 1
-            - name: language/lro-pattern-syncpoller-pollerflux
-              description: |-
-                Long-running operations use SyncPoller (sync) or PollerFlux (async) with begin* method prefix. No Thread.sleep() polling loops.
-              weight: 1
-              pass_threshold: 1
-            - name: language/async-uses-project-reactor-mono-flux
-              description: |-
-                Async code uses Project Reactor types (Mono, Flux). Not CompletableFuture (wrong), not RxJava (wrong), not sync wrapped in ExecutorService. No .block() inside async service implementations.
-              weight: 1
-              pass_threshold: 1
-            - name: language/service-specific-exception-handling
-              description: |-
-                Catches service-specific exceptions (BlobStorageException, CosmosException, ServiceBusException, HttpResponseException) with status code inspection. Not just generic Exception catches.
-              weight: 1
-              pass_threshold: 1
-            - name: language/try-with-resources-for-clients
-              description: |-
-                All Azure SDK client instances that implement AutoCloseable are used within try-with-resources blocks or explicitly closed in a finally block.
+                - Consumes all service-returned document bytes through `toBytes()`, `toStream()`, or an equivalent binary path.
+                - Writes those bytes to the supplied output path unchanged.
+                - Does not decode, parse, or transform the translated document.
               weight: 1
               pass_threshold: 1
       - type: run-command

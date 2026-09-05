@@ -12,7 +12,9 @@ import com.azure.messaging.eventhubs.models.EventContext;
 import com.azure.storage.blob.BlobContainerAsyncClient;
 import com.azure.storage.blob.BlobContainerClientBuilder;
 
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
+import java.util.UUID;
 
 public final class EventHubs {
     private EventHubs() {
@@ -31,16 +33,6 @@ public final class EventHubs {
                 .connectionString(eventHubsConnectionString, eventHubName)
                 .buildProducerClient();
 
-        EventDataBatch batch = producer.createBatch();
-        for (int i = 0; i < 10; i++) {
-            EventData event = new EventData("Event " + i);
-            event.getProperties().put("eventId", i);
-            if (!batch.tryAdd(event)) {
-                throw new IllegalStateException("The ten events exceeded the batch size.");
-            }
-        }
-        producer.send(batch);
-
         BlobContainerAsyncClient blobContainer =
                 new BlobContainerClientBuilder()
                         .connectionString(storageConnectionString)
@@ -49,27 +41,56 @@ public final class EventHubs {
         blobContainer.createIfNotExists().block();
         BlobCheckpointStore checkpointStore =
                 new BlobCheckpointStore(blobContainer);
+        CountDownLatch receivedEvents = new CountDownLatch(10);
+        String batchId = UUID.randomUUID().toString();
 
         EventProcessorClient processor = new EventProcessorClientBuilder()
                 .connectionString(eventHubsConnectionString, eventHubName)
                 .consumerGroup(EventHubClientBuilder.DEFAULT_CONSUMER_GROUP_NAME)
                 .checkpointStore(checkpointStore)
-                .processEvent(EventHubs::processEvent)
+                .processEvent(context ->
+                        processEvent(context, receivedEvents, batchId))
                 .processError(EventHubs::processError)
                 .buildEventProcessorClient();
 
         try {
             processor.start();
-            TimeUnit.SECONDS.sleep(30);
+            TimeUnit.SECONDS.sleep(2);
+            EventDataBatch batch = producer.createBatch();
+            for (int i = 0; i < 10; i++) {
+                EventData event = new EventData("Event " + i);
+                event.getProperties().put("eventId", i);
+                event.getProperties().put("batchId", batchId);
+                if (!batch.tryAdd(event)) {
+                    throw new IllegalStateException(
+                            "The ten events exceeded the batch size.");
+                }
+            }
+            producer.send(batch);
+            if (!receivedEvents.await(30, TimeUnit.SECONDS)) {
+                throw new IllegalStateException(
+                        "Timed out waiting for all ten events; received "
+                                + (10 - receivedEvents.getCount()) + ".");
+            }
         } finally {
-            processor.stop();
-            producer.close();
+            try {
+                processor.stop();
+            } finally {
+                producer.close();
+            }
         }
     }
 
-    private static void processEvent(EventContext context) {
+    private static void processEvent(
+            EventContext context,
+            CountDownLatch receivedEvents,
+            String expectedBatchId) {
         System.out.println(context.getEventData().getBodyAsString());
         context.updateCheckpoint();
+        if (expectedBatchId.equals(
+                context.getEventData().getProperties().get("batchId"))) {
+            receivedEvents.countDown();
+        }
     }
 
     private static void processError(ErrorContext context) {

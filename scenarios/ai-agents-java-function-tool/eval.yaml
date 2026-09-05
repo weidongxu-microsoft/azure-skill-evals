@@ -74,111 +74,58 @@ stimuli:
           evidence:
             - diff
           criteria:
-            - name: prompt/defines-functiondefinition-and-functiontooldefinition-fo
+            - name: prompt/configures-the-synchronous-agents-client
               description: |-
-                Defines `FunctionDefinition` and `FunctionToolDefinition` for `get_weather` with
-                the required JSON schema.
+                - Read `PROJECT_ENDPOINT` and use it to build a synchronous persistent Agents client.
+                - Use current public Agents SDK operations for the complete workflow.
               weight: 1
               pass_threshold: 1
-            - name: prompt/passes-the-tool-definition-in-createagentoptions
+            - name: prompt/defines-the-weather-function-tool
               description: |-
-                Passes the tool definition in `CreateAgentOptions`.
+                - Define a function tool named `get_weather`.
+                - Require string parameters `location` and `unit`.
+                - Restrict `unit` to `c` or `f`.
               weight: 1
               pass_threshold: 1
-            - name: prompt/creates-the-thread-exact-user-message-and-run-with-the-c
+            - name: prompt/implements-deterministic-weather-results
               description: |-
-                Creates the thread, exact user message, and run with the created IDs.
+                - Seattle with unit `c` -> JSON temperature `21`.
+                - Seattle with unit `f` -> JSON temperature `70`.
+                - Include the requested location and unit in the JSON result.
               weight: 1
               pass_threshold: 1
-            - name: prompt/detects-runstatus-requires-action-and-submittooloutputsa
+            - name: prompt/creates-the-named-tool-enabled-agent
               description: |-
-                Detects `RunStatus.REQUIRES_ACTION` and `SubmitToolOutputsAction`.
+                - Read `MODEL_DEPLOYMENT_NAME` and create `hyoka-weather-agent` with it.
+                - Attach the `get_weather` tool definition.
+                - Set instructions that require the tool for weather questions.
               weight: 1
               pass_threshold: 1
-            - name: prompt/processes-every-requiredfunctiontoolcall-checks-the-func
+            - name: prompt/creates-the-weather-thread-and-run
               description: |-
-                Processes every `RequiredFunctionToolCall`, checks the function name, and parses
-                `location` and `unit` from its arguments.
+                - Create a thread with the exact supplied Seattle question.
+                - Create a run using the returned thread and agent IDs.
               weight: 1
               pass_threshold: 1
-            - name: prompt/produces-deterministic-json-by-invoking-local-code-rathe
+            - name: prompt/fulfills-every-required-tool-call
               description: |-
-                Invokes local `get_weather` code only for required tool calls and returns JSON with:
-                - The requested location and unit.
-                - Temperature `21` for Seattle in `c`, or `70` for Seattle in `f`.
+                - On required action, iterate every returned function-tool call.
+                - Validate `get_weather` and decode each call's `location` and `unit`.
+                - Invoke local deterministic behavior and correlate one output to each tool-call ID.
+                - Submit all correlated outputs through the Agents SDK.
               weight: 1
               pass_threshold: 1
-            - name: prompt/creates-tooloutput-values-with-each-originating-tool-cal
+            - name: prompt/polls-and-prints-the-assistant-response
               description: |-
-                Creates one `ToolOutput` for every required call with its originating tool-call ID
-                and submits all outputs through `RunsClient.submitToolOutputsToRun`.
+                - Continue bounded run retrieval after output submission; sleeping between retrievals is valid.
+                - Require successful completion and reject unsuccessful terminal states or timeout.
+                - Traverse messages chronologically and print returned assistant text, not only local tool JSON.
               weight: 1
               pass_threshold: 1
-            - name: prompt/resumes-polling-after-submission-requires-completed-stat
+            - name: prompt/deletes-created-agent-resources
               description: |-
-                Resumes polling after submission, requires completed status, and retrieves
-                ascending `MessageRole.AGENT` `MessageTextContent` to print as the final response
-                rather than printing the local function result.
-              weight: 1
-              pass_threshold: 1
-            - name: prompt/deletes-the-created-thread-and-agent
-              description: |-
-                Deletes the created thread and agent.
-              weight: 1
-              pass_threshold: 1
-            - name: language/correct-dependencies-com-azure-not-com-microsoft-azure
-              description: |-
-                Uses com.azure group ID for all Azure SDK packages. No com.microsoft.azure (legacy SDK) dependencies. Includes azure-identity for authentication.
-              weight: 1
-              pass_threshold: 1
-            - name: language/azure-sdk-bom-for-version-management
-              description: |-
-                Uses azure-sdk-bom in dependencyManagement to manage Azure SDK versions instead of hardcoding individual artifact versions. Dependencies should omit <version> tags when managed by the BOM.
-              weight: 1
-              pass_threshold: 1
-            - name: language/correct-imports-no-legacy-no-internal-packages
-              description: |-
-                All imports use com.azure.* packages. No com.microsoft.azure.* (legacy) or com.azure.*.implementation.* (internal API) imports.
-              weight: 1
-              pass_threshold: 1
-            - name: language/defaultazurecredential-authentication
-              description: |-
-                Uses DefaultAzureCredential or another com.azure.identity credential. No hardcoded connection strings, account keys, SAS tokens, or secrets.
-              weight: 1
-              pass_threshold: 1
-            - name: language/client-builder-pattern
-              description: |-
-                SDK clients constructed using *ClientBuilder classes with .endpoint() or .vaultUrl() and .credential(). No legacy constructors (CloudStorageAccount, DocumentClient, KeyVaultClient).
-              weight: 1
-              pass_threshold: 1
-            - name: language/no-deprecated-legacy-classes
-              description: |-
-                No deprecated classes from the old SDK (CloudStorageAccount, CloudBlobClient, DocumentClient, QueueClient, ApplicationTokenCredentials, MSICredentials, ConnectionStringBuilder).
-              weight: 1
-              pass_threshold: 1
-            - name: language/pagination-pagediterable-pagedflux
-              description: |-
-                List/query operations return PagedIterable (sync) or PagedFlux (async). Does not flatten all pages into a raw List or Stream in memory.
-              weight: 1
-              pass_threshold: 1
-            - name: language/lro-pattern-syncpoller-pollerflux
-              description: |-
-                Long-running operations use SyncPoller (sync) or PollerFlux (async) with begin* method prefix. No Thread.sleep() polling loops.
-              weight: 1
-              pass_threshold: 1
-            - name: language/async-uses-project-reactor-mono-flux
-              description: |-
-                Async code uses Project Reactor types (Mono, Flux). Not CompletableFuture (wrong), not RxJava (wrong), not sync wrapped in ExecutorService. No .block() inside async service implementations.
-              weight: 1
-              pass_threshold: 1
-            - name: language/service-specific-exception-handling
-              description: |-
-                Catches service-specific exceptions (BlobStorageException, CosmosException, ServiceBusException, HttpResponseException) with status code inspection. Not just generic Exception catches.
-              weight: 1
-              pass_threshold: 1
-            - name: language/try-with-resources-for-clients
-              description: |-
-                All Azure SDK client instances that implement AutoCloseable are used within try-with-resources blocks or explicitly closed in a finally block.
+                - Delete the created thread through the Agents SDK.
+                - Delete the created agent through the Agents SDK.
               weight: 1
               pass_threshold: 1
       - type: run-command

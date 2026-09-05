@@ -30,8 +30,14 @@ public final class BlobEventHandler {
                     properties.getContentType(),
                     properties.getAccessTier());
         } catch (BlobStorageException exception) {
-            if (exception.getStatusCode() == 404) {
-                LOGGER.warning("Blob disappeared before it could be read: " + blobSubject.blobName());
+            if (isExpectedRace(exception)) {
+                LOGGER.warning(
+                        "Blob changed before it could be read: "
+                                + blobSubject.blobName()
+                                + ", status="
+                                + exception.getStatusCode()
+                                + ", code="
+                                + exception.getErrorCode());
                 return;
             }
             throw exception;
@@ -41,5 +47,10 @@ public final class BlobEventHandler {
     public void handleDeleted(String subject) {
         BlobSubject blobSubject = BlobSubject.parse(subject);
         LOGGER.info("Blob deleted: " + blobSubject.containerName() + "/" + blobSubject.blobName());
+    }
+
+    private static boolean isExpectedRace(BlobStorageException exception) {
+        int status = exception.getStatusCode();
+        return status == 404 || status == 409 || status == 412;
     }
 }

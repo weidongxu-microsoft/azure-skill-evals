@@ -57,84 +57,37 @@ stimuli:
           evidence:
             - diff
           criteria:
-            - name: prompt/maven-dependency-for-azure-security-keyvault-secrets-and
+            - name: prompt/key-vault-project-and-client
               description: |-
-                Maven dependency for `azure-security-keyvault-secrets` and `azure-identity`
+                - Declare `azure-security-keyvault-secrets` and `azure-identity` Maven dependencies.
+                - Read the vault URL from external configuration.
+                - Build the secrets client with `DefaultAzureCredential`.
               weight: 1
               pass_threshold: 1
-            - name: prompt/creating-a-secretclient-with-secretclientbuilder
+            - name: prompt/create-and-read-secret
               description: |-
-                Creating a `SecretClient` with `SecretClientBuilder`
+                - Create `my-secret` with value `my-secret-value`.
+                - Read `my-secret` back from Key Vault.
+                - Print the retrieved value.
               weight: 1
               pass_threshold: 1
-            - name: prompt/setsecret-getsecret-begindeletesecret-purgedeletedsecret
+            - name: prompt/update-secret
               description: |-
-                `setSecret()`, `getSecret()`, `beginDeleteSecret()`, `purgeDeletedSecret()`
+                - Update `my-secret` to `updated-value`.
+                - Preserve the exact secret name while creating the new version.
               weight: 1
               pass_threshold: 1
-            - name: prompt/using-syncpoller-to-wait-for-delete-completion-before-pu
+            - name: prompt/delete-and-purge-secret
               description: |-
-                Using `SyncPoller` to wait for delete completion before purge
+                - Start deletion of `my-secret` and wait for deletion to complete.
+                - Purge the deleted secret only after it reaches the deleted state.
+                - Ensure the purge request completes successfully.
               weight: 1
               pass_threshold: 1
-            - name: prompt/exception-handling-for-httpresponseexception
+            - name: prompt/key-vault-error-handling
               description: |-
-                Exception handling for `HttpResponseException`
-              weight: 1
-              pass_threshold: 1
-            - name: language/correct-dependencies-com-azure-not-com-microsoft-azure
-              description: |-
-                Uses com.azure group ID for all Azure SDK packages. No com.microsoft.azure (legacy SDK) dependencies. Includes azure-identity for authentication.
-              weight: 1
-              pass_threshold: 1
-            - name: language/azure-sdk-bom-for-version-management
-              description: |-
-                Uses azure-sdk-bom in dependencyManagement to manage Azure SDK versions instead of hardcoding individual artifact versions. Dependencies should omit <version> tags when managed by the BOM.
-              weight: 1
-              pass_threshold: 1
-            - name: language/correct-imports-no-legacy-no-internal-packages
-              description: |-
-                All imports use com.azure.* packages. No com.microsoft.azure.* (legacy) or com.azure.*.implementation.* (internal API) imports.
-              weight: 1
-              pass_threshold: 1
-            - name: language/defaultazurecredential-authentication
-              description: |-
-                Uses DefaultAzureCredential or another com.azure.identity credential. No hardcoded connection strings, account keys, SAS tokens, or secrets.
-              weight: 1
-              pass_threshold: 1
-            - name: language/client-builder-pattern
-              description: |-
-                SDK clients constructed using *ClientBuilder classes with .endpoint() or .vaultUrl() and .credential(). No legacy constructors (CloudStorageAccount, DocumentClient, KeyVaultClient).
-              weight: 1
-              pass_threshold: 1
-            - name: language/no-deprecated-legacy-classes
-              description: |-
-                No deprecated classes from the old SDK (CloudStorageAccount, CloudBlobClient, DocumentClient, QueueClient, ApplicationTokenCredentials, MSICredentials, ConnectionStringBuilder).
-              weight: 1
-              pass_threshold: 1
-            - name: language/pagination-pagediterable-pagedflux
-              description: |-
-                List/query operations return PagedIterable (sync) or PagedFlux (async). Does not flatten all pages into a raw List or Stream in memory.
-              weight: 1
-              pass_threshold: 1
-            - name: language/lro-pattern-syncpoller-pollerflux
-              description: |-
-                Long-running operations use SyncPoller (sync) or PollerFlux (async) with begin* method prefix. No Thread.sleep() polling loops.
-              weight: 1
-              pass_threshold: 1
-            - name: language/async-uses-project-reactor-mono-flux
-              description: |-
-                Async code uses Project Reactor types (Mono, Flux). Not CompletableFuture (wrong), not RxJava (wrong), not sync wrapped in ExecutorService. No .block() inside async service implementations.
-              weight: 1
-              pass_threshold: 1
-            - name: language/service-specific-exception-handling
-              description: |-
-                Catches service-specific exceptions (BlobStorageException, CosmosException, ServiceBusException, HttpResponseException) with status code inspection. Not just generic Exception catches.
-              weight: 1
-              pass_threshold: 1
-            - name: language/try-with-resources-for-clients
-              description: |-
-                All Azure SDK client instances that implement AutoCloseable are used within try-with-resources blocks or explicitly closed in a finally block.
+                - Handle Key Vault or HTTP service failures around CRUD operations.
+                - Report actionable status or service error details when available.
               weight: 1
               pass_threshold: 1
       - type: run-command

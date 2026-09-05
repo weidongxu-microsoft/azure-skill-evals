@@ -11,7 +11,9 @@ public final class EnvironmentDetector {
                 || present("AZURE_PIPELINE_WORKSPACE")) {
             return DeploymentEnvironment.CI;
         }
-        if (present("IDENTITY_ENDPOINT") || present("MSI_ENDPOINT")) {
+        if (present("IDENTITY_ENDPOINT")
+                || present("MSI_ENDPOINT")
+                || present("AZURE_FEDERATED_TOKEN_FILE")) {
             return DeploymentEnvironment.PRODUCTION;
         }
         return DeploymentEnvironment.DEV;

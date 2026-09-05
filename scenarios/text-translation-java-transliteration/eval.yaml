@@ -64,79 +64,32 @@ stimuli:
           evidence:
             - diff
           criteria:
-            - name: prompt/passes-the-four-supplied-values-to-texttranslationclient
+            - name: prompt/exact-transliteration-arguments
               description: |-
-                Uses `TextTranslationClient` from `com.azure:azure-ai-translation-text` 2.0.2 and
-                passes the four supplied values to
-                `transliterate(language, fromScript, toScript, text)` without swapping the script
-                codes.
+                - Accepts exactly four arguments: language, source script, target script, and text.
+                - Any other count -> usage guidance and no service request.
+                - Preserves that argument order when assigning request values.
               weight: 1
               pass_threshold: 1
-            - name: prompt/reads-a-returned-transliteratedtext-rather-than-a-transl
+            - name: prompt/transliteration-client-authentication
               description: |-
-                Reads a returned `TransliteratedText` rather than a translation result.
+                - Declares `com.azure:azure-ai-translation-text` version 2.0.2.
+                - `AZURE_TEXT_TRANSLATION_ENDPOINT` flows into a synchronous text translation client.
+                - A supported non-hardcoded key or token credential flows into that client.
               weight: 1
               pass_threshold: 1
-            - name: prompt/prints-both-transliteratedtext-gettext-and-transliterate
+            - name: prompt/immediate-transliteration-request
               description: |-
-                Prints both `TransliteratedText.getText()` and `TransliteratedText.getScript()`
-                read from the service-returned result rather than echoing the input text or
-                target-script code.
+                - Supplied language, source script, target script, and text flow into one transliteration operation.
+                - Uses any supported scalar-text or singleton-list overload without swapping script codes.
+                - Consumes the immediate synchronous transliteration response.
               weight: 1
               pass_threshold: 1
-            - name: language/correct-dependencies-com-azure-not-com-microsoft-azure
+            - name: prompt/print-returned-transliteration
               description: |-
-                Uses com.azure group ID for all Azure SDK packages. No com.microsoft.azure (legacy SDK) dependencies. Includes azure-identity for authentication.
-              weight: 1
-              pass_threshold: 1
-            - name: language/azure-sdk-bom-for-version-management
-              description: |-
-                Uses azure-sdk-bom in dependencyManagement to manage Azure SDK versions instead of hardcoding individual artifact versions. Dependencies should omit <version> tags when managed by the BOM.
-              weight: 1
-              pass_threshold: 1
-            - name: language/correct-imports-no-legacy-no-internal-packages
-              description: |-
-                All imports use com.azure.* packages. No com.microsoft.azure.* (legacy) or com.azure.*.implementation.* (internal API) imports.
-              weight: 1
-              pass_threshold: 1
-            - name: language/defaultazurecredential-authentication
-              description: |-
-                Uses DefaultAzureCredential or another com.azure.identity credential. No hardcoded connection strings, account keys, SAS tokens, or secrets.
-              weight: 1
-              pass_threshold: 1
-            - name: language/client-builder-pattern
-              description: |-
-                SDK clients constructed using *ClientBuilder classes with .endpoint() or .vaultUrl() and .credential(). No legacy constructors (CloudStorageAccount, DocumentClient, KeyVaultClient).
-              weight: 1
-              pass_threshold: 1
-            - name: language/no-deprecated-legacy-classes
-              description: |-
-                No deprecated classes from the old SDK (CloudStorageAccount, CloudBlobClient, DocumentClient, QueueClient, ApplicationTokenCredentials, MSICredentials, ConnectionStringBuilder).
-              weight: 1
-              pass_threshold: 1
-            - name: language/pagination-pagediterable-pagedflux
-              description: |-
-                List/query operations return PagedIterable (sync) or PagedFlux (async). Does not flatten all pages into a raw List or Stream in memory.
-              weight: 1
-              pass_threshold: 1
-            - name: language/lro-pattern-syncpoller-pollerflux
-              description: |-
-                Long-running operations use SyncPoller (sync) or PollerFlux (async) with begin* method prefix. No Thread.sleep() polling loops.
-              weight: 1
-              pass_threshold: 1
-            - name: language/async-uses-project-reactor-mono-flux
-              description: |-
-                Async code uses Project Reactor types (Mono, Flux). Not CompletableFuture (wrong), not RxJava (wrong), not sync wrapped in ExecutorService. No .block() inside async service implementations.
-              weight: 1
-              pass_threshold: 1
-            - name: language/service-specific-exception-handling
-              description: |-
-                Catches service-specific exceptions (BlobStorageException, CosmosException, ServiceBusException, HttpResponseException) with status code inspection. Not just generic Exception catches.
-              weight: 1
-              pass_threshold: 1
-            - name: language/try-with-resources-for-clients
-              description: |-
-                All Azure SDK client instances that implement AutoCloseable are used within try-with-resources blocks or explicitly closed in a finally block.
+                - Reads transliterated text from the service-returned result.
+                - Prints the returned text and returned script metadata.
+                - Does not echo the input text or configured target script as response data.
               weight: 1
               pass_threshold: 1
       - type: run-command

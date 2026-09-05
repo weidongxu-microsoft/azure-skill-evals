@@ -71,99 +71,49 @@ stimuli:
           evidence:
             - diff
           criteria:
-            - name: prompt/uploads-filedetails-through-uploadfilerequest-with-filep
+            - name: prompt/configures-the-synchronous-agents-client
               description: |-
-                Creates a document containing the exact required fact and uploads its `FileDetails`
-                through `UploadFileRequest` with `FilePurpose.AGENTS`.
+                - Read `PROJECT_ENDPOINT` and use it to build a synchronous persistent Agents client.
+                - Use current public Agents SDK operations for files, vector stores, agents, threads, messages, and runs.
               weight: 1
               pass_threshold: 1
-            - name: prompt/creates-a-vector-store-with-the-uploaded-file-id-polls-i
+            - name: prompt/uploads-the-exact-guide-document
               description: |-
-                Creates a vector store with the uploaded file ID, polls its status while indexing,
-                and requires `VectorStoreStatus.COMPLETED` before creating the run. Fails if
-                indexing ends unsuccessfully.
+                - Create a text document containing the exact supplied Cascade Loop fact.
+                - Upload that document for agent use and retain the returned file ID.
               weight: 1
               pass_threshold: 1
-            - name: prompt/adds-both-filesearchtooldefinition-and-filesearchtoolres
+            - name: prompt/prepares-the-vector-store
               description: |-
-                Adds both `FileSearchToolDefinition` and `FileSearchToolResource` containing the
-                vector-store ID in `CreateAgentOptions`.
+                - Create a vector store containing the returned uploaded-file ID.
+                - Poll with a bounded retrieve-and-delay loop until indexing is terminal.
+                - Require successful readiness before creating the run; fail on error or timeout.
               weight: 1
               pass_threshold: 1
-            - name: prompt/creates-the-thread-exact-grounded-question-and-run-with
+            - name: prompt/creates-the-named-file-search-agent
               description: |-
-                Creates the thread with the exact grounded question unchanged, without adding a
-                local path or uploaded file ID, and creates the run with the file-search-configured
-                agent.
+                - Read `MODEL_DEPLOYMENT_NAME` and create `hyoka-trail-guide-agent` with it.
+                - Configure a file-search tool on the agent.
+                - Bind the created vector-store ID through the tool resources or equivalent current SDK shape.
               weight: 1
               pass_threshold: 1
-            - name: prompt/polls-the-run-through-queued-and-in-progress-states-requ
+            - name: prompt/creates-the-grounded-thread-and-run
               description: |-
-                Polls the run through queued and in-progress states, requires
-                `RunStatus.COMPLETED`, and prints text read from returned ascending
-                `MessageRole.AGENT` `MessageTextContent`. Printing the known document fact directly
-                from local code does not satisfy this criterion.
+                - Add the exact supplied guide question to a created thread.
+                - Create the run with the returned thread ID and file-search agent ID.
               weight: 1
               pass_threshold: 1
-            - name: prompt/deletes-the-thread-before-the-agent-then-deletes-the-vec
+            - name: prompt/polls-and-prints-the-grounded-answer
               description: |-
-                Deletes the thread before the agent, then deletes the vector store before the
-                uploaded file.
+                - Refresh the run while nonterminal; bounded manual retrieval with sleep is valid.
+                - Require successful completion without requiring observation of transient statuses.
+                - Traverse messages chronologically and print returned agent text, not the locally known fact.
               weight: 1
               pass_threshold: 1
-            - name: language/correct-dependencies-com-azure-not-com-microsoft-azure
+            - name: prompt/deletes-file-search-resources-in-order
               description: |-
-                Uses com.azure group ID for all Azure SDK packages. No com.microsoft.azure (legacy SDK) dependencies. Includes azure-identity for authentication.
-              weight: 1
-              pass_threshold: 1
-            - name: language/azure-sdk-bom-for-version-management
-              description: |-
-                Uses azure-sdk-bom in dependencyManagement to manage Azure SDK versions instead of hardcoding individual artifact versions. Dependencies should omit <version> tags when managed by the BOM.
-              weight: 1
-              pass_threshold: 1
-            - name: language/correct-imports-no-legacy-no-internal-packages
-              description: |-
-                All imports use com.azure.* packages. No com.microsoft.azure.* (legacy) or com.azure.*.implementation.* (internal API) imports.
-              weight: 1
-              pass_threshold: 1
-            - name: language/defaultazurecredential-authentication
-              description: |-
-                Uses DefaultAzureCredential or another com.azure.identity credential. No hardcoded connection strings, account keys, SAS tokens, or secrets.
-              weight: 1
-              pass_threshold: 1
-            - name: language/client-builder-pattern
-              description: |-
-                SDK clients constructed using *ClientBuilder classes with .endpoint() or .vaultUrl() and .credential(). No legacy constructors (CloudStorageAccount, DocumentClient, KeyVaultClient).
-              weight: 1
-              pass_threshold: 1
-            - name: language/no-deprecated-legacy-classes
-              description: |-
-                No deprecated classes from the old SDK (CloudStorageAccount, CloudBlobClient, DocumentClient, QueueClient, ApplicationTokenCredentials, MSICredentials, ConnectionStringBuilder).
-              weight: 1
-              pass_threshold: 1
-            - name: language/pagination-pagediterable-pagedflux
-              description: |-
-                List/query operations return PagedIterable (sync) or PagedFlux (async). Does not flatten all pages into a raw List or Stream in memory.
-              weight: 1
-              pass_threshold: 1
-            - name: language/lro-pattern-syncpoller-pollerflux
-              description: |-
-                Long-running operations use SyncPoller (sync) or PollerFlux (async) with begin* method prefix. No Thread.sleep() polling loops.
-              weight: 1
-              pass_threshold: 1
-            - name: language/async-uses-project-reactor-mono-flux
-              description: |-
-                Async code uses Project Reactor types (Mono, Flux). Not CompletableFuture (wrong), not RxJava (wrong), not sync wrapped in ExecutorService. No .block() inside async service implementations.
-              weight: 1
-              pass_threshold: 1
-            - name: language/service-specific-exception-handling
-              description: |-
-                Catches service-specific exceptions (BlobStorageException, CosmosException, ServiceBusException, HttpResponseException) with status code inspection. Not just generic Exception catches.
-              weight: 1
-              pass_threshold: 1
-            - name: language/try-with-resources-for-clients
-              description: |-
-                All Azure SDK client instances that implement AutoCloseable are used within try-with-resources blocks or explicitly closed in a finally block.
+                - Delete the created thread before the created agent.
+                - Delete the created vector store before the uploaded file.
               weight: 1
               pass_threshold: 1
       - type: run-command

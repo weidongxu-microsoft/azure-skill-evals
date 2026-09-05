@@ -61,104 +61,68 @@ stimuli:
           evidence:
             - diff
           criteria:
-            - name: prompt/retrieves-settings-with-a-specific-label-parameter-using
+            - name: prompt/configures-managed-identity-sync-and-async-clients
               description: |-
-                Retrieves settings with a specific label parameter using `SettingSelector`
+                - Read the App Configuration endpoint from environment configuration.
+                - Build both sync and async App Configuration clients for that endpoint.
+                - Authenticate both clients with managed identity through a `TokenCredential`.
               weight: 1
               pass_threshold: 1
-            - name: prompt/lists-settings-filtered-by-key-prefix-using-setkeyfilter
+            - name: prompt/supports-sync-and-async-setting-lookups
               description: |-
-                Lists settings filtered by key prefix using `setKeyFilter()`
+                - Sync and async services each fetch one setting by key.
+                - Sync and async services each fetch one setting by key and label.
+                - Direct key/label lookup, `SettingSelector`, or equivalent current SDK APIs are valid.
               weight: 1
               pass_threshold: 1
-            - name: prompt/implements-conditional-reads-with-matchconditions-setifn
+            - name: prompt/returns-prefix-matches-as-maps
               description: |-
-                Implements conditional reads with `matchConditions` / `setIfNoneMatch()` using the setting's ETag
+                - Sync and async services list settings matching the requested key prefix.
+                - Convert all matching returned settings into key/value maps.
+                - Use the SDK key-filter syntax corresponding to the requested prefix.
               weight: 1
               pass_threshold: 1
-            - name: prompt/handles-304-not-modified-setting-unchanged-since-last-re
+            - name: prompt/caches-settings-with-correct-conditional-semantics
               description: |-
-                Handles 304 Not Modified (setting unchanged since last read)
+                - Persist each cached setting's value and ETag or equivalent validator.
+                - Revalidation sends that validator through a supported conditional read.
+                - Unchanged/304 result -> return and retain the cached value.
+                - Changed result -> replace cached value and validator with the service response.
               weight: 1
               pass_threshold: 1
-            - name: prompt/uses-appconfig-featureflag-prefix-for-feature-flag-keys
+            - name: prompt/evaluates-the-feature-flag-enabled-state
               description: |-
-                Uses `.appconfig.featureflag/` prefix for feature flag keys
+                - Read `.appconfig.featureflag/<name>` and parse its JSON payload.
+                - Disabled or missing flag -> false.
+                - Enabled flag without a percentage restriction -> true.
               weight: 1
               pass_threshold: 1
-            - name: prompt/parses-the-json-payload-in-feature-flag-setting-values
+            - name: prompt/evaluates-deterministic-percentage-rollout
               description: |-
-                Parses the JSON payload in feature flag setting values
+                - Parse the configured percentage rollout from the enabled flag payload.
+                - Derive a stable user bucket from the user ID; do not use random selection.
+                - Compare the bucket with the configured percentage so repeated checks agree.
               weight: 1
               pass_threshold: 1
-            - name: prompt/implements-deterministic-percentage-rollout-consistent-h
+            - name: prompt/watches-sentinels-and-refreshes-the-cache
               description: |-
-                Implements deterministic percentage rollout (consistent hash, not `Math.random()`)
+                - Accept sentinel keys and a configurable polling interval.
+                - Poll sentinel values or validators for changes.
+                - A changed sentinel triggers a full refresh of all cached configuration.
               weight: 1
               pass_threshold: 1
-            - name: prompt/implements-sentinel-key-watching-with-configurable-polli
+            - name: prompt/implements-a-real-asynchronous-flow
               description: |-
-                Implements sentinel key watching with configurable polling interval
+                - Async retrieval, listing, and watcher work originate from the async SDK client.
+                - Preserve nonblocking composition with Reactor or a `Mono.toFuture()` adapter.
+                - Do not implement async behavior by wrapping a synchronous client in an executor.
               weight: 1
               pass_threshold: 1
-            - name: prompt/detects-sentinel-value-change-via-etag-or-value-comparis
+            - name: prompt/demonstrates-sync-then-async-behavior
               description: |-
-                Detects sentinel value change via ETag or value comparison and triggers full refresh
-              weight: 1
-              pass_threshold: 1
-            - name: language/correct-dependencies-com-azure-not-com-microsoft-azure
-              description: |-
-                Uses com.azure group ID for all Azure SDK packages. No com.microsoft.azure (legacy SDK) dependencies. Includes azure-identity for authentication.
-              weight: 1
-              pass_threshold: 1
-            - name: language/azure-sdk-bom-for-version-management
-              description: |-
-                Uses azure-sdk-bom in dependencyManagement to manage Azure SDK versions instead of hardcoding individual artifact versions. Dependencies should omit <version> tags when managed by the BOM.
-              weight: 1
-              pass_threshold: 1
-            - name: language/correct-imports-no-legacy-no-internal-packages
-              description: |-
-                All imports use com.azure.* packages. No com.microsoft.azure.* (legacy) or com.azure.*.implementation.* (internal API) imports.
-              weight: 1
-              pass_threshold: 1
-            - name: language/defaultazurecredential-authentication
-              description: |-
-                Uses DefaultAzureCredential or another com.azure.identity credential. No hardcoded connection strings, account keys, SAS tokens, or secrets.
-              weight: 1
-              pass_threshold: 1
-            - name: language/client-builder-pattern
-              description: |-
-                SDK clients constructed using *ClientBuilder classes with .endpoint() or .vaultUrl() and .credential(). No legacy constructors (CloudStorageAccount, DocumentClient, KeyVaultClient).
-              weight: 1
-              pass_threshold: 1
-            - name: language/no-deprecated-legacy-classes
-              description: |-
-                No deprecated classes from the old SDK (CloudStorageAccount, CloudBlobClient, DocumentClient, QueueClient, ApplicationTokenCredentials, MSICredentials, ConnectionStringBuilder).
-              weight: 1
-              pass_threshold: 1
-            - name: language/pagination-pagediterable-pagedflux
-              description: |-
-                List/query operations return PagedIterable (sync) or PagedFlux (async). Does not flatten all pages into a raw List or Stream in memory.
-              weight: 1
-              pass_threshold: 1
-            - name: language/lro-pattern-syncpoller-pollerflux
-              description: |-
-                Long-running operations use SyncPoller (sync) or PollerFlux (async) with begin* method prefix. No Thread.sleep() polling loops.
-              weight: 1
-              pass_threshold: 1
-            - name: language/async-uses-project-reactor-mono-flux
-              description: |-
-                Async code uses Project Reactor types (Mono, Flux). Not CompletableFuture (wrong), not RxJava (wrong), not sync wrapped in ExecutorService. No .block() inside async service implementations.
-              weight: 1
-              pass_threshold: 1
-            - name: language/service-specific-exception-handling
-              description: |-
-                Catches service-specific exceptions (BlobStorageException, CosmosException, ServiceBusException, HttpResponseException) with status code inspection. Not just generic Exception catches.
-              weight: 1
-              pass_threshold: 1
-            - name: language/try-with-resources-for-clients
-              description: |-
-                All Azure SDK client instances that implement AutoCloseable are used within try-with-resources blocks or explicitly closed in a finally block.
+                - Main demonstrates labeled values, feature flags for sample users, and watcher startup.
+                - Run the complete synchronous demonstration first.
+                - Repeat the complete demonstration with the asynchronous implementation.
               weight: 1
               pass_threshold: 1
       - type: run-command

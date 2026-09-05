@@ -59,94 +59,46 @@ stimuli:
           evidence:
             - diff
           criteria:
-            - name: prompt/azure-cosmos-maven-dependency-com-azure-azure-cosmos
+            - name: prompt/cosmos-dependency-and-key-authentication
               description: |-
-                `azure-cosmos` Maven dependency (com.azure:azure-cosmos)
+                - Declares `com.azure:azure-cosmos` with a compatible direct version or BOM.
+                - Endpoint and key come from runtime configuration.
+                - Those exact values build a synchronous `CosmosClient`; token-only authentication does not satisfy this prompt.
               weight: 1
               pass_threshold: 1
-            - name: prompt/cosmosclientbuilder-and-cosmosclient
+            - name: prompt/test-database-items-container
               description: |-
-                `CosmosClientBuilder` and `CosmosClient`
+                - Creates database `TestDB` if needed.
+                - Creates container `Items` if needed.
+                - Configures the partition-key path exactly as `/category`.
               weight: 1
               pass_threshold: 1
-            - name: prompt/cosmosdatabase-and-cosmoscontainer-creation
+            - name: prompt/pojo-create-and-point-read
               description: |-
-                `CosmosDatabase` and `CosmosContainer` creation
+                - Creates a POJO containing `id`, `category`, `name`, and `quantity` values.
+                - Inserts that POJO into `Items`.
+                - The same ID and category value flow into a point read and the returned POJO is consumed.
               weight: 1
               pass_threshold: 1
-            - name: prompt/cosmoscontainer-createitem-readitem-replaceitem-deleteit
+            - name: prompt/electronics-parameterized-query
               description: |-
-                `CosmosContainer.createItem()`, `readItem()`, `replaceItem()`, `deleteItem()`
+                - Uses SQL with a parameter placeholder for category.
+                - Binds the value `electronics` through `SqlParameter` or an equivalent current parameter API.
+                - Executes the query against `Items` and consumes returned items.
               weight: 1
               pass_threshold: 1
-            - name: prompt/cosmosqueryrequestoptions-and-cosmospagediterable
+            - name: prompt/replace-and-delete-item
               description: |-
-                `CosmosQueryRequestOptions` and `CosmosPagedIterable`
+                - Changes the read item's quantity and replaces that item using its category partition key.
+                - Deletes the same item using its ID and category partition key.
+                - Both operations execute against the real `CosmosContainer`.
               weight: 1
               pass_threshold: 1
-            - name: prompt/sqlqueryspec-with-parameters
+            - name: prompt/cosmos-operation-errors
               description: |-
-                `SqlQuerySpec` with parameters
-              weight: 1
-              pass_threshold: 1
-            - name: prompt/cosmosexception-error-handling
-              description: |-
-                `CosmosException` error handling
-              weight: 1
-              pass_threshold: 1
-            - name: language/correct-dependencies-com-azure-not-com-microsoft-azure
-              description: |-
-                Uses com.azure group ID for all Azure SDK packages. No com.microsoft.azure (legacy SDK) dependencies. Includes azure-identity for authentication.
-              weight: 1
-              pass_threshold: 1
-            - name: language/azure-sdk-bom-for-version-management
-              description: |-
-                Uses azure-sdk-bom in dependencyManagement to manage Azure SDK versions instead of hardcoding individual artifact versions. Dependencies should omit <version> tags when managed by the BOM.
-              weight: 1
-              pass_threshold: 1
-            - name: language/correct-imports-no-legacy-no-internal-packages
-              description: |-
-                All imports use com.azure.* packages. No com.microsoft.azure.* (legacy) or com.azure.*.implementation.* (internal API) imports.
-              weight: 1
-              pass_threshold: 1
-            - name: language/defaultazurecredential-authentication
-              description: |-
-                Uses DefaultAzureCredential or another com.azure.identity credential. No hardcoded connection strings, account keys, SAS tokens, or secrets.
-              weight: 1
-              pass_threshold: 1
-            - name: language/client-builder-pattern
-              description: |-
-                SDK clients constructed using *ClientBuilder classes with .endpoint() or .vaultUrl() and .credential(). No legacy constructors (CloudStorageAccount, DocumentClient, KeyVaultClient).
-              weight: 1
-              pass_threshold: 1
-            - name: language/no-deprecated-legacy-classes
-              description: |-
-                No deprecated classes from the old SDK (CloudStorageAccount, CloudBlobClient, DocumentClient, QueueClient, ApplicationTokenCredentials, MSICredentials, ConnectionStringBuilder).
-              weight: 1
-              pass_threshold: 1
-            - name: language/pagination-pagediterable-pagedflux
-              description: |-
-                List/query operations return PagedIterable (sync) or PagedFlux (async). Does not flatten all pages into a raw List or Stream in memory.
-              weight: 1
-              pass_threshold: 1
-            - name: language/lro-pattern-syncpoller-pollerflux
-              description: |-
-                Long-running operations use SyncPoller (sync) or PollerFlux (async) with begin* method prefix. No Thread.sleep() polling loops.
-              weight: 1
-              pass_threshold: 1
-            - name: language/async-uses-project-reactor-mono-flux
-              description: |-
-                Async code uses Project Reactor types (Mono, Flux). Not CompletableFuture (wrong), not RxJava (wrong), not sync wrapped in ExecutorService. No .block() inside async service implementations.
-              weight: 1
-              pass_threshold: 1
-            - name: language/service-specific-exception-handling
-              description: |-
-                Catches service-specific exceptions (BlobStorageException, CosmosException, ServiceBusException, HttpResponseException) with status code inspection. Not just generic Exception catches.
-              weight: 1
-              pass_threshold: 1
-            - name: language/try-with-resources-for-clients
-              description: |-
-                All Azure SDK client instances that implement AutoCloseable are used within try-with-resources blocks or explicitly closed in a finally block.
+                - Handles `CosmosException` around service operations.
+                - Reports status code and actionable service diagnostics.
+                - Closes the `CosmosClient` after work completes.
               weight: 1
               pass_threshold: 1
       - type: run-command

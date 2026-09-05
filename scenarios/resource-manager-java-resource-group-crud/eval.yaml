@@ -59,94 +59,55 @@ stimuli:
           evidence:
             - diff
           criteria:
-            - name: prompt/maven-dependency-for-azure-resourcemanager-and-azure-ide
+            - name: prompt/resource-manager-project
               description: |-
-                Maven dependency for `azure-resourcemanager` and `azure-identity`
+                - Declare compatible modern `azure-resourcemanager` and `azure-identity` dependencies.
+                - Use public `com.azure.resourcemanager` APIs.
               weight: 1
               pass_threshold: 1
-            - name: prompt/azureresourcemanager-authenticate-with-credential-and-pr
+            - name: prompt/resource-manager-authentication
               description: |-
-                `AzureResourceManager.authenticate()` with credential and profile
+                - Create a `DefaultAzureCredential`.
+                - Authenticate `AzureResourceManager` with that credential and an Azure profile.
+                - Select the configured subscription.
               weight: 1
               pass_threshold: 1
-            - name: prompt/resourcegroups-define-withregion-create
+            - name: prompt/create-resource-group
               description: |-
-                `resourceGroups().define().withRegion().create()`
+                - Define and create a new resource group.
+                - Use exactly the `eastus` region.
+                - Retain its name for later operations.
               weight: 1
               pass_threshold: 1
-            - name: prompt/resourcegroups-list-iteration
+            - name: prompt/list-resource-groups
               description: |-
-                `resourceGroups().list()` iteration
+                - List resource groups in the selected subscription.
+                - Iterate the returned management collection and expose each group.
               weight: 1
               pass_threshold: 1
-            - name: prompt/resourcegroups-getbyname-for-details
+            - name: prompt/get-resource-group
               description: |-
-                `resourceGroups().getByName()` for details
+                - Retrieve the created resource group by name.
+                - Read and expose its management details.
               weight: 1
               pass_threshold: 1
-            - name: prompt/tag-management-via-update-withtag-apply
+            - name: prompt/tag-resource-group
               description: |-
-                Tag management via `update().withTag().apply()`
+                - Add a tag to the created resource group.
+                - Apply the update so the tag is persisted in Azure.
               weight: 1
               pass_threshold: 1
-            - name: prompt/resourcegroups-deletebyname-for-cleanup
+            - name: prompt/delete-resource-group
               description: |-
-                `resourceGroups().deleteByName()` for cleanup
+                - Delete the created resource group by name.
+                - Accept the SDK's synchronous `void` result or asynchronous `Mono<Void>` result.
+                - Do not require an Azure poller for this operation.
               weight: 1
               pass_threshold: 1
-            - name: language/correct-dependencies-com-azure-not-com-microsoft-azure
+            - name: prompt/resource-manager-failures
               description: |-
-                Uses com.azure group ID for all Azure SDK packages. No com.microsoft.azure (legacy SDK) dependencies. Includes azure-identity for authentication.
-              weight: 1
-              pass_threshold: 1
-            - name: language/azure-sdk-bom-for-version-management
-              description: |-
-                Uses azure-sdk-bom in dependencyManagement to manage Azure SDK versions instead of hardcoding individual artifact versions. Dependencies should omit <version> tags when managed by the BOM.
-              weight: 1
-              pass_threshold: 1
-            - name: language/correct-imports-no-legacy-no-internal-packages
-              description: |-
-                All imports use com.azure.* packages. No com.microsoft.azure.* (legacy) or com.azure.*.implementation.* (internal API) imports.
-              weight: 1
-              pass_threshold: 1
-            - name: language/defaultazurecredential-authentication
-              description: |-
-                Uses DefaultAzureCredential or another com.azure.identity credential. No hardcoded connection strings, account keys, SAS tokens, or secrets.
-              weight: 1
-              pass_threshold: 1
-            - name: language/client-builder-pattern
-              description: |-
-                SDK clients constructed using *ClientBuilder classes with .endpoint() or .vaultUrl() and .credential(). No legacy constructors (CloudStorageAccount, DocumentClient, KeyVaultClient).
-              weight: 1
-              pass_threshold: 1
-            - name: language/no-deprecated-legacy-classes
-              description: |-
-                No deprecated classes from the old SDK (CloudStorageAccount, CloudBlobClient, DocumentClient, QueueClient, ApplicationTokenCredentials, MSICredentials, ConnectionStringBuilder).
-              weight: 1
-              pass_threshold: 1
-            - name: language/pagination-pagediterable-pagedflux
-              description: |-
-                List/query operations return PagedIterable (sync) or PagedFlux (async). Does not flatten all pages into a raw List or Stream in memory.
-              weight: 1
-              pass_threshold: 1
-            - name: language/lro-pattern-syncpoller-pollerflux
-              description: |-
-                Long-running operations use SyncPoller (sync) or PollerFlux (async) with begin* method prefix. No Thread.sleep() polling loops.
-              weight: 1
-              pass_threshold: 1
-            - name: language/async-uses-project-reactor-mono-flux
-              description: |-
-                Async code uses Project Reactor types (Mono, Flux). Not CompletableFuture (wrong), not RxJava (wrong), not sync wrapped in ExecutorService. No .block() inside async service implementations.
-              weight: 1
-              pass_threshold: 1
-            - name: language/service-specific-exception-handling
-              description: |-
-                Catches service-specific exceptions (BlobStorageException, CosmosException, ServiceBusException, HttpResponseException) with status code inspection. Not just generic Exception catches.
-              weight: 1
-              pass_threshold: 1
-            - name: language/try-with-resources-for-clients
-              description: |-
-                All Azure SDK client instances that implement AutoCloseable are used within try-with-resources blocks or explicitly closed in a finally block.
+                - Handle Azure management or HTTP failures around resource-group operations.
+                - Report actionable status or service error details when available.
               weight: 1
               pass_threshold: 1
       - type: run-command

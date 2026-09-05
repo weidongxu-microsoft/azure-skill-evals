@@ -16,7 +16,6 @@ public final class ResourceGroupCrud {
     public static void main(String[] args) {
         String subscriptionId = requireEnvironment("AZURE_SUBSCRIPTION_ID");
         String resourceGroupName = requireEnvironment("RESOURCE_GROUP_NAME");
-        String location = requireEnvironment("AZURE_LOCATION");
 
         DefaultAzureCredential credential =
                 new DefaultAzureCredentialBuilder().build();
@@ -28,9 +27,12 @@ public final class ResourceGroupCrud {
         try {
             ResourceGroup created = azure.resourceGroups()
                     .define(resourceGroupName)
-                    .withRegion(location)
+                    .withRegion("eastus")
                     .create();
-            System.out.println("Created resource group: " + created.name());
+            System.out.printf(
+                    "Created resource group %s in %s%n",
+                    created.name(),
+                    created.regionName());
 
             for (ResourceGroup group : azure.resourceGroups().list()) {
                 System.out.println(

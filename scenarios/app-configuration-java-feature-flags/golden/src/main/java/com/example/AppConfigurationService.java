@@ -84,6 +84,11 @@ public final class AppConfigurationService {
         getSettingsByPrefix(prefix);
     }
 
+    public void refreshAllCached() {
+        Map.copyOf(cache).forEach((ignored, setting) ->
+                getDirect(setting.getKey(), setting.getLabel()));
+    }
+
     public Optional<ConfigurationSetting> cached(String key, String label) {
         return Optional.ofNullable(cache.get(cacheKey(key, label)));
     }

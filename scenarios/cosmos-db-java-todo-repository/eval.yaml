@@ -63,129 +63,59 @@ stimuli:
           evidence:
             - diff
           criteria:
-            - name: prompt/correct-partition-key-usage-category-path-partitionkey-i
+            - name: prompt/todo-model
               description: |-
-                Correct partition key usage: `/category` path, `PartitionKey` in all point operations
+                - One model shared by both repositories contains ID, title, description, completed status, created timestamp, and category.
+                - Category is used as the `/category` partition-key value.
               weight: 1
               pass_threshold: 1
-            - name: prompt/etag-based-optimistic-concurrency-captures-etag-from-rea
+            - name: prompt/managed-identity-client-factory
               description: |-
-                ETag-based optimistic concurrency: captures ETag from read, passes `ifMatchETag` on update
+                - Cosmos endpoint comes from environment configuration.
+                - Managed identity or `DefaultAzureCredential` flows into sync and async Cosmos clients.
+                - No account key, connection string, or embedded credential is used.
               weight: 1
               pass_threshold: 1
-            - name: prompt/handles-412-precondition-failed-as-a-specific-error-case
+            - name: prompt/create-resources-if-absent
               description: |-
-                Handles 412 Precondition Failed as a specific error case for conflicts
+                - Creates the configured database and `/category` container only when absent or via an idempotent create-if-not-exists API.
+                - Container default TTL is 7,776,000 seconds.
+                - Indexing policy excludes the description field path.
               weight: 1
               pass_threshold: 1
-            - name: prompt/parameterized-queries-using-sqlqueryspec-with-sqlparamet
+            - name: prompt/sync-repository-crud
               description: |-
-                Parameterized queries using `SqlQuerySpec` with `SqlParameter` (no string concatenation)
+                - Synchronous repository implements create, point read, update, and delete with the category partition key.
+                - Each operation executes against Cosmos DB and logs its returned request charge.
+                - Service failures preserve useful `CosmosException` details.
               weight: 1
               pass_threshold: 1
-            - name: prompt/page-by-page-iteration-using-iterablebypage-or-cosmospag
+            - name: prompt/optimistic-concurrency
               description: |-
-                Page-by-page iteration using `iterableByPage()` or `CosmosPagedIterable`
+                - Read response ETag flows into conditional replacement in both repository implementations.
+                - HTTP 412 from a stale ETag -> one clear lost-update conflict result.
+                - The conflict is not silently retried as an unconditional overwrite.
               weight: 1
               pass_threshold: 1
-            - name: prompt/configurable-page-size-via-queryrequestoptions-setmaxite
+            - name: prompt/sync-category-query-pages
               description: |-
-                Configurable page size via `QueryRequestOptions.setMaxItemCount`
+                - Category value is bound through a parameterized query.
+                - Sync results are consumed page by page using `iterableByPage(pageSize)` or equivalent supported page sizing.
+                - Each page logs item count, continuation progress, and returned request charge without flattening all results first.
               weight: 1
               pass_threshold: 1
-            - name: prompt/logs-continuation-token-and-item-count-per-page
+            - name: prompt/async-repository-and-page-stream
               description: |-
-                Logs continuation token and item count per page
+                - Asynchronous repository implements the same create, read, update, and delete behavior with reactive SDK APIs.
+                - Category query exposes pages through `CosmosPagedFlux.byPage(pageSize)` or equivalent supported page streaming.
+                - Each arriving page can be processed and its item count, progress, and request charge logged.
               weight: 1
               pass_threshold: 1
-            - name: prompt/async-query-uses-cosmospagedflux-returning-pages-as-a-st
+            - name: prompt/sync-then-async-demo
               description: |-
-                Async query uses `CosmosPagedFlux` returning pages as a stream
-              weight: 1
-              pass_threshold: 1
-            - name: prompt/ttl-configured-at-90-days-7776000-seconds-via-containerp
-              description: |-
-                TTL configured at 90 days (7776000 seconds) via `ContainerProperties.setDefaultTimeToLiveInSeconds()`
-              weight: 1
-              pass_threshold: 1
-            - name: prompt/indexing-policy-excludes-description-path
-              description: |-
-                Indexing policy excludes `/description` path
-              weight: 1
-              pass_threshold: 1
-            - name: prompt/ru-cost-extracted-from-response-via-getrequestcharge-and
-              description: |-
-                RU cost extracted from response via `getRequestCharge()` and logged per operation ### Scenario-Specific Error Handling
-              weight: 1
-              pass_threshold: 1
-            - name: prompt/catches-cosmosexception-with-status-code-checks-404-409
-              description: |-
-                Catches `CosmosException` with status code checks (404, 409, 412)
-              weight: 1
-              pass_threshold: 1
-            - name: prompt/handles-412-separately-for-etag-conflicts-anti-patterns
-              description: |-
-                Handles 412 separately for ETag conflicts ### Anti-Patterns (scenario-specific)
-              weight: 1
-              pass_threshold: 1
-            - name: prompt/does-not-flatten-query-results-stream-foreach-without-pa
-              description: |-
-                Does NOT flatten query results (`.stream()` / `.forEach()` without page iteration)
-              weight: 1
-              pass_threshold: 1
-            - name: language/correct-dependencies-com-azure-not-com-microsoft-azure
-              description: |-
-                Uses com.azure group ID for all Azure SDK packages. No com.microsoft.azure (legacy SDK) dependencies. Includes azure-identity for authentication.
-              weight: 1
-              pass_threshold: 1
-            - name: language/azure-sdk-bom-for-version-management
-              description: |-
-                Uses azure-sdk-bom in dependencyManagement to manage Azure SDK versions instead of hardcoding individual artifact versions. Dependencies should omit <version> tags when managed by the BOM.
-              weight: 1
-              pass_threshold: 1
-            - name: language/correct-imports-no-legacy-no-internal-packages
-              description: |-
-                All imports use com.azure.* packages. No com.microsoft.azure.* (legacy) or com.azure.*.implementation.* (internal API) imports.
-              weight: 1
-              pass_threshold: 1
-            - name: language/defaultazurecredential-authentication
-              description: |-
-                Uses DefaultAzureCredential or another com.azure.identity credential. No hardcoded connection strings, account keys, SAS tokens, or secrets.
-              weight: 1
-              pass_threshold: 1
-            - name: language/client-builder-pattern
-              description: |-
-                SDK clients constructed using *ClientBuilder classes with .endpoint() or .vaultUrl() and .credential(). No legacy constructors (CloudStorageAccount, DocumentClient, KeyVaultClient).
-              weight: 1
-              pass_threshold: 1
-            - name: language/no-deprecated-legacy-classes
-              description: |-
-                No deprecated classes from the old SDK (CloudStorageAccount, CloudBlobClient, DocumentClient, QueueClient, ApplicationTokenCredentials, MSICredentials, ConnectionStringBuilder).
-              weight: 1
-              pass_threshold: 1
-            - name: language/pagination-pagediterable-pagedflux
-              description: |-
-                List/query operations return PagedIterable (sync) or PagedFlux (async). Does not flatten all pages into a raw List or Stream in memory.
-              weight: 1
-              pass_threshold: 1
-            - name: language/lro-pattern-syncpoller-pollerflux
-              description: |-
-                Long-running operations use SyncPoller (sync) or PollerFlux (async) with begin* method prefix. No Thread.sleep() polling loops.
-              weight: 1
-              pass_threshold: 1
-            - name: language/async-uses-project-reactor-mono-flux
-              description: |-
-                Async code uses Project Reactor types (Mono, Flux). Not CompletableFuture (wrong), not RxJava (wrong), not sync wrapped in ExecutorService. No .block() inside async service implementations.
-              weight: 1
-              pass_threshold: 1
-            - name: language/service-specific-exception-handling
-              description: |-
-                Catches service-specific exceptions (BlobStorageException, CosmosException, ServiceBusException, HttpResponseException) with status code inspection. Not just generic Exception catches.
-              weight: 1
-              pass_threshold: 1
-            - name: language/try-with-resources-for-clients
-              description: |-
-                All Azure SDK client instances that implement AutoCloseable are used within try-with-resources blocks or explicitly closed in a finally block.
+                - Main runs a complete synchronous CRUD cycle and prints page-by-page query results.
+                - It then runs and completes the asynchronous CRUD cycle and page-stream query.
+                - Printed output includes operation results and RU costs from both implementations.
               weight: 1
               pass_threshold: 1
       - type: run-command

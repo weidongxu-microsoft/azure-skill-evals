@@ -7,7 +7,7 @@ import test from "node:test";
 const expectedLanguageCriteria = {
   dotnet: 3,
   go: 0,
-  java: 11,
+  java: null,
   python: 5,
   typescript: 10,
 };
@@ -114,11 +114,28 @@ test("every eval uses one complete model review and program checks", () => {
     assert.doesNotMatch(source, /^\s+required:/m, evalPath);
     assert.match(source, /^\s+threshold: 0$/m, evalPath);
     assert.match(source, /^\s+overall_threshold: 0$/m, evalPath);
-    assert.equal(
-      languageCriteria.length,
-      expectedLanguageCriteria[language],
-      evalPath,
-    );
+    if (expectedLanguageCriteria[language] !== null) {
+      assert.equal(
+        languageCriteria.length,
+        expectedLanguageCriteria[language],
+        evalPath,
+      );
+    }
+    assert.equal(new Set(criterionNames).size, criterionNames.length, evalPath);
+    const criterionStarts = [
+      ...source.matchAll(/^(\s+)- name: ((?:prompt|language)\/.+)$/gm),
+    ];
+    for (const [index, criterion] of criterionStarts.entries()) {
+      const start = criterion.index;
+      const end = criterionStarts[index + 1]?.index ?? source.length;
+      const block = source.slice(start, end);
+      assert.match(block, /^\s+weight: 1$/m, `${evalPath}: ${criterion[2]}`);
+      assert.match(
+        block,
+        /^\s+pass_threshold: 1$/m,
+        `${evalPath}: ${criterion[2]}`,
+      );
+    }
     assert.doesNotMatch(
       source,
       /language\/code-compiles-mvn-compile-gradle-compilejava/,
@@ -146,6 +163,21 @@ test("every eval uses one complete model review and program checks", () => {
       evalPath,
     );
     if (language === "java") {
+      for (const obsoleteCriterion of [
+        "language/correct-dependencies-com-azure-not-com-microsoft-azure",
+        "language/azure-sdk-bom-for-version-management",
+        "language/correct-imports-no-legacy-no-internal-packages",
+        "language/defaultazurecredential-authentication",
+        "language/client-builder-pattern",
+        "language/no-deprecated-legacy-classes",
+        "language/pagination-pagediterable-pagedflux",
+        "language/lro-pattern-syncpoller-pollerflux",
+        "language/async-uses-project-reactor-mono-flux",
+        "language/service-specific-exception-handling",
+        "language/try-with-resources-for-clients",
+      ]) {
+        assert.ok(!criterionNames.includes(obsoleteCriterion), evalPath);
+      }
       assert.match(
         source,
         /^\s+- src: \.\.\/\.\.\/scripts\/program-checks\/java\.mjs\n\s+dest: \.vally\/program-checks\/java\.mjs$/m,

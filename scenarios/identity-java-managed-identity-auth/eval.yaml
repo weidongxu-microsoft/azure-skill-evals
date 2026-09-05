@@ -57,89 +57,43 @@ stimuli:
           evidence:
             - diff
           criteria:
-            - name: prompt/managedidentitycredentialbuilder-class
+            - name: prompt/managed-identity-dependency
               description: |-
-                `ManagedIdentityCredentialBuilder` class
+                - Declares a current `com.azure:azure-identity` dependency.
+                - Uses a compatible direct version or compatible Azure SDK BOM.
               weight: 1
               pass_threshold: 1
-            - name: prompt/system-assigned-default-builder-with-no-client-id
+            - name: prompt/system-assigned-managed-identity
               description: |-
-                System-assigned: default builder with no client ID
+                - Builds `ManagedIdentityCredential` without a user-assigned selector.
+                - Identifies that flow as system-assigned managed identity.
               weight: 1
               pass_threshold: 1
-            - name: prompt/user-assigned-clientid-on-the-builder
+            - name: prompt/user-assigned-managed-identity
               description: |-
-                User-assigned: `.clientId()` on the builder
+                - Builds a user-assigned `ManagedIdentityCredential`.
+                - Selects it by client ID, resource ID, or object ID using a supported current builder API.
+                - The selected identifier flows from configuration rather than a secret embedded in code.
               weight: 1
               pass_threshold: 1
-            - name: prompt/integration-with-defaultazurecredential-chain
+            - name: prompt/managed-identity-client-integration
               description: |-
-                Integration with `DefaultAzureCredential` chain
+                - A demonstrated system- or user-assigned managed identity credential is passed to a real public Azure SDK client.
+                - The client receives its required endpoint or resource value from runtime configuration.
               weight: 1
               pass_threshold: 1
-            - name: prompt/credentialunavailableexception-when-not-in-azure
+            - name: prompt/practical-local-development-fallback
               description: |-
-                `CredentialUnavailableException` when not in Azure
+                - Explains that managed identity is unavailable on an ordinary developer machine.
+                - Provides a usable local fallback through developer credentials, `DefaultAzureCredential`, or an equivalent environment-selected strategy.
+                - Production still uses managed identity rather than a local credential.
               weight: 1
               pass_threshold: 1
-            - name: prompt/chainedtokencredentialbuilder-for-local-fallback
+            - name: prompt/managed-identity-errors-and-diagnostics
               description: |-
-                `ChainedTokenCredentialBuilder` for local fallback
-              weight: 1
-              pass_threshold: 1
-            - name: language/correct-dependencies-com-azure-not-com-microsoft-azure
-              description: |-
-                Uses com.azure group ID for all Azure SDK packages. No com.microsoft.azure (legacy SDK) dependencies. Includes azure-identity for authentication.
-              weight: 1
-              pass_threshold: 1
-            - name: language/azure-sdk-bom-for-version-management
-              description: |-
-                Uses azure-sdk-bom in dependencyManagement to manage Azure SDK versions instead of hardcoding individual artifact versions. Dependencies should omit <version> tags when managed by the BOM.
-              weight: 1
-              pass_threshold: 1
-            - name: language/correct-imports-no-legacy-no-internal-packages
-              description: |-
-                All imports use com.azure.* packages. No com.microsoft.azure.* (legacy) or com.azure.*.implementation.* (internal API) imports.
-              weight: 1
-              pass_threshold: 1
-            - name: language/defaultazurecredential-authentication
-              description: |-
-                Uses DefaultAzureCredential or another com.azure.identity credential. No hardcoded connection strings, account keys, SAS tokens, or secrets.
-              weight: 1
-              pass_threshold: 1
-            - name: language/client-builder-pattern
-              description: |-
-                SDK clients constructed using *ClientBuilder classes with .endpoint() or .vaultUrl() and .credential(). No legacy constructors (CloudStorageAccount, DocumentClient, KeyVaultClient).
-              weight: 1
-              pass_threshold: 1
-            - name: language/no-deprecated-legacy-classes
-              description: |-
-                No deprecated classes from the old SDK (CloudStorageAccount, CloudBlobClient, DocumentClient, QueueClient, ApplicationTokenCredentials, MSICredentials, ConnectionStringBuilder).
-              weight: 1
-              pass_threshold: 1
-            - name: language/pagination-pagediterable-pagedflux
-              description: |-
-                List/query operations return PagedIterable (sync) or PagedFlux (async). Does not flatten all pages into a raw List or Stream in memory.
-              weight: 1
-              pass_threshold: 1
-            - name: language/lro-pattern-syncpoller-pollerflux
-              description: |-
-                Long-running operations use SyncPoller (sync) or PollerFlux (async) with begin* method prefix. No Thread.sleep() polling loops.
-              weight: 1
-              pass_threshold: 1
-            - name: language/async-uses-project-reactor-mono-flux
-              description: |-
-                Async code uses Project Reactor types (Mono, Flux). Not CompletableFuture (wrong), not RxJava (wrong), not sync wrapped in ExecutorService. No .block() inside async service implementations.
-              weight: 1
-              pass_threshold: 1
-            - name: language/service-specific-exception-handling
-              description: |-
-                Catches service-specific exceptions (BlobStorageException, CosmosException, ServiceBusException, HttpResponseException) with status code inspection. Not just generic Exception catches.
-              weight: 1
-              pass_threshold: 1
-            - name: language/try-with-resources-for-clients
-              description: |-
-                All Azure SDK client instances that implement AutoCloseable are used within try-with-resources blocks or explicitly closed in a finally block.
+                - Handles `CredentialUnavailableException`, `ClientAuthenticationException`, or equivalent preserved causes.
+                - Distinguishes unavailable identity from rejected authentication.
+                - Reports actionable diagnostics without exposing tokens or secrets.
               weight: 1
               pass_threshold: 1
       - type: run-command

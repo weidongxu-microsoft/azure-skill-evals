@@ -61,117 +61,79 @@ stimuli:
           evidence:
             - diff
           criteria:
-            - name: prompt/sender-uses-sender-queuename-buildclient-chain-or-async
+            - name: prompt/service-bus-project-and-auth
               description: |-
-                Sender uses `.sender().queueName().buildClient()` chain (or async equivalent)
+                - Declare the Service Bus and identity dependencies in a Java 17 Maven project.
+                - Read the fully qualified Service Bus namespace from an environment variable.
+                - Authenticate sync and async clients with managed identity.
               weight: 1
               pass_threshold: 1
-            - name: prompt/receives-orders-with-session-aware-processor-or-receiver
+            - name: prompt/order-json-model
               description: |-
-                Receives orders with either a session processor callback chain or a
-                session-enabled receiver loop that preserves the session lock
+                - Model order ID, customer name, product, quantity, total price, and status.
+                - Restrict status to pending, processing, completed, or failed.
+                - Support JSON serialization and deserialization with a valid Java JSON approach.
               weight: 1
               pass_threshold: 1
-            - name: prompt/batch-sending-creates-servicebusmessagebatch-checks-trya
+            - name: prompt/order-sending
               description: |-
-                Batch sending: creates `ServiceBusMessageBatch`, checks `tryAddMessage()` return value
+                - Sync and async senders publish individual JSON order messages.
+                - Set the order ID as the correlation ID or an equivalent correlation property.
+                - Use any valid Service Bus builder sequence for the configured queue.
               weight: 1
               pass_threshold: 1
-            - name: prompt/handles-the-case-where-a-message-doesnt-fit-in-the-curre
+            - name: prompt/order-batch-sending
               description: |-
-                Handles the case where a message doesn't fit in the current batch
+                - Add orders to `ServiceBusMessageBatch` instances while checking whether each addition succeeds.
+                - Send a full batch and retry the rejected message in a new batch.
+                - Surface an order that cannot fit in an empty batch.
               weight: 1
               pass_threshold: 1
-            - name: prompt/scheduled-delivery-uses-schedulemessage-or-setschedulede
+            - name: prompt/high-priority-scheduling
               description: |-
-                Scheduled delivery: uses `scheduleMessage()` or `setScheduledEnqueueTime()` (~30s delay)
+                - Compare total price with a configurable priority threshold.
+                - Mark qualifying orders as high priority.
+                - Schedule qualifying messages for delivery about 30 seconds later.
               weight: 1
               pass_threshold: 1
-            - name: prompt/correlation-sets-order-id-as-correlation-property-via-se
+            - name: prompt/customer-ordering
               description: |-
-                Correlation: sets order ID as correlation property via `setCorrelationId()` or application properties
+                - Assign a stable session ID derived from each customer.
+                - Consume through a session-aware processor or receiver.
+                - Preserve in-sequence processing for each customer's accepted session.
               weight: 1
               pass_threshold: 1
-            - name: prompt/dead-letter-explicitly-dead-letters-failed-messages-with
+            - name: prompt/order-processing-and-settlement
               description: |-
-                Dead-letter: explicitly dead-letters failed messages with `deadLetter()` and a reason string
+                - Deserialize each received order and perform the processing transition.
+                - Log the processing result with order context.
+                - Complete successful messages; dead-letter failed messages with a reason.
               weight: 1
               pass_threshold: 1
-            - name: prompt/dead-letter-queue-reading-uses-subqueue-dead-letter-queu
+            - name: prompt/processing-error-reporting
               description: |-
-                Dead-letter queue reading: uses `SubQueue.DEAD_LETTER_QUEUE` or `$deadletterqueue` path
+                - Report deserialization and processing failures with available message or processor context.
+                - Do not silently abandon failed messages.
               weight: 1
               pass_threshold: 1
-            - name: prompt/session-aware-processing-uses-sessionprocessor-or-sessio
+            - name: prompt/dead-letter-reprocessing
               description: |-
-                Session-aware processing: uses `.sessionProcessor()` or session-enabled receiver
+                - Read failed messages from the dead-letter subqueue.
+                - Log them for inspection and provide a path to process and settle them again.
               weight: 1
               pass_threshold: 1
-            - name: prompt/session-id-keyed-by-customer-name-for-ordered-processing
+            - name: prompt/sync-async-lifecycle
               description: |-
-                Session ID keyed by customer name for ordered processing ### Scenario-Specific Error Handling
+                - Provide complete sync and async send, receive, settlement, and dead-letter flows.
+                - Start and eventually stop or close processor-style clients; close other clients after use.
+                - Compose async SDK operations without blocking inside reusable async methods.
               weight: 1
               pass_threshold: 1
-            - name: prompt/processing-errors-are-logged-with-available-context
+            - name: prompt/ordered-main-demo
               description: |-
-                Processing errors are logged with the context exposed by the chosen
-                processor or receiver API; processor-only error context is not required
-                for receiver-based implementations
-              weight: 1
-              pass_threshold: 1
-            - name: language/correct-dependencies-com-azure-not-com-microsoft-azure
-              description: |-
-                Uses com.azure group ID for all Azure SDK packages. No com.microsoft.azure (legacy SDK) dependencies. Includes azure-identity for authentication.
-              weight: 1
-              pass_threshold: 1
-            - name: language/azure-sdk-bom-for-version-management
-              description: |-
-                Uses azure-sdk-bom in dependencyManagement to manage Azure SDK versions instead of hardcoding individual artifact versions. Dependencies should omit <version> tags when managed by the BOM.
-              weight: 1
-              pass_threshold: 1
-            - name: language/correct-imports-no-legacy-no-internal-packages
-              description: |-
-                All imports use com.azure.* packages. No com.microsoft.azure.* (legacy) or com.azure.*.implementation.* (internal API) imports.
-              weight: 1
-              pass_threshold: 1
-            - name: language/defaultazurecredential-authentication
-              description: |-
-                Uses DefaultAzureCredential or another com.azure.identity credential. No hardcoded connection strings, account keys, SAS tokens, or secrets.
-              weight: 1
-              pass_threshold: 1
-            - name: language/client-builder-pattern
-              description: |-
-                SDK clients constructed using *ClientBuilder classes with .endpoint() or .vaultUrl() and .credential(). No legacy constructors (CloudStorageAccount, DocumentClient, KeyVaultClient).
-              weight: 1
-              pass_threshold: 1
-            - name: language/no-deprecated-legacy-classes
-              description: |-
-                No deprecated classes from the old SDK (CloudStorageAccount, CloudBlobClient, DocumentClient, QueueClient, ApplicationTokenCredentials, MSICredentials, ConnectionStringBuilder).
-              weight: 1
-              pass_threshold: 1
-            - name: language/pagination-pagediterable-pagedflux
-              description: |-
-                List/query operations return PagedIterable (sync) or PagedFlux (async). Does not flatten all pages into a raw List or Stream in memory.
-              weight: 1
-              pass_threshold: 1
-            - name: language/lro-pattern-syncpoller-pollerflux
-              description: |-
-                Long-running operations use SyncPoller (sync) or PollerFlux (async) with begin* method prefix. No Thread.sleep() polling loops.
-              weight: 1
-              pass_threshold: 1
-            - name: language/async-uses-project-reactor-mono-flux
-              description: |-
-                Async code uses Project Reactor types (Mono, Flux). Not CompletableFuture (wrong), not RxJava (wrong), not sync wrapped in ExecutorService. No .block() inside async service implementations.
-              weight: 1
-              pass_threshold: 1
-            - name: language/service-specific-exception-handling
-              description: |-
-                Catches service-specific exceptions (BlobStorageException, CosmosException, ServiceBusException, HttpResponseException) with status code inspection. Not just generic Exception catches.
-              weight: 1
-              pass_threshold: 1
-            - name: language/try-with-resources-for-clients
-              description: |-
-                All Azure SDK client instances that implement AutoCloseable are used within try-with-resources blocks or explicitly closed in a finally block.
+                - Run the full sync send/receive/dead-letter cycle first.
+                - Then run the corresponding async cycle.
+                - Keep the application alive only as needed for active processing and finish cleanly.
               weight: 1
               pass_threshold: 1
       - type: run-command
