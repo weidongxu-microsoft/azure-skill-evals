@@ -59,6 +59,9 @@ cannot be scored independently.
 | Resource group CRUD | exact DAC manager authentication, `eastus` create, list/get/tag/delete, actionable management errors |
 | Foundry support assistant | current coherent SDKs, Entra auth, bounded service lifecycle, retrieval/citations/state/feedback/evaluation/cleanup |
 
-The copied universal Java BOM, import, token-authentication, builder, legacy
-class, paging, LRO, async, exception, and cleanup checks are intentionally not
-retained. Those concerns are scored only where the scenario requires them.
+The copied Java criteria are not restored unchanged. BOM and Azure import
+hygiene are globally applicable. Dependency and current-public-API criteria are
+restored where focused prompt criteria do not already score them.
+Authentication and client construction remain prompt-specific; paging,
+polling, async, exception, and cleanup concerns remain focused on scenarios
+that independently require them. See `docs/java-criteria-disposition.md`.

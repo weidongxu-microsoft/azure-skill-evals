@@ -12,6 +12,33 @@ const expectedLanguageCriteria = {
   typescript: 10,
 };
 
+const javaUniversalLanguageCriteria = [
+  "language/azure-sdk-bom-first-version-management",
+  "language/current-public-azure-sdk-imports",
+];
+
+const javaDependencyCriteriaScenarios = new Set([
+  "ai-agents-java-basic-agent-lifecycle",
+  "ai-agents-java-file-search",
+  "ai-agents-java-function-tool",
+  "ai-projects-java-project-resource-inventory",
+  "app-configuration-java-feature-flags",
+  "cosmos-db-java-todo-repository",
+  "identity-java-credential-chain",
+]);
+
+const javaPublicApiCriteriaScenarios = new Set([
+  "event-hubs-java-send-receive-events",
+  "key-vault-java-crud-secrets",
+  "key-vault-java-secret-config",
+  "service-bus-java-order-processor",
+  "storage-java-account-mgmt",
+  "storage-java-blob-event-notifier",
+  "storage-java-blob-storage-manager",
+  "storage-java-crud-blobs",
+  "storage-java-encrypted-uploader",
+]);
+
 const expectedProgramGraders = {
   dotnet: [
     `      - type: run-command
@@ -163,21 +190,31 @@ test("every eval uses one complete model review and program checks", () => {
       evalPath,
     );
     if (language === "java") {
-      for (const obsoleteCriterion of [
-        "language/correct-dependencies-com-azure-not-com-microsoft-azure",
-        "language/azure-sdk-bom-for-version-management",
-        "language/correct-imports-no-legacy-no-internal-packages",
-        "language/defaultazurecredential-authentication",
-        "language/client-builder-pattern",
-        "language/no-deprecated-legacy-classes",
-        "language/pagination-pagediterable-pagedflux",
-        "language/lro-pattern-syncpoller-pollerflux",
-        "language/async-uses-project-reactor-mono-flux",
-        "language/service-specific-exception-handling",
-        "language/try-with-resources-for-clients",
-      ]) {
-        assert.ok(!criterionNames.includes(obsoleteCriterion), evalPath);
+      const scenario = source.match(/^name: (.+)$/m)?.[1];
+      const expectedJavaCriteria = [...javaUniversalLanguageCriteria];
+      if (javaDependencyCriteriaScenarios.has(scenario)) {
+        expectedJavaCriteria.push(
+          "language/current-public-azure-sdk-dependencies",
+        );
       }
+      if (javaPublicApiCriteriaScenarios.has(scenario)) {
+        expectedJavaCriteria.push("language/current-public-azure-sdk-apis");
+      }
+      assert.deepEqual(
+        languageCriteria.toSorted(),
+        expectedJavaCriteria.toSorted(),
+        evalPath,
+      );
+      assert.match(
+        source,
+        /Compatible BOM-covered GA Azure artifacts omit explicit versions\./,
+        evalPath,
+      );
+      assert.match(
+        source,
+        /Standard Java, Reactor, Jackson, OpenAI, and other required non-Azure imports are valid\./,
+        evalPath,
+      );
       assert.match(
         source,
         /^\s+- src: \.\.\/\.\.\/scripts\/program-checks\/java\.mjs\n\s+dest: \.vally\/program-checks\/java\.mjs$/m,

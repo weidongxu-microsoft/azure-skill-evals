@@ -105,6 +105,20 @@ stimuli:
                 - Close all senders, receivers, and processors on success and failure paths.
               weight: 1
               pass_threshold: 1
+            - name: language/azure-sdk-bom-first-version-management
+              description: |-
+                - Import `com.azure:azure-sdk-bom` through Maven dependency management or a Gradle platform.
+                - Compatible BOM-covered GA Azure artifacts omit explicit versions.
+                - Explicit versions are limited to preview, uncovered, incompatible, or prompt-pinned artifacts.
+              weight: 1
+              pass_threshold: 1
+            - name: language/current-public-azure-sdk-imports
+              description: |-
+                - Azure SDK imports use current public `com.azure.*` packages.
+                - Do not import legacy `com.microsoft.azure.*` or Azure internal implementation packages.
+                - Standard Java, Reactor, Jackson, OpenAI, and other required non-Azure imports are valid.
+              weight: 1
+              pass_threshold: 1
       - type: run-command
         name: program/java-project-compiles
         config:

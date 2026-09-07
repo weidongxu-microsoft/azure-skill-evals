@@ -19,6 +19,8 @@ defaults:
   judge_model: gpt-5.6-sol
 stimuli:
   - name: ai-projects-dp-java-dataset-lifecycle
+    golden_patch:
+      path: .vally-oracle-golden.patch
     prompt: |-
       Create a complete, runnable Java console application using
       `com.azure:azure-ai-projects` 2.4.0 and `com.azure:azure-storage-blob` 12.35.1.
@@ -71,6 +73,7 @@ stimuli:
           overall_threshold: 0
           evidence:
             - diff
+            - golden_patch
           criteria:
             - name: prompt/declares-compatible-project-and-blob-sdks
               description: |-

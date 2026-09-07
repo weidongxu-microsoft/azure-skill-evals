@@ -6,6 +6,7 @@ import com.azure.ai.projects.DeploymentsClient;
 import com.azure.ai.projects.models.Connection;
 import com.azure.ai.projects.models.Deployment;
 import com.azure.ai.projects.models.ModelDeployment;
+import com.azure.core.exception.HttpResponseException;
 import com.azure.identity.DefaultAzureCredentialBuilder;
 
 public final class ProjectResourceInventory {
@@ -22,28 +23,39 @@ public final class ProjectResourceInventory {
         ConnectionsClient connections = builder.buildConnectionsClient();
         DeploymentsClient deployments = builder.buildDeploymentsClient();
 
-        System.out.println("Connections:");
-        for (Connection connection : connections.listConnections()) {
-            printConnection(connection);
-        }
-
-        System.out.println("Selected connection:");
-        printConnection(connections.getConnection(connectionName, false));
-
-        System.out.println("Model deployments:");
-        for (Deployment deployment : deployments.listDeployments()) {
-            if (deployment instanceof ModelDeployment modelDeployment) {
-                printDeployment(modelDeployment);
+        try {
+            System.out.println("Connections:");
+            for (Connection connection : connections.listConnections()) {
+                printConnection(connection);
             }
-        }
 
-        System.out.println("Selected model deployment:");
-        Deployment selectedDeployment = deployments.getDeployment(deploymentName);
-        if (!(selectedDeployment instanceof ModelDeployment modelDeployment)) {
-            throw new IllegalStateException(
-                deploymentName + " is not a model deployment.");
+            System.out.println("Selected connection:");
+            printConnection(connections.getConnection(connectionName, false));
+
+            System.out.println("Model deployments:");
+            for (Deployment deployment : deployments.listDeployments()) {
+                if (deployment instanceof ModelDeployment modelDeployment) {
+                    printDeployment(modelDeployment);
+                }
+            }
+
+            System.out.println("Selected model deployment:");
+            Deployment selectedDeployment = deployments.getDeployment(deploymentName);
+            if (!(selectedDeployment instanceof ModelDeployment modelDeployment)) {
+                throw new IllegalStateException(
+                    deploymentName + " is not a model deployment.");
+            }
+            printDeployment(modelDeployment);
+        } catch (HttpResponseException exception) {
+            int status = exception.getResponse() == null
+                ? -1
+                : exception.getResponse().getStatusCode();
+            System.err.printf(
+                "Project inventory request failed (status=%d): %s%n",
+                status,
+                exception.getMessage());
+            throw exception;
         }
-        printDeployment(modelDeployment);
     }
 
     private static void printConnection(Connection connection) {

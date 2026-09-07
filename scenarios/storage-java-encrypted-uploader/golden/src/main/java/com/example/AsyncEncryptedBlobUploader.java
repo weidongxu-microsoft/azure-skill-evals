@@ -34,19 +34,12 @@ public final class AsyncEncryptedBlobUploader {
             byte[] plaintext) {
         return clients.keyAsyncClient()
                 .getKey(keyName)
-                .onErrorMap(HttpResponseException.class, exception -> {
-                    System.err.printf(
-                            "Key Vault key request failed: status=%d message=%s. "
-                                    + "Verify that the key exists and is enabled.%n",
-                            exception.getResponse().getStatusCode(),
-                            exception.getMessage());
-                    return exception;
-                })
                 .flatMap(key -> encryptAndUpload(
                         container,
                         blobName,
                         key.getId(),
-                        plaintext));
+                        plaintext))
+                .onErrorMap(HttpResponseException.class, this::reportKeyVaultFailure);
     }
 
     private Mono<EncryptionResult> encryptAndUpload(
@@ -131,6 +124,18 @@ public final class AsyncEncryptedBlobUploader {
         } catch (Exception exception) {
             throw new IllegalStateException("Unable to decrypt blob content", exception);
         }
+    }
+
+    private HttpResponseException reportKeyVaultFailure(HttpResponseException exception) {
+        int status = exception.getResponse() == null
+                ? -1
+                : exception.getResponse().getStatusCode();
+        System.err.printf(
+                "Key Vault key request failed: status=%d message=%s. "
+                        + "Verify that the key exists and is enabled.%n",
+                status,
+                exception.getMessage());
+        return exception;
     }
 
     private Mono<EncryptionResult> decryptOffThread(
