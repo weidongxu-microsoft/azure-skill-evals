@@ -14,6 +14,9 @@ for 90 logical trials total.
 - Event Hubs criterion wording was corrected after the main shards started.
   Its three stale rows were replaced by run
   `7d153bd3-7cb3-46d9-8210-748eba776570`.
+- A prompt-silent inventory failure criterion was removed during final review.
+  Its three stale rows were replaced by run
+  `cd1a30ea-b0c2-4c3a-9c10-7e1968859cac`.
 - The reconciled set has 90 unique item IDs and `variant/evalName` keys. Every
   record has `status: success`, complete panel and program-check output, and no
   trajectory errors.
@@ -31,9 +34,9 @@ criterion and the program check pass.
 
 | Variant | Environment | Trials passed | Prompt criteria | Language criteria | Program checks |
 |---|---|---:|---:|---:|---:|
-| `baseline` | No skills or Azure MCP | 1/30 | 202/226 | 49/76 | 30/30 |
-| `azure-skill-mcp` | 28 general Azure skills and Azure MCP | 1/30 | 200/226 | 47/76 | 30/30 |
-| `azure-skill-mcp-microsoft-skill` | Same environment plus all Java SDK skills | 0/30 | 206/226 | 44/76 | 30/30 |
+| `baseline` | No skills or Azure MCP | 1/30 | 202/225 | 49/76 | 30/30 |
+| `azure-skill-mcp` | 28 general Azure skills and Azure MCP | 1/30 | 200/225 | 47/76 | 30/30 |
+| `azure-skill-mcp-microsoft-skill` | Same environment plus all Java SDK skills | 0/30 | 206/225 | 44/76 | 30/30 |
 
 The restored BOM-first rule is deliberately strict. In the replacement Event
 Hubs run, all three generated projects compiled but failed only the BOM
@@ -43,9 +46,9 @@ criterion because they used direct dependency versions.
 
 | Variant | Average duration | Tokens | Turns | Tool calls | Skill activations | Azure MCP calls | Web calls |
 |---|---:|---:|---:|---:|---:|---:|---:|
-| `baseline` | 3.63 min | 16,038,219 | 350 | 798 | 0 | 0 | 456 |
-| `azure-skill-mcp` | 3.32 min | 24,393,770 | 482 | 884 | 21 | 181 | 144 |
-| `azure-skill-mcp-microsoft-skill` | 4.33 min | 19,489,663 | 434 | 742 | 36 | 151 | 92 |
+| `baseline` | 3.65 min | 16,259,799 | 356 | 804 | 0 | 0 | 450 |
+| `azure-skill-mcp` | 3.28 min | 23,960,318 | 473 | 880 | 21 | 180 | 155 |
+| `azure-skill-mcp-microsoft-skill` | 4.31 min | 19,638,852 | 436 | 755 | 36 | 154 | 97 |
 
 Skill activation, Azure MCP use, and web calls are diagnostic evidence only;
 they do not affect scoring.
@@ -70,6 +73,7 @@ Policy-sensitive questions remain listed in
 
 Raw main artifacts are under
 `reports/java-shards/issue37-conservative/`; Event Hubs replacement artifacts
-are under `reports/java-shards/issue37-event-hubs-final/`. They contain
-generated workspaces, diffs, trajectories, grader evidence, and program-check
-output and are intentionally excluded from version control.
+are under `reports/java-shards/issue37-event-hubs-final/`; inventory replacement
+artifacts are under `reports/java-shards/issue37-inventory-final/`. They
+contain generated workspaces, diffs, trajectories, grader evidence, and
+program-check output and are intentionally excluded from version control.
