@@ -95,206 +95,165 @@ stimuli:
       language: python
       category: solution
       scope: end-to-end-solution
+    rubric:
+      - |-
+          prompt/implements-a-complete-runnable-support-application
+          - Production entry point -> long-running HTTP `serve_forever()` or
+            equivalent.
+          - HTTP routes -> production support orchestration.
+          - Dependency manifest -> installable application and test dependencies.
+          - README -> lint, compile, test, run, and cleanup commands.
+          No CLI-only or placeholder implementation.
+      - |-
+          prompt/selects-coherent-current-foundry-and-azure-sdks
+          - Current supported Python client or supported project-scoped REST client ->
+            configured Foundry project endpoint + Entra credential.
+          - Foundry project or its `/openai/v1` endpoint -> answer generation.
+          - Supported Foundry evaluation client or API -> evaluation workflow.
+          - Request configuration uses documented field names and value shapes.
+          - Every declared Azure service client -> invoked operation.
+      - |-
+          prompt/uses-a-foundry-managed-prompt-agent
+          - Foundry project agent creation API -> create a prompt agent after
+            retrieval readiness is confirmed.
+          - Agent definition -> configured model, support instructions, and retrieval
+            tool bound to the selected retrieval resource.
+          - Service-returned agent identity -> persist with the application's owned
+            cloud-resource identifiers -> use for grounded answers, evaluation cases,
+            and cleanup.
+          - Grounded answers and evaluation cases -> invoke that created agent through
+            an agent reference or agent-scoped response client.
+          - Cleanup -> delete only that application-created agent resource after its
+            conversations and before its referenced retrieval resources.
+          An OpenAI client request with locally repeated instructions and tools, but
+          no Foundry project-agent creation operation, does not satisfy this criterion.
+      - |-
+          prompt/ingests-product-documentation-and-waits-for-retrieval-readiness
+          Choose one path for both supplied product documentation files:
+          - `files.create(...)` -> `vector_stores.files.create(...)` -> poll
+            `vector_stores.files.retrieve(...).status` to `completed`.
+          - `POST /openai/v1/files` -> `POST /vector_stores/{id}/files` -> bounded
+            `GET` polling to `completed`.
+          - `SearchClient.upload_documents(...)` -> successful indexing result ->
+            `SearchClient.get_document(...)`.
+          - Blob upload -> run an Azure AI Search indexer -> bounded status polling
+            to `success`.
+          No local-only readiness flag.
+      - |-
+          prompt/returns-grounded-answers-with-service-citations
+          One path is required:
+          - Foundry Responses request includes file-search results -> parse
+            `output_text.annotations[type == "file_citation"].filename`.
+          - Foundry agent response -> parse
+            `output_text.annotations[type == "url_citation"].{title,url}`.
+          - `SearchClient.search(...)` -> match returned citation IDs to result IDs ->
+            returned `sourceFile`.
+          No hardcoded documentation filenames.
+      - |-
+          prompt/preserves-isolated-multi-turn-conversations
+          One path is required:
+          - Create a Foundry conversation or thread -> persist returned ID by
+            authenticated `employeeId + conversationId` -> reuse returned ID.
+          - Persist turns by authenticated `employeeId + conversationId` -> pass prior
+            turns to the next Foundry answer call.
+          No process-memory-only state.
+      - |-
+          prompt/records-unsupported-questions-for-follow-up
+          - Detect `supported is False` or output beginning with `UNSUPPORTED:`.
+          - Durable unresolved record -> question, response ID, creation time, and
+            conversation key scoped by authenticated employee.
+      - |-
+          prompt/records-validated-response-specific-feedback
+          - Load persisted `responseId`.
+          - Verify that the authenticated `employeeId` owns the response.
+          - If the request supplies a conversation ID, also verify that scope;
+            a globally unique persisted response ID plus employee ownership is valid.
+          - Reject an unknown response or any ownership/scope mismatch.
+          - Persist rating linked to `responseId`.
+      - |-
+          prompt/runs-extensible-groundedness-and-relevance-evaluation
+          - Evaluation definition -> groundedness + relevance evaluators in an
+            extensible collection.
+          - Evaluator and model configuration matches the selected API schema
+            (for example, Azure evaluator deployments use `deployment_name`).
+          - Evaluation run -> retrieve or poll to terminal status.
+          - Traverse every returned output item and report every metric.
+          - Evaluator `context` -> results returned by the selected retrieval service,
+            not hand-authored dataset context.
+      - |-
+          prompt/uses-entra-identity-and-external-configuration
+          - Environment variables -> endpoints, deployment, identity settings.
+          - An `azure.identity` `TokenCredential` -> every Azure client or REST token.
+          - Validated Entra token or trusted platform principal -> `employeeId`.
+          - Admin role or allowlist -> ingestion, review, evaluation, cleanup routes.
+      - |-
+          prompt/handles-lifecycle-errors-and-bounded-waits
+          - Deadline + delayed polling.
+          - Handle `failed`, `cancelled`/`canceled`, timeout.
+          - Narrow Azure SDK failures to `HttpResponseError` or a service subclass and
+            inspect status/error code; a structured Foundry REST exception carrying
+            status and service code is also valid.
+          No unbounded or delay-free polling.
+      - |-
+          prompt/cleans-up-created-cloud-resources-safely
+          - Delete only application-owned resources created by the selected retrieval
+            and conversation path, in a dependency-safe order.
+          - Preserve persisted resource ownership until remote deletion succeeds.
+          - A failed cleanup or replacement must retain enough ownership information
+            for a later retry; it must not orphan the previous resources.
+      - |-
+          prompt/includes-meaningful-offline-automated-tests
+          Executable Python tests exercise HTTP routes and orchestration with mocked or
+          fake Azure clients. Test assertions cover:
+          - employee conversation isolation and follow-up context;
+          - unknown or mismatched feedback rejection;
+          - evaluator context from retrieved results;
+          - durable multi-record writes being atomic, or failure recovery/compensation
+            when atomic writes are not used.
+          Declared mocks, test doubles, or unexecuted helper code are not evidence.
+      - |-
+          prompt/excludes-provisioning-and-deployment
+          No Bicep, ARM, Terraform, `az`/`azd` provisioning, or deployment workflow.
+      - |-
+          language/correct-package-imports
+          Imports use the latest azure-sdk-for-python package structure (azure.*), not deprecated packages.
+      - |-
+          language/defaultazurecredential-usage
+          Authentication matches what the prompt asks for. If the prompt explicitly requires a connection string (or other key-based auth), using `from_connection_string()` / connection-string-based clients is correct and should pass. Otherwise, authentication must use DefaultAzureCredential from azure-identity (or another `azure.identity` credential), not connection strings or hardcoded keys. Hardcoded secrets/keys/connection strings in source code always fail — required values should come from environment variables or a secret store.
+      - |-
+          language/context-manager-for-clients
+          Azure SDK clients that support context managers are used with `with` statements or explicitly closed.
+      - |-
+          language/async-client-usage
+          If async operations are requested, code uses the async client variant with proper await patterns.
+      - |-
+          language/proper-exception-handling
+          Azure SDK exceptions (HttpResponseError and subclasses) are caught and handled appropriately.
     graders:
-      - type: panel
+      - type: prompt
         name: prompt/full-case-review
         weight: 1
         config:
           prompt: |-
-            Review the generated implementation against every criterion.
-            Score each criterion independently. Accept equivalent valid
+            Review the generated implementation against every rubric item.
+            Score each rubric item independently. Accept equivalent valid
             implementations and judge code behavior rather than syntax. Trace
-            concrete imports, client construction, SDK or REST calls, returned
-            service identifiers, persistence operations, and
-            route-to-orchestration call paths. Examples of methods and
-            endpoints in the criteria are nonexclusive evidence, not mandatory
-            spellings. Fail interfaces, configuration objects, mocks, comments,
-            or disconnected snippets that are not exercised by the runnable
-            application.
-            Return every criterion name exactly as provided. The criterion
-            value must start with "prompt/" or "language/". Never copy a rubric
-            list number into the criterion value. For example, return
-            "prompt/foo", never "1. prompt/foo".
-          models:
-            - gpt-5.6-sol
-          aggregation: unanimous
+            concrete imports, client construction, SDK calls, returned service
+            identifiers, persistence operations, and route-to-orchestration
+            call paths. Examples of SDK methods in the rubric are nonexclusive
+            evidence, not mandatory spellings. Fail interfaces, configuration
+            objects, mocks, comments, or disconnected snippets that are not
+            exercised by the runnable application.
+            Return exactly one score for every rubric item. In each criterion
+            value, return only the rubric item's first line, exactly as written.
+            The value must start with "prompt/" or "language/" and must not
+            include the rubric list number or the description.
+          model: gpt-5.6-sol
           scoring: binary
-          threshold: 0
-          overall_threshold: 0
+          threshold: 1
           evidence:
             - diff
-          criteria:
-            - name: prompt/implements-a-complete-runnable-support-application
-              description: |-
-                - Production entry point -> long-running HTTP `serve_forever()` or
-                  equivalent.
-                - HTTP routes -> production support orchestration.
-                - Dependency manifest -> installable application and test dependencies.
-                - README -> lint, compile, test, run, and cleanup commands.
-                No CLI-only or placeholder implementation.
-              weight: 1
-              pass_threshold: 1
-            - name: prompt/selects-coherent-current-foundry-and-azure-sdks
-              description: |-
-                - Current supported Python client or supported project-scoped REST client ->
-                  configured Foundry project endpoint + Entra credential.
-                - Foundry project or its `/openai/v1` endpoint -> answer generation.
-                - Supported Foundry evaluation client or API -> evaluation workflow.
-                - Request configuration uses documented field names and value shapes.
-                - Every declared Azure service client -> invoked operation.
-              weight: 1
-              pass_threshold: 1
-            - name: prompt/uses-a-foundry-managed-prompt-agent
-              description: |-
-                - Foundry project agent creation API -> create a prompt agent after
-                  retrieval readiness is confirmed.
-                - Agent definition -> configured model, support instructions, and retrieval
-                  tool bound to the selected retrieval resource.
-                - Service-returned agent identity -> persist with the application's owned
-                  cloud-resource identifiers -> use for grounded answers, evaluation cases,
-                  and cleanup.
-                - Grounded answers and evaluation cases -> invoke that created agent through
-                  an agent reference or agent-scoped response client.
-                - Cleanup -> delete only that application-created agent resource after its
-                  conversations and before its referenced retrieval resources.
-                An OpenAI client request with locally repeated instructions and tools, but
-                no Foundry project-agent creation operation, does not satisfy this criterion.
-              weight: 1
-              pass_threshold: 1
-            - name: prompt/ingests-product-documentation-and-waits-for-retrieval-readiness
-              description: |-
-                Choose one path for both supplied product documentation files:
-                - `files.create(...)` -> `vector_stores.files.create(...)` -> poll
-                  `vector_stores.files.retrieve(...).status` to `completed`.
-                - `POST /openai/v1/files` -> `POST /vector_stores/{id}/files` -> bounded
-                  `GET` polling to `completed`.
-                - `SearchClient.upload_documents(...)` -> successful indexing result ->
-                  `SearchClient.get_document(...)`.
-                - Blob upload -> run an Azure AI Search indexer -> bounded status polling
-                  to `success`.
-                No local-only readiness flag.
-              weight: 1
-              pass_threshold: 1
-            - name: prompt/returns-grounded-answers-with-service-citations
-              description: |-
-                One path is required:
-                - Foundry Responses request includes file-search results -> parse
-                  `output_text.annotations[type == "file_citation"].filename`.
-                - Foundry agent response -> parse
-                  `output_text.annotations[type == "url_citation"].{title,url}`.
-                - `SearchClient.search(...)` -> match returned citation IDs to result IDs ->
-                  returned `sourceFile`.
-                No hardcoded documentation filenames.
-              weight: 1
-              pass_threshold: 1
-            - name: prompt/preserves-isolated-multi-turn-conversations
-              description: |-
-                One path is required:
-                - Create a Foundry conversation or thread -> persist returned ID by
-                  authenticated `employeeId + conversationId` -> reuse returned ID.
-                - Persist turns by authenticated `employeeId + conversationId` -> pass prior
-                  turns to the next Foundry answer call.
-                No process-memory-only state.
-              weight: 1
-              pass_threshold: 1
-            - name: prompt/records-unsupported-questions-for-follow-up
-              description: |-
-                - Detect `supported is False` or output beginning with `UNSUPPORTED:`.
-                - Durable unresolved record -> question, response ID, creation time, and
-                  conversation key scoped by authenticated employee.
-              weight: 1
-              pass_threshold: 1
-            - name: prompt/records-validated-response-specific-feedback
-              description: |-
-                - Load persisted `responseId`.
-                - Verify that the authenticated `employeeId` owns the response.
-                - If the request supplies a conversation ID, also verify that scope;
-                  a globally unique persisted response ID plus employee ownership is valid.
-                - Reject an unknown response or any ownership/scope mismatch.
-                - Persist rating linked to `responseId`.
-              weight: 1
-              pass_threshold: 1
-            - name: prompt/runs-extensible-groundedness-and-relevance-evaluation
-              description: |-
-                - Evaluation definition -> groundedness + relevance evaluators in an
-                  extensible collection.
-                - Evaluator and model configuration matches the selected API schema
-                  (for example, Azure evaluator deployments use `deployment_name`).
-                - Evaluation run -> retrieve or poll to terminal status.
-                - Traverse every returned output item and report every metric.
-                - Evaluator `context` -> results returned by the selected retrieval service,
-                  not hand-authored dataset context.
-              weight: 1
-              pass_threshold: 1
-            - name: prompt/uses-entra-identity-and-external-configuration
-              description: |-
-                - Environment variables -> endpoints, deployment, identity settings.
-                - An `azure.identity` `TokenCredential` -> every Azure client or REST token.
-                - Validated Entra token or trusted platform principal -> `employeeId`.
-                - Admin role or allowlist -> ingestion, review, evaluation, cleanup routes.
-              weight: 1
-              pass_threshold: 1
-            - name: prompt/handles-lifecycle-errors-and-bounded-waits
-              description: |-
-                - Deadline + delayed polling.
-                - Handle `failed`, `cancelled`/`canceled`, timeout.
-                - Narrow Azure SDK failures to `HttpResponseError` or a service subclass and
-                  inspect status/error code; a structured Foundry REST exception carrying
-                  status and service code is also valid.
-                No unbounded or delay-free polling.
-              weight: 1
-              pass_threshold: 1
-            - name: prompt/cleans-up-created-cloud-resources-safely
-              description: |-
-                - Delete only application-owned resources created by the selected retrieval
-                  and conversation path, in a dependency-safe order.
-                - Preserve persisted resource ownership until remote deletion succeeds.
-                - A failed cleanup or replacement must retain enough ownership information
-                  for a later retry; it must not orphan the previous resources.
-              weight: 1
-              pass_threshold: 1
-            - name: prompt/includes-meaningful-offline-automated-tests
-              description: |-
-                Executable Python tests exercise HTTP routes and orchestration with mocked or
-                fake Azure clients. Test assertions cover:
-                - employee conversation isolation and follow-up context;
-                - unknown or mismatched feedback rejection;
-                - evaluator context from retrieved results;
-                - durable multi-record writes being atomic, or failure recovery/compensation
-                  when atomic writes are not used.
-                Declared mocks, test doubles, or unexecuted helper code are not evidence.
-              weight: 1
-              pass_threshold: 1
-            - name: prompt/excludes-provisioning-and-deployment
-              description: |-
-                No Bicep, ARM, Terraform, `az`/`azd` provisioning, or deployment workflow.
-              weight: 1
-              pass_threshold: 1
-            - name: language/correct-package-imports
-              description: |-
-                Imports use the latest azure-sdk-for-python package structure (azure.*), not deprecated packages.
-              weight: 1
-              pass_threshold: 1
-            - name: language/defaultazurecredential-usage
-              description: |-
-                Authentication matches what the prompt asks for. If the prompt explicitly requires a connection string (or other key-based auth), using `from_connection_string()` / connection-string-based clients is correct and should pass. Otherwise, authentication must use DefaultAzureCredential from azure-identity (or another `azure.identity` credential), not connection strings or hardcoded keys. Hardcoded secrets/keys/connection strings in source code always fail — required values should come from environment variables or a secret store.
-              weight: 1
-              pass_threshold: 1
-            - name: language/context-manager-for-clients
-              description: |-
-                Azure SDK clients that support context managers are used with `with` statements or explicitly closed.
-              weight: 1
-              pass_threshold: 1
-            - name: language/async-client-usage
-              description: |-
-                If async operations are requested, code uses the async client variant with proper await patterns.
-              weight: 1
-              pass_threshold: 1
-            - name: language/proper-exception-handling
-              description: |-
-                Azure SDK exceptions (HttpResponseError and subclasses) are caught and handled appropriately.
-              weight: 1
-              pass_threshold: 1
+          output_delivery: workspace
       - type: run-command
         name: program/python-source-compiles
         config:

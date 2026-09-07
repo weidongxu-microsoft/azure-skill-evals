@@ -5,6 +5,7 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 
 const REPOSITORY_ROOT = fileURLToPath(new URL("../", import.meta.url));
 let evalServices;
+let evalCriteria;
 
 const expectedProgramChecks = {
   dotnet: ["program/dotnet-project-builds"],
@@ -67,6 +68,39 @@ function loadEvalServices() {
   return evalServices;
 }
 
+function loadEvalCriteria() {
+  if (evalCriteria) {
+    return evalCriteria;
+  }
+  evalCriteria = new Map();
+  const scenariosPath = path.join(REPOSITORY_ROOT, "scenarios");
+  for (const entry of readdirSync(scenariosPath, { withFileTypes: true })) {
+    if (!entry.isDirectory()) {
+      continue;
+    }
+    const evalPath = path.join(scenariosPath, entry.name, "eval.yaml");
+    let source;
+    try {
+      source = readFileSync(evalPath, "utf8");
+    } catch (error) {
+      if (error.code === "ENOENT") {
+        continue;
+      }
+      throw error;
+    }
+    const evalName = source.match(/^name:\s*(\S+)\s*$/m)?.[1];
+    const names = [
+      ...source.matchAll(
+        /^\s+(?:- name: )?((?:prompt|language)\/[a-z0-9-]+)\s*$/gm,
+      ),
+    ].map((match) => match[1]);
+    if (evalName && names.length > 0) {
+      evalCriteria.set(evalName, names);
+    }
+  }
+  return evalCriteria;
+}
+
 function serviceForRow(row) {
   if (typeof row.service === "string" && row.service) {
     return row.service;
@@ -78,18 +112,80 @@ function serviceForRow(row) {
   return service;
 }
 
+function canonicalCriterionName(value) {
+  return typeof value === "string"
+    ? value.match(/(?:prompt|language)\/[a-z0-9][a-z0-9-]*/)?.[0]
+    : undefined;
+}
+
 function extractCriteria(gradeResult) {
   const pending = [gradeResult];
   while (pending.length > 0) {
     const detail = pending.shift();
     if (Array.isArray(detail?.metadata?.criteria)) {
-      return detail.metadata.criteria;
+      return { criteria: detail.metadata.criteria, source: "panel" };
+    }
+    if (Array.isArray(detail?.metadata?.rubric_scores)) {
+      const resultDetails = Array.isArray(detail.details) ? detail.details : [];
+      return {
+        source: "prompt",
+        criteria: detail.metadata.rubric_scores.map((score, index) => ({
+          name:
+            canonicalCriterionName(score.criterion) ??
+            canonicalCriterionName(resultDetails[index]?.name),
+          rawName: score.criterion,
+          passed:
+            detail.metadata.scoring === "binary"
+              ? score.score === 1
+              : Boolean(resultDetails[index]?.passed),
+        })),
+      };
     }
     if (Array.isArray(detail?.details)) {
       pending.push(...detail.details);
     }
   }
-  return [];
+  return { criteria: [], source: undefined };
+}
+
+function reconcilePromptCriteria(criteria, expectedNames, resultName, problems) {
+  const byName = new Map();
+  for (const criterion of criteria) {
+    const key = criterion.name;
+    if (!key) {
+      problems.push(
+        `Unrecognized prompt criterion: ${resultName}/${criterion.rawName}`,
+      );
+      continue;
+    }
+    const matches = byName.get(key) ?? [];
+    matches.push(criterion);
+    byName.set(key, matches);
+  }
+
+  const reconciled = [];
+  for (const expectedName of expectedNames) {
+    const matches = byName.get(expectedName) ?? [];
+    if (matches.length === 0) {
+      problems.push(`Missing prompt criterion: ${resultName}/${expectedName}`);
+      reconciled.push({ name: expectedName, passed: false });
+    } else {
+      if (matches.length > 1) {
+        problems.push(`Duplicate prompt criterion: ${resultName}/${expectedName}`);
+      }
+      reconciled.push({
+        name: expectedName,
+        passed: matches.length === 1 && matches[0].passed,
+      });
+    }
+  }
+
+  for (const actualName of byName.keys()) {
+    if (!expectedNames.includes(actualName)) {
+      problems.push(`Unexpected prompt criterion: ${resultName}/${actualName}`);
+    }
+  }
+  return reconciled;
 }
 
 function extractProgramChecks(gradeResult) {
@@ -268,7 +364,18 @@ export function summarizeReports({ inputDir, expectedMatrix }) {
     summary.trials += 1;
     variantSummary.trials += 1;
     serviceSummary.trials += 1;
-    const criteria = extractCriteria(row.gradeResult);
+    const extracted = extractCriteria(row.gradeResult);
+    const resultName = `${row.variant}/${row.evalName}`;
+    const expectedCriteria = loadEvalCriteria().get(row.evalName);
+    const criteria =
+      extracted.source === "prompt" && expectedCriteria
+        ? reconcilePromptCriteria(
+            extracted.criteria,
+            expectedCriteria,
+            resultName,
+            problems,
+          )
+        : extracted.criteria;
     if (criteria.length === 0) {
       problems.push(`No criterion results found: ${row.variant}/${row.evalName}`);
     } else {

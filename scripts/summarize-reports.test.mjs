@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import test from "node:test";
@@ -54,6 +54,33 @@ function result(
         criteria.every((item) => item.passed) &&
         programs.every((item) => item.passed),
       details: [{ metadata: { criteria } }, ...programs],
+    },
+  };
+}
+
+function promptResult(evalName, variant, rubricScores, programs) {
+  return {
+    evalName,
+    service: "foundry",
+    variant,
+    status: "success",
+    gradeResult: {
+      passed: false,
+      details: [
+        {
+          name: "prompt/full-case-review",
+          graderType: "prompt",
+          metadata: {
+            scoring: "binary",
+            rubric_scores: rubricScores,
+          },
+          details: rubricScores.map(({ criterion: name, score }) => ({
+            name: `prompt/${name}`,
+            passed: score === 1,
+          })),
+        },
+        ...programs,
+      ],
     },
   };
 }
@@ -149,6 +176,87 @@ test("aggregates categories independently of the outer grade status", () => {
   assert.match(
     summary.markdown,
     /python \| baseline \| 1\/1 \| 1\/1 \(100\.0%\) \| 1\/1 \(100\.0%\) \| 1\/1 \(100\.0%\)/,
+  );
+});
+
+test("normalizes prompt rubric scores and preserves expected category totals", () => {
+  const root = mkdtempSync(path.join(tmpdir(), "vally-summary-"));
+  const evalName = "foundry-typescript-support-assistant";
+  const source = readFileSync(
+    new URL(`../scenarios/${evalName}/eval.yaml`, import.meta.url),
+    "utf8",
+  );
+  const criterionNames = [
+    ...source.matchAll(/^\s+((?:prompt|language)\/[a-z0-9-]+)\s*$/gm),
+  ].map((match) => match[1]);
+  const rubricScores = criterionNames.map((criterionName, index) => ({
+    criterion: criterionName,
+    score: index === 0 ? 0 : 1,
+    reasoning: "Test reasoning",
+  }));
+  writeShard(root, "typescript", "baseline", 1, [
+    promptResult(evalName, "baseline", rubricScores, [
+      program("program/typescript-dependencies-install", true),
+      program("program/typescript-type-checks", true),
+    ]),
+  ]);
+
+  const summary = summarizeReports({
+    inputDir: root,
+    expectedMatrix: {
+      include: [
+        { language: "typescript", variant: "baseline", evaluations: 1 },
+      ],
+    },
+  });
+
+  assert.deepEqual(summary.problems, []);
+  assert.match(
+    summary.markdown,
+    /typescript \| baseline \| 1\/1 \| 13\/14 \(92\.9%\) \| 10\/10 \(100\.0%\) \| 2\/2 \(100\.0%\)/,
+  );
+});
+
+test("counts a missing prompt rubric score as failed and reports it", () => {
+  const root = mkdtempSync(path.join(tmpdir(), "vally-summary-"));
+  const evalName = "foundry-typescript-support-assistant";
+  const source = readFileSync(
+    new URL(`../scenarios/${evalName}/eval.yaml`, import.meta.url),
+    "utf8",
+  );
+  const criterionNames = [
+    ...source.matchAll(/^\s+((?:prompt|language)\/[a-z0-9-]+)\s*$/gm),
+  ].map((match) => match[1]);
+  const missingName = criterionNames.at(-1);
+  const rubricScores = criterionNames.slice(0, -1).map((criterionName) => ({
+    criterion: `1. ${criterionName}`,
+    score: 1,
+    reasoning: "Test reasoning",
+  }));
+  writeShard(root, "typescript", "baseline", 1, [
+    promptResult(evalName, "baseline", rubricScores, [
+      program("program/typescript-dependencies-install", true),
+      program("program/typescript-type-checks", true),
+    ]),
+  ]);
+
+  const summary = summarizeReports({
+    inputDir: root,
+    expectedMatrix: {
+      include: [
+        { language: "typescript", variant: "baseline", evaluations: 1 },
+      ],
+    },
+  });
+
+  assert.ok(
+    summary.problems.includes(
+      `Missing prompt criterion: baseline/${evalName}/${missingName}`,
+    ),
+  );
+  assert.match(
+    summary.markdown,
+    /typescript \| baseline \| 1\/1 \| 14\/14 \(100\.0%\) \| 9\/10 \(90\.0%\) \| 2\/2 \(100\.0%\)/,
   );
 });
 

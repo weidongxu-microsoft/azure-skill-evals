@@ -84,8 +84,14 @@ test("every eval uses one complete model review and program checks", () => {
   for (const evalPath of evalPaths) {
     const source = readFileSync(evalPath, "utf8").replaceAll("\r\n", "\n");
     const language = source.match(/^\s+language:\s*(\S+)$/m)?.[1];
+    const usesPromptRubric =
+      /^name: foundry-(?:dotnet|java|python|typescript)-support-assistant$/m.test(
+        source,
+      );
     const criterionNames = [
-      ...source.matchAll(/^\s+- name: ((?:prompt|language)\/.+)$/gm),
+      ...source.matchAll(
+        /^\s+(?:- name: )?((?:prompt|language)\/[a-z0-9-]+)$/gm,
+      ),
     ].map((match) => match[1]);
     const languageCriteria = criterionNames.filter((name) =>
       name.startsWith("language/"),
@@ -93,7 +99,12 @@ test("every eval uses one complete model review and program checks", () => {
 
     assert.equal(
       (source.match(/^\s+- type: panel$/gm) ?? []).length,
-      1,
+      usesPromptRubric ? 0 : 1,
+      evalPath,
+    );
+    assert.equal(
+      (source.match(/^\s+- type: prompt$/gm) ?? []).length,
+      usesPromptRubric ? 1 : 0,
       evalPath,
     );
     assert.equal(
@@ -112,8 +123,6 @@ test("every eval uses one complete model review and program checks", () => {
       assert.ok(source.includes(programGrader), evalPath);
     }
     assert.doesNotMatch(source, /^\s+required:/m, evalPath);
-    assert.match(source, /^\s+threshold: 0$/m, evalPath);
-    assert.match(source, /^\s+overall_threshold: 0$/m, evalPath);
     assert.equal(
       languageCriteria.length,
       expectedLanguageCriteria[language],
@@ -124,7 +133,25 @@ test("every eval uses one complete model review and program checks", () => {
       /language\/code-compiles-mvn-compile-gradle-compilejava/,
       evalPath,
     );
-    assert.match(source, /^\s+models:\r?\n\s+- gpt-5\.6-sol$/m, evalPath);
+    if (usesPromptRubric) {
+      assert.match(source, /^    rubric:$/m, evalPath);
+      assert.match(source, /^\s+model: gpt-5\.6-sol$/m, evalPath);
+      assert.match(source, /^\s+scoring: binary$/m, evalPath);
+      assert.match(source, /^\s+threshold: 1$/m, evalPath);
+      assert.match(source, /^\s+output_delivery: workspace$/m, evalPath);
+      assert.doesNotMatch(source, /^\s+models:$/m, evalPath);
+      assert.doesNotMatch(source, /^\s+aggregation:/m, evalPath);
+      assert.doesNotMatch(source, /^\s+overall_threshold:/m, evalPath);
+      assert.doesNotMatch(source, /^\s+criteria:$/m, evalPath);
+    } else {
+      assert.match(source, /^\s+threshold: 0$/m, evalPath);
+      assert.match(source, /^\s+overall_threshold: 0$/m, evalPath);
+      assert.match(
+        source,
+        /^\s+models:\r?\n\s+- gpt-5\.6-sol$/m,
+        evalPath,
+      );
+    }
     const scopeMatches = source.match(
       /^\s+scope: (focused-task|end-to-end-solution)$/gm,
     );
@@ -135,11 +162,19 @@ test("every eval uses one complete model review and program checks", () => {
       /^agent_environment:\n\s+files:\n\s+- src: \.\.\/\.\.\/eval-workspace\.gitignore\n\s+dest: \.gitignore/m,
       evalPath,
     );
-    assert.match(
-      source,
-      /value must start with "prompt\/" or "language\/"\. Never copy a rubric\r?\n\s+list number into the criterion value\./,
-      evalPath,
-    );
+    if (usesPromptRubric) {
+      assert.match(
+        source,
+        /Return exactly one score for every rubric item\.[\s\S]*The value must start with "prompt\/" or "language\/"/,
+        evalPath,
+      );
+    } else {
+      assert.match(
+        source,
+        /value must start with "prompt\/" or "language\/"\. Never copy a rubric\r?\n\s+list number into the criterion value\./,
+        evalPath,
+      );
+    }
     assert.match(
       source,
       /^\s+- src: \.\.\/\.\.\/eval-workspace-AGENTS\.md\n\s+dest: AGENTS\.md/m,
