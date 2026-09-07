@@ -77,7 +77,7 @@ public final class Main {
                 uploadPath,
                 overwriteMetadata,
                 overwriteTags,
-                "sync-demo-lease");
+                "9c641f24-a1e5-4fc2-b9ab-952b3b0b3676");
         syncManager.deleteBlob(containerName, blobName);
         syncManager.deleteContainer(containerName);
 
@@ -97,7 +97,7 @@ public final class Main {
                 uploadPath,
                 overwriteMetadata,
                 overwriteTags,
-                "async-demo-lease");
+                "f75e8a51-f42f-4c9d-bb58-da0e1c8e61ec");
         Mono<Void> deleteBlobStep = asyncManager.deleteBlobAsync(containerName, blobName);
         Mono<Void> deleteContainerStep = asyncManager.deleteContainerAsync(containerName);
 

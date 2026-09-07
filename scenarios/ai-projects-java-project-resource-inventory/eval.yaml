@@ -102,12 +102,6 @@ stimuli:
                 - Print its name, publisher, model name, and model version.
               weight: 1
               pass_threshold: 1
-            - name: prompt/project-inventory-failure-reporting
-              description: |-
-                - Connection or deployment inventory failure -> preserve available status and service error details.
-                - Report actionable diagnostics without exposing credentials.
-              weight: 1
-              pass_threshold: 1
             - name: language/current-public-azure-sdk-dependencies
               description: |-
                 - Declare compatible Azure SDK artifacts for the selected service and authentication clients.

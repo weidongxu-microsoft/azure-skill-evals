@@ -27,7 +27,7 @@ independent scoring boundaries where they are not already covered.
 | `ai-agents-java-function-tool` | G | G | G | H | C | C | C | C | R | R | C |
 | `ai-projects-java-dataset-lifecycle` | C | G | G | H | C | C | R | R | R | R | C |
 | `ai-projects-java-evaluation-run` | C | G | G | H | H | C | C | C | R | R | C |
-| `ai-projects-java-project-resource-inventory` | G | G | G | H | H | C | C | R | R | S | R |
+| `ai-projects-java-project-resource-inventory` | G | G | G | H | H | C | C | R | R | R | R |
 | `app-configuration-java-config-values` | C | G | G | C | C | C | C | R | R | C | C |
 | `app-configuration-java-feature-flags` | G | G | G | C | C | C | C | C | C | R | R |
 | `cosmos-db-java-crud` | C | G | G | C | C | C | R | R | R | C | C |
@@ -58,7 +58,7 @@ already score the manifest. Current-public-API coverage follows the same rule.
 BOM and Azure import hygiene are globally applicable and independently
 observable. Authentication and construction stay prompt-specific. Existing
 focused criteria retain applicable paging, polling, async, error, and cleanup
-coverage; project inventory alone adds focused failure reporting.
+coverage.
 
 For the five prompt-silent authentication rows marked `H`, retaining the
 carried-forward behavior means the defective universal

@@ -31,7 +31,7 @@ cannot be scored independently.
 | AI Agents: basic lifecycle | endpoint/deployment flow, named agent, valid manual terminal polling, messages, cleanup |
 | AI Agents: function tool | named configured agent, `get_weather` contract, tool round trip, terminal polling |
 | AI Agents: file search | endpoint/deployment flow, vector-store readiness, named agent, successful terminal run, citations |
-| AI Projects: inventory | project endpoint/client flow, complete pageable resource inventory, actionable failures |
+| AI Projects: inventory | project endpoint/client flow, complete pageable resource inventory, named deployment retrieval and output |
 | AI Projects: evaluation run | schema and evaluator mapping split, exact JSONL run, supported retrieve polling, complete output paging, cleanup |
 | AI Projects: dataset lifecycle | supplied-value flow, direct or staged upload, SAS-authorized Blob access, verification, cleanup |
 | App Configuration: values | connection-string client, both value/label writes, prefix results, separate deletion and service errors |
