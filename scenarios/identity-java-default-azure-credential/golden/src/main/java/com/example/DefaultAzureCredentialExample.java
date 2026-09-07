@@ -69,7 +69,7 @@ public final class DefaultAzureCredentialExample {
 
     private static void explainCredentialSelection() {
         System.out.println(
-                "DefaultAzureCredential 1.18.5 uses this ordered chain:");
+                "DefaultAzureCredential 1.18.4 uses this ordered chain:");
         for (int index = 0; index < DEFAULT_CREDENTIAL_CHAIN.size(); index++) {
             CredentialStage stage = DEFAULT_CREDENTIAL_CHAIN.get(index);
             System.out.printf(
