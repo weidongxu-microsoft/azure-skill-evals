@@ -11,7 +11,8 @@ removed only when independently irrelevant.
 - **S**: restore only for this scenario.
 - **C**: already covered by a focused prompt criterion.
 - **R**: independently irrelevant; do not restore.
-- **H**: leave unchanged pending human review.
+- **H**: defer; retain the carried-forward remediation behavior pending human
+  review.
 
 `G` does not imply that related concerns must be combined into one point.
 Dependency, BOM, import, and public-API concerns retain their original
@@ -59,6 +60,12 @@ observable. Authentication and construction stay prompt-specific. Existing
 focused criteria retain applicable paging, polling, async, error, and cleanup
 coverage; project inventory alone adds focused failure reporting.
 
+For the five prompt-silent authentication rows marked `H`, retaining the
+carried-forward behavior means the defective universal
+`DefaultAzureCredential` requirement remains removed and no replacement
+authentication method is prescribed. This differs from `main` and is deferred
+for the explicit human decision below.
+
 ## BOM disposition
 
 Every Java golden imports `com.azure:azure-sdk-bom:1.3.8`. Compatible managed
@@ -79,7 +86,8 @@ goldens.
 
 ## Protected human decisions
 
-These cases remain behaviorally unchanged.
+These cases retain the prior remediation's behavior during this conservative
+pass.
 
 1. **Aggregate scenario weight:** all Java `eval.yaml` files,
    `model-graders.test.mjs`, and `docs/pilot-results/java-issue-37.md`.

@@ -75,10 +75,13 @@ public final class SyncEncryptedBlobUploader {
                     exception.getMessage());
             throw exception;
         } catch (HttpResponseException exception) {
+            int status = exception.getResponse() == null
+                    ? -1
+                    : exception.getResponse().getStatusCode();
             System.err.printf(
                     "Key Vault key request failed: status=%d message=%s. "
                             + "Verify that the key exists and is enabled.%n",
-                    exception.getResponse().getStatusCode(),
+                    status,
                     exception.getMessage());
             throw exception;
         } catch (Exception exception) {

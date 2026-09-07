@@ -66,11 +66,13 @@ public final class ManagedIdentityExample {
                     "The selected credential is unavailable. On Azure, enable and authorize "
                             + "managed identity; locally, run 'az login'.",
                     exception);
+            throw exception;
         } catch (ClientAuthenticationException exception) {
             reportAuthenticationFailure(
                     "Azure rejected the selected identity. Verify its tenant, identifier, "
                             + "role assignment, and Key Vault access.",
                     exception);
+            throw exception;
         }
 
         // DefaultAzureCredential is another practical single-code-path fallback:
