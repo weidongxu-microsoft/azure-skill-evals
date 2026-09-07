@@ -2,6 +2,7 @@ package com.example;
 
 import com.azure.storage.blob.BlobClient;
 import com.azure.storage.blob.BlobServiceClient;
+import com.azure.storage.blob.models.BlobErrorCode;
 import com.azure.storage.blob.models.BlobProperties;
 import com.azure.storage.blob.models.BlobStorageException;
 
@@ -30,7 +31,7 @@ public final class BlobEventHandler {
                     properties.getContentType(),
                     properties.getAccessTier());
         } catch (BlobStorageException exception) {
-            if (isExpectedRace(exception)) {
+            if (isDeletedRace(exception)) {
                 LOGGER.warning(
                         "Blob changed before it could be read: "
                                 + blobSubject.blobName()
@@ -39,6 +40,15 @@ public final class BlobEventHandler {
                                 + ", code="
                                 + exception.getErrorCode());
                 return;
+            }
+            if (isTemporarilyUnavailable(exception)) {
+                LOGGER.warning(
+                        "Blob is temporarily unavailable; propagate the event for retry: "
+                                + blobSubject.blobName()
+                                + ", status="
+                                + exception.getStatusCode()
+                                + ", code="
+                                + exception.getErrorCode());
             }
             throw exception;
         }
@@ -49,8 +59,19 @@ public final class BlobEventHandler {
         LOGGER.info("Blob deleted: " + blobSubject.containerName() + "/" + blobSubject.blobName());
     }
 
-    private static boolean isExpectedRace(BlobStorageException exception) {
+    private static boolean isDeletedRace(BlobStorageException exception) {
         int status = exception.getStatusCode();
-        return status == 404 || status == 409 || status == 412;
+        return status == 404 || status == 412;
+    }
+
+    private static boolean isTemporarilyUnavailable(
+            BlobStorageException exception) {
+        int status = exception.getStatusCode();
+        BlobErrorCode errorCode = exception.getErrorCode();
+        return status == 408
+                || status == 429
+                || status >= 500
+                || errorCode == BlobErrorCode.BLOB_ARCHIVED
+                || errorCode == BlobErrorCode.BLOB_BEING_REHYDRATED;
     }
 }

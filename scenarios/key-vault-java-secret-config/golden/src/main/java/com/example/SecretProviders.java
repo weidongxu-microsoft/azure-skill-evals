@@ -64,7 +64,8 @@ public final class SecretProviders {
     }
 
     static void reportFailure(String operation, String name, Throwable error) {
-        if (error instanceof HttpResponseException responseException) {
+        if (error instanceof HttpResponseException responseException
+                && responseException.getResponse() != null) {
             System.err.printf(
                     "Key Vault %s failed for secret %s: HTTP %d, %s%n",
                     operation,

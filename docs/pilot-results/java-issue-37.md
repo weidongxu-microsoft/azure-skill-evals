@@ -1,83 +1,75 @@
-# Java issue 37 remediation run
+# Java issue 37 conservative re-audit run
 
-Run date: 2026-09-05
+Run date: 2026-09-07
 
-This run validates the corrected Java evaluations from issue 37 at commits
-`29de072` and `d983dac`. It used one trial for each of 30 scenarios in all
-three environments, for 90 trials total.
+This run validates the conservative Java criteria re-audit for issue 37. It
+used one trial for each of 30 scenarios in all three unchanged environments,
+for 90 logical trials total.
 
 ## Integrity
 
-- All six shard processes exited successfully.
-- Every shard completed all 15 selected keys with the same plan digest
-  (`e84597c2b56849ab`) and experiment hash (`dd250760b4881f4d`).
-- The merge produced 90 unique item IDs and shard keys: 30 per variant.
-- All 90 trial records have `status: success`, both configured graders, and a
-  grade result. There are no missing, duplicated, timed-out, or malformed
-  results and no trajectory-level error events.
-- Model, judge, trial count, timeout, prompt hashes, and evaluation hashes are
-  consistent across variants. Only the declared skill and MCP environments
+- Main run `5a74da22-d385-4217-8a17-eaa61c22f0a5` produced 90 unique result
+  keys: 30 per variant. Shards 2 and 5 were rerun cleanly after their first
+  processes terminated before writing results.
+- Event Hubs criterion wording was corrected after the main shards started.
+  Its three stale rows were replaced by run
+  `7d153bd3-7cb3-46d9-8210-748eba776570`.
+- The reconciled set has 90 unique item IDs and `variant/evalName` keys. Every
+  record has `status: success`, complete panel and program-check output, and no
+  trajectory errors.
+- Each evaluation has one consistent evaluation hash across its three
+  variants. Model, judge, trial count, timeout, prompts, and grader composition
+  remained controlled; only the declared skill and MCP environment paths
   differ.
-
-The five baseline program-check failures are ordinary evaluation failures, not
-execution failures. In each case the generated workspace omitted a Maven or
-Gradle manifest; the checker ran to completion and reported that defect. Every
-augmented-arm workspace reached and passed the Java program checker.
+- All 90 generated projects passed the Java program checker. Panel failures are
+  ordinary evaluation outcomes, not execution failures.
 
 ## Outcomes
 
-All criteria are required and binary. A trial passes only when its complete
-panel and program check pass.
+All criteria are required and binary. A trial passes only when every panel
+criterion and the program check pass.
 
-| Variant | Environment | Trials passed | Criteria passed | Program checks passed |
-|---|---|---:|---:|---:|
-| `baseline` | No skills or Azure MCP | 15/30 | 167/225 | 25/30 |
-| `azure-skill-mcp` | 28 general Azure skills and Azure MCP | 20/30 | 207/225 | 30/30 |
-| `azure-skill-mcp-microsoft-skill` | The same environment plus all 26 Java SDK skills | 17/30 | 201/225 | 30/30 |
+| Variant | Environment | Trials passed | Prompt criteria | Language criteria | Program checks |
+|---|---|---:|---:|---:|---:|
+| `baseline` | No skills or Azure MCP | 1/30 | 202/226 | 49/76 | 30/30 |
+| `azure-skill-mcp` | 28 general Azure skills and Azure MCP | 1/30 | 200/226 | 47/76 | 30/30 |
+| `azure-skill-mcp-microsoft-skill` | Same environment plus all Java SDK skills | 0/30 | 206/226 | 44/76 | 30/30 |
 
-The five missing-manifest failures occurred in baseline outputs for AI Projects
-evaluation run, AI Projects resource inventory, Event Hubs send/receive,
-Foundry support assistant, and Service Bus send/receive.
+The restored BOM-first rule is deliberately strict. In the replacement Event
+Hubs run, all three generated projects compiled but failed only the BOM
+criterion because they used direct dependency versions.
 
 ## Trajectory evidence
 
 | Variant | Average duration | Tokens | Turns | Tool calls | Skill activations | Azure MCP calls | Web calls |
 |---|---:|---:|---:|---:|---:|---:|---:|
-| `baseline` | 1.64 min | 5,203,309 | 223 | 361 | 0 | 0 | 99 |
-| `azure-skill-mcp` | 3.48 min | 20,754,073 | 447 | 793 | 18 | 185 | 101 |
-| `azure-skill-mcp-microsoft-skill` | 2.99 min | 20,266,920 | 416 | 708 | 37 | 125 | 91 |
+| `baseline` | 3.63 min | 16,038,219 | 350 | 798 | 0 | 0 | 456 |
+| `azure-skill-mcp` | 3.32 min | 24,393,770 | 482 | 884 | 21 | 181 | 144 |
+| `azure-skill-mcp-microsoft-skill` | 4.33 min | 19,489,663 | 434 | 742 | 36 | 151 | 92 |
 
-The Azure-only arm activated four general skills. The Java-suite arm activated
-relevant Java SDK skills for Agents, AI Projects, App Configuration, Cosmos DB,
-Event Grid, Event Hubs, Identity, Key Vault, and Storage, while also activating
-some general Azure skills. Two additional calls failed to activate the
-translation-specific Java skills: `azure-ai-translation-document-java` and
-`azure-ai-translation-text-java`. One affected trajectory used the general
-`azure-ai` skill instead; the other had no successful skill activation. Azure
-MCP use was primarily documentation lookup and best-practice retrieval. Skill
-activation and MCP calls were diagnostic evidence only and did not affect
-scoring.
-
-Web research primarily used Microsoft Learn, Maven Central, Azure SDK
-documentation, and Azure SDK GitHub source. Some agents fetched mutable
-`main`-branch GitHub URLs, while others used package-version tags. The run did
-not establish that those source choices caused score differences.
+Skill activation, Azure MCP use, and web calls are diagnostic evidence only;
+they do not affect scoring.
 
 ## Interpretation
 
-This single trial per arm proves that the corrected 90-run matrix can execute
-and report completely. It does not establish a stable quality ranking between
-environments. Panel misses remain observational model-judge results; criterion
-pass or failure is not an integrity defect.
+This single trial per arm proves that the corrected 90-trial matrix executes
+completely. It does not establish a stable quality ranking. The restored
+language checks materially increase the all-or-nothing standard, and individual
+panel misses remain observational model-judge results.
 
-The corrected criteria accept equivalent implementations and no longer enforce
-the obsolete universal Java checklist. All 30 committed golden applications
-compile, and every criterion has passed a targeted golden-oracle run. Repeated
-oracle checks also showed occasional judge variance, so comparative quality
-claims require multiple trials per arm.
+Authentication and client construction are prompt-specific. Connection-string
+or key authentication remains valid where the prompt requests it; Azure
+Identity is required only for token-credential flows. BOM management and scoped
+Azure import hygiene are global, while dependency and current-public-API checks
+are restored only where focused prompt criteria do not already cover them.
 
-Raw merged artifacts are under
-`reports/java-shards/issue37-final-v2-merged/`; source shard artifacts are under
-`reports/java-shards/issue37-final-v2/`. These local reports contain generated
-workspaces, diffs, trajectories, grader evidence, and program-check output and
-are intentionally excluded from version control.
+All 30 reference applications use the compatible BOM-first policy and compile.
+Changed criteria and goldens are validated separately as positive oracles.
+Policy-sensitive questions remain listed in
+`docs/java-criteria-disposition.md` for human review.
+
+Raw main artifacts are under
+`reports/java-shards/issue37-conservative/`; Event Hubs replacement artifacts
+are under `reports/java-shards/issue37-event-hubs-final/`. They contain
+generated workspaces, diffs, trajectories, grader evidence, and program-check
+output and are intentionally excluded from version control.

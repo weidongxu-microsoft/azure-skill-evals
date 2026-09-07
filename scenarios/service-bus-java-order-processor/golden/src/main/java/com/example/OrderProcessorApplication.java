@@ -88,7 +88,12 @@ public final class OrderProcessorApplication {
 
         public static Order fromJson(String value) {
             try {
-                return MAPPER.readValue(value, Order.class);
+                Order order = MAPPER.readValue(value, Order.class);
+                if (order.status == null) {
+                    throw new IllegalArgumentException(
+                            "Order status must be pending, processing, completed, or failed");
+                }
+                return order;
             } catch (JsonProcessingException exception) {
                 throw new IllegalArgumentException("Cannot deserialize order", exception);
             }

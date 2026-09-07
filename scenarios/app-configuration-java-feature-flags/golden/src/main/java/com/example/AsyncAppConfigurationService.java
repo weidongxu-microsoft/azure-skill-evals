@@ -1,6 +1,7 @@
 package com.example;
 
 import com.azure.core.http.rest.Response;
+import com.azure.core.exception.ResourceNotFoundException;
 import com.azure.data.appconfiguration.ConfigurationAsyncClient;
 import com.azure.data.appconfiguration.models.ConfigurationSetting;
 import com.azure.data.appconfiguration.models.SettingSelector;
@@ -77,7 +78,13 @@ public final class AsyncAppConfigurationService {
                                         cacheKey(
                                                 refreshed.getKey(),
                                                 refreshed.getLabel()),
-                                        refreshed)))
+                                        refreshed))
+                                .onErrorResume(
+                                        ResourceNotFoundException.class,
+                                        exception -> Mono.fromRunnable(() ->
+                                                cache.remove(cacheKey(
+                                                        setting.getKey(),
+                                                        setting.getLabel())))))
                 .then();
     }
 
