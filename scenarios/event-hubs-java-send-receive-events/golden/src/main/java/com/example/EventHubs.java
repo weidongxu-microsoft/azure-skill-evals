@@ -29,61 +29,57 @@ public final class EventHubs {
         String checkpointContainerName =
                 requireEnvironment("CHECKPOINT_CONTAINER_NAME");
 
-        EventHubProducerClient producer = new EventHubClientBuilder()
+        try (EventHubProducerClient producer = new EventHubClientBuilder()
                 .connectionString(eventHubsConnectionString, eventHubName)
-                .buildProducerClient();
+                .buildProducerClient()) {
+            BlobContainerAsyncClient blobContainer =
+                    new BlobContainerClientBuilder()
+                            .connectionString(storageConnectionString)
+                            .containerName(checkpointContainerName)
+                            .buildAsyncClient();
+            blobContainer.createIfNotExists().block();
+            BlobCheckpointStore checkpointStore =
+                    new BlobCheckpointStore(blobContainer);
+            CountDownLatch receivedEvents = new CountDownLatch(10);
+            CountDownLatch initializedPartitions = new CountDownLatch(
+                    (int) producer.getPartitionIds().stream().count());
+            String batchId = UUID.randomUUID().toString();
 
-        BlobContainerAsyncClient blobContainer =
-                new BlobContainerClientBuilder()
-                        .connectionString(storageConnectionString)
-                        .containerName(checkpointContainerName)
-                        .buildAsyncClient();
-        blobContainer.createIfNotExists().block();
-        BlobCheckpointStore checkpointStore =
-                new BlobCheckpointStore(blobContainer);
-        CountDownLatch receivedEvents = new CountDownLatch(10);
-        CountDownLatch initializedPartitions = new CountDownLatch(
-                (int) producer.getPartitionIds().stream().count());
-        String batchId = UUID.randomUUID().toString();
+            EventProcessorClient processor = new EventProcessorClientBuilder()
+                    .connectionString(eventHubsConnectionString, eventHubName)
+                    .consumerGroup(EventHubClientBuilder.DEFAULT_CONSUMER_GROUP_NAME)
+                    .checkpointStore(checkpointStore)
+                    .processPartitionInitialization(context ->
+                            initializedPartitions.countDown())
+                    .processEvent(context ->
+                            processEvent(context, receivedEvents, batchId))
+                    .processError(EventHubs::processError)
+                    .buildEventProcessorClient();
 
-        EventProcessorClient processor = new EventProcessorClientBuilder()
-                .connectionString(eventHubsConnectionString, eventHubName)
-                .consumerGroup(EventHubClientBuilder.DEFAULT_CONSUMER_GROUP_NAME)
-                .checkpointStore(checkpointStore)
-                .processPartitionInitialization(context ->
-                        initializedPartitions.countDown())
-                .processEvent(context ->
-                        processEvent(context, receivedEvents, batchId))
-                .processError(EventHubs::processError)
-                .buildEventProcessorClient();
-
-        try {
-            processor.start();
-            if (!initializedPartitions.await(30, TimeUnit.SECONDS)) {
-                throw new IllegalStateException(
-                        "Timed out waiting for all partition receivers to initialize.");
-            }
-            EventDataBatch batch = producer.createBatch();
-            for (int i = 0; i < 10; i++) {
-                EventData event = new EventData("Event " + i);
-                event.getProperties().put("eventId", i);
-                event.getProperties().put("batchId", batchId);
-                if (!batch.tryAdd(event)) {
-                    throw new IllegalStateException(
-                            "The ten events exceeded the batch size.");
-                }
-            }
-            producer.send(batch);
-            if (!receivedEvents.await(30, TimeUnit.SECONDS)) {
-                throw new IllegalStateException(
-                        "Timed out waiting for all ten events; received "
-                                + (10 - receivedEvents.getCount()) + ".");
-            }
-        } finally {
             try {
-                processor.stop();
+                processor.start();
+                if (!initializedPartitions.await(30, TimeUnit.SECONDS)) {
+                    throw new IllegalStateException(
+                            "Timed out waiting for all partition receivers to initialize.");
+                }
+                EventDataBatch batch = producer.createBatch();
+                for (int i = 0; i < 10; i++) {
+                    EventData event = new EventData("Event " + i);
+                    event.getProperties().put("eventId", i);
+                    event.getProperties().put("batchId", batchId);
+                    if (!batch.tryAdd(event)) {
+                        throw new IllegalStateException(
+                                "The ten events exceeded the batch size.");
+                    }
+                }
+                producer.send(batch);
+                if (!receivedEvents.await(30, TimeUnit.SECONDS)) {
+                    throw new IllegalStateException(
+                            "Timed out waiting for all ten events; received "
+                                    + (10 - receivedEvents.getCount()) + ".");
+                }
             } finally {
-                producer.close();
+                processor.stop();
             }
         }
     }

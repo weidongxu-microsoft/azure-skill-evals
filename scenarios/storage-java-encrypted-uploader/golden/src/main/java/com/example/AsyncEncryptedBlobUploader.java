@@ -39,7 +39,11 @@ public final class AsyncEncryptedBlobUploader {
                         blobName,
                         key.getId(),
                         plaintext))
-                .onErrorMap(HttpResponseException.class, this::reportKeyVaultFailure);
+                .onErrorMap(
+                        exception -> exception instanceof HttpResponseException
+                                && !(exception instanceof BlobStorageException),
+                        exception -> reportKeyVaultFailure(
+                                (HttpResponseException) exception));
     }
 
     private Mono<EncryptionResult> encryptAndUpload(

@@ -112,7 +112,7 @@ stimuli:
               description: |-
                 - Start the processor and wait long enough for callbacks to receive events.
                 - Stop the processor after the receive window.
-                - Close the processor and producer on success or failure.
+                - Stop the processor and close the producer on success or failure.
               weight: 1
               pass_threshold: 1
             - name: language/azure-sdk-bom-first-version-management
