@@ -105,7 +105,7 @@ public final class BlobStorageAsyncManager {
                             "Overwriting %s with a lease asynchronously%n",
                             blobName);
                     return Mono.usingWhen(
-                            leaseClient.acquireLease(30),
+                            leaseClient.acquireLease(-1),
                             acquiredLeaseId -> {
                                 BlobUploadFromFileOptions overwriteOptions =
                                         new BlobUploadFromFileOptions(filePath.toString())

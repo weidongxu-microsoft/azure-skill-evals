@@ -87,7 +87,7 @@ public final class BlobStorageManager {
                 .leaseId(leaseId)
                 .buildClient();
         execute("lease-protected overwrite", () -> {
-            String acquiredLeaseId = leaseClient.acquireLease(30);
+            String acquiredLeaseId = leaseClient.acquireLease(-1);
             try {
                 BlobUploadFromFileOptions overwriteOptions =
                         new BlobUploadFromFileOptions(filePath.toString())
