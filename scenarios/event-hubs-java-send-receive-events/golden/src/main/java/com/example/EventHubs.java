@@ -42,12 +42,16 @@ public final class EventHubs {
         BlobCheckpointStore checkpointStore =
                 new BlobCheckpointStore(blobContainer);
         CountDownLatch receivedEvents = new CountDownLatch(10);
+        CountDownLatch initializedPartitions = new CountDownLatch(
+                (int) producer.getPartitionIds().stream().count());
         String batchId = UUID.randomUUID().toString();
 
         EventProcessorClient processor = new EventProcessorClientBuilder()
                 .connectionString(eventHubsConnectionString, eventHubName)
                 .consumerGroup(EventHubClientBuilder.DEFAULT_CONSUMER_GROUP_NAME)
                 .checkpointStore(checkpointStore)
+                .processPartitionInitialization(context ->
+                        initializedPartitions.countDown())
                 .processEvent(context ->
                         processEvent(context, receivedEvents, batchId))
                 .processError(EventHubs::processError)
@@ -55,7 +59,10 @@ public final class EventHubs {
 
         try {
             processor.start();
-            TimeUnit.SECONDS.sleep(2);
+            if (!initializedPartitions.await(30, TimeUnit.SECONDS)) {
+                throw new IllegalStateException(
+                        "Timed out waiting for all partition receivers to initialize.");
+            }
             EventDataBatch batch = producer.createBatch();
             for (int i = 0; i < 10; i++) {
                 EventData event = new EventData("Event " + i);

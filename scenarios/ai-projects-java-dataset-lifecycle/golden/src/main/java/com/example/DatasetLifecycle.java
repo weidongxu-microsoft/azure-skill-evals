@@ -103,17 +103,19 @@ public final class DatasetLifecycle {
         }
         URI blobUri = URI.create(blobReference.getBlobUrl());
         URI sasUri = URI.create(sasUrl);
-        if (!blobUri.getPath().equals(sasUri.getPath())) {
-            throw new IllegalStateException(
-                "The returned SAS credential targets a different blob.");
-        }
+        String authorizedBlobUrl = sasUri.getScheme()
+            + "://"
+            + sasUri.getRawAuthority()
+            + blobUri.getRawPath()
+            + "?"
+            + sasUri.getRawQuery();
 
         Path parent = downloadPath.toAbsolutePath().getParent();
         if (parent != null) {
             Files.createDirectories(parent);
         }
         BlobClient blobClient = new BlobClientBuilder()
-            .endpoint(sasUrl)
+            .endpoint(authorizedBlobUrl)
             .buildClient();
         blobClient.downloadToFile(downloadPath.toString(), true);
     }
