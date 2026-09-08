@@ -3,6 +3,7 @@ import { existsSync, readFileSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import test from "node:test";
+import { SaxesParser } from "saxes";
 
 const repositoryRoot = fileURLToPath(new URL("../", import.meta.url));
 const scenariosRoot = join(repositoryRoot, "scenarios");
@@ -252,45 +253,47 @@ const expectedDirectAzureDependencies = new Map([
 ]);
 
 function parseXml(source, filePath) {
-  assert.doesNotMatch(
-    source,
-    /<!DOCTYPE|<!ENTITY/i,
-    `${filePath}: DTDs and custom entities are not allowed`,
-  );
   const document = { name: "#document", children: [] };
   const stack = [document];
-  const tokens =
-    /<\?[\s\S]*?\?>|<!--[\s\S]*?-->|<![^>]*>|<\/?([A-Za-z_][\w.:-]*)(?:\s[^<>]*?)?\/?>/g;
-
-  for (const match of source.matchAll(tokens)) {
-    const token = match[0];
-    if (token.startsWith("<?") || token.startsWith("<!")) {
-      continue;
-    }
-
-    const name = match[1].split(":").at(-1);
-    if (token.startsWith("</")) {
-      const node = stack.pop();
-      assert.equal(node.name, name, `${filePath}: malformed XML`);
-      node.contentEnd = match.index;
-      continue;
-    }
-
-    const node = {
-      name,
-      children: [],
-      contentStart: match.index + token.length,
-      contentEnd: undefined,
-    };
+  let doctype;
+  let parseError;
+  const parser = new SaxesParser({ xmlns: true });
+  parser.on("opentag", (tag) => {
+    const node = { name: tag.local, children: [], text: "" };
     stack.at(-1).children.push(node);
-    if (token.endsWith("/>")) {
-      node.contentEnd = node.contentStart;
-    } else {
-      stack.push(node);
-    }
-  }
+    stack.push(node);
+  });
+  parser.on("closetag", () => {
+    stack.pop();
+  });
+  parser.on("text", (text) => {
+    stack.at(-1).text += text;
+  });
+  parser.on("cdata", (text) => {
+    stack.at(-1).text += text;
+  });
+  parser.on("doctype", (value) => {
+    doctype = value;
+  });
+  parser.on("error", (error) => {
+    parseError ??= error;
+  });
 
-  assert.equal(stack.length, 1, `${filePath}: unclosed XML element`);
+  try {
+    parser.write(source).close();
+  } catch (error) {
+    parseError ??= error;
+  }
+  assert.equal(
+    doctype,
+    undefined,
+    `${filePath}: DTDs and external entities are not allowed`,
+  );
+  assert.equal(
+    parseError,
+    undefined,
+    `${filePath}: malformed XML: ${parseError?.message}`,
+  );
   return document;
 }
 
@@ -304,49 +307,10 @@ function onlyChild(node, name, context) {
   return matches[0];
 }
 
-function optionalText(source, node, name) {
+function optionalText(node, name) {
   const matches = children(node, name);
   assert.ok(matches.length <= 1, `expected at most one <${name}>`);
-  return matches.length === 0
-    ? undefined
-    : decodeXmlText(
-        source.slice(matches[0].contentStart, matches[0].contentEnd),
-      ).trim();
-}
-
-function decodeXmlText(value) {
-  const withoutComments = value.replace(/<!--[\s\S]*?-->/g, "");
-  const cdata = /<!\[CDATA\[([\s\S]*?)\]\]>/g;
-  let result = "";
-  let cursor = 0;
-  for (const match of withoutComments.matchAll(cdata)) {
-    result += decodeXmlEntities(withoutComments.slice(cursor, match.index));
-    result += match[1];
-    cursor = match.index + match[0].length;
-  }
-  return result + decodeXmlEntities(withoutComments.slice(cursor));
-}
-
-function decodeXmlEntities(value) {
-  return value.replace(
-    /&(#x[0-9a-f]+|#\d+|amp|lt|gt|quot|apos);/gi,
-    (_entity, reference) => {
-      const normalized = reference.toLowerCase();
-      if (normalized.startsWith("#x")) {
-        return String.fromCodePoint(Number.parseInt(normalized.slice(2), 16));
-      }
-      if (normalized.startsWith("#")) {
-        return String.fromCodePoint(Number.parseInt(normalized.slice(1), 10));
-      }
-      return {
-        amp: "&",
-        apos: "'",
-        gt: ">",
-        lt: "<",
-        quot: '"',
-      }[normalized];
-    },
-  );
+  return matches.length === 0 ? undefined : matches[0].text.trim();
 }
 
 function validateCoordinate(value, element, artifact) {
@@ -362,9 +326,9 @@ function validateCoordinate(value, element, artifact) {
   );
 }
 
-function dependencyDetails(source, dependency) {
-  const groupId = optionalText(source, dependency, "groupId");
-  const artifactId = optionalText(source, dependency, "artifactId");
+function dependencyDetails(dependency) {
+  const groupId = optionalText(dependency, "groupId");
+  const artifactId = optionalText(dependency, "artifactId");
   assert.ok(groupId && artifactId, "dependency must have groupId and artifactId");
   validateCoordinate(groupId, "groupId", `${groupId}:${artifactId}`);
   validateCoordinate(artifactId, "artifactId", `${groupId}:${artifactId}`);
@@ -372,9 +336,9 @@ function dependencyDetails(source, dependency) {
     artifact: `${groupId}:${artifactId}`,
     elements: dependency.children.map((child) => child.name),
     groupId,
-    version: optionalText(source, dependency, "version"),
-    type: optionalText(source, dependency, "type"),
-    scope: optionalText(source, dependency, "scope"),
+    version: optionalText(dependency, "version"),
+    type: optionalText(dependency, "type"),
+    scope: optionalText(dependency, "scope"),
   };
 }
 
@@ -418,7 +382,7 @@ function loadPolicyInput() {
   return { bomVersion, javaScenarios };
 }
 
-function validateJavaBomPolicy({ bomVersion, javaScenarios }) {
+export function validateJavaBomPolicy({ bomVersion, javaScenarios }) {
   assert.equal(javaScenarios.length, 30);
   assert.deepEqual(
     [...expectedDirectAzureDependencies.keys()].sort(),
@@ -491,7 +455,7 @@ function validateJavaBomPolicy({ bomVersion, javaScenarios }) {
       `${scenario}: expected one <${bomProperty}>`,
     );
     assert.equal(
-      optionalText(source, properties, bomProperty),
+      optionalText(properties, bomProperty),
       bomVersion,
       `${scenario}: BOM property must match dependencies.lock.json`,
     );
@@ -504,7 +468,7 @@ function validateJavaBomPolicy({ bomVersion, javaScenarios }) {
     const managedDependencies = children(
       onlyChild(dependencyManagement, "dependencies", scenario),
       "dependency",
-    ).map((dependency) => dependencyDetails(source, dependency));
+    ).map(dependencyDetails);
     const bomImports = managedDependencies.filter(
       ({ artifact }) => artifact === bomArtifact,
     );
@@ -564,7 +528,7 @@ function validateJavaBomPolicy({ bomVersion, javaScenarios }) {
     const directDependencies = children(
       onlyChild(project, "dependencies", scenario),
       "dependency",
-    ).map((dependency) => dependencyDetails(source, dependency));
+    ).map(dependencyDetails);
     const directArtifacts = new Set();
     for (const dependency of directDependencies) {
       assert.ok(
@@ -674,20 +638,86 @@ function validateJavaBomPolicy({ bomVersion, javaScenarios }) {
   );
 }
 
-function mutateScenario(input, scenario, mutate) {
+function withScenarioSource(input, scenario, source) {
   return {
     ...input,
     javaScenarios: input.javaScenarios.map((entry) =>
-      entry.scenario === scenario
-        ? { ...entry, source: mutate(entry.source) }
-        : entry,
+      entry.scenario === scenario ? { ...entry, source } : entry,
     ),
   };
 }
 
-function replaceOnce(source, search, replacement) {
-  assert.equal(source.split(search).length - 1, 1, "invalid test mutation");
-  return source.replace(search, replacement);
+function coordinate(artifact) {
+  const separator = artifact.indexOf(":");
+  return {
+    groupId: artifact.slice(0, separator),
+    artifactId: artifact.slice(separator + 1),
+  };
+}
+
+function dependencyXml(dependency, indentation) {
+  const { artifact, groupId, artifactId } = dependency;
+  const defaults = artifact ? coordinate(artifact) : {};
+  const elements = [
+    `<groupId>${groupId ?? defaults.groupId}</groupId>`,
+    `<artifactId>${artifactId ?? defaults.artifactId}</artifactId>`,
+  ];
+  if (dependency.version) elements.push(`<version>${dependency.version}</version>`);
+  elements.push(...(dependency.modifiers ?? []));
+  const childIndentation = `${indentation}  `;
+  return [
+    `${indentation}<dependency>`,
+    ...elements.map((element) => `${childIndentation}${element}`),
+    `${indentation}</dependency>`,
+  ].join("\n");
+}
+
+function syntheticPom(scenario, options = {}) {
+  const defaultDirect = expectedDirectAzureDependencies
+    .get(scenario)
+    .map((artifact) => {
+      const unmanaged = unmanagedDirectAllowlist.find(
+        (entry) => entry.scenario === scenario && entry.artifact === artifact,
+      );
+      return { artifact, version: unmanaged?.version };
+    });
+  const directDependencies = options.directDependencies ?? defaultDirect;
+  const defaultOverrides = managedOverrideAllowlist
+    .filter((entry) => entry.scenario === scenario)
+    .map(({ artifact, version }) => ({ artifact, version }));
+  const managedOverrides = options.managedOverrides ?? defaultOverrides;
+  const bomImports = [
+    {
+      groupId: "com.azure",
+      artifactId: "azure-sdk-bom",
+      version: "${azure-sdk-bom.version}",
+      modifiers: ["<type>pom</type>", "<scope>import</scope>"],
+    },
+    ...(options.extraBomImports ?? []),
+  ];
+
+  return `<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0">
+  <modelVersion>4.0.0</modelVersion>
+${options.parent ?? ""}  <groupId>com.example</groupId>
+  <artifactId>synthetic-${scenario}</artifactId>
+  <version>1.0.0</version>
+  <properties>
+    <azure-sdk-bom.version>1.3.8</azure-sdk-bom.version>
+  </properties>
+  <dependencyManagement>
+    <dependencies>
+${[...bomImports, ...managedOverrides]
+  .map((dependency) => dependencyXml(dependency, "      "))
+  .join("\n")}
+    </dependencies>
+  </dependencyManagement>
+  <dependencies>
+${directDependencies
+  .map((dependency) => dependencyXml(dependency, "    "))
+  .join("\n")}
+  </dependencies>
+${options.profiles ?? ""}</project>`;
 }
 
 test("Java goldens follow the pinned Azure SDK BOM policy", () => {
@@ -696,23 +726,27 @@ test("Java goldens follow the pinned Azure SDK BOM policy", () => {
 
 test("policy rejects missing and duplicate direct dependencies", () => {
   const input = loadPolicyInput();
-  const dependency = `    <dependency>
-      <groupId>com.azure</groupId>
-      <artifactId>azure-data-appconfiguration</artifactId>
-    </dependency>
-`;
   const scenario = "app-configuration-java-config-values";
 
-  const missing = mutateScenario(input, scenario, (source) =>
-    replaceOnce(source, dependency, ""),
+  const missing = withScenarioSource(
+    input,
+    scenario,
+    syntheticPom(scenario, { directDependencies: [] }),
   );
   assert.throws(
     () => validateJavaBomPolicy(missing),
     /direct Azure dependency inventory changed/,
   );
 
-  const duplicate = mutateScenario(input, scenario, (source) =>
-    replaceOnce(source, dependency, `${dependency}${dependency}`),
+  const duplicate = withScenarioSource(
+    input,
+    scenario,
+    syntheticPom(scenario, {
+      directDependencies: [
+        { artifact: "com.azure:azure-data-appconfiguration" },
+        { artifact: "com.azure:azure-data-appconfiguration" },
+      ],
+    }),
   );
   assert.throws(
     () => validateJavaBomPolicy(duplicate),
@@ -722,15 +756,13 @@ test("policy rejects missing and duplicate direct dependencies", () => {
 
 test("policy requires each managed override to have one direct dependency", () => {
   const input = loadPolicyInput();
-  const dependency = `    <dependency>
-      <groupId>com.azure</groupId>
-      <artifactId>azure-ai-projects</artifactId>
-    </dependency>
-`;
-  const missing = mutateScenario(
+  const scenario = "ai-projects-java-evaluation-run";
+  const missing = withScenarioSource(
     input,
-    "ai-projects-java-evaluation-run",
-    (source) => replaceOnce(source, dependency, ""),
+    scenario,
+    syntheticPom(scenario, {
+      directDependencies: [{ artifact: "com.azure:azure-identity" }],
+    }),
   );
 
   assert.throws(
@@ -775,10 +807,12 @@ test("policy rejects active and inactive Maven profiles", () => {
   </profiles>
 `;
   for (const profile of [activeProfile, inactiveProfile]) {
-    const mutated = mutateScenario(
+    const mutated = withScenarioSource(
       input,
       "app-configuration-java-config-values",
-      (source) => replaceOnce(source, "</project>", `${profile}</project>`),
+      syntheticPom("app-configuration-java-config-values", {
+        profiles: profile,
+      }),
     );
     assert.throws(
       () => validateJavaBomPolicy(mutated),
@@ -789,20 +823,32 @@ test("policy rejects active and inactive Maven profiles", () => {
 
 test("policy rejects semantic modifiers on managed overrides", () => {
   const input = loadPolicyInput();
-  const version = "        <version>2.4.0</version>";
   const modifiers = [
-    "        <type>pom</type>",
-    "        <classifier>tests</classifier>",
-    "        <scope>runtime</scope>",
-    "        <optional>true</optional>",
-    "        <exclusions/>",
+    "<type>pom</type>",
+    "<classifier>tests</classifier>",
+    "<scope>runtime</scope>",
+    "<optional>true</optional>",
+    "<exclusions/>",
   ];
 
   for (const modifier of modifiers) {
-    const mutated = mutateScenario(
+    const scenario = "ai-projects-java-dataset-lifecycle";
+    const mutated = withScenarioSource(
       input,
-      "ai-projects-java-dataset-lifecycle",
-      (source) => replaceOnce(source, version, `${version}\n${modifier}`),
+      scenario,
+      syntheticPom(scenario, {
+        managedOverrides: [
+          {
+            artifact: "com.azure:azure-ai-projects",
+            version: "2.4.0",
+            modifiers: [modifier],
+          },
+          {
+            artifact: "com.azure:azure-storage-blob",
+            version: "12.35.1",
+          },
+        ],
+      }),
     );
     assert.throws(
       () => validateJavaBomPolicy(mutated),
@@ -813,15 +859,13 @@ test("policy rejects semantic modifiers on managed overrides", () => {
 
 test("policy rejects count-preserving dependency substitutions", () => {
   const input = loadPolicyInput();
-  const mutated = mutateScenario(
+  const scenario = "app-configuration-java-config-values";
+  const mutated = withScenarioSource(
     input,
-    "app-configuration-java-config-values",
-    (source) =>
-      replaceOnce(
-        source,
-        "<artifactId>azure-data-appconfiguration</artifactId>",
-        "<artifactId>azure-identity</artifactId>",
-      ),
+    scenario,
+    syntheticPom(scenario, {
+      directDependencies: [{ artifact: "com.azure:azure-identity" }],
+    }),
   );
 
   assert.throws(
@@ -832,21 +876,20 @@ test("policy rejects count-preserving dependency substitutions", () => {
 
 test("policy rejects property-expanded dependency coordinates", () => {
   const input = loadPolicyInput();
-  const dependency = `    <dependency>
-      <groupId>\${azure.group}</groupId>
-      <artifactId>azure-data-appconfiguration</artifactId>
-      <version>0.0.1</version>
-    </dependency>
-`;
-  const mutated = mutateScenario(
+  const scenario = "app-configuration-java-config-values";
+  const mutated = withScenarioSource(
     input,
-    "app-configuration-java-config-values",
-    (source) =>
-      replaceOnce(
-        source,
-        "  </dependencies>\n</project>",
-        `${dependency}  </dependencies>\n</project>`,
-      ),
+    scenario,
+    syntheticPom(scenario, {
+      directDependencies: [
+        { artifact: "com.azure:azure-data-appconfiguration" },
+        {
+          groupId: "${azure.group}",
+          artifactId: "azure-data-appconfiguration",
+          version: "0.0.1",
+        },
+      ],
+    }),
   );
 
   assert.throws(
@@ -857,23 +900,20 @@ test("policy rejects property-expanded dependency coordinates", () => {
 
 test("policy decodes XML entities before detecting duplicate BOM imports", () => {
   const input = loadPolicyInput();
-  const bomImport = `      <dependency>
-        <groupId>com&#46;azure</groupId>
-        <artifactId>azure-sdk-bom</artifactId>
-        <version>\${azure-sdk-bom.version}</version>
-        <type>pom</type>
-        <scope>import</scope>
-      </dependency>
-`;
-  const mutated = mutateScenario(
+  const scenario = "app-configuration-java-config-values";
+  const mutated = withScenarioSource(
     input,
-    "app-configuration-java-config-values",
-    (source) =>
-      replaceOnce(
-        source,
-        "    </dependencies>\n  </dependencyManagement>",
-        `${bomImport}    </dependencies>\n  </dependencyManagement>`,
-      ),
+    scenario,
+    syntheticPom(scenario, {
+      extraBomImports: [
+        {
+          groupId: "com&#46;azure",
+          artifactId: "azure-sdk-bom",
+          version: "${azure-sdk-bom.version}",
+          modifiers: ["<type>pom</type>", "<scope>import</scope>"],
+        },
+      ],
+    }),
   );
 
   assert.throws(
@@ -884,15 +924,18 @@ test("policy decodes XML entities before detecting duplicate BOM imports", () =>
 
 test("policy accepts equivalent XML text forms", () => {
   const input = loadPolicyInput();
-  const mutated = mutateScenario(
+  const scenario = "app-configuration-java-config-values";
+  const mutated = withScenarioSource(
     input,
-    "app-configuration-java-config-values",
-    (source) =>
-      replaceOnce(
-        source,
-        "<groupId>com.azure</groupId>\n      <artifactId>azure-data-appconfiguration</artifactId>",
-        "<groupId><![CDATA[ com.azure ]]></groupId>\n      <artifactId>azure-data-appconfigurati&#111;n</artifactId>",
-      ),
+    scenario,
+    syntheticPom(scenario, {
+      directDependencies: [
+        {
+          groupId: "<![CDATA[\n com.azure \n]]>",
+          artifactId: " azure-data-appconfigurati&#111;n ",
+        },
+      ],
+    }),
   );
 
   validateJavaBomPolicy(mutated);
@@ -900,15 +943,18 @@ test("policy accepts equivalent XML text forms", () => {
 
 test("policy keeps entity-like CDATA text literal", () => {
   const input = loadPolicyInput();
-  const mutated = mutateScenario(
+  const scenario = "app-configuration-java-config-values";
+  const mutated = withScenarioSource(
     input,
-    "app-configuration-java-config-values",
-    (source) =>
-      replaceOnce(
-        source,
-        "<artifactId>azure-data-appconfiguration</artifactId>",
-        "<artifactId><![CDATA[azure-data-appconfigurati&#111;n]]></artifactId>",
-      ),
+    scenario,
+    syntheticPom(scenario, {
+      directDependencies: [
+        {
+          groupId: "com.azure",
+          artifactId: "<![CDATA[azure-data-appconfigurati&#111;n]]>",
+        },
+      ],
+    }),
   );
 
   assert.throws(
@@ -925,19 +971,53 @@ test("policy rejects project-level Maven parents", () => {
     <version>1.0.0</version>
   </parent>
 `;
-  const mutated = mutateScenario(
+  const scenario = "app-configuration-java-config-values";
+  const mutated = withScenarioSource(
     input,
-    "app-configuration-java-config-values",
-    (source) =>
-      replaceOnce(
-        source,
-        "  <modelVersion>4.0.0</modelVersion>\n",
-        `  <modelVersion>4.0.0</modelVersion>\n${parent}`,
-      ),
+    scenario,
+    syntheticPom(scenario, { parent }),
   );
 
   assert.throws(
     () => validateJavaBomPolicy(mutated),
     /Maven parent POMs are not allowed/,
   );
+});
+
+test("policy fails closed on malformed and unsafe XML", () => {
+  const input = loadPolicyInput();
+  const scenario = "app-configuration-java-config-values";
+  const invalidDocuments = [
+    ["unknown entity", "<project>&unknown;</project>", /malformed XML/],
+    ["multiple roots", "<project/><project/>", /malformed XML/],
+    ["invalid comment", "<project><!-- bad--comment --></project>", /malformed XML/],
+    ["invalid attribute", "<project bad=unquoted/>", /malformed XML/],
+    [
+      "mismatched qualified names",
+      '<m:project xmlns:m="urn:test"></project>',
+      /malformed XML/,
+    ],
+    ["uppercase character reference", "<project>&#X41;</project>", /malformed XML/],
+    [
+      "internal DTD",
+      "<!DOCTYPE project [<!ENTITY x \"value\">]><project>&x;</project>",
+      /DTDs and external entities are not allowed/,
+    ],
+    [
+      "external entity",
+      '<!DOCTYPE project [<!ENTITY x SYSTEM "file:///etc/passwd">]><project>&x;</project>',
+      /DTDs and external entities are not allowed/,
+    ],
+  ];
+
+  for (const [name, source, expected] of invalidDocuments) {
+    assert.throws(
+      () =>
+        validateJavaBomPolicy(
+          withScenarioSource(input, scenario, source),
+        ),
+      expected,
+      name,
+    );
+  }
 });

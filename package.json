@@ -21,7 +21,8 @@
   "devDependencies": {
     "@github/copilot": "1.0.71",
     "@github/copilot-sdk": "1.0.7",
-    "@microsoft/vally-cli": "0.15.0"
+    "@microsoft/vally-cli": "0.15.0",
+    "saxes": "6.0.0"
   },
   "engines": {
     "node": ">=22"

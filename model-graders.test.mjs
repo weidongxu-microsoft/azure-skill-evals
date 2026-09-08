@@ -20,15 +20,6 @@ const canonicalJavaBomDescription = [
   "- A BOM-managed artifact may override its version in `dependencyManagement` only when the task requires an API/version unavailable from the BOM.",
 ].join("\n");
 
-const canonicalJavaBomCriterionSource = `            - name: language/azure-sdk-bom-for-version-management
-              description: |-
-                - Imports a pinned \`com.azure:azure-sdk-bom\` in Maven \`dependencyManagement\`.
-                - Direct Azure SDK dependencies omit \`<version>\` when the BOM provides a compatible version.
-                - An artifact absent from the BOM may declare its version on the direct dependency.
-                - A BOM-managed artifact may override its version in \`dependencyManagement\` only when the task requires an API/version unavailable from the BOM.
-              weight: 1
-              pass_threshold: 1`;
-
 const expectedProgramGraders = {
   dotnet: [
     `      - type: run-command
@@ -104,6 +95,31 @@ const requireFromCli = createRequire(join(vallyCliRoot, "package.json"));
 const requireFromVally = createRequire(requireFromCli.resolve("@microsoft/vally"));
 const { parse: parseYaml } = requireFromVally("yaml");
 
+export function validateCanonicalJavaBomCriterion(evaluation, evalPath) {
+  const bomCriteria = evaluation.stimuli
+    .flatMap((stimulus) => stimulus.graders)
+    .filter(({ type }) => type === "panel")
+    .flatMap(({ config }) => config.criteria)
+    .filter(
+      ({ name }) => name === "language/azure-sdk-bom-for-version-management",
+    );
+  assert.equal(
+    bomCriteria.length,
+    1,
+    `${evalPath}: expected one canonical BOM criterion in panel criteria`,
+  );
+  assert.deepEqual(
+    bomCriteria[0],
+    {
+      name: "language/azure-sdk-bom-for-version-management",
+      description: canonicalJavaBomDescription,
+      weight: 1,
+      pass_threshold: 1,
+    },
+    `${evalPath}: invalid canonical BOM criterion`,
+  );
+}
+
 function validateEvalSource(rawSource, evalPath) {
     const source = rawSource.replaceAll("\r\n", "\n");
     const evaluation = parseYaml(source);
@@ -172,25 +188,7 @@ function validateEvalSource(rawSource, evalPath) {
         /^\s+- src: \.\.\/\.\.\/scripts\/program-checks\/java\.mjs\n\s+dest: \.vally\/program-checks\/java\.mjs$/m,
         evalPath,
       );
-      const bomCriteria = panelCriteria.filter(
-        ({ name }) =>
-          name === "language/azure-sdk-bom-for-version-management",
-      );
-      assert.equal(
-        bomCriteria.length,
-        1,
-        `${evalPath}: expected one canonical BOM criterion in panel criteria`,
-      );
-      assert.deepEqual(
-        bomCriteria[0],
-        {
-          name: "language/azure-sdk-bom-for-version-management",
-          description: canonicalJavaBomDescription,
-          weight: 1,
-          pass_threshold: 1,
-        },
-        `${evalPath}: invalid canonical BOM criterion`,
-      );
+      validateCanonicalJavaBomCriterion(evaluation, evalPath);
     } else {
       assert.doesNotMatch(source, /scripts\/program-checks\/java\.mjs/, evalPath);
     }
@@ -218,21 +216,41 @@ test("every eval uses one complete model review and program checks", () => {
 });
 
 test("Java BOM criterion must be in the panel criteria array", () => {
-  const evalPath = join(
-    scenarioRoot,
-    "app-configuration-java-config-values",
-    "eval.yaml",
-  );
-  const source = readFileSync(evalPath, "utf8").replaceAll("\r\n", "\n");
-  const withoutCriterion = source.replace(canonicalJavaBomCriterionSource, "");
-  assert.notEqual(withoutCriterion, source, "invalid test mutation");
-  const relocated = withoutCriterion.replace(
-    "    tags:\n",
-    `${canonicalJavaBomCriterionSource}\n    tags:\n`,
-  );
-
+  const relocated = parseYaml(`stimuli:
+  - prompt: ${JSON.stringify(canonicalJavaBomDescription)}
+    graders:
+      - type: panel
+        config:
+          criteria: []
+`);
   assert.throws(
-    () => validateEvalSource(relocated, evalPath),
+    () => validateCanonicalJavaBomCriterion(relocated, "synthetic-eval.yaml"),
     /expected one canonical BOM criterion in panel criteria/,
   );
+});
+
+test("canonical criterion accepts equivalent YAML scalar syntax", () => {
+  const criterionFields = `              name: language/azure-sdk-bom-for-version-management
+              weight: 1
+              pass_threshold: 1`;
+  const quoted = parseYaml(`stimuli:
+  - graders:
+      - type: panel
+        config:
+          criteria:
+            - description: ${JSON.stringify(canonicalJavaBomDescription)}
+${criterionFields}
+`);
+  const literal = parseYaml(`stimuli:
+  - graders:
+      - type: panel
+        config:
+          criteria:
+            - description: |-
+                ${canonicalJavaBomDescription.replaceAll("\n", "\n                ")}
+${criterionFields}
+`);
+
+  validateCanonicalJavaBomCriterion(quoted, "quoted-scalar.yaml");
+  validateCanonicalJavaBomCriterion(literal, "literal-scalar.yaml");
 });
