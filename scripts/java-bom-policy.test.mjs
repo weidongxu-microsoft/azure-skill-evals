@@ -374,6 +374,14 @@ function dependencyDetails(dependency) {
   };
 }
 
+function assertExactDependencyElements(dependency, expected, context) {
+  assert.deepEqual(
+    [...dependency.elements].sort(),
+    [...expected].sort(),
+    `${context} must contain exactly ${expected.join(", ")}`,
+  );
+}
+
 function allowlistKey(entry) {
   return `${entry.scenario}|${entry.artifact}|${entry.version}`;
 }
@@ -584,12 +592,12 @@ export function validateJavaBomPolicy({ bomVersion, javaScenarios }) {
       }
 
       if (bomManagedVersions.has(dependency.artifact)) {
-        seenManagedArtifacts.add(dependency.artifact);
-        assert.equal(
-          dependency.version,
-          undefined,
-          `${scenario}: BOM-managed direct dependency ${dependency.artifact} must omit <version>`,
+        assertExactDependencyElements(
+          dependency,
+          ["groupId", "artifactId"],
+          `${scenario}: BOM-managed direct dependency ${dependency.artifact}`,
         );
+        seenManagedArtifacts.add(dependency.artifact);
         const key = scenarioArtifactKey({
           scenario,
           artifact: dependency.artifact,
@@ -603,6 +611,11 @@ export function validateJavaBomPolicy({ bomVersion, javaScenarios }) {
         continue;
       }
 
+      assertExactDependencyElements(
+        dependency,
+        ["groupId", "artifactId", "version"],
+        `${scenario}: unmanaged direct Azure dependency ${dependency.artifact}`,
+      );
       assert.ok(
         dependency.version,
         `${scenario}: unmanaged Azure dependency ${dependency.artifact} needs an explicit version`,
@@ -796,6 +809,118 @@ test("policy rejects missing and duplicate direct dependencies", () => {
   assert.throws(
     () => validateJavaBomPolicy(duplicate),
     /duplicate direct dependency com\.azure:azure-data-appconfiguration/,
+  );
+});
+
+test("policy enforces exact direct Azure dependency shapes", () => {
+  const input = loadPolicyInput();
+  const managedScenario = "app-configuration-java-config-values";
+  const unmanagedScenario = "ai-agents-java-basic-agent-lifecycle";
+  const overrideScenario = "ai-projects-java-evaluation-run";
+  const modifiers = [
+    "<type>test-jar</type>",
+    "<classifier>tests</classifier>",
+    "<scope>runtime</scope>",
+    "<optional>true</optional>",
+    "<exclusions/>",
+    "<unknown>value</unknown>",
+  ];
+
+  for (const modifier of modifiers) {
+    const managed = syntheticPom(managedScenario, {
+      directDependencies: [
+        {
+          artifact: "com.azure:azure-data-appconfiguration",
+          modifiers: [modifier],
+        },
+      ],
+    });
+    assert.throws(
+      () =>
+        validateJavaBomPolicy(
+          withScenarioSource(input, managedScenario, managed),
+        ),
+      /BOM-managed direct dependency .* must contain exactly groupId, artifactId/,
+      `managed dependency accepted ${modifier}`,
+    );
+
+    const unmanaged = syntheticPom(unmanagedScenario, {
+      directDependencies: [
+        {
+          artifact: "com.azure:azure-ai-agents-persistent",
+          version: "1.0.0-beta.2",
+          modifiers: [modifier],
+        },
+        { artifact: "com.azure:azure-identity" },
+      ],
+    });
+    assert.throws(
+      () =>
+        validateJavaBomPolicy(
+          withScenarioSource(input, unmanagedScenario, unmanaged),
+        ),
+      /unmanaged direct Azure dependency .* must contain exactly groupId, artifactId, version/,
+      `unmanaged dependency accepted ${modifier}`,
+    );
+  }
+
+  const overrideDirect = syntheticPom(overrideScenario, {
+    directDependencies: [
+      {
+        artifact: "com.azure:azure-ai-projects",
+        modifiers: ["<scope>compile</scope>"],
+      },
+      { artifact: "com.azure:azure-identity" },
+    ],
+  });
+  assert.throws(
+    () =>
+      validateJavaBomPolicy(
+        withScenarioSource(input, overrideScenario, overrideDirect),
+      ),
+    /BOM-managed direct dependency .* must contain exactly groupId, artifactId/,
+    "managed-override direct dependency accepted a modifier",
+  );
+
+  for (const duplicate of [
+    "<groupId>com.azure</groupId>",
+    "<artifactId>azure-data-appconfiguration</artifactId>",
+  ]) {
+    const source = syntheticPom(managedScenario, {
+      directDependencies: [
+        {
+          artifact: "com.azure:azure-data-appconfiguration",
+          modifiers: [duplicate],
+        },
+      ],
+    });
+    assert.throws(
+      () =>
+        validateJavaBomPolicy(
+          withScenarioSource(input, managedScenario, source),
+        ),
+      /expected at most one <(?:groupId|artifactId)>/,
+      `managed dependency accepted ${duplicate}`,
+    );
+  }
+
+  const duplicateVersion = syntheticPom(unmanagedScenario, {
+    directDependencies: [
+      {
+        artifact: "com.azure:azure-ai-agents-persistent",
+        version: "1.0.0-beta.2",
+        modifiers: ["<version>1.0.0-beta.2</version>"],
+      },
+      { artifact: "com.azure:azure-identity" },
+    ],
+  });
+  assert.throws(
+    () =>
+      validateJavaBomPolicy(
+        withScenarioSource(input, unmanagedScenario, duplicateVersion),
+      ),
+    /expected at most one <version>/,
+    "unmanaged dependency accepted duplicate version",
   );
 });
 
