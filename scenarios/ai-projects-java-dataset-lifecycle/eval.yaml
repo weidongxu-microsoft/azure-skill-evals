@@ -113,7 +113,10 @@ stimuli:
               pass_threshold: 1
             - name: language/azure-sdk-bom-for-version-management
               description: |-
-                Uses azure-sdk-bom in dependencyManagement to manage Azure SDK versions instead of hardcoding individual artifact versions. Dependencies should omit <version> tags when managed by the BOM.
+                - Imports a pinned `com.azure:azure-sdk-bom` in Maven `dependencyManagement`.
+                - Direct Azure SDK dependencies omit `<version>` when the BOM provides a compatible version.
+                - An artifact absent from the BOM may declare its version on the direct dependency.
+                - A BOM-managed artifact may override its version in `dependencyManagement` only when the task requires an API/version unavailable from the BOM.
               weight: 1
               pass_threshold: 1
             - name: language/correct-imports-no-legacy-no-internal-packages

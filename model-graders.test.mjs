@@ -12,6 +12,15 @@ const expectedLanguageCriteria = {
   typescript: 10,
 };
 
+const canonicalJavaBomCriterion = `            - name: language/azure-sdk-bom-for-version-management
+              description: |-
+                - Imports a pinned \`com.azure:azure-sdk-bom\` in Maven \`dependencyManagement\`.
+                - Direct Azure SDK dependencies omit \`<version>\` when the BOM provides a compatible version.
+                - An artifact absent from the BOM may declare its version on the direct dependency.
+                - A BOM-managed artifact may override its version in \`dependencyManagement\` only when the task requires an API/version unavailable from the BOM.
+              weight: 1
+              pass_threshold: 1`;
+
 const expectedProgramGraders = {
   dotnet: [
     `      - type: run-command
@@ -149,6 +158,20 @@ test("every eval uses one complete model review and program checks", () => {
       assert.match(
         source,
         /^\s+- src: \.\.\/\.\.\/scripts\/program-checks\/java\.mjs\n\s+dest: \.vally\/program-checks\/java\.mjs$/m,
+        evalPath,
+      );
+      assert.equal(
+        (
+          source.match(
+            /^ {12}- name: language\/azure-sdk-bom-for-version-management$/gm,
+          ) ?? []
+        ).length,
+        1,
+        evalPath,
+      );
+      assert.equal(
+        source.split(canonicalJavaBomCriterion).length - 1,
+        1,
         evalPath,
       );
     } else {
