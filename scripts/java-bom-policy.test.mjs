@@ -103,7 +103,160 @@ const managedOverrideAllowlist = [
   },
 ];
 
+const expectedDirectAzureDependencies = new Map([
+  [
+    "ai-agents-java-basic-agent-lifecycle",
+    [
+      "com.azure:azure-ai-agents-persistent",
+      "com.azure:azure-identity",
+    ],
+  ],
+  [
+    "ai-agents-java-file-search",
+    [
+      "com.azure:azure-ai-agents-persistent",
+      "com.azure:azure-identity",
+    ],
+  ],
+  [
+    "ai-agents-java-function-tool",
+    [
+      "com.azure:azure-ai-agents-persistent",
+      "com.azure:azure-identity",
+    ],
+  ],
+  [
+    "ai-projects-java-dataset-lifecycle",
+    [
+      "com.azure:azure-ai-projects",
+      "com.azure:azure-identity",
+      "com.azure:azure-storage-blob",
+    ],
+  ],
+  [
+    "ai-projects-java-evaluation-run",
+    ["com.azure:azure-ai-projects", "com.azure:azure-identity"],
+  ],
+  [
+    "ai-projects-java-project-resource-inventory",
+    ["com.azure:azure-ai-projects", "com.azure:azure-identity"],
+  ],
+  [
+    "app-configuration-java-config-values",
+    ["com.azure:azure-data-appconfiguration"],
+  ],
+  [
+    "app-configuration-java-feature-flags",
+    ["com.azure:azure-data-appconfiguration", "com.azure:azure-identity"],
+  ],
+  ["cosmos-db-java-crud", ["com.azure:azure-cosmos"]],
+  [
+    "cosmos-db-java-todo-repository",
+    ["com.azure:azure-cosmos", "com.azure:azure-identity"],
+  ],
+  [
+    "document-translation-java-batch-container",
+    ["com.azure:azure-ai-translation-document", "com.azure:azure-identity"],
+  ],
+  [
+    "document-translation-java-single-document",
+    ["com.azure:azure-ai-translation-document", "com.azure:azure-identity"],
+  ],
+  [
+    "event-hubs-java-send-receive-events",
+    [
+      "com.azure:azure-messaging-eventhubs",
+      "com.azure:azure-messaging-eventhubs-checkpointstore-blob",
+    ],
+  ],
+  [
+    "foundry-java-support-assistant",
+    [
+      "com.azure:azure-ai-agents",
+      "com.azure:azure-identity",
+      "com.azure:azure-storage-blob",
+    ],
+  ],
+  ["identity-java-credential-chain", ["com.azure:azure-identity"]],
+  [
+    "identity-java-default-azure-credential",
+    ["com.azure:azure-identity", "com.azure:azure-security-keyvault-secrets"],
+  ],
+  [
+    "identity-java-managed-identity-auth",
+    ["com.azure:azure-identity", "com.azure:azure-security-keyvault-secrets"],
+  ],
+  [
+    "identity-java-service-principal-auth",
+    ["com.azure:azure-identity", "com.azure:azure-security-keyvault-secrets"],
+  ],
+  [
+    "key-vault-java-crud-secrets",
+    ["com.azure:azure-identity", "com.azure:azure-security-keyvault-secrets"],
+  ],
+  [
+    "key-vault-java-secret-config",
+    ["com.azure:azure-identity", "com.azure:azure-security-keyvault-secrets"],
+  ],
+  [
+    "resource-manager-java-resource-group-crud",
+    ["com.azure.resourcemanager:azure-resourcemanager", "com.azure:azure-identity"],
+  ],
+  [
+    "service-bus-java-order-processor",
+    ["com.azure:azure-identity", "com.azure:azure-messaging-servicebus"],
+  ],
+  [
+    "service-bus-java-send-receive-messages",
+    ["com.azure:azure-messaging-servicebus"],
+  ],
+  [
+    "storage-java-account-mgmt",
+    [
+      "com.azure.resourcemanager:azure-resourcemanager-storage",
+      "com.azure:azure-identity",
+    ],
+  ],
+  [
+    "storage-java-blob-event-notifier",
+    [
+      "com.azure:azure-identity",
+      "com.azure:azure-messaging-eventgrid",
+      "com.azure:azure-storage-blob",
+    ],
+  ],
+  [
+    "storage-java-blob-storage-manager",
+    ["com.azure:azure-identity", "com.azure:azure-storage-blob"],
+  ],
+  [
+    "storage-java-crud-blobs",
+    ["com.azure:azure-identity", "com.azure:azure-storage-blob"],
+  ],
+  [
+    "storage-java-encrypted-uploader",
+    [
+      "com.azure:azure-identity",
+      "com.azure:azure-security-keyvault-keys",
+      "com.azure:azure-storage-blob",
+    ],
+  ],
+  [
+    "text-translation-java-multilingual-translation",
+    ["com.azure:azure-ai-translation-text", "com.azure:azure-identity"],
+  ],
+  [
+    "text-translation-java-transliteration",
+    ["com.azure:azure-ai-translation-text", "com.azure:azure-identity"],
+  ],
+]);
+
 function parseXml(source, filePath) {
+  assert.doesNotMatch(
+    source,
+    /<!DOCTYPE|<!ENTITY/i,
+    `${filePath}: DTDs and custom entities are not allowed`,
+  );
   const document = { name: "#document", children: [] };
   const stack = [document];
   const tokens =
@@ -156,13 +309,65 @@ function optionalText(source, node, name) {
   assert.ok(matches.length <= 1, `expected at most one <${name}>`);
   return matches.length === 0
     ? undefined
-    : source.slice(matches[0].contentStart, matches[0].contentEnd).trim();
+    : decodeXmlText(
+        source.slice(matches[0].contentStart, matches[0].contentEnd),
+      ).trim();
+}
+
+function decodeXmlText(value) {
+  const withoutComments = value.replace(/<!--[\s\S]*?-->/g, "");
+  const cdata = /<!\[CDATA\[([\s\S]*?)\]\]>/g;
+  let result = "";
+  let cursor = 0;
+  for (const match of withoutComments.matchAll(cdata)) {
+    result += decodeXmlEntities(withoutComments.slice(cursor, match.index));
+    result += match[1];
+    cursor = match.index + match[0].length;
+  }
+  return result + decodeXmlEntities(withoutComments.slice(cursor));
+}
+
+function decodeXmlEntities(value) {
+  return value.replace(
+    /&(#x[0-9a-f]+|#\d+|amp|lt|gt|quot|apos);/gi,
+    (_entity, reference) => {
+      const normalized = reference.toLowerCase();
+      if (normalized.startsWith("#x")) {
+        return String.fromCodePoint(Number.parseInt(normalized.slice(2), 16));
+      }
+      if (normalized.startsWith("#")) {
+        return String.fromCodePoint(Number.parseInt(normalized.slice(1), 10));
+      }
+      return {
+        amp: "&",
+        apos: "'",
+        gt: ">",
+        lt: "<",
+        quot: '"',
+      }[normalized];
+    },
+  );
+}
+
+function validateCoordinate(value, element, artifact) {
+  assert.doesNotMatch(
+    value,
+    /\$\{/,
+    `${artifact}: property expressions are not allowed in <${element}>`,
+  );
+  assert.match(
+    value,
+    /^[A-Za-z0-9_.-]+$/,
+    `${artifact}: invalid Maven <${element}> coordinate`,
+  );
 }
 
 function dependencyDetails(source, dependency) {
   const groupId = optionalText(source, dependency, "groupId");
   const artifactId = optionalText(source, dependency, "artifactId");
   assert.ok(groupId && artifactId, "dependency must have groupId and artifactId");
+  validateCoordinate(groupId, "groupId", `${groupId}:${artifactId}`);
+  validateCoordinate(artifactId, "artifactId", `${groupId}:${artifactId}`);
   return {
     artifact: `${groupId}:${artifactId}`,
     elements: dependency.children.map((child) => child.name),
@@ -215,6 +420,11 @@ function loadPolicyInput() {
 
 function validateJavaBomPolicy({ bomVersion, javaScenarios }) {
   assert.equal(javaScenarios.length, 30);
+  assert.deepEqual(
+    [...expectedDirectAzureDependencies.keys()].sort(),
+    javaScenarios.map(({ scenario }) => scenario),
+    "direct Azure dependency inventory contains a stale scenario",
+  );
 
   const unmanagedByKey = new Map(
     unmanagedDirectAllowlist.map((entry) => [allowlistKey(entry), entry]),
@@ -264,6 +474,11 @@ function validateJavaBomPolicy({ bomVersion, javaScenarios }) {
     const document = parseXml(source, pomPath);
     const project = onlyChild(document, "project", scenario);
     assert.equal(
+      children(project, "parent").length,
+      0,
+      `${scenario}: Maven parent POMs are not allowed`,
+    );
+    assert.equal(
       children(project, "profiles").length,
       0,
       `${scenario}: Maven profiles are not allowed in Java goldens`,
@@ -276,9 +491,7 @@ function validateJavaBomPolicy({ bomVersion, javaScenarios }) {
       `${scenario}: expected one <${bomProperty}>`,
     );
     assert.equal(
-      source
-        .slice(bomProperties[0].contentStart, bomProperties[0].contentEnd)
-        .trim(),
+      optionalText(source, properties, bomProperty),
       bomVersion,
       `${scenario}: BOM property must match dependencies.lock.json`,
     );
@@ -359,7 +572,17 @@ function validateJavaBomPolicy({ bomVersion, javaScenarios }) {
         `${scenario}: duplicate direct dependency ${dependency.artifact}`,
       );
       directArtifacts.add(dependency.artifact);
-
+    }
+    const directAzureArtifacts = directDependencies
+      .filter(({ groupId }) => isAzureGroup(groupId))
+      .map(({ artifact }) => artifact)
+      .sort();
+    assert.deepEqual(
+      directAzureArtifacts,
+      [...expectedDirectAzureDependencies.get(scenario)].sort(),
+      `${scenario}: direct Azure dependency inventory changed`,
+    );
+    for (const dependency of directDependencies) {
       if (!isAzureGroup(dependency.groupId)) {
         continue;
       }
@@ -485,7 +708,7 @@ test("policy rejects missing and duplicate direct dependencies", () => {
   );
   assert.throws(
     () => validateJavaBomPolicy(missing),
-    /expected exactly 50 ordinary BOM-managed direct dependencies/,
+    /direct Azure dependency inventory changed/,
   );
 
   const duplicate = mutateScenario(input, scenario, (source) =>
@@ -512,7 +735,7 @@ test("policy requires each managed override to have one direct dependency", () =
 
   assert.throws(
     () => validateJavaBomPolicy(missing),
-    /expected exactly 7 overridden BOM-managed direct dependencies/,
+    /direct Azure dependency inventory changed/,
   );
 });
 
@@ -586,4 +809,135 @@ test("policy rejects semantic modifiers on managed overrides", () => {
       /override must contain only groupId, artifactId, and version/,
     );
   }
+});
+
+test("policy rejects count-preserving dependency substitutions", () => {
+  const input = loadPolicyInput();
+  const mutated = mutateScenario(
+    input,
+    "app-configuration-java-config-values",
+    (source) =>
+      replaceOnce(
+        source,
+        "<artifactId>azure-data-appconfiguration</artifactId>",
+        "<artifactId>azure-identity</artifactId>",
+      ),
+  );
+
+  assert.throws(
+    () => validateJavaBomPolicy(mutated),
+    /direct Azure dependency inventory changed/,
+  );
+});
+
+test("policy rejects property-expanded dependency coordinates", () => {
+  const input = loadPolicyInput();
+  const dependency = `    <dependency>
+      <groupId>\${azure.group}</groupId>
+      <artifactId>azure-data-appconfiguration</artifactId>
+      <version>0.0.1</version>
+    </dependency>
+`;
+  const mutated = mutateScenario(
+    input,
+    "app-configuration-java-config-values",
+    (source) =>
+      replaceOnce(
+        source,
+        "  </dependencies>\n</project>",
+        `${dependency}  </dependencies>\n</project>`,
+      ),
+  );
+
+  assert.throws(
+    () => validateJavaBomPolicy(mutated),
+    /property expressions are not allowed in <groupId>/,
+  );
+});
+
+test("policy decodes XML entities before detecting duplicate BOM imports", () => {
+  const input = loadPolicyInput();
+  const bomImport = `      <dependency>
+        <groupId>com&#46;azure</groupId>
+        <artifactId>azure-sdk-bom</artifactId>
+        <version>\${azure-sdk-bom.version}</version>
+        <type>pom</type>
+        <scope>import</scope>
+      </dependency>
+`;
+  const mutated = mutateScenario(
+    input,
+    "app-configuration-java-config-values",
+    (source) =>
+      replaceOnce(
+        source,
+        "    </dependencies>\n  </dependencyManagement>",
+        `${bomImport}    </dependencies>\n  </dependencyManagement>`,
+      ),
+  );
+
+  assert.throws(
+    () => validateJavaBomPolicy(mutated),
+    /expected one BOM import/,
+  );
+});
+
+test("policy accepts equivalent XML text forms", () => {
+  const input = loadPolicyInput();
+  const mutated = mutateScenario(
+    input,
+    "app-configuration-java-config-values",
+    (source) =>
+      replaceOnce(
+        source,
+        "<groupId>com.azure</groupId>\n      <artifactId>azure-data-appconfiguration</artifactId>",
+        "<groupId><![CDATA[ com.azure ]]></groupId>\n      <artifactId>azure-data-appconfigurati&#111;n</artifactId>",
+      ),
+  );
+
+  validateJavaBomPolicy(mutated);
+});
+
+test("policy keeps entity-like CDATA text literal", () => {
+  const input = loadPolicyInput();
+  const mutated = mutateScenario(
+    input,
+    "app-configuration-java-config-values",
+    (source) =>
+      replaceOnce(
+        source,
+        "<artifactId>azure-data-appconfiguration</artifactId>",
+        "<artifactId><![CDATA[azure-data-appconfigurati&#111;n]]></artifactId>",
+      ),
+  );
+
+  assert.throws(
+    () => validateJavaBomPolicy(mutated),
+    /invalid Maven <artifactId> coordinate/,
+  );
+});
+
+test("policy rejects project-level Maven parents", () => {
+  const input = loadPolicyInput();
+  const parent = `  <parent>
+    <groupId>com.example</groupId>
+    <artifactId>shared-parent</artifactId>
+    <version>1.0.0</version>
+  </parent>
+`;
+  const mutated = mutateScenario(
+    input,
+    "app-configuration-java-config-values",
+    (source) =>
+      replaceOnce(
+        source,
+        "  <modelVersion>4.0.0</modelVersion>\n",
+        `  <modelVersion>4.0.0</modelVersion>\n${parent}`,
+      ),
+  );
+
+  assert.throws(
+    () => validateJavaBomPolicy(mutated),
+    /Maven parent POMs are not allowed/,
+  );
 });

@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
-import { readFileSync, readdirSync } from "node:fs";
+import { readFileSync, readdirSync, realpathSync } from "node:fs";
+import { createRequire } from "node:module";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import test from "node:test";
@@ -12,7 +13,14 @@ const expectedLanguageCriteria = {
   typescript: 10,
 };
 
-const canonicalJavaBomCriterion = `            - name: language/azure-sdk-bom-for-version-management
+const canonicalJavaBomDescription = [
+  "- Imports a pinned `com.azure:azure-sdk-bom` in Maven `dependencyManagement`.",
+  "- Direct Azure SDK dependencies omit `<version>` when the BOM provides a compatible version.",
+  "- An artifact absent from the BOM may declare its version on the direct dependency.",
+  "- A BOM-managed artifact may override its version in `dependencyManagement` only when the task requires an API/version unavailable from the BOM.",
+].join("\n");
+
+const canonicalJavaBomCriterionSource = `            - name: language/azure-sdk-bom-for-version-management
               description: |-
                 - Imports a pinned \`com.azure:azure-sdk-bom\` in Maven \`dependencyManagement\`.
                 - Direct Azure SDK dependencies omit \`<version>\` when the BOM provides a compatible version.
@@ -89,13 +97,22 @@ const evalPaths = readdirSync(scenarioRoot, { withFileTypes: true })
   .filter((entry) => entry.isDirectory())
   .map((entry) => join(scenarioRoot, entry.name, "eval.yaml"));
 
-test("every eval uses one complete model review and program checks", () => {
-  for (const evalPath of evalPaths) {
-    const source = readFileSync(evalPath, "utf8").replaceAll("\r\n", "\n");
-    const language = source.match(/^\s+language:\s*(\S+)$/m)?.[1];
-    const criterionNames = [
-      ...source.matchAll(/^\s+- name: ((?:prompt|language)\/.+)$/gm),
-    ].map((match) => match[1]);
+const vallyCliRoot = realpathSync(
+  fileURLToPath(new URL("./node_modules/@microsoft/vally-cli/", import.meta.url)),
+);
+const requireFromCli = createRequire(join(vallyCliRoot, "package.json"));
+const requireFromVally = createRequire(requireFromCli.resolve("@microsoft/vally"));
+const { parse: parseYaml } = requireFromVally("yaml");
+
+function validateEvalSource(rawSource, evalPath) {
+    const source = rawSource.replaceAll("\r\n", "\n");
+    const evaluation = parseYaml(source);
+    const graders = evaluation.stimuli.flatMap((stimulus) => stimulus.graders);
+    const panelGraders = graders.filter(({ type }) => type === "panel");
+    assert.equal(panelGraders.length, 1, evalPath);
+    const panelCriteria = panelGraders[0].config.criteria;
+    const language = evaluation.stimuli[0].tags.language;
+    const criterionNames = panelCriteria.map(({ name }) => name);
     const languageCriteria = criterionNames.filter((name) =>
       name.startsWith("language/"),
     );
@@ -123,11 +140,6 @@ test("every eval uses one complete model review and program checks", () => {
     assert.doesNotMatch(source, /^\s+required:/m, evalPath);
     assert.match(source, /^\s+threshold: 0$/m, evalPath);
     assert.match(source, /^\s+overall_threshold: 0$/m, evalPath);
-    assert.equal(
-      languageCriteria.length,
-      expectedLanguageCriteria[language],
-      evalPath,
-    );
     assert.doesNotMatch(
       source,
       /language\/code-compiles-mvn-compile-gradle-compilejava/,
@@ -160,23 +172,33 @@ test("every eval uses one complete model review and program checks", () => {
         /^\s+- src: \.\.\/\.\.\/scripts\/program-checks\/java\.mjs\n\s+dest: \.vally\/program-checks\/java\.mjs$/m,
         evalPath,
       );
-      assert.equal(
-        (
-          source.match(
-            /^ {12}- name: language\/azure-sdk-bom-for-version-management$/gm,
-          ) ?? []
-        ).length,
-        1,
-        evalPath,
+      const bomCriteria = panelCriteria.filter(
+        ({ name }) =>
+          name === "language/azure-sdk-bom-for-version-management",
       );
       assert.equal(
-        source.split(canonicalJavaBomCriterion).length - 1,
+        bomCriteria.length,
         1,
-        evalPath,
+        `${evalPath}: expected one canonical BOM criterion in panel criteria`,
+      );
+      assert.deepEqual(
+        bomCriteria[0],
+        {
+          name: "language/azure-sdk-bom-for-version-management",
+          description: canonicalJavaBomDescription,
+          weight: 1,
+          pass_threshold: 1,
+        },
+        `${evalPath}: invalid canonical BOM criterion`,
       );
     } else {
       assert.doesNotMatch(source, /scripts\/program-checks\/java\.mjs/, evalPath);
     }
+    assert.equal(
+      languageCriteria.length,
+      expectedLanguageCriteria[language],
+      evalPath,
+    );
     if (language === "python") {
       assert.match(
         source,
@@ -187,5 +209,30 @@ test("every eval uses one complete model review and program checks", () => {
       assert.doesNotMatch(source, /scripts\/program-checks\/python\.py/, evalPath);
     }
     assert.doesNotMatch(source, /^    environment:/m, evalPath);
+}
+
+test("every eval uses one complete model review and program checks", () => {
+  for (const evalPath of evalPaths) {
+    validateEvalSource(readFileSync(evalPath, "utf8"), evalPath);
   }
+});
+
+test("Java BOM criterion must be in the panel criteria array", () => {
+  const evalPath = join(
+    scenarioRoot,
+    "app-configuration-java-config-values",
+    "eval.yaml",
+  );
+  const source = readFileSync(evalPath, "utf8").replaceAll("\r\n", "\n");
+  const withoutCriterion = source.replace(canonicalJavaBomCriterionSource, "");
+  assert.notEqual(withoutCriterion, source, "invalid test mutation");
+  const relocated = withoutCriterion.replace(
+    "    tags:\n",
+    `${canonicalJavaBomCriterionSource}\n    tags:\n`,
+  );
+
+  assert.throws(
+    () => validateEvalSource(relocated, evalPath),
+    /expected one canonical BOM criterion in panel criteria/,
+  );
 });
