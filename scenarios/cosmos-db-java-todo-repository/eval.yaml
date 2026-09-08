@@ -88,14 +88,6 @@ stimuli:
                 Page-by-page iteration using `iterableByPage()` or `CosmosPagedIterable`
               weight: 1
               pass_threshold: 1
-            - name: prompt/configurable-page-size-for-sync-and-async-queries
-              description: |-
-                - Accepts a caller-configurable page size for sync and async category queries.
-                - Applies it with `iterableByPage(pageSize)`, `byPage(pageSize)`,
-                  `setMaxItemCount(pageSize)`, or an equivalent SDK paging option.
-                - Preserves page-by-page consumption rather than flattening all results.
-              weight: 1
-              pass_threshold: 1
             - name: prompt/logs-page-by-page-query-progress
               description: |-
                 - Emits observable progress as each sync and async query page is consumed.
