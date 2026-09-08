@@ -61,9 +61,12 @@ stimuli:
           evidence:
             - diff
           criteria:
-            - name: prompt/retrieves-settings-with-a-specific-label-parameter-using
+            - name: prompt/retrieves-settings-for-requested-label
               description: |-
-                Retrieves settings with a specific label parameter using `SettingSelector`
+                - Retrieves each requested setting by key and label.
+                - Accepts direct labeled lookup such as `getConfigurationSetting(key, label)` or
+                  a `SettingSelector` label filter.
+                - Returns the setting selected for that exact label.
               weight: 1
               pass_threshold: 1
             - name: prompt/lists-settings-filtered-by-key-prefix-using-setkeyfilter

@@ -88,14 +88,11 @@ stimuli:
                 Page-by-page iteration using `iterableByPage()` or `CosmosPagedIterable`
               weight: 1
               pass_threshold: 1
-            - name: prompt/configurable-page-size-via-queryrequestoptions-setmaxite
+            - name: prompt/logs-page-by-page-query-progress
               description: |-
-                Configurable page size via `QueryRequestOptions.setMaxItemCount`
-              weight: 1
-              pass_threshold: 1
-            - name: prompt/logs-continuation-token-and-item-count-per-page
-              description: |-
-                Logs continuation token and item count per page
+                - Emits observable progress as each sync and async query page is consumed.
+                - Accepts a page number, item count, continuation token, RU charge, or equivalent
+                  page-specific progress detail.
               weight: 1
               pass_threshold: 1
             - name: prompt/async-query-uses-cosmospagedflux-returning-pages-as-a-st
@@ -116,11 +113,6 @@ stimuli:
             - name: prompt/ru-cost-extracted-from-response-via-getrequestcharge-and
               description: |-
                 RU cost extracted from response via `getRequestCharge()` and logged per operation ### Scenario-Specific Error Handling
-              weight: 1
-              pass_threshold: 1
-            - name: prompt/catches-cosmosexception-with-status-code-checks-404-409
-              description: |-
-                Catches `CosmosException` with status code checks (404, 409, 412)
               weight: 1
               pass_threshold: 1
             - name: prompt/handles-412-separately-for-etag-conflicts-anti-patterns

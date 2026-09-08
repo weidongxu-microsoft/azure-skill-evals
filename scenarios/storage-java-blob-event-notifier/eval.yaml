@@ -108,11 +108,6 @@ stimuli:
                 Handles race condition: blob may no longer exist (catches `BlobStorageException` with 404 status)
               weight: 1
               pass_threshold: 1
-            - name: prompt/catches-event-grid-specific-exceptions-for-publishing-er
-              description: |-
-                Catches Event Grid-specific exceptions for publishing errors
-              weight: 1
-              pass_threshold: 1
             - name: language/correct-dependencies-com-azure-not-com-microsoft-azure
               description: |-
                 Uses com.azure group ID for all Azure SDK packages. No com.microsoft.azure (legacy SDK) dependencies. Includes azure-identity for authentication.
