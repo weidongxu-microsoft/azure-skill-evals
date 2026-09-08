@@ -73,11 +73,15 @@ stimuli:
           evidence:
             - diff
           criteria:
-            - name: prompt/builds-persistentagentsclient-with-persistentagentsclien
+            - name: prompt/builds-synchronous-persistent-agents-clients
               description: |-
-                Builds `PersistentAgentsClient` with `PersistentAgentsClientBuilder`, then obtains
-                the administration, threads, messages, and runs subclients for the complete
-                workflow; a non-agents chat client is not equivalent.
+                - Configures synchronous Persistent Agents client access with `PROJECT_ENDPOINT`
+                  and `DefaultAzureCredential`.
+                - Obtains the administration, threads, messages, and runs clients used by the
+                  workflow.
+                - Accepts `PersistentAgentsClientBuilder`,
+                  `PersistentAgentsAdministrationClientBuilder`, or equivalent public SDK
+                  builders that expose those clients.
               weight: 1
               pass_threshold: 1
             - name: prompt/creates-the-agent-with-createagentoptions-passing-the-de

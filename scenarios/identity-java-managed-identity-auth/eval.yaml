@@ -82,9 +82,13 @@ stimuli:
                 `CredentialUnavailableException` when not in Azure
               weight: 1
               pass_threshold: 1
-            - name: prompt/chainedtokencredentialbuilder-for-local-fallback
+            - name: prompt/provides-local-development-credential-fallback
               description: |-
-                `ChainedTokenCredentialBuilder` for local fallback
+                - Provides a local-development credential path that does not require the Managed
+                  Identity endpoint.
+                - Accepts `DefaultAzureCredential`, `AzureCliCredential`,
+                  `ChainedTokenCredential`, or another secure `com.azure.identity` fallback.
+                - Does not embed client secrets, account keys, or tokens.
               weight: 1
               pass_threshold: 1
             - name: language/correct-dependencies-com-azure-not-com-microsoft-azure
