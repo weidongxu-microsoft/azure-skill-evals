@@ -63,115 +63,163 @@ stimuli:
           criteria:
             - name: prompt/sender-uses-sender-queuename-buildclient-chain-or-async
               description: |-
-                Sender uses `.sender().queueName().buildClient()` chain (or async equivalent)
+                - Build a queue sender for the configured queue.
+                - Sync and async sender variants are valid where the flow requires both.
+                - Sender publishes JSON order messages through Service Bus.
               weight: 1
               pass_threshold: 1
             - name: prompt/receives-orders-with-session-aware-processor-or-receiver
               description: |-
-                Receives orders with either a session processor callback chain or a
-                session-enabled receiver loop that preserves the session lock
+                - Receive orders with a session-aware processor or session receiver.
+                - Preserve the accepted session lock while processing messages.
+                - Maintain per-customer ordering within each session.
               weight: 1
               pass_threshold: 1
             - name: prompt/batch-sending-creates-servicebusmessagebatch-checks-trya
               description: |-
-                Batch sending: creates `ServiceBusMessageBatch`, checks `tryAddMessage()` return value
+                - Create Service Bus message batches for order publishing.
+                - Check whether each order message is accepted into the batch.
+                - Send only populated accepted batches.
               weight: 1
               pass_threshold: 1
             - name: prompt/handles-the-case-where-a-message-doesnt-fit-in-the-curre
               description: |-
-                Handles the case where a message doesn't fit in the current batch
+                - Rejected message from a non-empty batch starts or retries in a new batch.
+                - Message too large for an empty batch is surfaced as an error.
+                - The sender does not silently drop rejected orders.
               weight: 1
               pass_threshold: 1
-            - name: prompt/scheduled-delivery-uses-schedulemessage-or-setschedulede
+            - name: prompt/high-priority-scheduling
               description: |-
-                Scheduled delivery: uses `scheduleMessage()` or `setScheduledEnqueueTime()` (~30s delay)
+                - Compare total price with a configurable priority threshold.
+                - Mark qualifying orders as high priority.
+                - Schedule qualifying messages for delivery about 30 seconds later.
               weight: 1
               pass_threshold: 1
             - name: prompt/correlation-sets-order-id-as-correlation-property-via-se
               description: |-
-                Correlation: sets order ID as correlation property via `setCorrelationId()` or application properties
+                - Order ID flows into message correlation ID or an equivalent correlation property.
+                - Correlation is set for sync and async published orders.
+                - Received logs preserve order context.
               weight: 1
               pass_threshold: 1
-            - name: prompt/dead-letter-explicitly-dead-letters-failed-messages-with
+            - name: prompt/order-processing-and-settlement
               description: |-
-                Dead-letter: explicitly dead-letters failed messages with `deadLetter()` and a reason string
+                - Deserialize each received order and perform the processing transition.
+                - Log the processing result with order context.
+                - Complete successful messages; dead-letter failed messages with a reason.
               weight: 1
               pass_threshold: 1
-            - name: prompt/dead-letter-queue-reading-uses-subqueue-dead-letter-queu
+            - name: prompt/dead-letter-reprocessing
               description: |-
-                Dead-letter queue reading: uses `SubQueue.DEAD_LETTER_QUEUE` or `$deadletterqueue` path
+                - Read failed messages from the dead-letter subqueue.
+                - Log them for inspection and provide a path to process and settle them again.
               weight: 1
               pass_threshold: 1
             - name: prompt/session-aware-processing-uses-sessionprocessor-or-sessio
               description: |-
-                Session-aware processing: uses `.sessionProcessor()` or session-enabled receiver
+                - Configure session-aware receiving for customer-ordered messages.
+                - Session processor or session receiver APIs are valid.
+                - Non-session receiver alone does not satisfy ordered processing.
               weight: 1
               pass_threshold: 1
             - name: prompt/session-id-keyed-by-customer-name-for-ordered-processing
               description: |-
-                Session ID keyed by customer name for ordered processing ### Scenario-Specific Error Handling
+                - Derive a stable session ID from customer identity.
+                - Messages for the same customer use the same session ID.
+                - Different customers can be processed in separate sessions.
               weight: 1
               pass_threshold: 1
-            - name: prompt/processing-errors-are-logged-with-available-context
+            - name: prompt/processing-error-reporting
               description: |-
-                Processing errors are logged with the context exposed by the chosen
-                processor or receiver API; processor-only error context is not required
-                for receiver-based implementations
+                - Report deserialization and processing failures with available message or processor context.
+                - Do not silently abandon failed messages.
               weight: 1
               pass_threshold: 1
-            - name: language/correct-dependencies-com-azure-not-com-microsoft-azure
+            - name: prompt/service-bus-project-and-auth
               description: |-
-                Uses com.azure group ID for all Azure SDK packages. No com.microsoft.azure (legacy SDK) dependencies. Includes azure-identity for authentication.
+                - Declare the Service Bus and identity dependencies in a Java 17 Maven project.
+                - Read the fully qualified Service Bus namespace from an environment variable.
+                - Authenticate sync and async clients with managed identity.
               weight: 1
               pass_threshold: 1
-            - name: language/azure-sdk-bom-for-version-management
+            - name: prompt/order-json-model
               description: |-
-                Uses azure-sdk-bom in dependencyManagement to manage Azure SDK versions instead of hardcoding individual artifact versions. Dependencies should omit <version> tags when managed by the BOM.
+                - Model order ID, customer name, product, quantity, total price, and status.
+                - Restrict status to pending, processing, completed, or failed.
+                - Support JSON serialization and deserialization with a valid Java JSON approach.
               weight: 1
               pass_threshold: 1
-            - name: language/correct-imports-no-legacy-no-internal-packages
+            - name: prompt/ordered-main-demo
               description: |-
-                All imports use com.azure.* packages. No com.microsoft.azure.* (legacy) or com.azure.*.implementation.* (internal API) imports.
+                - Run the full sync send/receive/dead-letter cycle first.
+                - Then run the corresponding async cycle.
+                - Keep the application alive only as needed for active processing and finish cleanly.
               weight: 1
               pass_threshold: 1
-            - name: language/defaultazurecredential-authentication
+            - name: language/current-public-azure-sdk-dependencies
               description: |-
-                Uses DefaultAzureCredential or another com.azure.identity credential. No hardcoded connection strings, account keys, SAS tokens, or secrets.
+                - Declare Azure SDK artifacts required by the selected services and authentication flow.
+                - Use current compatible coordinates under `com.azure` or `com.azure.resourcemanager`.
+                - Include `azure-identity` only when the chosen authentication flow requires a `TokenCredential`.
               weight: 1
               pass_threshold: 1
-            - name: language/client-builder-pattern
+            - name: language/azure-sdk-bom-first-version-management
               description: |-
-                SDK clients constructed using *ClientBuilder classes with .endpoint() or .vaultUrl() and .credential(). No legacy constructors (CloudStorageAccount, DocumentClient, KeyVaultClient).
+                - Import `com.azure:azure-sdk-bom` through Maven dependency management or a Gradle platform.
+                - Omit explicit versions for compatible BOM-covered GA Azure artifacts.
+                - Use explicit versions only for preview, uncovered, incompatible, or prompt-pinned artifacts.
               weight: 1
               pass_threshold: 1
-            - name: language/no-deprecated-legacy-classes
+            - name: language/current-public-azure-sdk-imports
               description: |-
-                No deprecated classes from the old SDK (CloudStorageAccount, CloudBlobClient, DocumentClient, QueueClient, ApplicationTokenCredentials, MSICredentials, ConnectionStringBuilder).
+                - Azure SDK imports use current public `com.azure.*` or `com.azure.resourcemanager.*` packages.
+                - Do not import legacy `com.microsoft.azure.*` packages.
+                - Do not import Azure internal implementation packages.
+                - Standard Java, Reactor, Jackson, OpenAI, and other required non-Azure imports are valid.
               weight: 1
               pass_threshold: 1
-            - name: language/pagination-pagediterable-pagedflux
+            - name: language/supported-runtime-authentication
               description: |-
-                List/query operations return PagedIterable (sync) or PagedFlux (async). Does not flatten all pages into a raw List or Stream in memory.
+                - Authentication values come from runtime configuration or the execution environment.
+                - Use a current public authentication mode supported by the selected client or service.
+                - Do not embed or log connection strings, account keys, SAS tokens, client secrets, or bearer tokens.
               weight: 1
               pass_threshold: 1
-            - name: language/lro-pattern-syncpoller-pollerflux
+            - name: language/current-public-client-construction
               description: |-
-                Long-running operations use SyncPoller (sync) or PollerFlux (async) with begin* method prefix. No Thread.sleep() polling loops.
+                - Construct Azure SDK clients or managers through current public builders, factories, or documented fluent entry points.
+                - Runtime endpoint, vault URL, namespace, subscription, or profile values flow into the constructed client.
+                - Do not use legacy constructors or removed client types.
               weight: 1
               pass_threshold: 1
-            - name: language/async-uses-project-reactor-mono-flux
+            - name: language/current-public-azure-sdk-apis
               description: |-
-                Async code uses Project Reactor types (Mono, Flux). Not CompletableFuture (wrong), not RxJava (wrong), not sync wrapped in ExecutorService. No .block() inside async service implementations.
+                - Use current public Azure SDK clients, models, and operations.
+                - Public preview SDK APIs are valid when the prompt pins or requires a preview package.
+                - Do not depend on deprecated, removed, internal, or implementation-only Azure types.
+                - Equivalent public APIs are valid when exact symbols are not prompt-contractual.
               weight: 1
               pass_threshold: 1
-            - name: language/service-specific-exception-handling
+            - name: language/reactive-async-service-flow
               description: |-
-                Catches service-specific exceptions (BlobStorageException, CosmosException, ServiceBusException, HttpResponseException) with status code inspection. Not just generic Exception catches.
+                - Prompt-required async Azure operations originate from async SDK clients or documented async adapters.
+                - Compose reusable async flows with Reactor `Mono`/`Flux` or equivalent nonblocking composition.
+                - Do not wrap synchronous clients in an executor or block inside reusable async service methods.
               weight: 1
               pass_threshold: 1
-            - name: language/try-with-resources-for-clients
+            - name: language/service-specific-error-diagnostics
               description: |-
-                All Azure SDK client instances that implement AutoCloseable are used within try-with-resources blocks or explicitly closed in a finally block.
+                - Handle the selected Azure service or identity SDK exception type around service operations.
+                - Preserve status code, failure reason, or service error details when available.
+                - Report actionable diagnostics without exposing credential material.
+              weight: 1
+              pass_threshold: 1
+            - name: language/owned-resource-lifecycle-cleanup
+              description: |-
+                - Stop or close processor-style clients after each processing cycle.
+                - Close senders, receivers, and session clients that own a lifecycle.
+                - Finish sync and async demos cleanly after settlement/dead-letter work.
               weight: 1
               pass_threshold: 1
       - type: run-command

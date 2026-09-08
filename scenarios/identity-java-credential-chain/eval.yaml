@@ -63,127 +63,158 @@ stimuli:
           criteria:
             - name: prompt/uses-chainedtokencredentialbuilder-to-compose-multiple-c
               description: |-
-                Uses `ChainedTokenCredentialBuilder` to compose multiple credentials
+                - Compose a credential chain from multiple credential sources.
+                - The selected environment chooses the appropriate chain strategy.
+                - Equivalent current Java identity APIs may implement the chain.
               weight: 1
               pass_threshold: 1
             - name: prompt/credentials-added-via-addlast-order-matters-environment
               description: |-
-                Credentials added via `.addLast()` — order matters ### Environment-Specific Chains
+                - Credential attempts follow a deliberate documented order.
+                - The chain stops at the first credential that successfully returns a token.
+                - Reordering must not change the intended environment strategy.
               weight: 1
               pass_threshold: 1
             - name: prompt/dev-chain-includes-azureclicredential-may-include-intell
               description: |-
-                **Dev chain**: includes `AzureCliCredential`; may include `IntelliJCredential`, `VisualStudioCodeCredential`, `AzurePowerShellCredential`
+                - Local development strategy includes Azure CLI or another developer-tool credential.
+                - Additional IDE or PowerShell credentials may participate in a documented order.
+                - Local credentials are not used for production when hosted identity is detected.
               weight: 1
               pass_threshold: 1
             - name: prompt/ci-chain-uses-environmentcredential-or-azurepipelinescre
               description: |-
-                **CI chain**: uses `EnvironmentCredential` or `AzurePipelinesCredential` (not just `DefaultAzureCredential`)
+                - CI strategy uses pipeline-provided credentials or environment credentials.
+                - Azure Pipelines inputs flow into `AzurePipelinesCredential` when that path is selected.
+                - Do not use broad `DefaultAzureCredential` as the only CI-specific strategy.
               weight: 1
               pass_threshold: 1
             - name: prompt/production-chain-managedidentitycredential-first-support
               description: |-
-                **Production chain**: `ManagedIdentityCredential` first (supports user-assigned via `clientId()`), `WorkloadIdentityCredential` as fallback ### CAE Support
+                - Production strategy attempts managed identity before workload identity.
+                - System-assigned managed identity is supported.
+                - User-assigned managed identity client ID can come from configuration.
               weight: 1
               pass_threshold: 1
-            - name: prompt/enables-cae-via-tokenrequestcontext-setcaeenabled-true-o
+            - name: prompt/cae-request-and-output
               description: |-
-                Enables CAE via `TokenRequestContext.setCaeEnabled(true)` or `enableCae()` on credential builders ### Environment Detection
+                - The token request enables CAE through a supported current API such as `TokenRequestContext.setCaeEnabled(true)`.
+                - CAE can be enabled or disabled by the factory/test configuration.
+                - Prints whether CAE was requested for the acquired token.
               weight: 1
               pass_threshold: 1
             - name: prompt/detects-ci-checks-ci-tf-build-azure-pipeline-workspace-o
               description: |-
-                Detects CI (checks `CI`, `TF_BUILD`, `AZURE_PIPELINE_WORKSPACE`, or similar)
+                - Detect CI from environment indicators such as `CI`, `TF_BUILD`, or pipeline workspace values.
+                - CI detection selects the CI credential strategy.
+                - Print or expose the detected CI environment.
               weight: 1
               pass_threshold: 1
             - name: prompt/detects-production-managed-identity-checks-identity-endp
               description: |-
-                Detects production/managed identity (checks `IDENTITY_ENDPOINT`, `MSI_ENDPOINT`, or similar)
+                - Detect hosted production from managed-identity or workload-identity indicators.
+                - Production detection selects the hosted credential strategy.
+                - Print or expose the detected production environment.
               weight: 1
               pass_threshold: 1
             - name: prompt/falls-back-to-dev-if-neither-detected-token-request-test
               description: |-
-                Falls back to dev if neither detected ### Token Request & Testing
+                - If CI and hosted indicators are absent, select local development.
+                - Local selection uses the developer credential strategy.
+                - Print or expose the local-development selection.
               weight: 1
               pass_threshold: 1
             - name: prompt/creates-tokenrequestcontext-with-correct-scope-https-man
               description: |-
-                Creates `TokenRequestContext` with correct scope (`https://management.azure.com/.default`)
+                - Token request uses scope `https://management.azure.com/.default`.
+                - The same scope is used for sync and async connectivity tests.
+                - CAE settings are applied when enabled by configuration.
               weight: 1
               pass_threshold: 1
             - name: prompt/calls-gettoken-and-prints-token-expiry-from-accesstoken
               description: |-
-                Calls `getToken()` and prints token expiry from `AccessToken.getExpiresAt()`
+                - Synchronous token acquisition is executed with the selected credential.
+                - Successful token result -> print success and token expiry.
+                - Do not print token secret material.
               weight: 1
               pass_threshold: 1
             - name: prompt/handles-failure-with-specific-exception-info-scenario-sp
               description: |-
-                Handles failure with specific exception info ### Scenario-Specific Async
+                - Authentication failures preserve identity-specific exception details or causes.
+                - Unavailable credentials are distinguishable from rejected credentials.
+                - Diagnostics do not expose tokens or secrets.
               weight: 1
               pass_threshold: 1
-            - name: prompt/async-tester-uses-reactive-gettoken-returning-mono-acces
+            - name: prompt/async-connectivity-test
               description: |-
-                Async tester uses reactive `getToken()` returning `Mono<AccessToken>` ### Anti-Patterns (scenario-specific)
+                - Requests the same Resource Manager scope through the asynchronous token API.
+                - Consumes the supported reactive result to completion and prints success plus expiry.
+                - Reports specific asynchronous authentication failures without wrapping a synchronous tester in an executor.
               weight: 1
               pass_threshold: 1
             - name: prompt/not-using-defaultazurecredential-as-the-ci-credential-to
               description: |-
-                NOT using `DefaultAzureCredential` as the CI credential (too broad)
+                - CI mode has an explicit CI credential strategy.
+                - `DefaultAzureCredential` alone is not the CI-specific implementation.
+                - Alternative CI credentials remain valid when configured from pipeline inputs.
               weight: 1
               pass_threshold: 1
-            - name: language/correct-dependencies-com-azure-not-com-microsoft-azure
+            - name: prompt/detected-strategy-demo
               description: |-
-                Uses com.azure group ID for all Azure SDK packages. No com.microsoft.azure (legacy SDK) dependencies. Includes azure-identity for authentication.
+                - Detected environment -> matching credential strategy.
+                - Prints the selected strategy.
+                - Runs and prints the synchronous test before the asynchronous test.
               weight: 1
               pass_threshold: 1
-            - name: language/azure-sdk-bom-for-version-management
+            - name: language/current-public-azure-sdk-dependencies
               description: |-
-                Uses azure-sdk-bom in dependencyManagement to manage Azure SDK versions instead of hardcoding individual artifact versions. Dependencies should omit <version> tags when managed by the BOM.
+                - Declare Azure SDK artifacts required by the selected services and authentication flow.
+                - Use current compatible coordinates under `com.azure` or `com.azure.resourcemanager`.
+                - Include `azure-identity` only when the chosen authentication flow requires a `TokenCredential`.
               weight: 1
               pass_threshold: 1
-            - name: language/correct-imports-no-legacy-no-internal-packages
+            - name: language/azure-sdk-bom-first-version-management
               description: |-
-                All imports use com.azure.* packages. No com.microsoft.azure.* (legacy) or com.azure.*.implementation.* (internal API) imports.
+                - Import `com.azure:azure-sdk-bom` through Maven dependency management or a Gradle platform.
+                - Omit explicit versions for compatible BOM-covered GA Azure artifacts.
+                - Use explicit versions only for preview, uncovered, incompatible, or prompt-pinned artifacts.
               weight: 1
               pass_threshold: 1
-            - name: language/defaultazurecredential-authentication
+            - name: language/current-public-azure-sdk-imports
               description: |-
-                Uses DefaultAzureCredential or another com.azure.identity credential. No hardcoded connection strings, account keys, SAS tokens, or secrets.
+                - Azure SDK imports use current public `com.azure.*` or `com.azure.resourcemanager.*` packages.
+                - Do not import legacy `com.microsoft.azure.*` packages.
+                - Do not import Azure internal implementation packages.
+                - Standard Java, Reactor, Jackson, OpenAI, and other required non-Azure imports are valid.
               weight: 1
               pass_threshold: 1
-            - name: language/client-builder-pattern
+            - name: language/supported-runtime-authentication
               description: |-
-                SDK clients constructed using *ClientBuilder classes with .endpoint() or .vaultUrl() and .credential(). No legacy constructors (CloudStorageAccount, DocumentClient, KeyVaultClient).
+                - Authentication values come from runtime configuration or the execution environment.
+                - Use a current public authentication mode supported by the selected client or service.
+                - Do not embed or log connection strings, account keys, SAS tokens, client secrets, or bearer tokens.
               weight: 1
               pass_threshold: 1
-            - name: language/no-deprecated-legacy-classes
+            - name: language/current-public-azure-sdk-apis
               description: |-
-                No deprecated classes from the old SDK (CloudStorageAccount, CloudBlobClient, DocumentClient, QueueClient, ApplicationTokenCredentials, MSICredentials, ConnectionStringBuilder).
+                - Use current public Azure SDK clients, models, and operations.
+                - Public preview SDK APIs are valid when the prompt pins or requires a preview package.
+                - Do not depend on deprecated, removed, internal, or implementation-only Azure types.
+                - Equivalent public APIs are valid when exact symbols are not prompt-contractual.
               weight: 1
               pass_threshold: 1
-            - name: language/pagination-pagediterable-pagedflux
+            - name: language/reactive-async-service-flow
               description: |-
-                List/query operations return PagedIterable (sync) or PagedFlux (async). Does not flatten all pages into a raw List or Stream in memory.
+                - Prompt-required async Azure operations originate from async SDK clients or documented async adapters.
+                - Compose reusable async flows with Reactor `Mono`/`Flux` or equivalent nonblocking composition.
+                - Do not wrap synchronous clients in an executor or block inside reusable async service methods.
               weight: 1
               pass_threshold: 1
-            - name: language/lro-pattern-syncpoller-pollerflux
+            - name: language/service-specific-error-diagnostics
               description: |-
-                Long-running operations use SyncPoller (sync) or PollerFlux (async) with begin* method prefix. No Thread.sleep() polling loops.
-              weight: 1
-              pass_threshold: 1
-            - name: language/async-uses-project-reactor-mono-flux
-              description: |-
-                Async code uses Project Reactor types (Mono, Flux). Not CompletableFuture (wrong), not RxJava (wrong), not sync wrapped in ExecutorService. No .block() inside async service implementations.
-              weight: 1
-              pass_threshold: 1
-            - name: language/service-specific-exception-handling
-              description: |-
-                Catches service-specific exceptions (BlobStorageException, CosmosException, ServiceBusException, HttpResponseException) with status code inspection. Not just generic Exception catches.
-              weight: 1
-              pass_threshold: 1
-            - name: language/try-with-resources-for-clients
-              description: |-
-                All Azure SDK client instances that implement AutoCloseable are used within try-with-resources blocks or explicitly closed in a finally block.
+                - Handle the selected Azure service or identity SDK exception type around service operations.
+                - Preserve status code, failure reason, or service error details when available.
+                - Report actionable diagnostics without exposing credential material.
               weight: 1
               pass_threshold: 1
       - type: run-command

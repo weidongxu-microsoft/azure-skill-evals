@@ -27,7 +27,7 @@ public final class AsyncTodoRepository {
                         new CosmosItemRequestOptions())
                 .doOnNext(response ->
                         logCharge("async create", response.getRequestCharge()))
-                .map(CosmosItemResponse::getItem)
+                .map(response -> itemWithResponseEtag(response, item))
                 .onErrorMap(CosmosException.class, error -> translate("create", error));
     }
 
@@ -35,7 +35,7 @@ public final class AsyncTodoRepository {
         return container.readItem(id, new PartitionKey(category), TodoItem.class)
                 .doOnNext(response ->
                         logCharge("async read", response.getRequestCharge()))
-                .map(CosmosItemResponse::getItem)
+                .map(response -> itemWithResponseEtag(response, null))
                 .onErrorMap(CosmosException.class, error -> translate("read", error));
     }
 
@@ -53,7 +53,7 @@ public final class AsyncTodoRepository {
                         options)
                 .doOnNext(response ->
                         logCharge("async update", response.getRequestCharge()))
-                .map(CosmosItemResponse::getItem)
+                .map(response -> itemWithResponseEtag(response, item))
                 .onErrorMap(CosmosException.class, error -> translate("update", error));
     }
 
@@ -98,6 +98,18 @@ public final class AsyncTodoRepository {
                     exception);
             default -> exception;
         };
+    }
+
+    private static TodoItem itemWithResponseEtag(
+            CosmosItemResponse<TodoItem> response, TodoItem submittedItem) {
+        TodoItem item = response.getItem() == null
+                ? submittedItem
+                : response.getItem();
+        if (item == null) {
+            throw new IllegalStateException("Cosmos response did not include an item");
+        }
+        item.setEtag(response.getETag());
+        return item;
     }
 
     private static void logCharge(String operation, double requestCharge) {

@@ -26,7 +26,7 @@ public final class SyncTodoRepository {
                     new PartitionKey(item.getCategory()),
                     new CosmosItemRequestOptions());
             logCharge("sync create", response.getRequestCharge());
-            return response.getItem();
+            return itemWithResponseEtag(response, item);
         } catch (CosmosException exception) {
             throw translate("create", exception);
         }
@@ -37,7 +37,7 @@ public final class SyncTodoRepository {
             CosmosItemResponse<TodoItem> response = container.readItem(
                     id, new PartitionKey(category), TodoItem.class);
             logCharge("sync read", response.getRequestCharge());
-            return response.getItem();
+            return itemWithResponseEtag(response, null);
         } catch (CosmosException exception) {
             throw translate("read", exception);
         }
@@ -56,7 +56,7 @@ public final class SyncTodoRepository {
                     new PartitionKey(item.getCategory()),
                     options);
             logCharge("sync update", response.getRequestCharge());
-            return response.getItem();
+            return itemWithResponseEtag(response, item);
         } catch (CosmosException exception) {
             throw translate("update", exception);
         }
@@ -107,6 +107,18 @@ public final class SyncTodoRepository {
                     exception);
             default -> exception;
         };
+    }
+
+    private static TodoItem itemWithResponseEtag(
+            CosmosItemResponse<TodoItem> response, TodoItem submittedItem) {
+        TodoItem item = response.getItem() == null
+                ? submittedItem
+                : response.getItem();
+        if (item == null) {
+            throw new IllegalStateException("Cosmos response did not include an item");
+        }
+        item.setEtag(response.getETag());
+        return item;
     }
 
     private static void logCharge(String operation, double requestCharge) {

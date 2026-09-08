@@ -14,7 +14,9 @@ public record AzureClients(
         BlobServiceClient blobClient,
         BlobServiceAsyncClient blobAsyncClient,
         EventGridPublisherClient<EventGridEvent> eventPublisher,
-        EventGridPublisherAsyncClient<EventGridEvent> eventAsyncPublisher) {
+        EventGridPublisherAsyncClient<EventGridEvent> eventAsyncPublisher,
+        String eventGridEndpoint,
+        TokenCredential credential) {
 
     public static AzureClients fromEnvironment() {
         String storageEndpoint = requireEnvironment("AZURE_STORAGE_ACCOUNT_URL");
@@ -38,7 +40,13 @@ public record AzureClients(
                 .credential(credential)
                 .buildEventGridEventPublisherAsyncClient();
 
-        return new AzureClients(blobClient, blobAsyncClient, publisher, asyncPublisher);
+        return new AzureClients(
+                blobClient,
+                blobAsyncClient,
+                publisher,
+                asyncPublisher,
+                eventGridEndpoint,
+                credential);
     }
 
     private static String requireEnvironment(String name) {

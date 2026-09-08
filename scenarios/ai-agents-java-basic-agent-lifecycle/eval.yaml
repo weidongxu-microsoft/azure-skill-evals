@@ -73,108 +73,126 @@ stimuli:
           evidence:
             - diff
           criteria:
-            - name: prompt/builds-persistentagentsclient-with-persistentagentsclien
+            - name: prompt/configures-the-synchronous-agents-client
               description: |-
-                Builds `PersistentAgentsClient` with `PersistentAgentsClientBuilder`, then obtains
-                the administration, threads, messages, and runs subclients for the complete
-                workflow; a non-agents chat client is not equivalent.
+                - Read `PROJECT_ENDPOINT` from the environment.
+                - Build the synchronous persistent Agents client with that endpoint and `DefaultAzureCredential`.
+                - Use the Agents administration, thread, message, and run operations.
               weight: 1
               pass_threshold: 1
-            - name: prompt/creates-the-agent-with-createagentoptions-passing-the-de
+            - name: prompt/creates-the-named-deployed-agent
               description: |-
-                Creates the agent with `CreateAgentOptions`, passing the deployment from
-                `MODEL_DEPLOYMENT_NAME`, the required name, and the required instructions.
+                - Read `MODEL_DEPLOYMENT_NAME` from the environment.
+                - Create `hyoka-basic-agent` with that deployment.
+                - Set instructions to `Answer the user's question clearly and concisely.`
               weight: 1
               pass_threshold: 1
             - name: prompt/creates-a-thread-with-threadsclient-createthread
               description: |-
-                Creates a thread with `ThreadsClient.createThread`.
+                - Create a new Agents thread through the current public thread API.
+                - Retain the service-returned thread ID for later message and run operations.
               weight: 1
               pass_threshold: 1
             - name: prompt/adds-the-exact-user-message-with-messagesclient-createme
               description: |-
-                Adds the exact user message with `MessagesClient.createMessage`,
-                `MessageRole.USER`, and the created thread ID.
+                - Created thread ID -> user message creation.
+                - Message text is exactly `What is the capital of France?`.
+                - Use the SDK user role or equivalent user-message field.
               weight: 1
               pass_threshold: 1
             - name: prompt/creates-the-run-with-createrunoptions-containing-the-cre
               description: |-
-                Creates the run with `CreateRunOptions` containing the created thread ID and agent
-                ID.
+                - Created thread ID and created agent ID -> public Agents run creation API.
+                - Options object or equivalent public overload is valid.
+                - Retain the service-returned run ID for status retrieval.
+                - Do not run an unrelated chat-completion request.
               weight: 1
               pass_threshold: 1
-            - name: prompt/polls-by-calling-runsclient-getrun-with-the-thread-id-an
+            - name: prompt/polls-the-agent-run-to-success
               description: |-
-                After `RunsClient.createRun`, repeatedly calls `RunsClient.getRun` with the thread
-                ID and run ID until the run leaves its nonterminal statuses.
+                - Retrieve the run with the returned thread ID and run ID.
+                - Continue polling while status is `QUEUED`, `IN_PROGRESS`, or `CANCELLING`.
+                - Return only when status is `COMPLETED`.
+                - `REQUIRES_ACTION`, `FAILED`, `CANCELLED`, `EXPIRED`, or timeout -> clear failure.
               weight: 1
               pass_threshold: 1
-            - name: prompt/retrieves-messages-only-after-successful-completion-iter
+            - name: prompt/prints-returned-assistant-messages
               description: |-
-                Retrieves messages only after successful completion, iterates the paged SDK result
-                with `ListSortOrder.ASCENDING`, and prints text read from returned
-                `MessageTextContent` values in `MessageRole.AGENT` messages rather than a known or
-                hardcoded answer.
+                - After run success, traverse all returned thread messages in chronological order.
+                - Print text content from every assistant/agent message.
+                - Do not substitute a locally hardcoded answer.
               weight: 1
               pass_threshold: 1
-            - name: prompt/deletes-both-the-created-thread-and-the-created-agent-th
+            - name: prompt/deletes-created-conversation-resources
               description: |-
-                Deletes both the created thread and the created agent through their SDK clients.
+                - Delete the created thread through the Agents SDK.
+                - Delete the created agent through the Agents SDK.
               weight: 1
               pass_threshold: 1
-            - name: language/correct-dependencies-com-azure-not-com-microsoft-azure
+            - name: language/current-public-azure-sdk-dependencies
               description: |-
-                Uses com.azure group ID for all Azure SDK packages. No com.microsoft.azure (legacy SDK) dependencies. Includes azure-identity for authentication.
+                - Declare Azure SDK artifacts required by the selected services and authentication flow.
+                - Use current compatible coordinates under `com.azure` or `com.azure.resourcemanager`.
+                - Include `azure-identity` only when the chosen authentication flow requires a `TokenCredential`.
               weight: 1
               pass_threshold: 1
-            - name: language/azure-sdk-bom-for-version-management
+            - name: language/azure-sdk-bom-first-version-management
               description: |-
-                Uses azure-sdk-bom in dependencyManagement to manage Azure SDK versions instead of hardcoding individual artifact versions. Dependencies should omit <version> tags when managed by the BOM.
+                - Import `com.azure:azure-sdk-bom` through Maven dependency management or a Gradle platform.
+                - Omit explicit versions for compatible BOM-covered GA Azure artifacts.
+                - Use explicit versions only for preview, uncovered, incompatible, or prompt-pinned artifacts.
               weight: 1
               pass_threshold: 1
-            - name: language/correct-imports-no-legacy-no-internal-packages
+            - name: language/current-public-azure-sdk-imports
               description: |-
-                All imports use com.azure.* packages. No com.microsoft.azure.* (legacy) or com.azure.*.implementation.* (internal API) imports.
+                - Azure SDK imports use current public `com.azure.*` or `com.azure.resourcemanager.*` packages.
+                - Do not import legacy `com.microsoft.azure.*` packages.
+                - Do not import Azure internal implementation packages.
+                - Standard Java, Reactor, Jackson, OpenAI, and other required non-Azure imports are valid.
               weight: 1
               pass_threshold: 1
-            - name: language/defaultazurecredential-authentication
+            - name: language/supported-runtime-authentication
               description: |-
-                Uses DefaultAzureCredential or another com.azure.identity credential. No hardcoded connection strings, account keys, SAS tokens, or secrets.
+                - Authentication values come from runtime configuration or the execution environment.
+                - Use a current public authentication mode supported by the selected client or service.
+                - Do not embed or log connection strings, account keys, SAS tokens, client secrets, or bearer tokens.
               weight: 1
               pass_threshold: 1
-            - name: language/client-builder-pattern
+            - name: language/current-public-client-construction
               description: |-
-                SDK clients constructed using *ClientBuilder classes with .endpoint() or .vaultUrl() and .credential(). No legacy constructors (CloudStorageAccount, DocumentClient, KeyVaultClient).
+                - Construct Azure SDK clients or managers through current public builders, factories, or documented fluent entry points.
+                - Runtime endpoint, vault URL, namespace, subscription, or profile values flow into the constructed client.
+                - Do not use legacy constructors or removed client types.
               weight: 1
               pass_threshold: 1
-            - name: language/no-deprecated-legacy-classes
+            - name: language/current-public-azure-sdk-apis
               description: |-
-                No deprecated classes from the old SDK (CloudStorageAccount, CloudBlobClient, DocumentClient, QueueClient, ApplicationTokenCredentials, MSICredentials, ConnectionStringBuilder).
+                - Use current public Azure SDK clients, models, and operations.
+                - Public preview SDK APIs are valid when the prompt pins or requires a preview package.
+                - Do not depend on deprecated, removed, internal, or implementation-only Azure types.
+                - Equivalent public APIs are valid when exact symbols are not prompt-contractual.
               weight: 1
               pass_threshold: 1
-            - name: language/pagination-pagediterable-pagedflux
+            - name: language/complete-pageable-traversal
               description: |-
-                List/query operations return PagedIterable (sync) or PagedFlux (async). Does not flatten all pages into a raw List or Stream in memory.
+                - For prompt-required list, query, or status collections, traverse every returned page or continuation.
+                - Use `PagedIterable`, `PagedFlux`, an SDK auto-pager, or an equivalent current paging API.
+                - Do not stop after the first page or flatten before required per-page behavior is observed.
               weight: 1
               pass_threshold: 1
-            - name: language/lro-pattern-syncpoller-pollerflux
+            - name: language/supported-terminal-state-polling
               description: |-
-                Long-running operations use SyncPoller (sync) or PollerFlux (async) with begin* method prefix. No Thread.sleep() polling loops.
+                - Use the public run-retrieval API with the service-returned thread and run IDs.
+                - Bound repeated retrieval by a deadline and delay between requests.
+                - Continue retrieval through every nonterminal status exposed by the selected SDK version.
+                - Terminal non-success or timeout -> clear failure.
               weight: 1
               pass_threshold: 1
-            - name: language/async-uses-project-reactor-mono-flux
+            - name: language/owned-resource-lifecycle-cleanup
               description: |-
-                Async code uses Project Reactor types (Mono, Flux). Not CompletableFuture (wrong), not RxJava (wrong), not sync wrapped in ExecutorService. No .block() inside async service implementations.
-              weight: 1
-              pass_threshold: 1
-            - name: language/service-specific-exception-handling
-              description: |-
-                Catches service-specific exceptions (BlobStorageException, CosmosException, ServiceBusException, HttpResponseException) with status code inspection. Not just generic Exception catches.
-              weight: 1
-              pass_threshold: 1
-            - name: language/try-with-resources-for-clients
-              description: |-
-                All Azure SDK client instances that implement AutoCloseable are used within try-with-resources blocks or explicitly closed in a finally block.
+                - Delete the service-created thread after the run workflow.
+                - Delete the service-created agent after thread cleanup.
+                - Cleanup uses the returned thread and agent IDs.
               weight: 1
               pass_threshold: 1
       - type: run-command

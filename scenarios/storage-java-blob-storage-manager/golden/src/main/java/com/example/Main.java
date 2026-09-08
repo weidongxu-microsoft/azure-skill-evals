@@ -11,6 +11,11 @@ import java.time.Duration;
 import java.util.Map;
 
 public final class Main {
+    private static final long TRANSFER_BLOCK_BYTES = 4L * 1024 * 1024;
+    private static final int MAX_CONCURRENT_BLOCKS = 4;
+    private static final long MAX_IN_FLIGHT_BYTES =
+            TRANSFER_BLOCK_BYTES * MAX_CONCURRENT_BLOCKS;
+
     private Main() {
     }
 
@@ -24,8 +29,8 @@ public final class Main {
                 Duration.ofSeconds(12),
                 HttpLogDetailLevel.BODY_AND_HEADERS);
         ParallelTransferOptions transferOptions = new ParallelTransferOptions()
-                .setBlockSizeLong(4L * 1024 * 1024)
-                .setMaxConcurrency(4)
+                .setBlockSizeLong(TRANSFER_BLOCK_BYTES)
+                .setMaxConcurrency(MAX_CONCURRENT_BLOCKS)
                 .setMaxSingleUploadSizeLong(8L * 1024 * 1024);
         Duration operationTimeout = Duration.ofMinutes(2);
 
@@ -44,6 +49,9 @@ public final class Main {
         Path syncDownloadPath = Path.of("sample-download-sync.txt");
         Path asyncDownloadPath = Path.of("sample-download-async.txt");
         Files.writeString(uploadPath, "Azure Blob Storage manager demo");
+        System.out.printf(
+                "Uploads stream from disk in bounded blocks with at most %d bytes in flight%n",
+                MAX_IN_FLIGHT_BYTES);
 
         Map<String, String> metadata = Map.of(
                 "source", "azure-skill-evals",
@@ -69,7 +77,7 @@ public final class Main {
                 uploadPath,
                 overwriteMetadata,
                 overwriteTags,
-                "sync-demo-lease");
+                "9c641f24-a1e5-4fc2-b9ab-952b3b0b3676");
         syncManager.deleteBlob(containerName, blobName);
         syncManager.deleteContainer(containerName);
 
@@ -89,7 +97,7 @@ public final class Main {
                 uploadPath,
                 overwriteMetadata,
                 overwriteTags,
-                "async-demo-lease");
+                "f75e8a51-f42f-4c9d-bb58-da0e1c8e61ec");
         Mono<Void> deleteBlobStep = asyncManager.deleteBlobAsync(containerName, blobName);
         Mono<Void> deleteContainerStep = asyncManager.deleteContainerAsync(containerName);
 

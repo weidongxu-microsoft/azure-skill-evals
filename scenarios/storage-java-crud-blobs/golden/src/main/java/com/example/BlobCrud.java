@@ -26,9 +26,7 @@ public final class BlobCrud {
         BlobClient blobClient = containerClient.getBlobClient(BLOB_NAME);
 
         try {
-            if (!containerClient.exists()) {
-                containerClient.create();
-            }
+            containerClient.createIfNotExists();
 
             blobClient.uploadFromFile("data.txt", true);
 

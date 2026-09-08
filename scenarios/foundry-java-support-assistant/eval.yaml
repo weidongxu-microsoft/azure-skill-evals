@@ -125,203 +125,183 @@ stimuli:
           criteria:
             - name: prompt/implements-a-complete-runnable-support-application
               description: |-
-                - Production entry point -> `HttpServer.start()` and a long-running process.
-                - HTTP handlers -> production support orchestration.
-                - `pom.xml` -> buildable application and executable tests.
-                - README -> compile, test, run, and cleanup commands.
-                No CLI-only or placeholder implementation.
+                - Start a long-running Java 17 HTTP JSON API on a configurable port.
+                - Route question, follow-up, feedback, ingestion, unresolved review, evaluation, and cleanup requests to production orchestration.
+                - Provide a buildable Maven manifest and executable tests.
+                - Document compile, test, run, and cleanup commands.
               weight: 1
               pass_threshold: 1
             - name: prompt/selects-coherent-current-foundry-and-azure-sdks
               description: |-
-                - Current supported Java client or supported project-scoped REST client ->
-                  configured Foundry project endpoint + Entra credential.
-                - Foundry project or its `/openai/v1` endpoint -> answer generation.
-                - Supported Foundry evaluation client or API -> evaluation workflow.
-                - Request configuration uses documented field names and value shapes.
-                - Every declared Azure service client -> invoked operation.
+                - Connect a current supported Java client or project-scoped REST client to the configured Foundry project.
+                - Generate answers through that project or its `/openai/v1` endpoint.
+                - Run evaluations through a supported Foundry client or API.
+                - Use documented request fields and invoke every declared Azure service client.
               weight: 1
               pass_threshold: 1
             - name: prompt/uses-a-foundry-managed-prompt-agent
               description: |-
-                - Foundry project agent creation API -> create a prompt agent after
-                  retrieval readiness is confirmed.
-                - Agent definition -> configured model, support instructions, and retrieval
-                  tool bound to the selected retrieval resource.
-                - Service-returned agent identity -> persist with the application's owned
-                  cloud-resource identifiers -> use for grounded answers, evaluation cases,
-                  and cleanup.
-                - Grounded answers and evaluation cases -> invoke that created agent through
-                  an agent reference or agent-scoped response client.
-                - Cleanup -> delete only that application-created agent resource after its
-                  conversations and before its referenced retrieval resources.
-                An OpenAI client request with locally repeated instructions and tools, but
-                no Foundry project-agent creation operation, does not satisfy this criterion.
+                - Create a Foundry project prompt agent with the configured model and support instructions.
+                - Bind its retrieval tool to the created retrieval resource.
+                - Persist the service-returned agent identity with application-owned resource IDs.
+                - Verify retrieval readiness before using that agent for grounded answers or evaluation cases.
+                - Delete only the application-created agent, after its conversations and before referenced retrieval resources.
               weight: 1
               pass_threshold: 1
             - name: prompt/ingests-product-documentation-and-waits-for-retrieval-readiness
               description: |-
-                Choose one path for both supplied product documentation files:
-                - Upload through a Foundry/OpenAI file client -> attach to a vector store ->
-                  bounded status polling to `completed`.
-                - `POST /openai/v1/files` -> `POST /vector_stores/{id}/files` -> bounded
-                  `GET` polling to `completed`.
-                - `SearchClient.indexDocuments(...)` -> successful indexing result ->
-                  `getDocument(...)`.
-                - Blob upload -> run an Azure AI Search indexer -> bounded status polling
-                  to `success`.
-                No local-only readiness flag.
+                - Ingest both supplied files from `materials/` into Foundry file search, Azure AI Search, or an equivalent grounded retrieval service.
+                - Bind every uploaded document to the selected searchable resource.
+                - Verify service-reported successful indexing before accepting questions.
+                - Bound delayed readiness polling and fail on unsuccessful terminal state or timeout.
               weight: 1
               pass_threshold: 1
             - name: prompt/returns-grounded-answers-with-service-citations
               description: |-
-                One path is required:
-                - Foundry Responses request includes file-search results -> parse
-                  `output_text.annotations[type == "file_citation"].filename`.
-                - Foundry agent response -> parse
-                  `output_text.annotations[type == "url_citation"].{title,url}`.
-                - `SearchClient.search(...)` -> match returned citation IDs to result IDs ->
-                  returned source filename.
-                No hardcoded documentation filenames.
+                - Supply retrieved context through the managed agent's configured retrieval tool.
+                - Parse source identifiers or citation annotations returned by retrieval or answer services.
+                - Return references identifying supporting source files; do not hardcode filenames.
               weight: 1
               pass_threshold: 1
             - name: prompt/preserves-isolated-multi-turn-conversations
               description: |-
-                One path is required:
-                - Create a Foundry conversation or thread -> persist returned ID by
-                  authenticated `employeeId + conversationId` -> reuse returned ID.
-                - Persist turns by authenticated `employeeId + conversationId` -> pass prior
-                  turns to the next Foundry answer call.
-                No process-memory-only state.
+                - Key conversation state by authenticated `employeeId + conversationId`.
+                - Persist and reuse a service conversation/thread ID, or persist turns and replay prior context.
+                - Keep different employees and client conversation IDs isolated across restarts.
               weight: 1
               pass_threshold: 1
             - name: prompt/records-unsupported-questions-for-follow-up
               description: |-
-                - Detect `supported == false` or output beginning with `UNSUPPORTED:`.
-                - Durable unresolved record -> question, response ID, creation time, and
-                  conversation key scoped by authenticated employee.
+                - Detect when retrieved documentation does not support an answer.
+                - Return a clearly identified unsupported response.
+                - Durably record the question, response ID, timestamp, and employee-scoped conversation key.
               weight: 1
               pass_threshold: 1
             - name: prompt/records-validated-response-specific-feedback
               description: |-
-                - Load persisted `responseId`.
-                - Verify that the authenticated `employeeId` owns the response.
-                - If the request supplies a conversation ID, also verify that scope;
-                  a globally unique persisted response ID plus employee ownership is valid.
-                - Reject an unknown response or any ownership/scope mismatch.
-                - Persist rating linked to `responseId`.
+                - Load the persisted response identified by `responseId`.
+                - Verify authenticated employee ownership and any supplied conversation scope.
+                - Reject an unknown response or ownership/scope mismatch.
+                - Durably persist the positive or negative rating linked to `responseId`.
               weight: 1
               pass_threshold: 1
             - name: prompt/runs-extensible-groundedness-and-relevance-evaluation
               description: |-
-                - Evaluation definition -> groundedness + relevance evaluators in an
-                  extensible collection.
-                - Evaluator and model configuration matches the selected API schema
-                  (for example, Azure evaluator deployments use `deployment_name`).
-                - Evaluation run -> retrieve or poll to terminal status.
-                - Traverse every returned output item and report every metric.
-                - Evaluator `context` -> results returned by the selected retrieval service,
-                  not hand-authored dataset context.
+                - Submit a multi-case dataset to groundedness and relevance evaluators held in an extensible collection.
+                - Configure evaluators and model deployment with the selected API's documented schema.
+                - Generate each answer with the created managed agent and use retrieval-service results as evaluator context.
+                - Wait for a successful terminal run state with bounded polling.
+                - Traverse all output pages and report every returned metric.
               weight: 1
               pass_threshold: 1
             - name: prompt/uses-entra-identity-and-external-configuration
               description: |-
-                - Environment variables -> endpoints, deployment, identity settings.
-                - A `com.azure.core.credential.TokenCredential` -> every Azure client or REST
-                  token.
-                - Validated Entra token or trusted platform principal -> `employeeId`.
-                - Admin role or allowlist -> ingestion, review, evaluation, cleanup routes.
+                - Read endpoints, deployment, identity, and environment-specific settings from configuration.
+                - Use a `TokenCredential` to authenticate every Azure SDK or REST service call.
+                - Derive `employeeId` from a validated Entra token or trusted platform principal.
+                - Require an admin role or allowlist for ingestion, review, evaluation, and cleanup routes.
               weight: 1
               pass_threshold: 1
             - name: prompt/handles-lifecycle-errors-and-bounded-waits
               description: |-
-                - Deadline + delayed polling without a tight loop.
-                - Handle `failed`, `cancelled`/`canceled`, timeout.
-                - Narrow SDK failures to `BlobStorageException`, `HttpResponseException`, or
-                  the selected service exception and inspect status/error code; a structured
-                  Foundry REST exception carrying status and service code is also valid.
-                No unbounded or delay-free polling.
+                - Use deadlines and delayed polling rather than tight or unbounded loops.
+                - Handle failed, canceled, and timed-out ingestion or evaluation states.
+                - Preserve selected SDK or structured REST status and service error details.
+                - Return actionable diagnostics from service failures.
               weight: 1
               pass_threshold: 1
             - name: prompt/cleans-up-created-cloud-resources-safely
               description: |-
-                - Delete only application-owned resources created by the selected retrieval
-                  and conversation path, in a dependency-safe order.
-                - Preserve persisted resource ownership until remote deletion succeeds.
-                - A failed cleanup or replacement must retain enough ownership information
-                  for a later retry; it must not orphan the previous resources.
+                - Delete only application-owned agent, conversation, and retrieval resources in dependency-safe order.
+                - Preserve persisted ownership until each remote deletion succeeds.
+                - Failed cleanup or replacement retains enough ownership state for retry.
               weight: 1
               pass_threshold: 1
             - name: prompt/includes-meaningful-offline-automated-tests
               description: |-
-                Executable `mvn test` tests exercise HTTP handlers and orchestration with
-                mocked or fake Azure clients. Test assertions cover:
-                - employee conversation isolation and follow-up context;
-                - unknown or mismatched feedback rejection;
-                - evaluator context from retrieved results;
-                - durable multi-record writes being atomic, or failure recovery/compensation
-                  when atomic writes are not used.
-                Declared mocks, test doubles, or unexecuted helper code are not evidence.
+                - Executable `mvn test` tests exercise HTTP handlers and orchestration with mocked or fake Azure clients.
+                - Test employee conversation isolation and follow-up context.
+                - Test unknown or mismatched feedback rejection.
+                - Test evaluator context derived from retrieval results.
+                - Test atomic durable multi-record writes or failure recovery/compensation.
               weight: 1
               pass_threshold: 1
             - name: prompt/excludes-provisioning-and-deployment
               description: |-
-                No Bicep, ARM, Terraform, `az`/`azd` provisioning, or deployment workflow.
+                - Treat required Azure resources as pre-existing runtime configuration.
+                - Do not add Bicep, ARM, Terraform, `az`/`azd` provisioning, or deployment workflows.
               weight: 1
               pass_threshold: 1
-            - name: language/correct-dependencies-com-azure-not-com-microsoft-azure
+            - name: language/current-public-azure-sdk-dependencies
               description: |-
-                Uses com.azure group ID for all Azure SDK packages. No com.microsoft.azure (legacy SDK) dependencies. Includes azure-identity for authentication.
+                - Declare Azure SDK artifacts required by the selected services and authentication flow.
+                - Use current compatible coordinates under `com.azure` or `com.azure.resourcemanager`.
+                - Include `azure-identity` only when the chosen authentication flow requires a `TokenCredential`.
               weight: 1
               pass_threshold: 1
-            - name: language/azure-sdk-bom-for-version-management
+            - name: language/azure-sdk-bom-first-version-management
               description: |-
-                Uses azure-sdk-bom in dependencyManagement to manage Azure SDK versions instead of hardcoding individual artifact versions. Dependencies should omit <version> tags when managed by the BOM.
+                - Import `com.azure:azure-sdk-bom` through Maven dependency management or a Gradle platform.
+                - Omit explicit versions for compatible BOM-covered GA Azure artifacts.
+                - Use explicit versions only for preview, uncovered, incompatible, or prompt-pinned artifacts.
               weight: 1
               pass_threshold: 1
-            - name: language/correct-imports-no-legacy-no-internal-packages
+            - name: language/current-public-azure-sdk-imports
               description: |-
-                All imports use com.azure.* packages. No com.microsoft.azure.* (legacy) or com.azure.*.implementation.* (internal API) imports.
+                - Azure SDK imports use current public `com.azure.*` or `com.azure.resourcemanager.*` packages.
+                - Do not import legacy `com.microsoft.azure.*` packages.
+                - Do not import Azure internal implementation packages.
+                - Standard Java, Reactor, Jackson, OpenAI, and other required non-Azure imports are valid.
               weight: 1
               pass_threshold: 1
-            - name: language/defaultazurecredential-authentication
+            - name: language/supported-runtime-authentication
               description: |-
-                Uses DefaultAzureCredential or another com.azure.identity credential. No hardcoded connection strings, account keys, SAS tokens, or secrets.
+                - Authentication values come from runtime configuration or the execution environment.
+                - Use a current public authentication mode supported by the selected client or service.
+                - Do not embed or log connection strings, account keys, SAS tokens, client secrets, or bearer tokens.
               weight: 1
               pass_threshold: 1
-            - name: language/client-builder-pattern
+            - name: language/current-public-client-construction
               description: |-
-                SDK clients constructed using *ClientBuilder classes with .endpoint() or .vaultUrl() and .credential(). No legacy constructors (CloudStorageAccount, DocumentClient, KeyVaultClient).
+                - Construct Azure SDK clients or managers through current public builders, factories, or documented fluent entry points.
+                - Runtime endpoint, vault URL, namespace, subscription, or profile values flow into the constructed client.
+                - Do not use legacy constructors or removed client types.
               weight: 1
               pass_threshold: 1
-            - name: language/no-deprecated-legacy-classes
+            - name: language/current-public-azure-sdk-apis
               description: |-
-                No deprecated classes from the old SDK (CloudStorageAccount, CloudBlobClient, DocumentClient, QueueClient, ApplicationTokenCredentials, MSICredentials, ConnectionStringBuilder).
+                - Use current public Azure SDK clients, models, and operations.
+                - Public preview SDK APIs are valid when the prompt pins or requires a preview package.
+                - Do not depend on deprecated, removed, internal, or implementation-only Azure types.
+                - Equivalent public APIs are valid when exact symbols are not prompt-contractual.
               weight: 1
               pass_threshold: 1
-            - name: language/pagination-pagediterable-pagedflux
+            - name: language/complete-pageable-traversal
               description: |-
-                List/query operations return PagedIterable (sync) or PagedFlux (async). Does not flatten all pages into a raw List or Stream in memory.
+                - For prompt-required list, query, or status collections, traverse every returned page or continuation.
+                - Use `PagedIterable`, `PagedFlux`, an SDK auto-pager, or an equivalent current paging API.
+                - Do not stop after the first page or flatten before required per-page behavior is observed.
               weight: 1
               pass_threshold: 1
-            - name: language/lro-pattern-syncpoller-pollerflux
+            - name: language/supported-terminal-state-polling
               description: |-
-                Long-running operations use SyncPoller (sync) or PollerFlux (async) with begin* method prefix. No Thread.sleep() polling loops.
+                - Bound retrieval-ingestion and evaluation waits with deadlines.
+                - Poll or retrieve selected service status until successful or unsuccessful terminal state.
+                - Failed, canceled, or timed-out lifecycle -> actionable diagnostics.
               weight: 1
               pass_threshold: 1
-            - name: language/async-uses-project-reactor-mono-flux
+            - name: language/service-specific-error-diagnostics
               description: |-
-                Async code uses Project Reactor types (Mono, Flux). Not CompletableFuture (wrong), not RxJava (wrong), not sync wrapped in ExecutorService. No .block() inside async service implementations.
+                - Handle the selected Azure service or identity SDK exception type around service operations.
+                - Preserve status code, failure reason, or service error details when available.
+                - Report actionable diagnostics without exposing credential material.
               weight: 1
               pass_threshold: 1
-            - name: language/service-specific-exception-handling
+            - name: language/owned-resource-lifecycle-cleanup
               description: |-
-                Catches service-specific exceptions (BlobStorageException, CosmosException, ServiceBusException, HttpResponseException) with status code inspection. Not just generic Exception catches.
-              weight: 1
-              pass_threshold: 1
-            - name: language/try-with-resources-for-clients
-              description: |-
-                All Azure SDK client instances that implement AutoCloseable are used within try-with-resources blocks or explicitly closed in a finally block.
+                - Delete only application-owned agent, conversation, and retrieval resources.
+                - Delete in dependency-safe order after active conversations finish.
+                - Preserve ownership state when cleanup fails so a later retry can complete.
               weight: 1
               pass_threshold: 1
       - type: run-command

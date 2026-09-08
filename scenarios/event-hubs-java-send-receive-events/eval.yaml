@@ -60,94 +60,118 @@ stimuli:
           evidence:
             - diff
           criteria:
-            - name: prompt/azure-messaging-eventhubs-and-azure-messaging-eventhubs
+            - name: prompt/declares-event-hubs-checkpointing-dependencies
               description: |-
-                `azure-messaging-eventhubs` and `azure-messaging-eventhubs-checkpointstore-blob` Maven deps
+                - Include `com.azure:azure-messaging-eventhubs`.
+                - Include `com.azure:azure-messaging-eventhubs-checkpointstore-blob`.
+                - Include any Blob SDK dependency needed to construct the checkpoint container client.
               weight: 1
               pass_threshold: 1
-            - name: prompt/eventhubclientbuilder-and-eventhubproducerclient
+            - name: prompt/builds-the-connection-string-producer
               description: |-
-                `EventHubClientBuilder` and `EventHubProducerClient`
+                - Build `EventHubProducerClient` with `EventHubClientBuilder`.
+                - Supply the required Event Hubs connection string and event hub name when needed.
+                - Token-credential authentication is not required.
               weight: 1
               pass_threshold: 1
-            - name: prompt/createbatch-and-eventdatabatch-tryadd
+            - name: prompt/builds-exactly-ten-event-records
               description: |-
-                `createBatch()` and `EventDataBatch.tryAdd()`
+                - Create one `EventDataBatch`.
+                - Add exactly 10 distinct events to the batch.
+                - Attach custom properties to every event.
+                - Detect and fail a `tryAdd` rejection instead of silently sending fewer events.
               weight: 1
               pass_threshold: 1
-            - name: prompt/send-for-publishing-events
+            - name: prompt/sends-the-populated-event-batch
               description: |-
-                `send()` for publishing events
+                - Pass the populated 10-event batch to the producer's send operation.
+                - The send uses the same configured event hub consumed by the processor.
               weight: 1
               pass_threshold: 1
             - name: prompt/eventprocessorclientbuilder-with-blobcheckpointstore
               description: |-
-                `EventProcessorClientBuilder` with `BlobCheckpointStore`
+                - Configure an Event Hubs processor for the target hub and consumer group.
+                - Use a Blob-backed checkpoint store from a real Blob container client.
+                - Register the processor before starting receive work.
               weight: 1
               pass_threshold: 1
             - name: prompt/processevent-and-processerror-consumer-functions
               description: |-
-                `processEvent` and `processError` consumer functions
+                - Process-event callback consumes events delivered by the processor.
+                - Process-error callback reports partition or exception context.
+                - Both callbacks are registered on the running processor.
               weight: 1
               pass_threshold: 1
-            - name: prompt/eventcontext-updatecheckpoint-for-reliable-processing
+            - name: prompt/processes-prints-and-checkpoints-events
               description: |-
-                `EventContext.updateCheckpoint()` for reliable processing
+                - Process events supplied to the event callback.
+                - Decode and print each received event body.
+                - Call `EventContext.updateCheckpoint()` after processing.
               weight: 1
               pass_threshold: 1
-            - name: language/correct-dependencies-com-azure-not-com-microsoft-azure
+            - name: prompt/runs-and-cleans-up-the-processor
               description: |-
-                Uses com.azure group ID for all Azure SDK packages. No com.microsoft.azure (legacy SDK) dependencies. Includes azure-identity for authentication.
+                - Start the processor and wait long enough for callbacks to receive events.
+                - Stop the processor after the receive window.
+                - Stop the processor and close the producer on success or failure.
               weight: 1
               pass_threshold: 1
-            - name: language/azure-sdk-bom-for-version-management
+            - name: language/current-public-azure-sdk-dependencies
               description: |-
-                Uses azure-sdk-bom in dependencyManagement to manage Azure SDK versions instead of hardcoding individual artifact versions. Dependencies should omit <version> tags when managed by the BOM.
+                - Declare Azure SDK artifacts required by the selected services and authentication flow.
+                - Use current compatible coordinates under `com.azure` or `com.azure.resourcemanager`.
+                - Include `azure-identity` only when the chosen authentication flow requires a `TokenCredential`.
               weight: 1
               pass_threshold: 1
-            - name: language/correct-imports-no-legacy-no-internal-packages
+            - name: language/azure-sdk-bom-first-version-management
               description: |-
-                All imports use com.azure.* packages. No com.microsoft.azure.* (legacy) or com.azure.*.implementation.* (internal API) imports.
+                - Import `com.azure:azure-sdk-bom` through Maven dependency management or a Gradle platform.
+                - Omit explicit versions for compatible BOM-covered GA Azure artifacts.
+                - Use explicit versions only for preview, uncovered, incompatible, or prompt-pinned artifacts.
               weight: 1
               pass_threshold: 1
-            - name: language/defaultazurecredential-authentication
+            - name: language/current-public-azure-sdk-imports
               description: |-
-                Uses DefaultAzureCredential or another com.azure.identity credential. No hardcoded connection strings, account keys, SAS tokens, or secrets.
+                - Azure SDK imports use current public `com.azure.*` or `com.azure.resourcemanager.*` packages.
+                - Do not import legacy `com.microsoft.azure.*` packages.
+                - Do not import Azure internal implementation packages.
+                - Standard Java, Reactor, Jackson, OpenAI, and other required non-Azure imports are valid.
               weight: 1
               pass_threshold: 1
-            - name: language/client-builder-pattern
+            - name: language/supported-runtime-authentication
               description: |-
-                SDK clients constructed using *ClientBuilder classes with .endpoint() or .vaultUrl() and .credential(). No legacy constructors (CloudStorageAccount, DocumentClient, KeyVaultClient).
+                - Authentication values come from runtime configuration or the execution environment.
+                - Use a current public authentication mode supported by the selected client or service.
+                - Do not embed or log connection strings, account keys, SAS tokens, client secrets, or bearer tokens.
               weight: 1
               pass_threshold: 1
-            - name: language/no-deprecated-legacy-classes
+            - name: language/current-public-client-construction
               description: |-
-                No deprecated classes from the old SDK (CloudStorageAccount, CloudBlobClient, DocumentClient, QueueClient, ApplicationTokenCredentials, MSICredentials, ConnectionStringBuilder).
+                - Construct Azure SDK clients or managers through current public builders, factories, or documented fluent entry points.
+                - Runtime endpoint, vault URL, namespace, subscription, or profile values flow into the constructed client.
+                - Do not use legacy constructors or removed client types.
               weight: 1
               pass_threshold: 1
-            - name: language/pagination-pagediterable-pagedflux
+            - name: language/current-public-azure-sdk-apis
               description: |-
-                List/query operations return PagedIterable (sync) or PagedFlux (async). Does not flatten all pages into a raw List or Stream in memory.
+                - Use current public Azure SDK clients, models, and operations.
+                - Public preview SDK APIs are valid when the prompt pins or requires a preview package.
+                - Do not depend on deprecated, removed, internal, or implementation-only Azure types.
+                - Equivalent public APIs are valid when exact symbols are not prompt-contractual.
               weight: 1
               pass_threshold: 1
-            - name: language/lro-pattern-syncpoller-pollerflux
+            - name: language/service-specific-error-diagnostics
               description: |-
-                Long-running operations use SyncPoller (sync) or PollerFlux (async) with begin* method prefix. No Thread.sleep() polling loops.
+                - Handle Event Hubs producer/service exceptions around send and batch operations.
+                - Processor error callback reports partition context and exception details.
+                - Preserve reason or transience information when the SDK exposes it.
               weight: 1
               pass_threshold: 1
-            - name: language/async-uses-project-reactor-mono-flux
+            - name: language/owned-resource-lifecycle-cleanup
               description: |-
-                Async code uses Project Reactor types (Mono, Flux). Not CompletableFuture (wrong), not RxJava (wrong), not sync wrapped in ExecutorService. No .block() inside async service implementations.
-              weight: 1
-              pass_threshold: 1
-            - name: language/service-specific-exception-handling
-              description: |-
-                Catches service-specific exceptions (BlobStorageException, CosmosException, ServiceBusException, HttpResponseException) with status code inspection. Not just generic Exception catches.
-              weight: 1
-              pass_threshold: 1
-            - name: language/try-with-resources-for-clients
-              description: |-
-                All Azure SDK client instances that implement AutoCloseable are used within try-with-resources blocks or explicitly closed in a finally block.
+                - Stop the `EventProcessorClient` after the receive window or failure.
+                - Close the `EventHubProducerClient` after send/receive work.
+                - Preserve processor stop even when send or receive fails.
               weight: 1
               pass_threshold: 1
       - type: run-command

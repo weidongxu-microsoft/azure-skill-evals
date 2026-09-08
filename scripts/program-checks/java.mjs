@@ -6,6 +6,13 @@ import { spawnSync } from "node:child_process";
 
 export function selectJavaBuild(workDir, platform = process.platform) {
   if (existsSync(path.join(workDir, "pom.xml"))) {
+    if (platform === "win32") {
+      return {
+        command: "cmd.exe",
+        args: ["/d", "/s", "/c", "mvn -q -DskipTests compile"],
+        windowsVerbatimArguments: true,
+      };
+    }
     return {
       command: "mvn",
       args: ["-q", "-DskipTests", "compile"],
@@ -16,8 +23,13 @@ export function selectJavaBuild(workDir, platform = process.platform) {
   const unixWrapper = path.join(workDir, "gradlew");
   if (platform === "win32" && existsSync(windowsWrapper)) {
     return {
-      command: windowsWrapper,
-      args: ["compileJava", "--no-daemon"],
+      command: "powershell.exe",
+      args: [
+        "-NoProfile",
+        "-NonInteractive",
+        "-Command",
+        `& '${windowsWrapper.replaceAll("'", "''")}' compileJava --no-daemon`,
+      ],
     };
   }
   if (platform !== "win32" && existsSync(unixWrapper)) {
@@ -53,6 +65,7 @@ export function main(workDir = process.cwd()) {
   const result = spawnSync(build.command, build.args, {
     cwd: workDir,
     stdio: "inherit",
+    windowsVerbatimArguments: build.windowsVerbatimArguments ?? false,
   });
   if (result.error) {
     console.error(result.error.message);

@@ -89,10 +89,13 @@ experiments/<language>/
 └── experiment.yaml
 ```
 
-Each scenario uses one single-model Vally panel. The panel contains the exact
-Hyoka scenario criteria and every Hyoka model-based language criterion, with
-one reported point per criterion. Panel thresholds are zero so every criterion
-vote is retained as observational data without gating the evaluation.
+Each scenario uses one single-model Vally panel. Prompts preserve their
+originating Hyoka task verbatim. Criteria preserve Hyoka provenance, but may be
+corrected when the historical wording conflicts with the prompt, current public
+SDK behavior, focused scoring, or equivalent valid implementations; see
+`docs/criteria-correction-policy.md`. Every retained criterion contributes one
+reported point. Panel thresholds are zero so every criterion vote is retained
+as observational data without gating the evaluation.
 Independent program graders compile, build, or type-check the generated
 project. Language experiments own the three environment variants and can run
 multiple evals. Every workspace starts with the shared cross-language

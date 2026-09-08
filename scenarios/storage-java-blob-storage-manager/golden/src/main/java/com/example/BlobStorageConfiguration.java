@@ -2,7 +2,8 @@ package com.example;
 
 import com.azure.core.http.policy.HttpLogDetailLevel;
 import com.azure.core.http.policy.HttpLogOptions;
-import com.azure.identity.DefaultAzureCredentialBuilder;
+import com.azure.core.credential.TokenCredential;
+import com.azure.identity.ManagedIdentityCredentialBuilder;
 import com.azure.storage.blob.BlobServiceAsyncClient;
 import com.azure.storage.blob.BlobServiceClient;
 import com.azure.storage.blob.BlobServiceClientBuilder;
@@ -13,6 +14,7 @@ import java.time.Duration;
 
 public final class BlobStorageConfiguration {
     private final String endpoint;
+    private final TokenCredential managedIdentityCredential;
     private final int maxRetries;
     private final Duration requestTimeout;
     private final Duration retryDelay;
@@ -27,6 +29,8 @@ public final class BlobStorageConfiguration {
             Duration maxRetryDelay,
             HttpLogDetailLevel logLevel) {
         this.endpoint = endpoint;
+        this.managedIdentityCredential =
+                new ManagedIdentityCredentialBuilder().build();
         this.maxRetries = maxRetries;
         this.requestTimeout = requestTimeout;
         this.retryDelay = retryDelay;
@@ -54,7 +58,7 @@ public final class BlobStorageConfiguration {
 
         return new BlobServiceClientBuilder()
                 .endpoint(endpoint)
-                .credential(new DefaultAzureCredentialBuilder().build())
+                .credential(managedIdentityCredential)
                 .retryOptions(retryOptions)
                 .httpLogOptions(logOptions);
     }

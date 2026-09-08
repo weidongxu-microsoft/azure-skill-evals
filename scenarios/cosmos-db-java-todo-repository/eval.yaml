@@ -65,127 +65,158 @@ stimuli:
           criteria:
             - name: prompt/correct-partition-key-usage-category-path-partitionkey-i
               description: |-
-                Correct partition key usage: `/category` path, `PartitionKey` in all point operations
+                - Container definition uses partition-key path `/category`.
+                - Todo category value is supplied as the partition key for point reads, updates, and deletes.
+                - Repository methods preserve ID + category value flow.
               weight: 1
               pass_threshold: 1
             - name: prompt/etag-based-optimistic-concurrency-captures-etag-from-rea
               description: |-
-                ETag-based optimistic concurrency: captures ETag from read, passes `ifMatchETag` on update
+                - Read response exposes the current ETag.
+                - Update passes that ETag as a conditional replacement precondition.
+                - Missing or stale ETag does not become an unconditional overwrite.
               weight: 1
               pass_threshold: 1
             - name: prompt/handles-412-precondition-failed-as-a-specific-error-case
               description: |-
-                Handles 412 Precondition Failed as a specific error case for conflicts
+                - HTTP 412 from conditional replacement is detected separately.
+                - Return or raise a clear lost-update conflict result.
+                - Do not silently retry the stale write as unconditional.
               weight: 1
               pass_threshold: 1
             - name: prompt/parameterized-queries-using-sqlqueryspec-with-sqlparamet
               description: |-
-                Parameterized queries using `SqlQuerySpec` with `SqlParameter` (no string concatenation)
+                - Category query uses a parameterized SQL predicate.
+                - Requested category value is bound through `SqlParameter` or an equivalent current API.
+                - Do not concatenate the category value into SQL text.
               weight: 1
               pass_threshold: 1
             - name: prompt/page-by-page-iteration-using-iterablebypage-or-cosmospag
               description: |-
-                Page-by-page iteration using `iterableByPage()` or `CosmosPagedIterable`
+                - Synchronous category query is consumed page by page.
+                - `iterableByPage(...)` or an equivalent current paging API is valid.
+                - Per-page handling occurs before aggregating all items.
               weight: 1
               pass_threshold: 1
             - name: prompt/configurable-page-size-via-queryrequestoptions-setmaxite
               description: |-
-                Configurable page size via `QueryRequestOptions.setMaxItemCount`
+                - Page size comes from repository or caller configuration.
+                - The configured size flows into the Cosmos query request.
+                - `setMaxItemCount` or equivalent current page-size control is valid.
               weight: 1
               pass_threshold: 1
             - name: prompt/logs-continuation-token-and-item-count-per-page
               description: |-
-                Logs continuation token and item count per page
+                - For each query page, log or expose the item count.
+                - For each query page, log continuation progress or token state.
+                - Logging happens per page, not only after all results are consumed.
               weight: 1
               pass_threshold: 1
             - name: prompt/async-query-uses-cosmospagedflux-returning-pages-as-a-st
               description: |-
-                Async query uses `CosmosPagedFlux` returning pages as a stream
+                - Async category query uses the Cosmos async query surface.
+                - Results are exposed or processed as pages in a reactive stream.
+                - Each page can be handled without flattening the whole result set first.
               weight: 1
               pass_threshold: 1
             - name: prompt/ttl-configured-at-90-days-7776000-seconds-via-containerp
               description: |-
-                TTL configured at 90 days (7776000 seconds) via `ContainerProperties.setDefaultTimeToLiveInSeconds()`
+                - Container creation sets default TTL to 7,776,000 seconds.
+                - The TTL is applied to the configured todo container.
+                - Equivalent current container-properties APIs are valid.
               weight: 1
               pass_threshold: 1
             - name: prompt/indexing-policy-excludes-description-path
               description: |-
-                Indexing policy excludes `/description` path
+                - Container indexing policy excludes the description field path.
+                - The exclusion is applied when creating or configuring the todo container.
+                - Other required indexed fields remain usable for repository queries.
               weight: 1
               pass_threshold: 1
             - name: prompt/ru-cost-extracted-from-response-via-getrequestcharge-and
               description: |-
-                RU cost extracted from response via `getRequestCharge()` and logged per operation ### Scenario-Specific Error Handling
+                - CRUD and query responses expose their request charge.
+                - Log or return RU cost for each repository operation.
+                - Per-page query charges are reported with their corresponding page.
               weight: 1
               pass_threshold: 1
             - name: prompt/catches-cosmosexception-with-status-code-checks-404-409
               description: |-
-                Catches `CosmosException` with status code checks (404, 409, 412)
+                - Handle `CosmosException` from repository service operations.
+                - Inspect status codes for not found, conflict, and precondition failure cases.
+                - Preserve actionable Cosmos diagnostics for unexpected failures.
               weight: 1
               pass_threshold: 1
-            - name: prompt/handles-412-separately-for-etag-conflicts-anti-patterns
+            - name: prompt/managed-identity-client-factory
               description: |-
-                Handles 412 separately for ETag conflicts ### Anti-Patterns (scenario-specific)
+                - Cosmos endpoint comes from environment configuration.
+                - Managed identity or `DefaultAzureCredential` flows into sync and async Cosmos clients.
+                - No account key, connection string, or embedded credential is used.
               weight: 1
               pass_threshold: 1
-            - name: prompt/does-not-flatten-query-results-stream-foreach-without-pa
+            - name: language/current-public-azure-sdk-dependencies
               description: |-
-                Does NOT flatten query results (`.stream()` / `.forEach()` without page iteration)
+                - Declare Azure SDK artifacts required by the selected services and authentication flow.
+                - Use current compatible coordinates under `com.azure` or `com.azure.resourcemanager`.
+                - Include `azure-identity` only when the chosen authentication flow requires a `TokenCredential`.
               weight: 1
               pass_threshold: 1
-            - name: language/correct-dependencies-com-azure-not-com-microsoft-azure
+            - name: language/azure-sdk-bom-first-version-management
               description: |-
-                Uses com.azure group ID for all Azure SDK packages. No com.microsoft.azure (legacy SDK) dependencies. Includes azure-identity for authentication.
+                - Import `com.azure:azure-sdk-bom` through Maven dependency management or a Gradle platform.
+                - Omit explicit versions for compatible BOM-covered GA Azure artifacts.
+                - Use explicit versions only for preview, uncovered, incompatible, or prompt-pinned artifacts.
               weight: 1
               pass_threshold: 1
-            - name: language/azure-sdk-bom-for-version-management
+            - name: language/current-public-azure-sdk-imports
               description: |-
-                Uses azure-sdk-bom in dependencyManagement to manage Azure SDK versions instead of hardcoding individual artifact versions. Dependencies should omit <version> tags when managed by the BOM.
+                - Azure SDK imports use current public `com.azure.*` or `com.azure.resourcemanager.*` packages.
+                - Do not import legacy `com.microsoft.azure.*` packages.
+                - Do not import Azure internal implementation packages.
+                - Standard Java, Reactor, Jackson, OpenAI, and other required non-Azure imports are valid.
               weight: 1
               pass_threshold: 1
-            - name: language/correct-imports-no-legacy-no-internal-packages
+            - name: language/supported-runtime-authentication
               description: |-
-                All imports use com.azure.* packages. No com.microsoft.azure.* (legacy) or com.azure.*.implementation.* (internal API) imports.
+                - Authentication values come from runtime configuration or the execution environment.
+                - Use a current public authentication mode supported by the selected client or service.
+                - Do not embed or log connection strings, account keys, SAS tokens, client secrets, or bearer tokens.
               weight: 1
               pass_threshold: 1
-            - name: language/defaultazurecredential-authentication
+            - name: language/current-public-client-construction
               description: |-
-                Uses DefaultAzureCredential or another com.azure.identity credential. No hardcoded connection strings, account keys, SAS tokens, or secrets.
+                - Construct Azure SDK clients or managers through current public builders, factories, or documented fluent entry points.
+                - Runtime endpoint, vault URL, namespace, subscription, or profile values flow into the constructed client.
+                - Do not use legacy constructors or removed client types.
               weight: 1
               pass_threshold: 1
-            - name: language/client-builder-pattern
+            - name: language/current-public-azure-sdk-apis
               description: |-
-                SDK clients constructed using *ClientBuilder classes with .endpoint() or .vaultUrl() and .credential(). No legacy constructors (CloudStorageAccount, DocumentClient, KeyVaultClient).
+                - Use current public Azure SDK clients, models, and operations.
+                - Public preview SDK APIs are valid when the prompt pins or requires a preview package.
+                - Do not depend on deprecated, removed, internal, or implementation-only Azure types.
+                - Equivalent public APIs are valid when exact symbols are not prompt-contractual.
               weight: 1
               pass_threshold: 1
-            - name: language/no-deprecated-legacy-classes
+            - name: language/complete-pageable-traversal
               description: |-
-                No deprecated classes from the old SDK (CloudStorageAccount, CloudBlobClient, DocumentClient, QueueClient, ApplicationTokenCredentials, MSICredentials, ConnectionStringBuilder).
+                - For prompt-required list, query, or status collections, traverse every returned page or continuation.
+                - Use `PagedIterable`, `PagedFlux`, an SDK auto-pager, or an equivalent current paging API.
+                - Do not stop after the first page or flatten before required per-page behavior is observed.
               weight: 1
               pass_threshold: 1
-            - name: language/pagination-pagediterable-pagedflux
+            - name: language/reactive-async-service-flow
               description: |-
-                List/query operations return PagedIterable (sync) or PagedFlux (async). Does not flatten all pages into a raw List or Stream in memory.
+                - Prompt-required async Azure operations originate from async SDK clients or documented async adapters.
+                - Compose reusable async flows with Reactor `Mono`/`Flux` or equivalent nonblocking composition.
+                - Do not wrap synchronous clients in an executor or block inside reusable async service methods.
               weight: 1
               pass_threshold: 1
-            - name: language/lro-pattern-syncpoller-pollerflux
+            - name: language/service-specific-error-diagnostics
               description: |-
-                Long-running operations use SyncPoller (sync) or PollerFlux (async) with begin* method prefix. No Thread.sleep() polling loops.
-              weight: 1
-              pass_threshold: 1
-            - name: language/async-uses-project-reactor-mono-flux
-              description: |-
-                Async code uses Project Reactor types (Mono, Flux). Not CompletableFuture (wrong), not RxJava (wrong), not sync wrapped in ExecutorService. No .block() inside async service implementations.
-              weight: 1
-              pass_threshold: 1
-            - name: language/service-specific-exception-handling
-              description: |-
-                Catches service-specific exceptions (BlobStorageException, CosmosException, ServiceBusException, HttpResponseException) with status code inspection. Not just generic Exception catches.
-              weight: 1
-              pass_threshold: 1
-            - name: language/try-with-resources-for-clients
-              description: |-
-                All Azure SDK client instances that implement AutoCloseable are used within try-with-resources blocks or explicitly closed in a finally block.
+                - Handle the selected Azure service or identity SDK exception type around service operations.
+                - Preserve status code, failure reason, or service error details when available.
+                - Report actionable diagnostics without exposing credential material.
               weight: 1
               pass_threshold: 1
       - type: run-command

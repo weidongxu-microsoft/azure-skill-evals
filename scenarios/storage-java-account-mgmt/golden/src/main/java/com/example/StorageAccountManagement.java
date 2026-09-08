@@ -20,7 +20,6 @@ public final class StorageAccountManagement {
         String resourceGroupName = requireEnvironment("RESOURCE_GROUP_NAME");
         String accountName =
                 requireEnvironment("AZURE_STORAGE_ACCOUNT_NAME");
-        String location = requireEnvironment("AZURE_LOCATION");
 
         DefaultAzureCredential credential =
                 new DefaultAzureCredentialBuilder().build();
@@ -32,12 +31,16 @@ public final class StorageAccountManagement {
         try {
             StorageAccount created = storageManager.storageAccounts()
                     .define(accountName)
-                    .withRegion(location)
+                    .withRegion("eastus")
                     .withExistingResourceGroup(resourceGroupName)
                     .withSku(StorageAccountSkuType.STANDARD_LRS)
                     .withGeneralPurposeAccountKindV2()
                     .create();
-            System.out.println("Created storage account: " + created.id());
+            System.out.printf(
+                    "Created storage account %s in %s with SKU %s%n",
+                    created.name(),
+                    created.regionName(),
+                    created.skuType());
 
             for (StorageAccount account : storageManager.storageAccounts()
                     .listByResourceGroup(resourceGroupName)) {
@@ -46,8 +49,12 @@ public final class StorageAccountManagement {
 
             StorageAccount retrieved = storageManager.storageAccounts()
                     .getByResourceGroup(resourceGroupName, accountName);
-            System.out.println(
-                    "Retrieved storage account: " + retrieved.id());
+            System.out.printf(
+                    "Retrieved storage account: id=%s, region=%s, sku=%s, kind=%s%n",
+                    retrieved.id(),
+                    retrieved.regionName(),
+                    retrieved.skuType(),
+                    retrieved.kind());
 
             BlobServiceProperties blobService = storageManager.blobServices()
                     .getServicePropertiesAsync(resourceGroupName, accountName)

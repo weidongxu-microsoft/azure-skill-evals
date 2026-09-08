@@ -65,107 +65,157 @@ stimuli:
           criteria:
             - name: prompt/secret-versioning-retrieves-specific-version-via-getsecr
               description: |-
-                Secret versioning: retrieves specific version via `getSecret(name, version)`
+                - Provider can retrieve the latest secret by name.
+                - Provider can retrieve a specific requested secret version.
+                - Returned value and version-specific metadata are exposed to callers.
               weight: 1
               pass_threshold: 1
             - name: prompt/secret-expiry-accesses-properties-getexpireson-on-secret
               description: |-
-                Secret expiry: accesses `properties().getExpiresOn()` on `SecretProperties`
+                - Read secret expiry from returned secret properties.
+                - Expose expiry with the secret value.
+                - Missing expiry is handled explicitly rather than treated as expired.
               weight: 1
               pass_threshold: 1
             - name: prompt/configurable-warning-window-for-near-expiry-detection
               description: |-
-                Configurable warning window for near-expiry detection
+                - Warning window is configurable.
+                - Compare each secret expiry with the current time plus that window.
+                - Near-expiry secrets trigger warning or refresh behavior.
               weight: 1
               pass_threshold: 1
-            - name: prompt/in-memory-caching-e-g-concurrenthashmap-with-bulk-load-a
+            - name: prompt/config-cache-loading
               description: |-
-                In-memory caching (e.g., `ConcurrentHashMap`) with bulk-load and single-key refresh
+                - Keep retrieved secret values in an in-memory cache.
+                - Bulk-load the predefined required keys at startup.
+                - Refresh an individual key on demand and replace its cached value.
               weight: 1
               pass_threshold: 1
             - name: prompt/secret-rotation-uses-begindeletesecret-as-a-long-running
               description: |-
-                Secret rotation uses `beginDeleteSecret()` as a long-running operation
+                - Rotation starts deletion of the old secret version/name.
+                - Treat deletion as an asynchronous service lifecycle.
+                - Continue rotation only after deletion is terminal or name reuse is otherwise safe.
               weight: 1
               pass_threshold: 1
             - name: prompt/sync-uses-syncpoller-to-wait-for-delete-completion
               description: |-
-                Sync uses `SyncPoller` to wait for delete completion
+                - Synchronous rotation waits for Key Vault deletion completion.
+                - A `SyncPoller` or equivalent supported terminal wait is valid.
+                - Purge or recreate happens only after the wait succeeds.
               weight: 1
               pass_threshold: 1
-            - name: prompt/async-uses-pollerflux-to-wait-for-delete-completion
+            - name: prompt/async-secret-rotation
               description: |-
-                Async uses `PollerFlux` to wait for delete completion
+                - Compose and await asynchronous deletion completion.
+                - Asynchronously ensure the same name is reusable without racing soft delete.
+                - Recreate that name with the updated value and expiry.
               weight: 1
               pass_threshold: 1
             - name: prompt/creates-new-secret-only-after-delete-completes-not-concu
               description: |-
-                Creates new secret only after delete completes (not concurrently) ### Scenario-Specific Error Handling
+                - New secret with the rotated value is created after old-name deletion is complete.
+                - Do not recreate concurrently with soft-delete in progress.
+                - Expiry metadata for the new secret is applied.
               weight: 1
               pass_threshold: 1
             - name: prompt/returns-a-default-value-when-secret-is-not-found-does-no
               description: |-
-                Returns a default value when secret is not found (does not crash) ### Anti-Patterns (scenario-specific)
+                - Not-found during retrieval returns the caller-supplied default value.
+                - Expected not-found fallback is distinct from other Key Vault failures.
+                - Unexpected failures preserve actionable service details.
               weight: 1
               pass_threshold: 1
-            - name: prompt/not-using-fire-and-forget-deletesecret-without-waiting-f
+            - name: prompt/key-vault-configuration
               description: |-
-                NOT using fire-and-forget `deleteSecret()` without waiting for completion
+                - Read the vault URL from an environment variable.
+                - Authenticate with managed identity and no client secret or certificate.
+                - Build the required sync and async Key Vault clients.
               weight: 1
               pass_threshold: 1
-            - name: language/correct-dependencies-com-azure-not-com-microsoft-azure
+            - name: prompt/secret-config-demo
               description: |-
-                Uses com.azure group ID for all Azure SDK packages. No com.microsoft.azure (legacy SDK) dependencies. Includes azure-identity for authentication.
+                - Demonstrate startup loading, cached reads, one refresh, expiry warnings, and rotation.
+                - Run the complete sync demonstration first.
+                - Then run the complete async demonstration and wait for its terminal result.
               weight: 1
               pass_threshold: 1
-            - name: language/azure-sdk-bom-for-version-management
+            - name: prompt/key-vault-project
               description: |-
-                Uses azure-sdk-bom in dependencyManagement to manage Azure SDK versions instead of hardcoding individual artifact versions. Dependencies should omit <version> tags when managed by the BOM.
+                - Provide a complete Java 17 Maven project.
+                - Declare compatible Key Vault Secrets, Azure Identity, and Reactor dependencies as needed.
               weight: 1
               pass_threshold: 1
-            - name: language/correct-imports-no-legacy-no-internal-packages
+            - name: language/current-public-azure-sdk-dependencies
               description: |-
-                All imports use com.azure.* packages. No com.microsoft.azure.* (legacy) or com.azure.*.implementation.* (internal API) imports.
+                - Declare Azure SDK artifacts required by the selected services and authentication flow.
+                - Use current compatible coordinates under `com.azure` or `com.azure.resourcemanager`.
+                - Include `azure-identity` only when the chosen authentication flow requires a `TokenCredential`.
               weight: 1
               pass_threshold: 1
-            - name: language/defaultazurecredential-authentication
+            - name: language/azure-sdk-bom-first-version-management
               description: |-
-                Uses DefaultAzureCredential or another com.azure.identity credential. No hardcoded connection strings, account keys, SAS tokens, or secrets.
+                - Import `com.azure:azure-sdk-bom` through Maven dependency management or a Gradle platform.
+                - Omit explicit versions for compatible BOM-covered GA Azure artifacts.
+                - Use explicit versions only for preview, uncovered, incompatible, or prompt-pinned artifacts.
               weight: 1
               pass_threshold: 1
-            - name: language/client-builder-pattern
+            - name: language/current-public-azure-sdk-imports
               description: |-
-                SDK clients constructed using *ClientBuilder classes with .endpoint() or .vaultUrl() and .credential(). No legacy constructors (CloudStorageAccount, DocumentClient, KeyVaultClient).
+                - Azure SDK imports use current public `com.azure.*` or `com.azure.resourcemanager.*` packages.
+                - Do not import legacy `com.microsoft.azure.*` packages.
+                - Do not import Azure internal implementation packages.
+                - Standard Java, Reactor, Jackson, OpenAI, and other required non-Azure imports are valid.
               weight: 1
               pass_threshold: 1
-            - name: language/no-deprecated-legacy-classes
+            - name: language/supported-runtime-authentication
               description: |-
-                No deprecated classes from the old SDK (CloudStorageAccount, CloudBlobClient, DocumentClient, QueueClient, ApplicationTokenCredentials, MSICredentials, ConnectionStringBuilder).
+                - Authentication values come from runtime configuration or the execution environment.
+                - Use a current public authentication mode supported by the selected client or service.
+                - Do not embed or log connection strings, account keys, SAS tokens, client secrets, or bearer tokens.
               weight: 1
               pass_threshold: 1
-            - name: language/pagination-pagediterable-pagedflux
+            - name: language/current-public-client-construction
               description: |-
-                List/query operations return PagedIterable (sync) or PagedFlux (async). Does not flatten all pages into a raw List or Stream in memory.
+                - Construct Azure SDK clients or managers through current public builders, factories, or documented fluent entry points.
+                - Runtime endpoint, vault URL, namespace, subscription, or profile values flow into the constructed client.
+                - Do not use legacy constructors or removed client types.
               weight: 1
               pass_threshold: 1
-            - name: language/lro-pattern-syncpoller-pollerflux
+            - name: language/current-public-azure-sdk-apis
               description: |-
-                Long-running operations use SyncPoller (sync) or PollerFlux (async) with begin* method prefix. No Thread.sleep() polling loops.
+                - Use current public Azure SDK clients, models, and operations.
+                - Public preview SDK APIs are valid when the prompt pins or requires a preview package.
+                - Do not depend on deprecated, removed, internal, or implementation-only Azure types.
+                - Equivalent public APIs are valid when exact symbols are not prompt-contractual.
               weight: 1
               pass_threshold: 1
-            - name: language/async-uses-project-reactor-mono-flux
+            - name: language/supported-terminal-state-polling
               description: |-
-                Async code uses Project Reactor types (Mono, Flux). Not CompletableFuture (wrong), not RxJava (wrong), not sync wrapped in ExecutorService. No .block() inside async service implementations.
+                - Sync rotation waits for Key Vault deletion completion before recreate.
+                - Async rotation composes the deletion poller or terminal result before recreate.
+                - Fire-and-forget deletion before same-name recreation does not pass.
               weight: 1
               pass_threshold: 1
-            - name: language/service-specific-exception-handling
+            - name: language/reactive-async-service-flow
               description: |-
-                Catches service-specific exceptions (BlobStorageException, CosmosException, ServiceBusException, HttpResponseException) with status code inspection. Not just generic Exception catches.
+                - Prompt-required async Azure operations originate from async SDK clients or documented async adapters.
+                - Compose reusable async flows with Reactor `Mono`/`Flux` or equivalent nonblocking composition.
+                - Do not wrap synchronous clients in an executor or block inside reusable async service methods.
               weight: 1
               pass_threshold: 1
-            - name: language/try-with-resources-for-clients
+            - name: language/service-specific-error-diagnostics
               description: |-
-                All Azure SDK client instances that implement AutoCloseable are used within try-with-resources blocks or explicitly closed in a finally block.
+                - Handle the selected Azure service or identity SDK exception type around service operations.
+                - Preserve status code, failure reason, or service error details when available.
+                - Report actionable diagnostics without exposing credential material.
+              weight: 1
+              pass_threshold: 1
+            - name: language/owned-resource-lifecycle-cleanup
+              description: |-
+                - During rotation, delete the old secret and wait until the name is reusable.
+                - Recreate the same secret name only after deletion or purge sequencing is safe.
+                - Apply the same lifecycle ordering in sync and async rotation paths.
               weight: 1
               pass_threshold: 1
       - type: run-command

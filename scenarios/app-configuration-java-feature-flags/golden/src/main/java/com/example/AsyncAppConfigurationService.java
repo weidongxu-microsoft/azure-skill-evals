@@ -1,6 +1,7 @@
 package com.example;
 
 import com.azure.core.http.rest.Response;
+import com.azure.core.exception.ResourceNotFoundException;
 import com.azure.data.appconfiguration.ConfigurationAsyncClient;
 import com.azure.data.appconfiguration.models.ConfigurationSetting;
 import com.azure.data.appconfiguration.models.SettingSelector;
@@ -66,6 +67,25 @@ public final class AsyncAppConfigurationService {
 
     public Mono<Void> refreshPrefixAsync(String prefix) {
         return getSettingsByPrefixAsync(prefix).then();
+    }
+
+    public Mono<Void> refreshAllCachedAsync() {
+        return reactor.core.publisher.Flux.fromIterable(Map.copyOf(cache).values())
+                .concatMap(setting ->
+                        client.getConfigurationSetting(
+                                setting.getKey(), setting.getLabel())
+                                .doOnNext(refreshed -> cache.put(
+                                        cacheKey(
+                                                refreshed.getKey(),
+                                                refreshed.getLabel()),
+                                        refreshed))
+                                .onErrorResume(
+                                        ResourceNotFoundException.class,
+                                        exception -> Mono.fromRunnable(() ->
+                                                cache.remove(cacheKey(
+                                                        setting.getKey(),
+                                                        setting.getLabel())))))
+                .then();
     }
 
     private ConditionalResult conditionalResult(

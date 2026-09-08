@@ -1,6 +1,7 @@
 package com.example;
 
 import com.azure.core.http.rest.Response;
+import com.azure.core.exception.ResourceNotFoundException;
 import com.azure.core.util.Context;
 import com.azure.data.appconfiguration.ConfigurationClient;
 import com.azure.data.appconfiguration.models.ConfigurationSetting;
@@ -82,6 +83,16 @@ public final class AppConfigurationService {
 
     public void refreshPrefix(String prefix) {
         getSettingsByPrefix(prefix);
+    }
+
+    public void refreshAllCached() {
+        Map.copyOf(cache).forEach((cacheKey, setting) -> {
+            try {
+                getDirect(setting.getKey(), setting.getLabel());
+            } catch (ResourceNotFoundException exception) {
+                cache.remove(cacheKey);
+            }
+        });
     }
 
     public Optional<ConfigurationSetting> cached(String key, String label) {

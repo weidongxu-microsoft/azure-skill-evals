@@ -7,23 +7,28 @@ public final class Main {
     }
 
     public static void main(String[] args) {
-        AzureClients clients = new AzureClients(require("AZURE_STORAGE_ACCOUNT_URL"), require("AZURE_KEY_VAULT_URL"));
+        AzureClients clients = AzureClients.fromEnvironment();
         String container = "encrypted-demo";
         String blobName = "message.bin";
         String keyName = require("AZURE_KEY_NAME");
-        String keyId = clients.keyClient().getKey(keyName).getId();
         byte[] message = "client-side encrypted message".getBytes(StandardCharsets.UTF_8);
 
-        String syncPlaintext = new SyncEncryptedBlobUploader(clients.keyClient(), clients)
+        System.out.println("Starting synchronous encrypted round trip");
+        EncryptionResult syncResult = new SyncEncryptedBlobUploader(clients.keyClient(), clients)
                 .roundTrip(container, blobName, keyName, message);
-        System.out.println("Vault key ID: " + keyId);
-        System.out.println("Wrapped DEK is stored as base64 metadata.");
-        System.out.println("Sync decrypted output: " + syncPlaintext);
+        printResult("Sync", syncResult);
 
-        String asyncPlaintext = new AsyncEncryptedBlobUploader(clients)
-                .roundTrip(container, blobName + "-async", keyId, message)
+        System.out.println("Starting asynchronous encrypted round trip");
+        EncryptionResult asyncResult = new AsyncEncryptedBlobUploader(clients)
+                .roundTrip(container, blobName + "-async", keyName, message)
                 .block();
-        System.out.println("Async decrypted output: " + asyncPlaintext);
+        printResult("Async", asyncResult);
+    }
+
+    private static void printResult(String implementation, EncryptionResult result) {
+        System.out.println(implementation + " vault key ID: " + result.keyId());
+        System.out.println(implementation + " wrapped DEK (base64): " + result.wrappedDekBase64());
+        System.out.println(implementation + " decrypted output: " + result.plaintext());
     }
 
     private static String require(String name) {

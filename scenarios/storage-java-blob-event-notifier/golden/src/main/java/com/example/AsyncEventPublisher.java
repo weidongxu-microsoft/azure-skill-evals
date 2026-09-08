@@ -1,9 +1,11 @@
 package com.example;
 
+import com.azure.core.credential.TokenCredential;
 import com.azure.core.exception.HttpResponseException;
 import com.azure.core.util.BinaryData;
 import com.azure.messaging.eventgrid.EventGridEvent;
 import com.azure.messaging.eventgrid.EventGridPublisherAsyncClient;
+import com.azure.messaging.eventgrid.EventGridPublisherClientBuilder;
 
 import reactor.core.publisher.Mono;
 
@@ -19,11 +21,18 @@ public final class AsyncEventPublisher {
         this.client = client;
     }
 
+    public AsyncEventPublisher(String topicEndpoint, TokenCredential credential) {
+        this(new EventGridPublisherClientBuilder()
+                .endpoint(topicEndpoint)
+                .credential(credential)
+                .buildEventGridEventPublisherAsyncClient());
+    }
+
     public Mono<Void> publishAsync(String subject, List<DownstreamNotification> notifications) {
         List<EventGridEvent> events = notifications.stream()
                 .map(notification -> new EventGridEvent(
                         subject,
-                        "Contoso.Documents.Processed",
+                        notification.eventType(),
                         BinaryData.fromObject(notification),
                         "1.0"))
                 .toList();

@@ -3,6 +3,7 @@ package com.example;
 import com.azure.core.exception.ClientAuthenticationException;
 import com.azure.identity.ClientSecretCredential;
 import com.azure.identity.ClientSecretCredentialBuilder;
+import com.azure.identity.CredentialUnavailableException;
 import com.azure.security.keyvault.secrets.SecretClient;
 import com.azure.security.keyvault.secrets.SecretClientBuilder;
 import com.azure.security.keyvault.secrets.models.KeyVaultSecret;
@@ -22,6 +23,7 @@ public final class ServicePrincipalExample {
         requireValue(clientSecret, "AZURE_CLIENT_SECRET");
         requireValue(vaultUrl, "AZURE_KEY_VAULT_URL");
         requireValue(secretName, "AZURE_KEY_VAULT_SECRET_NAME");
+        printSecretManagementGuidance();
 
         ClientSecretCredential credential =
                 new ClientSecretCredentialBuilder()
@@ -37,12 +39,34 @@ public final class ServicePrincipalExample {
 
         try {
             KeyVaultSecret secret = secretClient.getSecret(secretName);
-            System.out.println(secret.getValue());
+            System.out.println("Retrieved secret " + secret.getName());
+        } catch (CredentialUnavailableException exception) {
+            throw authenticationFailure(
+                    "Service principal configuration is unavailable. Inject tenant ID, "
+                            + "client ID, and client secret at runtime.",
+                    exception);
         } catch (ClientAuthenticationException exception) {
-            throw new IllegalStateException(
-                    "Service principal authentication failed.",
+            throw authenticationFailure(
+                    "Azure rejected the service principal. Verify the tenant and client IDs, "
+                            + "secret validity, and assigned Key Vault role.",
                     exception);
         }
+    }
+
+    private static void printSecretManagementGuidance() {
+        System.out.println(
+                "Inject AZURE_CLIENT_SECRET at runtime or retrieve it from a managed "
+                        + "secret store; never commit or print it.");
+        System.out.println(
+                "Rotate the client secret regularly and grant the service principal "
+                        + "only the least-privilege roles it needs.");
+    }
+
+    private static IllegalStateException authenticationFailure(
+            String guidance, RuntimeException exception) {
+        System.err.println(
+                exception.getClass().getSimpleName() + ": " + exception.getMessage());
+        return new IllegalStateException(guidance, exception);
     }
 
     private static void requireValue(String value, String name) {

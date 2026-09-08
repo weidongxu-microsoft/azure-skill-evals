@@ -3,6 +3,7 @@ node_modules/
 .work/
 .squad/
 reports/
+.vally-oracle*
 *.log
 __pycache__/
 *.pyc

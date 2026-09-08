@@ -75,12 +75,17 @@ public final class Main {
     public static void main(String[] args) {
         AzureClients clients = AzureClients.fromEnvironment();
         List<DownstreamNotification> notifications =
-                List.of(new DownstreamNotification("invoice-42", "processed"));
+                List.of(new DownstreamNotification(
+                        "Contoso.Documents.Processed",
+                        "invoice-42",
+                        "processed"));
         String notificationSubject = "/documents/invoices/processed";
 
         BlobEventHandler handler = new BlobEventHandler(clients.blobClient());
         EventReceiver receiver = new EventReceiver(handler);
-        EventPublisher publisher = new EventPublisher(clients.eventPublisher());
+        EventPublisher publisher = new EventPublisher(
+                clients.eventGridEndpoint(),
+                clients.credential());
 
         System.out.println("Running synchronous Event Grid demo...");
         receiver.receiveEventGrid(EVENT_GRID_PAYLOAD);
@@ -89,7 +94,9 @@ public final class Main {
 
         AsyncBlobEventHandler asyncHandler = new AsyncBlobEventHandler(clients.blobAsyncClient());
         AsyncEventReceiver asyncReceiver = new AsyncEventReceiver(asyncHandler);
-        AsyncEventPublisher asyncPublisher = new AsyncEventPublisher(clients.eventAsyncPublisher());
+        AsyncEventPublisher asyncPublisher = new AsyncEventPublisher(
+                clients.eventGridEndpoint(),
+                clients.credential());
 
         System.out.println("Running asynchronous Event Grid demo...");
         Mono.when(

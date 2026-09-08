@@ -3,6 +3,7 @@ package com.example;
 import com.azure.core.util.IterableStream;
 import com.azure.messaging.servicebus.ServiceBusClientBuilder;
 import com.azure.messaging.servicebus.ServiceBusErrorContext;
+import com.azure.messaging.servicebus.ServiceBusException;
 import com.azure.messaging.servicebus.ServiceBusMessage;
 import com.azure.messaging.servicebus.ServiceBusMessageBatch;
 import com.azure.messaging.servicebus.ServiceBusProcessorClient;
@@ -30,13 +31,14 @@ public final class ServiceBusMessages {
         ServiceBusClientBuilder clientBuilder = new ServiceBusClientBuilder()
                 .connectionString(connectionString);
 
-        try (ServiceBusSenderClient queueSender = clientBuilder.sender()
-                .queueName(queueName)
-                .buildClient();
-             ServiceBusReceiverClient queueReceiver = clientBuilder.receiver()
-                     .queueName(queueName)
-                     .receiveMode(ServiceBusReceiveMode.PEEK_LOCK)
-                     .buildClient();) {
+        try {
+            try (ServiceBusSenderClient queueSender = clientBuilder.sender()
+                    .queueName(queueName)
+                    .buildClient();
+                 ServiceBusReceiverClient queueReceiver = clientBuilder.receiver()
+                         .queueName(queueName)
+                         .receiveMode(ServiceBusReceiveMode.PEEK_LOCK)
+                         .buildClient();) {
             ServiceBusMessage singleMessage =
                     new ServiceBusMessage("Single queue message");
             queueSender.sendMessage(singleMessage);
@@ -85,17 +87,17 @@ public final class ServiceBusMessages {
                     processor.close();
                 }
             }
-        }
+            }
 
-        try (ServiceBusSenderClient topicSender = clientBuilder.sender()
-                .topicName(topicName)
-                .buildClient();
-             ServiceBusReceiverClient subscriptionReceiver =
-                     clientBuilder.receiver()
-                             .topicName(topicName)
-                             .subscriptionName(subscriptionName)
-                             .receiveMode(ServiceBusReceiveMode.PEEK_LOCK)
-                             .buildClient();) {
+            try (ServiceBusSenderClient topicSender = clientBuilder.sender()
+                    .topicName(topicName)
+                    .buildClient();
+                 ServiceBusReceiverClient subscriptionReceiver =
+                         clientBuilder.receiver()
+                                 .topicName(topicName)
+                                 .subscriptionName(subscriptionName)
+                                 .receiveMode(ServiceBusReceiveMode.PEEK_LOCK)
+                                 .buildClient();) {
             ServiceBusMessage topicMessage =
                     new ServiceBusMessage("Topic subscription message");
             topicSender.sendMessage(topicMessage);
@@ -108,11 +110,27 @@ public final class ServiceBusMessages {
                 System.out.println(subscriptionMessage.getBody().toString());
                 subscriptionReceiver.complete(subscriptionMessage);
             }
+            }
+        } catch (ServiceBusException exception) {
+            reportServiceBusFailure(exception);
+            throw exception;
         }
     }
 
     private static void processError(ServiceBusErrorContext context) {
-        System.err.println(context.getException());
+        reportServiceBusFailure(context.getException());
+    }
+
+    private static void reportServiceBusFailure(Throwable error) {
+        if (error instanceof ServiceBusException exception) {
+            System.err.printf(
+                    "Service Bus failure: reason=%s, transient=%s, message=%s%n",
+                    exception.getReason(),
+                    exception.isTransient(),
+                    exception.getMessage());
+        } else {
+            System.err.println("Service Bus failure: " + error.getMessage());
+        }
     }
 
     private static String requireEnvironment(String name) {

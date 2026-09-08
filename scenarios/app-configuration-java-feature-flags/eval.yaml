@@ -61,104 +61,153 @@ stimuli:
           evidence:
             - diff
           criteria:
-            - name: prompt/retrieves-settings-with-a-specific-label-parameter-using
+            - name: prompt/supports-sync-and-async-setting-lookups
               description: |-
-                Retrieves settings with a specific label parameter using `SettingSelector`
+                - Sync and async services each fetch one setting by key.
+                - Sync and async services each fetch one setting by key and label.
+                - Direct key/label lookup, `SettingSelector`, or equivalent current SDK APIs are valid.
               weight: 1
               pass_threshold: 1
-            - name: prompt/lists-settings-filtered-by-key-prefix-using-setkeyfilter
+            - name: prompt/returns-prefix-matches-as-maps
               description: |-
-                Lists settings filtered by key prefix using `setKeyFilter()`
+                - Sync and async services list settings matching the requested key prefix.
+                - Convert all matching returned settings into key/value maps.
+                - Use the SDK key-filter syntax corresponding to the requested prefix.
               weight: 1
               pass_threshold: 1
             - name: prompt/implements-conditional-reads-with-matchconditions-setifn
               description: |-
-                Implements conditional reads with `matchConditions` / `setIfNoneMatch()` using the setting's ETag
+                - Cache each setting value with its ETag or equivalent validator.
+                - Revalidation sends that validator in a supported conditional read.
+                - The service response determines whether cached state is retained or replaced.
               weight: 1
               pass_threshold: 1
             - name: prompt/handles-304-not-modified-setting-unchanged-since-last-re
               description: |-
-                Handles 304 Not Modified (setting unchanged since last read)
+                - A not-modified response is treated as an unchanged setting.
+                - Return the existing cached value for unchanged settings.
+                - Keep the existing validator until a changed service value is returned.
               weight: 1
               pass_threshold: 1
             - name: prompt/uses-appconfig-featureflag-prefix-for-feature-flag-keys
               description: |-
-                Uses `.appconfig.featureflag/` prefix for feature flag keys
+                - Feature flag lookup targets `.appconfig.featureflag/<name>`.
+                - Missing flag -> disabled result.
+                - The flag payload, not an ordinary key alone, drives evaluation.
               weight: 1
               pass_threshold: 1
             - name: prompt/parses-the-json-payload-in-feature-flag-setting-values
               description: |-
-                Parses the JSON payload in feature flag setting values
+                - Parse the feature-flag setting value as JSON.
+                - Enabled flag without a restrictive filter -> true.
+                - Disabled or malformed flag data -> safe false or reported configuration error.
               weight: 1
               pass_threshold: 1
-            - name: prompt/implements-deterministic-percentage-rollout-consistent-h
+            - name: prompt/evaluates-deterministic-percentage-rollout
               description: |-
-                Implements deterministic percentage rollout (consistent hash, not `Math.random()`)
+                - Parse the configured percentage rollout from the enabled flag payload.
+                - Derive a stable user bucket from the user ID; do not use random selection.
+                - Compare the bucket with the configured percentage so repeated checks agree.
               weight: 1
               pass_threshold: 1
             - name: prompt/implements-sentinel-key-watching-with-configurable-polli
               description: |-
-                Implements sentinel key watching with configurable polling interval
+                - Accept sentinel key names from configuration.
+                - Use a configurable polling interval for sentinel checks.
+                - Poll sentinel values or validators through the App Configuration SDK.
               weight: 1
               pass_threshold: 1
             - name: prompt/detects-sentinel-value-change-via-etag-or-value-comparis
               description: |-
-                Detects sentinel value change via ETag or value comparison and triggers full refresh
+                - Compare each polled sentinel's ETag, validator, or value with cached state.
+                - Changed sentinel -> refresh all cached configuration.
+                - Unchanged sentinel -> retain the existing cache.
               weight: 1
               pass_threshold: 1
-            - name: language/correct-dependencies-com-azure-not-com-microsoft-azure
+            - name: prompt/configures-managed-identity-sync-and-async-clients
               description: |-
-                Uses com.azure group ID for all Azure SDK packages. No com.microsoft.azure (legacy SDK) dependencies. Includes azure-identity for authentication.
+                - Read the App Configuration endpoint from environment configuration.
+                - Build both sync and async App Configuration clients for that endpoint.
+                - Authenticate both clients with managed identity through a `TokenCredential`.
               weight: 1
               pass_threshold: 1
-            - name: language/azure-sdk-bom-for-version-management
+            - name: prompt/implements-a-real-asynchronous-flow
               description: |-
-                Uses azure-sdk-bom in dependencyManagement to manage Azure SDK versions instead of hardcoding individual artifact versions. Dependencies should omit <version> tags when managed by the BOM.
+                - Async retrieval, listing, and watcher work originate from the async SDK client.
+                - Preserve nonblocking composition with Reactor or a `Mono.toFuture()` adapter.
+                - Do not implement async behavior by wrapping a synchronous client in an executor.
               weight: 1
               pass_threshold: 1
-            - name: language/correct-imports-no-legacy-no-internal-packages
+            - name: prompt/demonstrates-sync-then-async-behavior
               description: |-
-                All imports use com.azure.* packages. No com.microsoft.azure.* (legacy) or com.azure.*.implementation.* (internal API) imports.
+                - Main demonstrates labeled values, feature flags for sample users, and watcher startup.
+                - Run the complete synchronous demonstration first.
+                - Repeat the complete demonstration with the asynchronous implementation.
               weight: 1
               pass_threshold: 1
-            - name: language/defaultazurecredential-authentication
+            - name: language/current-public-azure-sdk-dependencies
               description: |-
-                Uses DefaultAzureCredential or another com.azure.identity credential. No hardcoded connection strings, account keys, SAS tokens, or secrets.
+                - Declare Azure SDK artifacts required by the selected services and authentication flow.
+                - Use current compatible coordinates under `com.azure` or `com.azure.resourcemanager`.
+                - Include `azure-identity` only when the chosen authentication flow requires a `TokenCredential`.
               weight: 1
               pass_threshold: 1
-            - name: language/client-builder-pattern
+            - name: language/azure-sdk-bom-first-version-management
               description: |-
-                SDK clients constructed using *ClientBuilder classes with .endpoint() or .vaultUrl() and .credential(). No legacy constructors (CloudStorageAccount, DocumentClient, KeyVaultClient).
+                - Import `com.azure:azure-sdk-bom` through Maven dependency management or a Gradle platform.
+                - Omit explicit versions for compatible BOM-covered GA Azure artifacts.
+                - Use explicit versions only for preview, uncovered, incompatible, or prompt-pinned artifacts.
               weight: 1
               pass_threshold: 1
-            - name: language/no-deprecated-legacy-classes
+            - name: language/current-public-azure-sdk-imports
               description: |-
-                No deprecated classes from the old SDK (CloudStorageAccount, CloudBlobClient, DocumentClient, QueueClient, ApplicationTokenCredentials, MSICredentials, ConnectionStringBuilder).
+                - Azure SDK imports use current public `com.azure.*` or `com.azure.resourcemanager.*` packages.
+                - Do not import legacy `com.microsoft.azure.*` packages.
+                - Do not import Azure internal implementation packages.
+                - Standard Java, Reactor, Jackson, OpenAI, and other required non-Azure imports are valid.
               weight: 1
               pass_threshold: 1
-            - name: language/pagination-pagediterable-pagedflux
+            - name: language/supported-runtime-authentication
               description: |-
-                List/query operations return PagedIterable (sync) or PagedFlux (async). Does not flatten all pages into a raw List or Stream in memory.
+                - Authentication values come from runtime configuration or the execution environment.
+                - Use a current public authentication mode supported by the selected client or service.
+                - Do not embed or log connection strings, account keys, SAS tokens, client secrets, or bearer tokens.
               weight: 1
               pass_threshold: 1
-            - name: language/lro-pattern-syncpoller-pollerflux
+            - name: language/current-public-client-construction
               description: |-
-                Long-running operations use SyncPoller (sync) or PollerFlux (async) with begin* method prefix. No Thread.sleep() polling loops.
+                - Construct Azure SDK clients or managers through current public builders, factories, or documented fluent entry points.
+                - Runtime endpoint, vault URL, namespace, subscription, or profile values flow into the constructed client.
+                - Do not use legacy constructors or removed client types.
               weight: 1
               pass_threshold: 1
-            - name: language/async-uses-project-reactor-mono-flux
+            - name: language/current-public-azure-sdk-apis
               description: |-
-                Async code uses Project Reactor types (Mono, Flux). Not CompletableFuture (wrong), not RxJava (wrong), not sync wrapped in ExecutorService. No .block() inside async service implementations.
+                - Use current public Azure SDK clients, models, and operations.
+                - Public preview SDK APIs are valid when the prompt pins or requires a preview package.
+                - Do not depend on deprecated, removed, internal, or implementation-only Azure types.
+                - Equivalent public APIs are valid when exact symbols are not prompt-contractual.
               weight: 1
               pass_threshold: 1
-            - name: language/service-specific-exception-handling
+            - name: language/complete-pageable-traversal
               description: |-
-                Catches service-specific exceptions (BlobStorageException, CosmosException, ServiceBusException, HttpResponseException) with status code inspection. Not just generic Exception catches.
+                - For prompt-required list, query, or status collections, traverse every returned page or continuation.
+                - Use `PagedIterable`, `PagedFlux`, an SDK auto-pager, or an equivalent current paging API.
+                - Do not stop after the first page or flatten before required per-page behavior is observed.
               weight: 1
               pass_threshold: 1
-            - name: language/try-with-resources-for-clients
+            - name: language/supported-terminal-state-polling
               description: |-
-                All Azure SDK client instances that implement AutoCloseable are used within try-with-resources blocks or explicitly closed in a finally block.
+                - Poll configured sentinel keys at the configured interval.
+                - Compare returned ETags, validators, or values with cached sentinel state.
+                - Changed sentinel -> trigger a full cache refresh.
+              weight: 1
+              pass_threshold: 1
+            - name: language/reactive-async-service-flow
+              description: |-
+                - Prompt-required async Azure operations originate from async SDK clients or documented async adapters.
+                - Compose reusable async flows with Reactor `Mono`/`Flux` or equivalent nonblocking composition.
+                - Do not wrap synchronous clients in an executor or block inside reusable async service methods.
               weight: 1
               pass_threshold: 1
       - type: run-command

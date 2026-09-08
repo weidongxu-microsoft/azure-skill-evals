@@ -1,5 +1,6 @@
 package com.example;
 
+import com.azure.core.exception.HttpResponseException;
 import com.azure.core.util.BinaryData;
 import com.azure.data.appconfiguration.models.ConfigurationSetting;
 import reactor.core.publisher.Mono;
@@ -28,14 +29,28 @@ public final class FeatureFlagEvaluator {
     }
 
     public boolean isEnabled(String flagId, String userId) {
-        ConfigurationSetting setting =
-                syncService.getSetting(FEATURE_FLAG_PREFIX + flagId);
-        return evaluate(setting.getValue(), flagId, userId);
+        try {
+            ConfigurationSetting setting =
+                    syncService.getSetting(FEATURE_FLAG_PREFIX + flagId);
+            return evaluate(setting.getValue(), flagId, userId);
+        } catch (HttpResponseException exception) {
+            if (exception.getResponse() != null
+                    && exception.getResponse().getStatusCode() == 404) {
+                return false;
+            }
+            throw exception;
+        }
     }
 
     public Mono<Boolean> isEnabledAsync(String flagId, String userId) {
         return asyncService.getSettingAsync(FEATURE_FLAG_PREFIX + flagId)
-                .map(setting -> evaluate(setting.getValue(), flagId, userId));
+                .map(setting -> evaluate(setting.getValue(), flagId, userId))
+                .onErrorResume(
+                        HttpResponseException.class,
+                        exception -> exception.getResponse() != null
+                                && exception.getResponse().getStatusCode() == 404
+                                ? Mono.just(false)
+                                : Mono.error(exception));
     }
 
     @SuppressWarnings("unchecked")

@@ -63,157 +63,207 @@ stimuli:
           criteria:
             - name: prompt/uses-com-azure-azure-security-keyvault-keys-keys-not-sec
               description: |-
-                Uses `com.azure:azure-security-keyvault-keys` (Keys, NOT Secrets) — critical distinction
+                - Manifest declares the Key Vault Keys SDK, not Key Vault Secrets for key protection.
+                - Use Key Vault key or cryptography clients for wrapping operations.
+                - Blob Storage and Identity dependencies are included as needed.
               weight: 1
               pass_threshold: 1
             - name: prompt/uses-javax-crypto-or-java-security-for-local-aes-gcm-enc
               description: |-
-                Uses `javax.crypto` or `java.security` for local AES-GCM encryption ### Client Construction (scenario-specific)
+                - Generate local data-encryption keys with Java cryptography APIs.
+                - Encrypt file bytes locally with authenticated encryption.
+                - Service calls do not replace local content encryption.
               weight: 1
               pass_threshold: 1
             - name: prompt/uses-keyclient-cryptographyclient-builder-for-key-vault
               description: |-
-                Uses `KeyClient` / `CryptographyClient` builder for Key Vault Keys (NOT `SecretClient`) ### Key Vault Keys Patterns (critical)
+                - Build a Key Vault key or cryptography client for the configured key.
+                - Vault endpoint and managed identity credential flow into the client.
+                - Do not use a secrets client for wrap/unwrap operations.
               weight: 1
               pass_threshold: 1
             - name: prompt/uses-cryptographyclient-for-wrapkey-and-unwrapkey-operat
               description: |-
-                Uses `CryptographyClient` for `wrapKey()` and `unwrapKey()` operations
+                - Data-encryption key -> Key Vault wrap operation before upload.
+                - Wrapped key metadata -> Key Vault unwrap operation before decrypt.
+                - Wrap and unwrap use the configured Key Vault key.
               weight: 1
               pass_threshold: 1
             - name: prompt/specifies-rsa-key-wrap-algorithm-keywrapalgorithm-rsa-oa
               description: |-
-                Specifies RSA key wrap algorithm (`KeyWrapAlgorithm.RSA_OAEP` or `RSA_OAEP_256`)
+                - Select an RSA key-wrap algorithm supported by the configured vault key.
+                - The same algorithm metadata is stored for later unwrap.
+                - `RSA_OAEP` or `RSA_OAEP_256` are valid evidence.
               weight: 1
               pass_threshold: 1
             - name: prompt/key-material-never-leaves-key-vault-wrap-unwrap-is-serve
               description: |-
-                Key material never leaves Key Vault (wrap/unwrap is server-side) ### Envelope Encryption Patterns (critical)
+                - Key-encryption key material remains inside Key Vault.
+                - Application sends only the local DEK to wrap/unwrap service operations.
+                - Do not export or persist the vault key material.
               weight: 1
               pass_threshold: 1
             - name: prompt/generates-a-random-aes-256-dek-locally-32-bytes
               description: |-
-                Generates a random AES-256 DEK locally (32 bytes)
+                - Generate a fresh random data-encryption key for each upload.
+                - Use 32 bytes or another strength appropriate for the selected authenticated cipher.
+                - Do not reuse a static DEK across uploads.
               weight: 1
               pass_threshold: 1
             - name: prompt/encrypts-data-with-aes-gcm-locally-using-the-dek
               description: |-
-                Encrypts data with AES-GCM locally using the DEK
+                - Plaintext file bytes are encrypted locally before upload.
+                - Use AES-GCM or an equivalent authenticated-encryption construction.
+                - Uploaded blob content is ciphertext, not plaintext.
               weight: 1
               pass_threshold: 1
             - name: prompt/wraps-the-dek-via-key-vault-wrapkey
               description: |-
-                Wraps the DEK via Key Vault `wrapKey()`
+                - Local plaintext DEK is wrapped through Key Vault before storage.
+                - Store or transmit only the wrapped DEK outside local encryption code.
+                - Wrapped DEK is linked to the blob for later decryption.
               weight: 1
               pass_threshold: 1
             - name: prompt/stores-wrapped-dek-as-blob-metadata
               description: |-
-                Stores wrapped DEK as blob metadata
+                - Blob metadata contains the wrapped DEK.
+                - Binary wrapped-key data is encoded safely for metadata storage.
+                - Metadata key names are stable enough for the decrypt path.
               weight: 1
               pass_threshold: 1
             - name: prompt/stores-iv-initialization-vector-in-blob-metadata
               description: |-
-                Stores IV (initialization vector) in blob metadata
+                - Generate fresh encryption parameters such as IV or nonce.
+                - Store every parameter required for decryption in blob metadata.
+                - Binary parameters are encoded safely for metadata storage.
               weight: 1
               pass_threshold: 1
             - name: prompt/stores-vault-key-identifier-in-blob-metadata
               description: |-
-                Stores vault key identifier in blob metadata
+                - Store the Key Vault key identifier with the encrypted blob.
+                - Decryption uses that identifier to select the unwrap key.
+                - Metadata does not contain raw vault key material.
               weight: 1
               pass_threshold: 1
-            - name: prompt/for-decryption-retrieves-wrapped-dek-from-metadata-unwra
+            - name: prompt/sync-encrypted-round-trip
               description: |-
-                For decryption: retrieves wrapped DEK from metadata, unwraps via Key Vault, decrypts locally ### AES-GCM
+                - Generate a DEK, encrypt locally, wrap it, and upload ciphertext plus metadata synchronously.
+                - Download ciphertext and metadata, unwrap the DEK, and decrypt locally.
+                - Return decrypted content matching the original input.
               weight: 1
               pass_threshold: 1
             - name: prompt/uses-aes-gcm-not-aes-cbc-aes-ecb-or-other-modes
               description: |-
-                Uses AES-GCM (not AES-CBC, AES-ECB, or other modes)
+                - Encryption uses authenticated encryption for file content.
+                - AES-GCM is valid evidence for the required authenticated mode.
+                - AES-CBC, AES-ECB, or unauthenticated encryption alone does not satisfy this criterion.
               weight: 1
               pass_threshold: 1
             - name: prompt/generates-random-iv-for-each-encryption-typically-12-byt
               description: |-
-                Generates random IV for each encryption (typically 12 bytes for GCM) ### Scenario-Specific Error Handling
+                - Generate a fresh IV/nonce for every encryption operation.
+                - Use a length valid for the selected authenticated cipher.
+                - Store the IV/nonce so decryption can reconstruct cipher parameters.
               weight: 1
               pass_threshold: 1
-            - name: prompt/handles-key-vault-errors-key-disabled-key-not-found-scen
+            - name: prompt/encryption-service-failures
               description: |-
-                Handles Key Vault errors (key disabled, key not found) ### Scenario-Specific Async
+                - Handle Key Vault failures such as a disabled or missing key.
+                - Handle Blob Storage failures such as a missing blob.
+                - Report actionable service details and do not expose plaintext keys.
               weight: 1
               pass_threshold: 1
-            - name: prompt/uses-blobasyncclient-and-cryptographyasyncclient-for-asy
+            - name: prompt/async-encrypted-round-trip
               description: |-
-                Uses `BlobAsyncClient` and `CryptographyAsyncClient` for async ### Anti-Patterns (scenario-specific)
-              weight: 1
-              pass_threshold: 1
-            - name: prompt/not-using-secretclient-instead-of-keyclient-cryptography
-              description: |-
-                NOT using `SecretClient` instead of `KeyClient`/`CryptographyClient`
+                - Perform Blob Storage and Key Vault service calls with their async clients.
+                - Compose the full encrypt-upload-download-decrypt flow with Reactor.
+                - Keep blocking work off the reactive service chain or isolate it on an appropriate scheduler.
               weight: 1
               pass_threshold: 1
             - name: prompt/not-encrypting-data-directly-with-the-vault-key-should-b
               description: |-
-                NOT encrypting data directly with the vault key (should be envelope encryption)
+                - File content is encrypted with a local DEK.
+                - Key Vault key is used only to protect or recover the DEK.
+                - Do not send full file content to Key Vault for encryption.
               weight: 1
               pass_threshold: 1
             - name: prompt/not-storing-raw-dek-in-plaintext
               description: |-
-                NOT storing raw DEK in plaintext
+                - Plaintext DEK is never uploaded or persisted.
+                - Blob metadata stores only wrapped or otherwise protected key material.
+                - Logs and console output do not expose the plaintext DEK.
               weight: 1
               pass_threshold: 1
-            - name: language/correct-dependencies-com-azure-not-com-microsoft-azure
+            - name: prompt/shared-managed-identity-configuration
               description: |-
-                Uses com.azure group ID for all Azure SDK packages. No com.microsoft.azure (legacy SDK) dependencies. Includes azure-identity for authentication.
+                - Read the Blob Storage and Key Vault endpoints from environment variables.
+                - Create one managed-identity credential instance.
+                - Share that credential across all sync and async Azure clients.
               weight: 1
               pass_threshold: 1
-            - name: language/azure-sdk-bom-for-version-management
+            - name: prompt/encrypted-uploader-demo
               description: |-
-                Uses azure-sdk-bom in dependencyManagement to manage Azure SDK versions instead of hardcoding individual artifact versions. Dependencies should omit <version> tags when managed by the BOM.
+                - Run the complete sync round trip before the complete async round trip.
+                - Print the vault key ID and base64-encoded wrapped DEK for each flow.
+                - Print the successfully decrypted output for each flow.
               weight: 1
               pass_threshold: 1
-            - name: language/correct-imports-no-legacy-no-internal-packages
+            - name: language/current-public-azure-sdk-dependencies
               description: |-
-                All imports use com.azure.* packages. No com.microsoft.azure.* (legacy) or com.azure.*.implementation.* (internal API) imports.
+                - Declare Azure SDK artifacts required by the selected services and authentication flow.
+                - Use current compatible coordinates under `com.azure` or `com.azure.resourcemanager`.
+                - Include `azure-identity` only when the chosen authentication flow requires a `TokenCredential`.
               weight: 1
               pass_threshold: 1
-            - name: language/defaultazurecredential-authentication
+            - name: language/azure-sdk-bom-first-version-management
               description: |-
-                Uses DefaultAzureCredential or another com.azure.identity credential. No hardcoded connection strings, account keys, SAS tokens, or secrets.
+                - Import `com.azure:azure-sdk-bom` through Maven dependency management or a Gradle platform.
+                - Omit explicit versions for compatible BOM-covered GA Azure artifacts.
+                - Use explicit versions only for preview, uncovered, incompatible, or prompt-pinned artifacts.
               weight: 1
               pass_threshold: 1
-            - name: language/client-builder-pattern
+            - name: language/current-public-azure-sdk-imports
               description: |-
-                SDK clients constructed using *ClientBuilder classes with .endpoint() or .vaultUrl() and .credential(). No legacy constructors (CloudStorageAccount, DocumentClient, KeyVaultClient).
+                - Azure SDK imports use current public `com.azure.*` or `com.azure.resourcemanager.*` packages.
+                - Do not import legacy `com.microsoft.azure.*` packages.
+                - Do not import Azure internal implementation packages.
+                - Standard Java, Reactor, Jackson, OpenAI, and other required non-Azure imports are valid.
               weight: 1
               pass_threshold: 1
-            - name: language/no-deprecated-legacy-classes
+            - name: language/supported-runtime-authentication
               description: |-
-                No deprecated classes from the old SDK (CloudStorageAccount, CloudBlobClient, DocumentClient, QueueClient, ApplicationTokenCredentials, MSICredentials, ConnectionStringBuilder).
+                - Authentication values come from runtime configuration or the execution environment.
+                - Use a current public authentication mode supported by the selected client or service.
+                - Do not embed or log connection strings, account keys, SAS tokens, client secrets, or bearer tokens.
               weight: 1
               pass_threshold: 1
-            - name: language/pagination-pagediterable-pagedflux
+            - name: language/current-public-client-construction
               description: |-
-                List/query operations return PagedIterable (sync) or PagedFlux (async). Does not flatten all pages into a raw List or Stream in memory.
+                - Construct Azure SDK clients or managers through current public builders, factories, or documented fluent entry points.
+                - Runtime endpoint, vault URL, namespace, subscription, or profile values flow into the constructed client.
+                - Do not use legacy constructors or removed client types.
               weight: 1
               pass_threshold: 1
-            - name: language/lro-pattern-syncpoller-pollerflux
+            - name: language/current-public-azure-sdk-apis
               description: |-
-                Long-running operations use SyncPoller (sync) or PollerFlux (async) with begin* method prefix. No Thread.sleep() polling loops.
+                - Use current public Azure SDK clients, models, and operations.
+                - Public preview SDK APIs are valid when the prompt pins or requires a preview package.
+                - Do not depend on deprecated, removed, internal, or implementation-only Azure types.
+                - Equivalent public APIs are valid when exact symbols are not prompt-contractual.
               weight: 1
               pass_threshold: 1
-            - name: language/async-uses-project-reactor-mono-flux
+            - name: language/reactive-async-service-flow
               description: |-
-                Async code uses Project Reactor types (Mono, Flux). Not CompletableFuture (wrong), not RxJava (wrong), not sync wrapped in ExecutorService. No .block() inside async service implementations.
+                - Prompt-required async Azure operations originate from async SDK clients or documented async adapters.
+                - Compose reusable async flows with Reactor `Mono`/`Flux` or equivalent nonblocking composition.
+                - Do not wrap synchronous clients in an executor or block inside reusable async service methods.
               weight: 1
               pass_threshold: 1
-            - name: language/service-specific-exception-handling
+            - name: language/service-specific-error-diagnostics
               description: |-
-                Catches service-specific exceptions (BlobStorageException, CosmosException, ServiceBusException, HttpResponseException) with status code inspection. Not just generic Exception catches.
-              weight: 1
-              pass_threshold: 1
-            - name: language/try-with-resources-for-clients
-              description: |-
-                All Azure SDK client instances that implement AutoCloseable are used within try-with-resources blocks or explicitly closed in a finally block.
+                - Handle the selected Azure service or identity SDK exception type around service operations.
+                - Preserve status code, failure reason, or service error details when available.
+                - Report actionable diagnostics without exposing credential material.
               weight: 1
               pass_threshold: 1
       - type: run-command

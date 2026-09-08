@@ -5,6 +5,7 @@ import com.azure.ai.agents.persistent.models.*;
 import com.azure.core.util.BinaryData;
 import com.azure.identity.DefaultAzureCredentialBuilder;
 import java.util.List;
+import java.util.concurrent.TimeUnit;
 
 public final class AgentFileSearch {
     private static final String GUIDE
@@ -13,6 +14,7 @@ public final class AgentFileSearch {
     private static final String QUESTION
         = "According to the uploaded guide, how long is the Cascade Loop "
         + "and what should hikers bring?";
+    private static final long POLL_TIMEOUT_NANOS = TimeUnit.MINUTES.toNanos(2);
 
     private AgentFileSearch() {
     }
@@ -36,6 +38,7 @@ public final class AgentFileSearch {
         VectorStore vectorStore = null;
         PersistentAgent agent = null;
         PersistentAgentThread thread = null;
+        Throwable primaryFailure = null;
         try {
             uploadedFile = files.uploadFile(new UploadFileRequest(
                 new FileDetails(BinaryData.fromString(GUIDE)).setFilename("trail-guide.txt"),
@@ -48,14 +51,7 @@ public final class AgentFileSearch {
                 null,
                 null);
 
-            while (VectorStoreStatus.IN_PROGRESS.equals(vectorStore.getStatus())) {
-                Thread.sleep(500);
-                vectorStore = vectorStores.getVectorStore(vectorStore.getId());
-            }
-            if (!VectorStoreStatus.COMPLETED.equals(vectorStore.getStatus())) {
-                throw new IllegalStateException(
-                    "Vector store ended with status " + vectorStore.getStatus());
-            }
+            vectorStore = waitForVectorStore(vectorStores, vectorStore);
 
             FileSearchToolResource searchResource = new FileSearchToolResource()
                 .setVectorStoreIds(List.of(vectorStore.getId()));
@@ -67,41 +63,133 @@ public final class AgentFileSearch {
 
             thread = threads.createThread();
             messages.createMessage(thread.getId(), MessageRole.USER, QUESTION);
-            ThreadRun run = runs.createRun(new CreateRunOptions(thread.getId(), agent.getId()));
-            do {
-                Thread.sleep(500);
-                run = runs.getRun(thread.getId(), run.getId());
-            } while (RunStatus.QUEUED.equals(run.getStatus())
-                || RunStatus.IN_PROGRESS.equals(run.getStatus()));
-
-            if (!RunStatus.COMPLETED.equals(run.getStatus())) {
-                throw new IllegalStateException("Run ended with status " + run.getStatus());
-            }
-
-            for (ThreadMessage message : messages.listMessages(
-                thread.getId(), null, null, ListSortOrder.ASCENDING, null, null)) {
-                if (!MessageRole.AGENT.equals(message.getRole())) {
-                    continue;
-                }
-                for (MessageContent content : message.getContent()) {
-                    if (content instanceof MessageTextContent text) {
-                        System.out.println(text.getText().getValue());
-                    }
-                }
-            }
+            ThreadRun completedRun = waitForSuccessfulRun(
+                runs,
+                thread.getId(),
+                runs.createRun(new CreateRunOptions(thread.getId(), agent.getId())));
+            printReturnedAgentText(messages, thread.getId(), completedRun);
+        } catch (InterruptedException | RuntimeException | Error failure) {
+            primaryFailure = failure;
+            throw failure;
         } finally {
+            RuntimeException cleanupFailure = null;
             if (thread != null) {
-                threads.deleteThread(thread.getId());
+                String threadId = thread.getId();
+                cleanupFailure = cleanup(
+                    cleanupFailure,
+                    () -> threads.deleteThread(threadId));
             }
             if (agent != null) {
-                administration.deleteAgent(agent.getId());
+                String agentId = agent.getId();
+                cleanupFailure = cleanup(
+                    cleanupFailure,
+                    () -> administration.deleteAgent(agentId));
             }
             if (vectorStore != null) {
-                vectorStores.deleteVectorStore(vectorStore.getId());
+                String vectorStoreId = vectorStore.getId();
+                cleanupFailure = cleanup(
+                    cleanupFailure,
+                    () -> vectorStores.deleteVectorStore(vectorStoreId));
             }
             if (uploadedFile != null) {
-                files.deleteFile(uploadedFile.getId());
+                String fileId = uploadedFile.getId();
+                cleanupFailure = cleanup(
+                    cleanupFailure,
+                    () -> files.deleteFile(fileId));
             }
+            if (cleanupFailure != null) {
+                if (primaryFailure != null) {
+                    primaryFailure.addSuppressed(cleanupFailure);
+                } else {
+                    throw cleanupFailure;
+                }
+            }
+        }
+    }
+
+    private static RuntimeException cleanup(
+        RuntimeException previousFailure,
+        Runnable operation) {
+        try {
+            operation.run();
+        } catch (RuntimeException failure) {
+            if (previousFailure == null) {
+                return failure;
+            }
+            previousFailure.addSuppressed(failure);
+        }
+        return previousFailure;
+    }
+
+    private static VectorStore waitForVectorStore(
+        VectorStoresClient vectorStores,
+        VectorStore vectorStore) throws InterruptedException {
+        long deadline = System.nanoTime() + POLL_TIMEOUT_NANOS;
+        while (!VectorStoreStatus.COMPLETED.equals(vectorStore.getStatus())) {
+            String status = String.valueOf(vectorStore.getStatus()).toLowerCase();
+            if (status.contains("failed")
+                || status.contains("expired")
+                || status.contains("cancel")) {
+                throw new IllegalStateException(
+                    "Vector store indexing failed with status " + vectorStore.getStatus());
+            }
+            requireBeforeDeadline(deadline, "Vector store indexing");
+            Thread.sleep(500);
+            vectorStore = vectorStores.getVectorStore(vectorStore.getId());
+        }
+        return vectorStore;
+    }
+
+    private static ThreadRun waitForSuccessfulRun(
+        RunsClient runs,
+        String threadId,
+        ThreadRun run) throws InterruptedException {
+        long deadline = System.nanoTime() + POLL_TIMEOUT_NANOS;
+        while (!isTerminal(run.getStatus())) {
+            requireBeforeDeadline(deadline, "Agent run");
+            Thread.sleep(500);
+            run = runs.getRun(threadId, run.getId());
+        }
+        if (!RunStatus.COMPLETED.equals(run.getStatus())) {
+            throw new IllegalStateException(
+                "Agent run did not complete successfully; terminal status was "
+                    + run.getStatus());
+        }
+        return run;
+    }
+
+    private static boolean isTerminal(RunStatus status) {
+        return RunStatus.COMPLETED.equals(status)
+            || RunStatus.FAILED.equals(status)
+            || RunStatus.CANCELLED.equals(status)
+            || RunStatus.EXPIRED.equals(status);
+    }
+
+    private static void printReturnedAgentText(
+        MessagesClient messages,
+        String threadId,
+        ThreadRun completedRun) {
+        if (!RunStatus.COMPLETED.equals(completedRun.getStatus())) {
+            throw new IllegalArgumentException("Messages require a completed run.");
+        }
+        for (ThreadMessage returnedMessage : messages.listMessages(
+            threadId, null, null, ListSortOrder.ASCENDING, null, null)) {
+            if (!MessageRole.AGENT.equals(returnedMessage.getRole())) {
+                continue;
+            }
+            for (MessageContent returnedContent : returnedMessage.getContent()) {
+                if (returnedContent instanceof MessageTextContent returnedText) {
+                    String serviceReturnedAgentText =
+                        returnedText.getText().getValue();
+                    System.out.println(serviceReturnedAgentText);
+                }
+            }
+        }
+    }
+
+    private static void requireBeforeDeadline(long deadline, String operation) {
+        if (System.nanoTime() >= deadline) {
+            throw new IllegalStateException(operation + " timed out after two minutes.");
         }
     }
 

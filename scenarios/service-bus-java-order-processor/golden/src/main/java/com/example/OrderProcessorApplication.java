@@ -24,22 +24,29 @@ import java.time.Duration;
 import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.Map;
+import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
 public final class OrderProcessorApplication {
-    private static final double HIGH_VALUE_THRESHOLD = 1_000.0;
     private static final ObjectMapper MAPPER = new ObjectMapper();
 
     private OrderProcessorApplication() {
     }
 
     public static final class Order {
+        public enum Status {
+            pending,
+            processing,
+            completed,
+            failed
+        }
+
         public String orderId;
         public String customerName;
         public String product;
         public int quantity;
         public double totalPrice;
-        public String status;
+        public Status status;
 
         public Order() {
         }
@@ -50,7 +57,7 @@ public final class OrderProcessorApplication {
                 String product,
                 int quantity,
                 double totalPrice,
-                String status) {
+                Status status) {
             this.orderId = orderId;
             this.customerName = customerName;
             this.product = product;
@@ -82,9 +89,9 @@ public final class OrderProcessorApplication {
         public static Order fromJson(String value) {
             try {
                 Order order = MAPPER.readValue(value, Order.class);
-                if (!List.of("pending", "processing", "completed", "failed")
-                        .contains(order.status)) {
-                    throw new IllegalArgumentException("Invalid order status");
+                if (order.status == null) {
+                    throw new IllegalArgumentException(
+                            "Order status must be pending, processing, completed, or failed");
                 }
                 return order;
             } catch (JsonProcessingException exception) {
@@ -93,12 +100,19 @@ public final class OrderProcessorApplication {
         }
     }
 
+    private static double highValueThreshold() {
+        String configured = System.getenv("ORDER_HIGH_VALUE_THRESHOLD");
+        return configured == null || configured.isBlank()
+                ? 1_000.0
+                : Double.parseDouble(configured);
+    }
+
     private static ServiceBusMessage messageFor(Order order) {
         ServiceBusMessage message = new ServiceBusMessage(order.toJson())
                 .setCorrelationId(order.getOrderId())
                 .setSessionId(order.getCustomerName());
         message.getApplicationProperties().put("priority", "normal");
-        if (order.getTotalPrice() > HIGH_VALUE_THRESHOLD) {
+        if (order.getTotalPrice() > highValueThreshold()) {
             message.getApplicationProperties().put("priority", "high");
             message.setScheduledEnqueueTime(OffsetDateTime.now().plusSeconds(30));
         }
@@ -106,14 +120,14 @@ public final class OrderProcessorApplication {
     }
 
     private static void processOrder(Order order) {
-        order.status = "processing";
+        order.status = Order.Status.processing;
         System.out.printf(
                 "Processing order %s for %s: %s x%d%n",
                 order.orderId,
                 order.customerName,
                 order.product,
                 order.quantity);
-        order.status = "completed";
+        order.status = Order.Status.completed;
     }
 
     private static void logServiceBusError(
@@ -150,6 +164,12 @@ public final class OrderProcessorApplication {
 
         void sendOrder(Order order) {
             sender.sendMessage(messageFor(order));
+        }
+
+        void sendRecoverableFailure(Order order) {
+            ServiceBusMessage message = messageFor(order);
+            message.getApplicationProperties().put("simulateFailure", true);
+            sender.sendMessage(message);
         }
 
         void sendOrders(List<Order> orders) {
@@ -190,6 +210,12 @@ public final class OrderProcessorApplication {
 
         Mono<Void> sendOrder(Order order) {
             return sender.sendMessage(messageFor(order));
+        }
+
+        Mono<Void> sendRecoverableFailure(Order order) {
+            ServiceBusMessage message = messageFor(order);
+            message.getApplicationProperties().put("simulateFailure", true);
+            return sender.sendMessage(message);
         }
 
         Mono<Void> sendOrders(List<Order> orders) {
@@ -258,6 +284,10 @@ public final class OrderProcessorApplication {
             ServiceBusReceivedMessage message = context.getMessage();
             try {
                 Order order = Order.fromJson(message.getBody().toString());
+                if (Boolean.TRUE.equals(
+                        message.getApplicationProperties().get("simulateFailure"))) {
+                    throw new IllegalStateException("Simulated recoverable processing failure");
+                }
                 processOrder(order);
                 context.complete();
             } catch (ServiceBusException exception) {
@@ -272,6 +302,11 @@ public final class OrderProcessorApplication {
                                     .setDeadLetterErrorDescription(exception.getMessage()));
                 }
             } catch (RuntimeException exception) {
+                System.err.printf(
+                        "Order processing failed for message %s on %s: %s%n",
+                        message.getMessageId(),
+                        queueName,
+                        exception.getMessage());
                 context.deadLetter(
                         new DeadLetterOptions()
                                 .setDeadLetterReason("Order deserialization failed")
@@ -347,11 +382,12 @@ public final class OrderProcessorApplication {
         }
 
         Mono<Void> processOrders() {
-            return sessions.acceptNextSession()
-                    .flatMapMany(receiver -> receiver.receiveMessages()
-                            .take(10)
-                            .concatMap(message -> settle(receiver, message))
-                            .doFinally(signal -> receiver.close()))
+            return Flux.range(0, 2)
+                    .concatMap(ignored -> sessions.acceptNextSession()
+                            .flatMapMany(receiver -> receiver.receiveMessages()
+                                    .take(Duration.ofSeconds(35))
+                                    .concatMap(message -> settle(receiver, message))
+                                    .doFinally(signal -> receiver.close())))
                     .then();
         }
 
@@ -360,6 +396,10 @@ public final class OrderProcessorApplication {
                 ServiceBusReceivedMessage message) {
             try {
                 Order order = Order.fromJson(message.getBody().toString());
+                if (Boolean.TRUE.equals(
+                        message.getApplicationProperties().get("simulateFailure"))) {
+                    throw new IllegalStateException("Simulated recoverable processing failure");
+                }
                 processOrder(order);
                 return receiver.complete(message);
             } catch (ServiceBusException exception) {
@@ -374,6 +414,11 @@ public final class OrderProcessorApplication {
                                         "Non-transient order processing failure")
                                 .setDeadLetterErrorDescription(exception.getMessage()));
             } catch (RuntimeException exception) {
+                System.err.printf(
+                        "Async order processing failed for message %s on %s: %s%n",
+                        message.getMessageId(),
+                        queueName,
+                        exception.getMessage());
                 return receiver.deadLetter(
                         message,
                         new DeadLetterOptions()
@@ -385,7 +430,7 @@ public final class OrderProcessorApplication {
         Mono<Void> reprocessDeadLetters(AsyncOrderSender sender) {
             return deadLetterSessions.acceptNextSession()
                     .flatMapMany(receiver -> receiver.receiveMessages()
-                            .take(10)
+                            .take(Duration.ofSeconds(5))
                             .concatMap(message -> {
                                 try {
                                     Order order = Order.fromJson(
@@ -421,8 +466,20 @@ public final class OrderProcessorApplication {
 
     private static List<Order> sampleOrders() {
         return List.of(
-                new Order("order-100", "Contoso", "keyboard", 2, 180.0, "pending"),
-                new Order("order-101", "Fabrikam", "server", 1, 4_500.0, "pending"));
+                new Order(
+                        "order-100",
+                        "Contoso",
+                        "keyboard",
+                        2,
+                        180.0,
+                        Order.Status.pending),
+                new Order(
+                        "order-101",
+                        "Fabrikam",
+                        "server",
+                        1,
+                        4_500.0,
+                        Order.Status.pending));
     }
 
     public static void main(String[] args) {
@@ -430,23 +487,36 @@ public final class OrderProcessorApplication {
         String queueName = System.getenv("SERVICE_BUS_QUEUE_NAME");
         TokenCredential credential = new ManagedIdentityCredentialBuilder().build();
         List<Order> orders = sampleOrders();
+        Order recoverableFailure = new Order(
+                "order-102",
+                "Contoso",
+                "monitor",
+                1,
+                300.0,
+                Order.Status.pending);
 
+        System.out.println("Starting complete synchronous order cycle");
         try (SyncOrderSender sender = new SyncOrderSender(namespace, queueName, credential);
                 SyncOrderProcessor processor =
                         new SyncOrderProcessor(namespace, queueName, credential)) {
             sender.sendOrder(orders.get(0));
             sender.sendOrders(orders.subList(1, orders.size()));
-            processor.processOrders(Duration.ofSeconds(5));
+            sender.sendRecoverableFailure(recoverableFailure);
+            processor.processOrders(Duration.ofSeconds(35));
             processor.reprocessDeadLetters(sender);
         }
+        System.out.println("Completed synchronous order cycle");
 
+        System.out.println("Starting complete asynchronous order cycle");
         try (AsyncOrderSender sender = new AsyncOrderSender(namespace, queueName, credential);
                 AsyncOrderProcessor processor =
                         new AsyncOrderProcessor(namespace, queueName, credential)) {
             sender.sendOrder(orders.get(0)).block();
             sender.sendOrders(orders.subList(1, orders.size())).block();
+            sender.sendRecoverableFailure(recoverableFailure).block();
             processor.processOrders().block();
             processor.reprocessDeadLetters(sender).block();
         }
+        System.out.println("Completed asynchronous order cycle");
     }
 }

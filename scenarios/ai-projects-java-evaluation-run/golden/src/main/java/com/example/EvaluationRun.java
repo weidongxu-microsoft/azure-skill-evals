@@ -22,8 +22,11 @@ import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.TimeUnit;
 
 public final class EvaluationRun {
+    private static final long RUN_TIMEOUT_NANOS = TimeUnit.MINUTES.toNanos(5);
+
     private EvaluationRun() {
     }
 
@@ -125,8 +128,13 @@ public final class EvaluationRun {
                 .evalId(evaluationId)
                 .runId(runId)
                 .build());
+        long deadline = System.nanoTime() + RUN_TIMEOUT_NANOS;
         while (!"completed".equals(run.status())
             && !"failed".equals(run.status())) {
+            if (System.nanoTime() >= deadline) {
+                throw new IllegalStateException(
+                    "Evaluation run timed out after five minutes: " + runId);
+            }
             Thread.sleep(5000);
             run = client.evals().runs().retrieve(
                 RunRetrieveParams.builder()

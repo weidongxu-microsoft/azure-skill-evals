@@ -50,8 +50,7 @@ public final class Main {
         try (ConfigurationWatcher watcher = new ConfigurationWatcher(
                 service,
                 List.of("app:Sentinel"),
-                Duration.ofSeconds(30),
-                "app:Settings:")) {
+                Duration.ofSeconds(30))) {
             watcher.start();
             watcher.awaitFirstPoll();
         }
@@ -63,8 +62,7 @@ public final class Main {
         ConfigurationWatcher watcher = new ConfigurationWatcher(
                 service,
                 List.of("app:Sentinel"),
-                Duration.ofSeconds(30),
-                "app:Settings:");
+                Duration.ofSeconds(30));
 
         Mono<Void> demo = service.getSettingAsync("app:Settings:Theme")
                 .doOnNext(setting -> System.out.println(setting.getValue()))

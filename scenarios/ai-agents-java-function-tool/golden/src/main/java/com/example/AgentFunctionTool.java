@@ -9,9 +9,11 @@ import com.fasterxml.jackson.databind.json.JsonMapper;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.TimeUnit;
 
 public final class AgentFunctionTool {
     private static final String USER_MESSAGE = "What is the weather in Seattle in celsius?";
+    private static final long RUN_TIMEOUT_NANOS = TimeUnit.MINUTES.toNanos(2);
 
     private AgentFunctionTool() {
     }
@@ -50,8 +52,13 @@ public final class AgentFunctionTool {
             thread = threads.createThread();
             messages.createMessage(thread.getId(), MessageRole.USER, USER_MESSAGE);
             ThreadRun run = runs.createRun(new CreateRunOptions(thread.getId(), agent.getId()));
+            long deadline = System.nanoTime() + RUN_TIMEOUT_NANOS;
 
             do {
+                if (System.nanoTime() >= deadline) {
+                    throw new IllegalStateException(
+                        "Agent run timed out after two minutes: " + run.getId());
+                }
                 Thread.sleep(500);
                 run = runs.getRun(thread.getId(), run.getId());
                 if (RunStatus.REQUIRES_ACTION.equals(run.getStatus())

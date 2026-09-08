@@ -17,7 +17,6 @@ public final class ConfigurationWatcher implements AutoCloseable {
     private final AsyncAppConfigurationService asyncService;
     private final List<String> sentinelKeys;
     private final Duration pollingInterval;
-    private final String refreshPrefix;
     private final ScheduledExecutorService scheduler =
             Executors.newSingleThreadScheduledExecutor();
     private final CompletableFuture<Void> firstPoll = new CompletableFuture<>();
@@ -27,25 +26,21 @@ public final class ConfigurationWatcher implements AutoCloseable {
     public ConfigurationWatcher(
             AppConfigurationService service,
             List<String> sentinelKeys,
-            Duration pollingInterval,
-            String refreshPrefix) {
+            Duration pollingInterval) {
         this.syncService = service;
         this.asyncService = null;
         this.sentinelKeys = List.copyOf(sentinelKeys);
         this.pollingInterval = pollingInterval;
-        this.refreshPrefix = refreshPrefix;
     }
 
     public ConfigurationWatcher(
             AsyncAppConfigurationService service,
             List<String> sentinelKeys,
-            Duration pollingInterval,
-            String refreshPrefix) {
+            Duration pollingInterval) {
         this.syncService = null;
         this.asyncService = service;
         this.sentinelKeys = List.copyOf(sentinelKeys);
         this.pollingInterval = pollingInterval;
-        this.refreshPrefix = refreshPrefix;
     }
 
     public synchronized void start() {
@@ -83,7 +78,7 @@ public final class ConfigurationWatcher implements AutoCloseable {
                 .map(syncService::sentinelChanged)
                 .reduce(false, Boolean::logicalOr);
         if (changed) {
-            syncService.refreshPrefix(refreshPrefix);
+            syncService.refreshAllCached();
         }
     }
 
@@ -93,7 +88,7 @@ public final class ConfigurationWatcher implements AutoCloseable {
                 .any(Boolean.TRUE::equals)
                 .flatMap(changed ->
                         changed
-                                ? asyncService.refreshPrefixAsync(refreshPrefix)
+                                ? asyncService.refreshAllCachedAsync()
                                 : Mono.empty());
     }
 

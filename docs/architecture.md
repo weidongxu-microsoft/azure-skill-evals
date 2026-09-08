@@ -18,8 +18,11 @@ Vally owns execution, trajectories, model grading, and experiment isolation.
 Each scenario directory owns its eval and reference application under
 `golden/`. Each language owns one shared experiment under `experiments/`. Every
 `eval.yaml` restores its originating Hyoka prompt and defines one single-model
-panel containing the exact Hyoka scenario and language criteria. The experiment
-changes only
+panel containing criteria derived from the corresponding Hyoka evaluation.
+Historical criteria may be corrected under
+`docs/criteria-correction-policy.md` when they conflict with the prompt,
+current public SDK behavior, focused scoring, or equivalent valid
+implementations. The experiment changes only
 `/environment/skills` and
 `/environment/mcpServers`, so prompts, models, limits, and graders cannot drift
 between arms.
@@ -63,7 +66,8 @@ correctness results.
 ## What changes
 
 - Prompt Markdown frontmatter becomes Vally stimulus metadata and tags.
-- Hyoka prompt and language criteria become named items in one model review.
+- Hyoka prompts and provenance-preserving corrected criteria become named items
+  in one model review.
 - Explicit Vally variants replace Hyoka configuration combinations.
 - `results.jsonl` replaces Hyoka report JSON as the machine-readable result.
 - GitHub Actions runs one shard per selected language and variant, then
