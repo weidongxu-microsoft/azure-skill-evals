@@ -9,6 +9,16 @@ const repositoryRoot = fileURLToPath(new URL("../", import.meta.url));
 const scenariosRoot = join(repositoryRoot, "scenarios");
 const bomArtifact = "com.azure:azure-sdk-bom";
 const bomProperty = "azure-sdk-bom.version";
+const mavenPomNamespace = "http://maven.apache.org/POM/4.0.0";
+const dependencyScalarElements = [
+  "groupId",
+  "artifactId",
+  "version",
+  "type",
+  "scope",
+  "classifier",
+  "optional",
+];
 
 // Relevant entries from com.azure:azure-sdk-bom:1.3.8.
 const bomManagedVersions = new Map([
@@ -256,10 +266,19 @@ function parseXml(source, filePath) {
   const document = { name: "#document", children: [] };
   const stack = [document];
   let doctype;
+  let namespaceError;
   let parseError;
   const parser = new SaxesParser({ xmlns: true });
   parser.on("opentag", (tag) => {
-    const node = { name: tag.local, children: [], text: "" };
+    if (tag.uri !== mavenPomNamespace) {
+      namespaceError ??= `<${tag.name}> uses namespace ${JSON.stringify(tag.uri)}`;
+    }
+    const node = {
+      name: tag.local,
+      namespace: tag.uri,
+      children: [],
+      text: "",
+    };
     stack.at(-1).children.push(node);
     stack.push(node);
   });
@@ -294,6 +313,11 @@ function parseXml(source, filePath) {
     undefined,
     `${filePath}: malformed XML: ${parseError?.message}`,
   );
+  assert.equal(
+    namespaceError,
+    undefined,
+    `${filePath}: every POM element must use the Maven POM namespace: ${namespaceError}`,
+  );
   return document;
 }
 
@@ -310,7 +334,13 @@ function onlyChild(node, name, context) {
 function optionalText(node, name) {
   const matches = children(node, name);
   assert.ok(matches.length <= 1, `expected at most one <${name}>`);
-  return matches.length === 0 ? undefined : matches[0].text.trim();
+  if (matches.length === 0) return undefined;
+  assert.equal(
+    matches[0].children.length,
+    0,
+    `<${name}> must contain text only`,
+  );
+  return matches[0].text.trim();
 }
 
 function validateCoordinate(value, element, artifact) {
@@ -327,8 +357,10 @@ function validateCoordinate(value, element, artifact) {
 }
 
 function dependencyDetails(dependency) {
-  const groupId = optionalText(dependency, "groupId");
-  const artifactId = optionalText(dependency, "artifactId");
+  const scalarValues = Object.fromEntries(
+    dependencyScalarElements.map((name) => [name, optionalText(dependency, name)]),
+  );
+  const { groupId, artifactId } = scalarValues;
   assert.ok(groupId && artifactId, "dependency must have groupId and artifactId");
   validateCoordinate(groupId, "groupId", `${groupId}:${artifactId}`);
   validateCoordinate(artifactId, "artifactId", `${groupId}:${artifactId}`);
@@ -336,9 +368,9 @@ function dependencyDetails(dependency) {
     artifact: `${groupId}:${artifactId}`,
     elements: dependency.children.map((child) => child.name),
     groupId,
-    version: optionalText(dependency, "version"),
-    type: optionalText(dependency, "type"),
-    scope: optionalText(dependency, "scope"),
+    version: scalarValues.version,
+    type: scalarValues.type,
+    scope: scalarValues.scope,
   };
 }
 
@@ -659,10 +691,16 @@ function dependencyXml(dependency, indentation) {
   const { artifact, groupId, artifactId } = dependency;
   const defaults = artifact ? coordinate(artifact) : {};
   const elements = [
-    `<groupId>${groupId ?? defaults.groupId}</groupId>`,
-    `<artifactId>${artifactId ?? defaults.artifactId}</artifactId>`,
+    dependency.groupIdXml ??
+      `<groupId>${groupId ?? defaults.groupId}</groupId>`,
+    dependency.artifactIdXml ??
+      `<artifactId>${artifactId ?? defaults.artifactId}</artifactId>`,
   ];
-  if (dependency.version) elements.push(`<version>${dependency.version}</version>`);
+  if (dependency.versionXml) {
+    elements.push(dependency.versionXml);
+  } else if (dependency.version) {
+    elements.push(`<version>${dependency.version}</version>`);
+  }
   elements.push(...(dependency.modifiers ?? []));
   const childIndentation = `${indentation}  `;
   return [
@@ -691,19 +729,26 @@ function syntheticPom(scenario, options = {}) {
       groupId: "com.azure",
       artifactId: "azure-sdk-bom",
       version: "${azure-sdk-bom.version}",
-      modifiers: ["<type>pom</type>", "<scope>import</scope>"],
+      modifiers: options.bomModifiers ?? [
+        "<type>pom</type>",
+        "<scope>import</scope>",
+      ],
     },
     ...(options.extraBomImports ?? []),
   ];
 
+  const rootName = options.rootName ?? "project";
+  const namespaceDeclarations =
+    options.namespaceDeclarations ??
+    `xmlns="${options.rootNamespace ?? mavenPomNamespace}"`;
   return `<?xml version="1.0" encoding="UTF-8"?>
-<project xmlns="http://maven.apache.org/POM/4.0.0">
+<${rootName} ${namespaceDeclarations}>
   <modelVersion>4.0.0</modelVersion>
 ${options.parent ?? ""}  <groupId>com.example</groupId>
   <artifactId>synthetic-${scenario}</artifactId>
   <version>1.0.0</version>
   <properties>
-    <azure-sdk-bom.version>1.3.8</azure-sdk-bom.version>
+    <azure-sdk-bom.version>${options.bomPropertyValue ?? "1.3.8"}</azure-sdk-bom.version>
   </properties>
   <dependencyManagement>
     <dependencies>
@@ -717,7 +762,7 @@ ${directDependencies
   .map((dependency) => dependencyXml(dependency, "    "))
   .join("\n")}
   </dependencies>
-${options.profiles ?? ""}</project>`;
+${options.profiles ?? ""}${options.extraProjectElements ?? ""}</${rootName}>`;
 }
 
 test("Java goldens follow the pinned Azure SDK BOM policy", () => {
@@ -1018,6 +1063,145 @@ test("policy fails closed on malformed and unsafe XML", () => {
         ),
       expected,
       name,
+    );
+  }
+});
+
+test("policy requires the Maven namespace for every POM element", () => {
+  const input = loadPolicyInput();
+  const scenario = "app-configuration-java-config-values";
+  const wrongRoots = [
+    syntheticPom(scenario, { rootNamespace: "urn:not-maven" }),
+    syntheticPom(scenario, {
+      rootName: "spoof:project",
+      namespaceDeclarations:
+        'xmlns="http://maven.apache.org/POM/4.0.0" xmlns:spoof="urn:not-maven"',
+    }),
+  ];
+  const policyElements = [
+    "project",
+    "properties",
+    "dependencyManagement",
+    "dependencies",
+    "dependency",
+    "groupId",
+    "artifactId",
+    "version",
+    "type",
+    "scope",
+    "classifier",
+    "optional",
+    "exclusions",
+    "profiles",
+    "parent",
+  ];
+  const mixedChildren = policyElements.map((name) =>
+    syntheticPom(scenario, {
+      extraProjectElements: `  <spoof:${name} xmlns:spoof="urn:not-maven"/>
+`,
+    }),
+  );
+
+  for (const source of [...wrongRoots, ...mixedChildren]) {
+    assert.throws(
+      () =>
+        validateJavaBomPolicy(withScenarioSource(input, scenario, source)),
+      /every POM element must use the Maven POM namespace/,
+    );
+  }
+});
+
+test("policy permits the standard Maven xsi schema attributes", () => {
+  const input = loadPolicyInput();
+  const scenario = "app-configuration-java-config-values";
+  const source = syntheticPom(scenario, {
+    namespaceDeclarations:
+      `xmlns="${mavenPomNamespace}" ` +
+      'xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" ' +
+      `xsi:schemaLocation="${mavenPomNamespace} https://maven.apache.org/xsd/maven-4.0.0.xsd"`,
+  });
+
+  validateJavaBomPolicy(withScenarioSource(input, scenario, source));
+});
+
+test("policy rejects nested markup in consumed scalar elements", () => {
+  const input = loadPolicyInput();
+  const simpleScenario = "app-configuration-java-config-values";
+  const overrideScenario = "ai-projects-java-dataset-lifecycle";
+  const nested = "<nested/>";
+  const fixtures = [
+    [
+      "groupId",
+      syntheticPom(simpleScenario, {
+        directDependencies: [
+          {
+            groupIdXml: `<groupId>com.azure${nested}</groupId>`,
+            artifactId: "azure-data-appconfiguration",
+          },
+        ],
+      }),
+      simpleScenario,
+    ],
+    [
+      "artifactId",
+      syntheticPom(simpleScenario, {
+        directDependencies: [
+          {
+            groupId: "com.azure",
+            artifactIdXml: `<artifactId>azure-data-appconfiguration${nested}</artifactId>`,
+          },
+        ],
+      }),
+      simpleScenario,
+    ],
+    [
+      "version",
+      syntheticPom(overrideScenario, {
+        managedOverrides: [
+          {
+            artifact: "com.azure:azure-ai-projects",
+            versionXml: `<version>2.4.0${nested}</version>`,
+          },
+          {
+            artifact: "com.azure:azure-storage-blob",
+            version: "12.35.1",
+          },
+        ],
+      }),
+      overrideScenario,
+    ],
+    ...["type", "scope", "classifier", "optional"].map((name) => [
+      name,
+      syntheticPom(overrideScenario, {
+        managedOverrides: [
+          {
+            artifact: "com.azure:azure-ai-projects",
+            version: "2.4.0",
+            modifiers: [`<${name}>value${nested}</${name}>`],
+          },
+          {
+            artifact: "com.azure:azure-storage-blob",
+            version: "12.35.1",
+          },
+        ],
+      }),
+      overrideScenario,
+    ]),
+    [
+      bomProperty,
+      syntheticPom(simpleScenario, {
+        bomPropertyValue: `1.3.8${nested}`,
+      }),
+      simpleScenario,
+    ],
+  ];
+
+  for (const [element, source, scenario] of fixtures) {
+    assert.throws(
+      () =>
+        validateJavaBomPolicy(withScenarioSource(input, scenario, source)),
+      new RegExp(`<${element.replace(".", "\\.")}> must contain text only`),
+      element,
     );
   }
 });
