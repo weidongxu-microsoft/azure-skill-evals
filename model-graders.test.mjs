@@ -12,6 +12,22 @@ const expectedLanguageCriteria = {
   typescript: 10,
 };
 
+const expectedJavaGlobalCriteria = {
+  "language/service-native-pagination": [
+    "Applicable list/query operations use SDK-native lazy pagination, such as",
+    "PagedIterable, PagedFlux, autoPager(), or equivalent, without eagerly",
+    "collecting all results. Passes when no paginated operation exists.",
+  ].join("\n"),
+  "language/lro-pattern-syncpoller-pollerflux": [
+    "Long-running operations use the SDK-native completion mechanism. Accept Azure",
+    "Core `begin*` methods with `SyncPoller`/`PollerFlux`; blocking management",
+    "fluent calls; and service-native status retrieval when no poller exists. Do",
+    "not require `begin*` when the SDK provides a blocking operation. Reject manual",
+    "sleep-based polling only when an SDK polling abstraction is available. Pass",
+    "when no LRO occurs.",
+  ].join("\n"),
+};
+
 const expectedProgramGraders = {
   dotnet: [
     `      - type: run-command
@@ -149,6 +165,25 @@ test("every eval uses one complete model review and program checks", () => {
       assert.match(
         source,
         /^\s+- src: \.\.\/\.\.\/scripts\/program-checks\/java\.mjs\n\s+dest: \.vally\/program-checks\/java\.mjs$/m,
+        evalPath,
+      );
+      for (const [name, description] of Object.entries(
+        expectedJavaGlobalCriteria,
+      )) {
+        const criterion = [
+          `            - name: ${name}`,
+          "              description: |-",
+          ...description.split("\n").map((line) => `                ${line}`),
+        ].join("\n");
+        assert.equal(
+          source.split(criterion).length - 1,
+          1,
+          `${evalPath}: expected one exact ${name} criterion`,
+        );
+      }
+      assert.doesNotMatch(
+        source,
+        /language\/pagination-pagediterable-pagedflux/,
         evalPath,
       );
     } else {

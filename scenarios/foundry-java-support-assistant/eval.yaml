@@ -299,14 +299,21 @@ stimuli:
                 No deprecated classes from the old SDK (CloudStorageAccount, CloudBlobClient, DocumentClient, QueueClient, ApplicationTokenCredentials, MSICredentials, ConnectionStringBuilder).
               weight: 1
               pass_threshold: 1
-            - name: language/pagination-pagediterable-pagedflux
+            - name: language/service-native-pagination
               description: |-
-                List/query operations return PagedIterable (sync) or PagedFlux (async). Does not flatten all pages into a raw List or Stream in memory.
+                Applicable list/query operations use SDK-native lazy pagination, such as
+                PagedIterable, PagedFlux, autoPager(), or equivalent, without eagerly
+                collecting all results. Passes when no paginated operation exists.
               weight: 1
               pass_threshold: 1
             - name: language/lro-pattern-syncpoller-pollerflux
               description: |-
-                Long-running operations use SyncPoller (sync) or PollerFlux (async) with begin* method prefix. No Thread.sleep() polling loops.
+                Long-running operations use the SDK-native completion mechanism. Accept Azure
+                Core `begin*` methods with `SyncPoller`/`PollerFlux`; blocking management
+                fluent calls; and service-native status retrieval when no poller exists. Do
+                not require `begin*` when the SDK provides a blocking operation. Reject manual
+                sleep-based polling only when an SDK polling abstraction is available. Pass
+                when no LRO occurs.
               weight: 1
               pass_threshold: 1
             - name: language/async-uses-project-reactor-mono-flux
