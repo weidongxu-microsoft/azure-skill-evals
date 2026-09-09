@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { readFileSync, readdirSync } from "node:fs";
-import { join } from "node:path";
+import { basename, dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import test from "node:test";
 
@@ -9,7 +9,98 @@ const expectedLanguageCriteria = {
   go: 0,
   java: 11,
   python: 5,
-  typescript: 10,
+};
+
+const typescriptCommonCriteria = [
+  "language/current-sdk-packages-and-public-apis",
+  "language/externalized-runtime-configuration",
+  "language/typescript-asynchronous-control-flow",
+];
+
+const typescriptConditionalCriteria = {
+  "ai-agents-typescript-basic-agent-lifecycle": [
+    "language/complete-pageable-iteration",
+    "language/long-running-operation-completion",
+  ],
+  "ai-agents-typescript-file-search": [
+    "language/complete-pageable-iteration",
+    "language/long-running-operation-completion",
+  ],
+  "ai-agents-typescript-function-tool": [
+    "language/complete-pageable-iteration",
+    "language/long-running-operation-completion",
+  ],
+  "ai-projects-typescript-evaluation-run": [
+    "language/complete-pageable-iteration",
+    "language/long-running-operation-completion",
+  ],
+  "ai-projects-typescript-project-resource-inventory": [
+    "language/complete-pageable-iteration",
+  ],
+  "app-configuration-typescript-config-values": [
+    "language/complete-pageable-iteration",
+    "language/sdk-specific-error-handling",
+  ],
+  "cosmos-db-typescript-crud": [
+    "language/complete-pageable-iteration",
+    "language/sdk-specific-error-handling",
+  ],
+  "document-translation-typescript-batch-container": [
+    "language/complete-pageable-iteration",
+    "language/long-running-operation-completion",
+    "language/sdk-specific-error-handling",
+  ],
+  "event-hubs-typescript-send-receive-events": [
+    "language/sdk-specific-error-handling",
+  ],
+  "foundry-typescript-support-assistant": [
+    "language/complete-pageable-iteration",
+    "language/long-running-operation-completion",
+    "language/sdk-specific-error-handling",
+  ],
+  "identity-typescript-default-azure-credential": [
+    "language/sdk-specific-error-handling",
+  ],
+  "identity-typescript-managed-identity-auth": [
+    "language/sdk-specific-error-handling",
+  ],
+  "identity-typescript-service-principal-auth": [
+    "language/sdk-specific-error-handling",
+  ],
+  "key-vault-typescript-crud-secrets": [
+    "language/long-running-operation-completion",
+    "language/sdk-specific-error-handling",
+  ],
+  "key-vault-typescript-secret-config": [
+    "language/long-running-operation-completion",
+    "language/sdk-specific-error-handling",
+  ],
+  "resource-manager-typescript-resource-group-crud": [
+    "language/complete-pageable-iteration",
+    "language/long-running-operation-completion",
+  ],
+  "service-bus-typescript-send-receive-messages": [
+    "language/sdk-specific-error-handling",
+  ],
+  "storage-typescript-account-mgmt": [
+    "language/complete-pageable-iteration",
+    "language/long-running-operation-completion",
+  ],
+  "storage-typescript-blob-storage-manager": [
+    "language/complete-pageable-iteration",
+    "language/sdk-specific-error-handling",
+    "language/azure-sdk-diagnostic-logging",
+  ],
+  "storage-typescript-crud-blobs": [
+    "language/complete-pageable-iteration",
+    "language/sdk-specific-error-handling",
+  ],
+  "storage-typescript-encrypted-uploader": [
+    "language/sdk-specific-error-handling",
+  ],
+  "text-translation-typescript-transliteration": [
+    "language/sdk-specific-error-handling",
+  ],
 };
 
 const expectedProgramGraders = {
@@ -114,11 +205,23 @@ test("every eval uses one complete model review and program checks", () => {
     assert.doesNotMatch(source, /^\s+required:/m, evalPath);
     assert.match(source, /^\s+threshold: 0$/m, evalPath);
     assert.match(source, /^\s+overall_threshold: 0$/m, evalPath);
-    assert.equal(
-      languageCriteria.length,
-      expectedLanguageCriteria[language],
-      evalPath,
-    );
+    if (language === "typescript") {
+      const scenario = basename(dirname(evalPath));
+      assert.deepEqual(
+        languageCriteria,
+        [
+          ...typescriptCommonCriteria,
+          ...(typescriptConditionalCriteria[scenario] ?? []),
+        ],
+        evalPath,
+      );
+    } else {
+      assert.equal(
+        languageCriteria.length,
+        expectedLanguageCriteria[language],
+        evalPath,
+      );
+    }
     assert.doesNotMatch(
       source,
       /language\/code-compiles-mvn-compile-gradle-compilejava/,

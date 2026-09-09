@@ -112,54 +112,49 @@ stimuli:
                 NOT using connection strings or account keys for authentication
               weight: 1
               pass_threshold: 1
-            - name: language/correct-azure-scoped-packages
+            - name: language/current-sdk-packages-and-public-apis
               description: |-
-                All Azure SDK dependencies use @azure/ scoped packages (e.g., @azure/storage-blob, @azure/keyvault-secrets, @azure/identity). No deprecated unscoped packages (azure-storage, azure-arm-*, ms-rest-azure, @azure/ms-rest-*).
+                - Use supported Azure SDK packages such as `@azure/*` or `@azure-rest/*`.
+                - Declare every directly imported runtime package in `package.json`.
+                - Use public package exports, not internal or implementation paths.
+                - Do not use legacy Azure packages.
               weight: 1
               pass_threshold: 1
-            - name: language/azure-identity-for-authentication
+            - name: language/externalized-runtime-configuration
               description: |-
-                Includes @azure/identity as a dependency. For local development, DefaultAzureCredential is acceptable. For production code, uses a specific Entra token credential (e.g., ManagedIdentityCredential, ClientSecretCredential, WorkloadIdentityCredential) or configures DefaultAzureCredential with the AZURE_TOKEN_CREDENTIALS environment variable set to "prod" or a specific token credential. No hardcoded connection strings, account keys, SAS tokens, or secrets in code.
+                - Read endpoints, identifiers, credentials, keys, and connection strings from runtime inputs or environment configuration.
+                - Do not embed usable credentials, account keys, connection strings, SAS tokens, or client secrets in source.
+                - Pass configuration values to the selected SDK without logging secret-bearing values.
               weight: 1
               pass_threshold: 1
-            - name: language/client-constructor-with-endpoint-and-credential
+            - name: language/typescript-asynchronous-control-flow
               description: |-
-                SDK clients constructed with endpoint URL and credential object, e.g. new BlobServiceClient(url, credential) or new SecretClient(vaultUrl, credential). No legacy constructor patterns or connection string-based construction when identity-based auth is available.
+                - Await or return every asynchronous SDK operation required by the workflow.
+                - Preserve required sequencing between dependent operations.
+                - Propagate or handle rejected operations without leaving floating promises.
               weight: 1
               pass_threshold: 1
-            - name: language/async-await-pattern
+            - name: language/complete-pageable-iteration
               description: |-
-                Uses async/await for all asynchronous operations. No raw .then()/.catch() chains when await is cleaner. No callback-based patterns. Top-level async function or IIFE for entry point.
+                - Traverse all required results using the selected SDK's native pageable, iterator, or continuation mechanism.
+                - Continue beyond the first page when additional results are available.
+                - Process results incrementally when the result set may be large.
+                - Accept equivalent SDK-supported patterns, including async iteration, page iteration, continuation tokens, and service-specific feed iterators.
               weight: 1
               pass_threshold: 1
-            - name: language/pagination-with-for-await-of
+            - name: language/sdk-specific-error-handling
               description: |-
-                List/query operations use for-await-of iteration over the PagedAsyncIterableIterator returned by SDK methods. Does not collect all pages into an array in memory (e.g., no Array.from() or manual page accumulation). Uses byPage() when per-page control is needed.
+                - Use the selected SDK's documented error type or stable error discriminant.
+                - Inspect status, code, retryability, or failure details required by the scenario.
+                - Handle the required failure state differently from an unknown failure.
+                - Generic `Error` handling alone does not satisfy error-specific behavior.
               weight: 1
               pass_threshold: 1
-            - name: language/lro-pattern-beginxxx-polluntildone
+            - name: language/azure-sdk-diagnostic-logging
               description: |-
-                Long-running operations use the begin* method prefix (e.g., beginDeleteSecret, beginCreateOrUpdate) and await poller.pollUntilDone(). No manual setTimeout/setInterval polling loops.
-              weight: 1
-              pass_threshold: 1
-            - name: language/resterror-exception-handling
-              description: |-
-                Catches RestError (from @azure/core-rest-pipeline or the service package) with statusCode inspection for error-specific handling. Not just generic Error or try/catch without type checking.
-              weight: 1
-              pass_threshold: 1
-            - name: language/no-deprecated-packages
-              description: |-
-                No deprecated or legacy Azure packages in package.json: azure-storage, azure-arm-*, ms-rest-azure, @azure/ms-rest-js, @azure/ms-rest-nodeauth, @azure/ms-rest-azure-js. All dependencies use the current @azure/* track.
-              weight: 1
-              pass_threshold: 1
-            - name: language/logging-via-azure-logger
-              description: |-
-                Uses @azure/logger with setLogLevel() or the AZURE_LOG_LEVEL environment variable for SDK diagnostic logging. No custom logging wrappers around SDK internals.
-              weight: 1
-              pass_threshold: 1
-            - name: language/package-json-with-correct-dependencies
-              description: |-
-                Includes a valid package.json with all required @azure/* dependencies listed. TypeScript projects include tsconfig.json and appropriate @types/* packages or use a recent TypeScript version with built-in types.
+                - Enable Azure SDK diagnostics at the configured level.
+                - Use `AZURE_LOG_LEVEL` or `@azure/logger` `setLogLevel()`.
+                - Do not expose credentials, tokens, or secret-bearing request data.
               weight: 1
               pass_threshold: 1
       - type: run-command
