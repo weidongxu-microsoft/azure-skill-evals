@@ -28,6 +28,43 @@ const expectedJavaGlobalCriteria = {
   ].join("\n"),
 };
 
+function escapeRegExp(value) {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+function javaGlobalCriterionBlock(name, description) {
+  return [
+    `            - name: ${name}`,
+    "              description: |-",
+    ...description.split("\n").map((line) => `                ${line}`),
+    "              weight: 1",
+    "              pass_threshold: 1",
+  ].join("\n");
+}
+
+function assertExactJavaGlobalCriterion(source, context, name, description) {
+  const namePattern = new RegExp(
+    `^\\s+- name: ${escapeRegExp(name)}$`,
+    "gm",
+  );
+  assert.equal(
+    [...source.matchAll(namePattern)].length,
+    1,
+    `${context}: expected exactly one ${name} criterion`,
+  );
+
+  const blockPattern = new RegExp(
+    `^${escapeRegExp(javaGlobalCriterionBlock(name, description))}` +
+      "(?=\\n(?:            - name: |      - type: )|$)",
+    "gm",
+  );
+  assert.equal(
+    [...source.matchAll(blockPattern)].length,
+    1,
+    `${context}: expected one exact ${name} criterion block`,
+  );
+}
+
 const expectedProgramGraders = {
   dotnet: [
     `      - type: run-command
@@ -170,16 +207,7 @@ test("every eval uses one complete model review and program checks", () => {
       for (const [name, description] of Object.entries(
         expectedJavaGlobalCriteria,
       )) {
-        const criterion = [
-          `            - name: ${name}`,
-          "              description: |-",
-          ...description.split("\n").map((line) => `                ${line}`),
-        ].join("\n");
-        assert.equal(
-          source.split(criterion).length - 1,
-          1,
-          `${evalPath}: expected one exact ${name} criterion`,
-        );
+        assertExactJavaGlobalCriterion(source, evalPath, name, description);
       }
       assert.doesNotMatch(
         source,
@@ -200,4 +228,31 @@ test("every eval uses one complete model review and program checks", () => {
     }
     assert.doesNotMatch(source, /^    environment:/m, evalPath);
   }
+});
+
+test("Java global criteria reject appended description lines", () => {
+  const [name, description] = Object.entries(expectedJavaGlobalCriteria)[0];
+  const canonicalLines = javaGlobalCriterionBlock(name, description).split("\n");
+  const driftedLines = [...canonicalLines];
+  driftedLines.splice(-2, 0, "                Appended description drift.");
+  const nextCriterion = "            - name: language/next-criterion";
+
+  assert.doesNotThrow(() =>
+    assertExactJavaGlobalCriterion(
+      `${canonicalLines.join("\n")}\n${nextCriterion}`,
+      "canonical fixture",
+      name,
+      description,
+    ),
+  );
+  assert.throws(
+    () =>
+      assertExactJavaGlobalCriterion(
+        `${driftedLines.join("\n")}\n${nextCriterion}`,
+        "drifted fixture",
+        name,
+        description,
+      ),
+    /criterion block/,
+  );
 });
